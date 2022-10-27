@@ -10,6 +10,8 @@ use iced::{ Point, Rectangle, Theme};
 
 use super::main_window::Message;
 
+pub static mut SCALE: f32 = 1.0;
+
 pub struct BufferView {
     pub buf: Buffer,
     pub caret: Position,
@@ -17,7 +19,8 @@ pub struct BufferView {
     pub cache: canvas::Cache,
     state: crate::model::ParseStates,
     pub blink: bool,
-    pub last_blink: u128
+    pub last_blink: u128,
+    pub scale: f32
 }
 
 impl BufferView {
@@ -29,7 +32,8 @@ impl BufferView {
             cache: canvas::Cache::default(),
             state: crate::model::ParseStates::new(),
             blink: false,
-            last_blink: 0
+            last_blink: 0,
+            scale: 1.0
         }
     }
 
@@ -59,7 +63,6 @@ impl BufferView {
                     self.caret.x = max(0, self.caret.x - 1);
                 }
                 _ => {
-                    print!("{}", char::from_u32(ch as u32).unwrap());
                     self.buf.set_char(self.caret, Some(DosChar::from(ch as u16, self.attr)));
                     self.caret.x = self.caret.x + 1;
                     if self.caret.x >= self.buf.width as i32 {
@@ -81,12 +84,13 @@ impl BufferView {
 }
 
 
-#[derive(Debug, Clone, Copy)]
-pub enum Pending {
+#[derive(Default, Debug, Clone, Copy)]
+pub struct DrawInfoState {
 }
 
+
 impl<'a> canvas::Program<Message> for BufferView {
-    type State = Option<Pending>;
+    type State = DrawInfoState;
 
     fn update(
         &self,
@@ -95,6 +99,7 @@ impl<'a> canvas::Program<Message> for BufferView {
         _bounds: Rectangle,
         _cursor: Cursor,
     ) -> (event::Status, Option<Message>) {
+
         (event::Status::Ignored, None)
     }
 
@@ -124,6 +129,11 @@ impl<'a> canvas::Program<Message> for BufferView {
                     char_size.height *= 2.0;
                     w = buffer.width as f32 * char_size.width;
                     h = buffer.height as f32 * char_size.height;
+                    unsafe { SCALE = 2.0; }
+                }  else { 
+                    unsafe {
+                        SCALE = 1.0;
+                    }
                 }
 
                 let top_x = (bounds.width - w) / 2.0;

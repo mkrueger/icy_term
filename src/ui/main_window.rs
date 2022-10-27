@@ -3,16 +3,20 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::net::{ToSocketAddrs};
 use iced::keyboard::{KeyCode, Modifiers};
 use iced::widget::{Canvas, column, row, button, text};
-use iced::{executor, subscription, Event, keyboard, Alignment};
+use iced::{executor, subscription, Event, keyboard};
 use iced::{
     Application, Command, Element, Length, 
     Subscription, Theme,
 };
+use iced::widget::{
+     text_input, vertical_rule
+};
+use iced::{Alignment};
 
 use rfd::FileDialog;
 
 use crate::{VERSION, iemsi};
-use crate::address::Address;
+use crate::address::{Address, start_read_book, read_addresses};
 use crate::com::{Com, TelnetCom};
 use crate::iemsi::{IEmsi, EmsiICI};
 use crate::protocol::{Xmodem, Zmodem, Ymodem, Protocol, FileDescriptor};
@@ -41,20 +45,20 @@ pub struct MainWindow<T: Com> {
     telnet: Option<T>,
     trigger: bool,
     mode: MainWindowMode,
-    addresses: Vec<Address>,
+    pub addresses: Vec<Address>,
     cur_addr: usize,
     logged_in: bool,
     log_file: Vec<String>,
     options: Options,
     iemsi: Option<IEmsi>,
-
+    connection_time: SystemTime,
     // protocols
     _xmodem: Xmodem,
     _ymodem: Ymodem,
     zmodem: Zmodem
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Message {
     Tick,
     Upload,
@@ -62,11 +66,13 @@ pub enum Message {
     SendLogin,
     Dial,
     Back,
+    Hangup,
+    Edit,
     KeyPressed(char),
     KeyCode(KeyCode, Modifiers),
     CallBBS(usize),
+    QuickConnectChanged(String)
 }
-
 
 static KEY_MAP: &[(KeyCode, &[u8])] = &[
     (KeyCode::Home, "\x1b[1~".as_bytes()),
@@ -176,6 +182,10 @@ impl Application for MainWindow<TelnetCom> {
     type Theme = Theme;
     type Flags = ();
 
+    fn theme(&self) -> Self::Theme {
+        Theme::Dark
+    }
+
     fn title(&self) -> String {
         format!("iCY TERM {}", VERSION)
     }
@@ -186,9 +196,10 @@ impl Application for MainWindow<TelnetCom> {
             telnet:None,
             trigger: true,
             mode: MainWindowMode::Default,
-            addresses: Address::read_phone_book(),
+            addresses: start_read_book(),
             cur_addr: 0,
             logged_in: false,
+            connection_time: SystemTime::now(),
             log_file: Vec::new(),
             options: Options::new(),
             iemsi: None,
@@ -202,6 +213,11 @@ impl Application for MainWindow<TelnetCom> {
 
     fn update(&mut self, message: Message) -> Command<Message> {
         self.trigger = !self.trigger;
+
+        if unsafe { read_addresses } {
+            unsafe { read_addresses = false; } 
+            self.addresses = Address::read_phone_book();
+        }
 
 
         let start = SystemTime::now();
@@ -248,7 +264,12 @@ impl Application for MainWindow<TelnetCom> {
                         }
                     }
                     Message::Dial => {
-                        self.mode = MainWindowMode::Dialout
+                        self.mode = MainWindowMode::Dialout;
+                    },
+                    Message::Hangup => {
+                        self.telnet = None;
+                        self.print_log(format!("Disconnected."));
+
                     },
                     Message::Tick => { 
                         let state = self.update_state(); 
@@ -280,11 +301,13 @@ impl Application for MainWindow<TelnetCom> {
                                 }
                             }
                         }
-                    },
+                    }
                     _ => {}
                 }
+
             },
             MainWindowMode::Dialout => {
+                text_input::focus::<Message>(super::INPUT_ID.clone());
                 match message {
                     Message::Dial => {
                         self.mode = MainWindowMode::Dialout
@@ -292,26 +315,48 @@ impl Application for MainWindow<TelnetCom> {
                     Message::Back => {
                         self.mode = MainWindowMode::Default
                     },
+                    Message::Edit => {
+                        if let Some(phonebook) = Address::get_phonebook_file() {
+                           if let Err(err) =  open::that(phonebook) {
+                               self.print_log(format!("Error open phonebook file: {:?}", err));
+                               self.mode = MainWindowMode::Default
+                           }
+                        }
+                    },
+
+                    
                     Message::CallBBS(i) => {
                         self.mode = MainWindowMode::Default;
                         let adr = self.addresses[i].address.clone();
                         self.print_log(format!("Connect to {}…", adr));
-                        let mut socket_addr = adr.to_socket_addrs().unwrap();
-                        if let Some(addr) = &socket_addr.next() {
-                            let t = TelnetCom::connect(addr, self.options.connect_timeout);
-                            match t {
-                                Ok(t) => {
-                                    self.logged_in = false;
-                                    self.telnet = Some(t);
-                                    self.cur_addr = i;
-                                    self.iemsi = Some(IEmsi::new())
-                                },
-                                Err(e) => {
-                                    self.print_log(format!("Error: {:?}", e));
+                        let mut socket_addr = adr.to_socket_addrs();
+                        match &mut socket_addr {
+                            Ok(socket_addr) => {
+                                if let Some(addr) = &socket_addr.next() {
+                                    let t = TelnetCom::connect(addr, self.options.connect_timeout);
+                                    match t {
+                                        Ok(t) => {
+                                            self.logged_in = false;
+                                            self.telnet = Some(t);
+                                            self.cur_addr = i;
+                                            self.iemsi = Some(IEmsi::new());
+                                            self.connection_time = SystemTime::now();
+                                        },
+                                        Err(e) => {
+                                            self.print_log(format!("Error: {:?}", e));
+                                        }
+                                    }
                                 }
+                            }
+                            Err(error) => {
+                                self.print_log(format!("Socket error: {:?}", error));
                             }
                         }
                     },
+
+                    Message::QuickConnectChanged(addr) => {
+                        self.addresses[0].address = addr
+                    }
                     _ => {}
                 }
             },
@@ -321,7 +366,7 @@ impl Application for MainWindow<TelnetCom> {
     }
 
     fn subscription(&self) -> Subscription<Message> {
-
+        
         let s = subscription::events_with(|event, status| match (event, status) {
             (
                 Event::Keyboard(keyboard::Event::CharacterReceived(ch)),
@@ -345,95 +390,90 @@ impl Application for MainWindow<TelnetCom> {
     }
 
     fn view<'a>(&'a self) -> Element<'a, Message> {
-
+        
         match self.mode {
             MainWindowMode::Default => {
                 let c = Canvas::new(&self.buffer_view)
                     .width(Length::Fill)
                     .height(Length::Fill);
                 
-                column![
+                let log_info = if self.log_file.len() == 0  { text("Ready.")} else { text(&self.log_file[self.log_file.len() - 1])}.width(Length::Fill).into();
+                let screen_info = text(&format!("ANSI {}x{} ({}%)",self.buffer_view.buf.width, self.buffer_view.buf.height, (100.0 * unsafe { super::SCALE }) as i32)).into();
+                column(vec![
                     if !self.logged_in && self.telnet.is_some() && self.addresses[self.cur_addr].user_name.len() > 0 {
                         row![
-                            button("Dial")
-                                .on_press(Message::Dial),
-                                button("Upload")
-                                .on_press(Message::Upload),
-                                button("Download")
-                                .on_press(Message::Download),
-                            button("Send login")
-                                .on_press(Message::SendLogin)
-                        ]
-                    } else {
-                        row![
-                            button("Dial")
+                            button("Phonebook")
                                 .on_press(Message::Dial),
                             button("Upload")
                                 .on_press(Message::Upload),
-                                button("Download")
+                            button("Download")
                                 .on_press(Message::Download),
+                            button("Send login")
+                                .on_press(Message::SendLogin),
+                                button("Hangup")
+                                .on_press(Message::Hangup)
                         ]
-                    }.padding(4).spacing(8),
-                    c,
-                    iced_native::widget::helpers::column(
-                        self.log_file
-                        .iter()
-                        .rev()
-                        .take(5)
-                        .rev()
-                        .map(|s| {
-                            text(s).into()
-                        }).collect()
-                    ).height(Length::Units(120)).padding(5)
-                ].spacing(8)
+                    } else {
+                        if  self.telnet.is_some()  {
+                            row![
+                                button("Phonebook")
+                                    .on_press(Message::Dial),
+                                button("Upload")
+                                    .on_press(Message::Upload),
+                                button("Download")
+                                    .on_press(Message::Download),
+                                button("Hangup")                            
+                                    .on_press(Message::Hangup) 
+                            ]
+                        } else {
+                            row![
+                                button("Phonebook")
+                                    .on_press(Message::Dial),
+                                button("Upload")
+                                    .on_press(Message::Upload),
+                                button("Download")
+                                    .on_press(Message::Download),
+                            ]
+                        }
+                    }.padding(10).spacing(20).into(),
+                    c.into(),
+                    if self.telnet.is_none() {
+                        row(vec![
+                            log_info,
+                            vertical_rule(10).into(),
+                            screen_info,
+                            vertical_rule(10).into(),
+                            text("Offline").into()
+                        ])
+                    } else {
+                        let d = SystemTime::now().duration_since(self.connection_time).unwrap();
+                        let sec     = d.as_secs();
+                        let minutes = sec / 60;
+                        let hours   = minutes  / 60;
+                        let cur = &self.addresses[self.cur_addr];
+
+                        row(vec![
+                            log_info,
+                            vertical_rule(10).into(),
+                            text(if cur.system_name.len() > 0 { &cur.system_name } else { &cur.address }).into(),
+                            vertical_rule(10).into(),
+                            screen_info,
+                            vertical_rule(10).into(),
+                            text(format!("Online {:02}:{:02}:{:02}", hours, minutes % 60, sec % 60)).into()
+                        ])
+                    }
+                    .padding(8)
+                    .spacing(20)
+                    .height(Length::Units(40))
+                    .align_items(Alignment::Start)
+                    .into()
+                ]).spacing(8)
                 .into()
             },
-            MainWindowMode::Dialout => {
-                let list: Element<_> = if self.addresses.len() > 0 {
-                    column(
-                        self.addresses
-                            .iter()
-                            .enumerate()
-                            .map(|(i, adr)| {
-                                row![
-                                    button("Dial")
-                                        .on_press(Message::CallBBS(i))
-                                        .padding(10),
-                                    text(adr.system_name.to_string()),
-                                    text(adr.comment.to_string()),
-                                    text(adr.user_name.to_string()),
-                                ]
-                                .spacing(20)
-                                .align_items(Alignment::Center)
-                                .into()
-                            })
-                            .collect(),
-                    )
-                    .spacing(10)
-                    .into()
-                } else {
-                    text("No BBSes yet…").into()
-                };
-
-                let s = iced::widget::scrollable(
-                        iced::widget::container(list)
-                        .width(Length::Fill)
-                        .padding(40)
-                        .center_x(),
-                );
-
-                column![
-                    row![
-                        button("Back")
-                        .on_press(Message::Back),
-                        button("Dial")
-                        .on_press(Message::Dial),
-                    ].padding(4)
-                    .spacing(8),
-                    s
-                ].spacing(8)
-                .into()
+            MainWindowMode::Dialout => {   
+                super::view_phonebook(self)            
             }
         }
     }
 }
+

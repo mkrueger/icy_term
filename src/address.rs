@@ -1,6 +1,8 @@
-use std::{fs::{self}};
+use std::{fs::{self}, path::PathBuf, thread};
 use directories::ProjectDirs;
 use yaml_rust::{YamlLoader, Yaml};
+use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config};
+use std::path::Path;
 
 pub enum Terminal {
     Ansi,
@@ -59,9 +61,8 @@ impl Address {
         }
     }
 
-    pub fn read_phone_book() -> Vec<Self> {
-        let mut res = Vec::new();
 
+    pub fn get_phonebook_file() -> Option<PathBuf> {
         if let Some(proj_dirs) = ProjectDirs::from("com", "GitHub",  "icy_term") {
             if !proj_dirs.config_dir().exists()
             {
@@ -71,8 +72,18 @@ impl Address {
             if !phonebook.exists()
             {
                 fs::write(phonebook, &TEMPLATE).expect("Can't create phonebook");
-                return res;
+                return None;
             }
+            return Some(phonebook);
+        }
+        None
+    }
+
+
+    pub fn read_phone_book() -> Vec<Self> {
+        let mut res = Vec::new();
+        res.push(Address::new());
+        if let Some(phonebook) = Address::get_phonebook_file() {
             let fs = fs::read_to_string(phonebook).expect("Can't read phonebook");
             let data = YamlLoader::load_from_str(&fs);
 
@@ -109,4 +120,45 @@ impl Address {
         }
         res
     }
+}
+
+pub static mut read_addresses: bool = false;
+
+pub fn start_read_book() -> Vec<Address> {
+    let res = Address::read_phone_book();
+
+    if let Some(phonebook) = Address::get_phonebook_file() {
+        let p  = phonebook.clone();
+        thread::spawn(move || {
+            loop {
+                if let Err(e) = watch(&p.parent().unwrap()) {
+                    return;
+                }
+            }
+        });
+    }
+
+    res
+}
+
+
+fn watch<P: AsRef<Path>>(path: P) -> notify::Result<()> {
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    // Automatically select the best implementation for your platform.
+    // You can also access each implementation directly e.g. INotifyWatcher.
+    let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
+
+    // Add a path to be watched. All files and directories at that path and
+    // below will be monitored for changes.
+    watcher.watch(path.as_ref(), RecursiveMode::Recursive)?;
+
+    for res in rx {
+        match res {
+            Ok(event) => unsafe { read_addresses = true; },
+            Err(e) => println!("watch error: {:?}", e),
+        }
+    }
+
+    Ok(())
 }
