@@ -1,0 +1,16 @@
+[package]
+name = "icy_term"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+iced = { path = "../iced", features = ["canvas", "image", "tokio", "debug"] }
+iced_native = { path = "../iced/native" }
+
+directories = "4.0.1"
+rfd = "0.10.0"
+walkdir = "2"
+telnet = "0.2.1"
+yaml-rust = "0.4.5"
