@@ -86,7 +86,6 @@ impl XYmodem {
 
     pub fn update<T: Com>(&mut self, com: &mut T) -> io::Result<()>
     {
-        println!("{} state: {:?}", if self.is_sender { "sender" } else {"receiver"} , self.xy_state);
         match self.xy_state {
             XYState::None => Ok(()),
 
@@ -168,7 +167,6 @@ impl XYmodem {
                 }
 
                 if self.bytes_send >= self.files[self.cur_file].size {
-                    println!("write EOT {} {} ", self.bytes_send, self.data.len());
                     com.write(&[EOT])?;
                     if let XYModemVariant::YModem = self.variant {
                         self.xy_state = XYState::YModemEndHeader(0);
@@ -354,15 +352,12 @@ impl XYmodem {
                             return Err(io::Error::new(ErrorKind::ConnectionAborted, "too many retries")); 
                         }
                         
-                        println!("invalid block number");
                         self.xy_state = XYState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
                         return Ok(());
                     }
-                    println!("checksum mode {:?}", self.checksum_mode);
                     let chksum_size = if let Checksum::CRC16 = self.checksum_mode { 2 } else { 1 };
                     let block = com.read_exact(self.recv_timeout, len + chksum_size)?;
                     if !self.check_crc(&block) {
-                        println!("checksum failure!");
                         self.errors += 1;
                         com.discard_buffer()?;
                         com.write(&[NAK])?;
@@ -390,17 +385,14 @@ impl XYmodem {
         let ch = com.read_char(self.recv_timeout)?;
         match ch {
             NAK => {
-                println!("default chksm");
                 self.checksum_mode = Checksum::Default;
                 return Ok(());
             },
             b'C' => {
-                println!("crc chksm");
                 self.checksum_mode = Checksum::CRC16;
                 return Ok(());
             },
             b'G' => {
-                println!("got streaming mode!");
                 self.streaming_mode = true;
                 self.checksum_mode = Checksum::CRC16;
                 return Ok(());
@@ -429,7 +421,7 @@ impl XYmodem {
 
             block.resize(128 + 3, 0);
 
-            let crc = crate::crc16::get_crc16(&block[3..]);
+            let crc = crate::crc::get_crc16(&block[3..]);
             block.extend_from_slice(&u16::to_be_bytes(crc));
             com.write(&block)?;
             self.data = fd.get_data()?;
@@ -472,7 +464,7 @@ impl XYmodem {
                 send_data.push(get_checksum(&send_data[3..]));
             },
             Checksum::CRC16 => {
-                let crc = crate::crc16::get_crc16(&send_data[3..]);
+                let crc = crate::crc::get_crc16(&send_data[3..]);
                 send_data.extend_from_slice(&u16::to_be_bytes(crc));
             },
         }
@@ -511,7 +503,7 @@ impl XYmodem {
         block.push(0);
         block.push(0xFF);
         block.resize(128 + 3, 0);
-        let crc = crate::crc16::get_crc16(&block[3..]);
+        let crc = crate::crc::get_crc16(&block[3..]);
         block.push((crc >> 8) as u8);
         block.push(crc as u8);
 
@@ -531,7 +523,7 @@ impl XYmodem {
                 block[block.len() - 1] != chk
             }
             Checksum::CRC16 => {
-                let crc = crate::crc16::get_crc16(&block[..block.len() - 2]);
+                let crc = crate::crc::get_crc16(&block[..block.len() - 2]);
                 block[block.len() - 2] != crc as u8 ||  block[block.len() - 1] != (crc >> 8) as u8
             }
         }

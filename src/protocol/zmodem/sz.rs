@@ -1,6 +1,6 @@
 use std::{io, cmp::min, time::{SystemTime}};
 
-use crate::{com::Com, protocol::{FileDescriptor, Zmodem, FrameType, zrinit_flag, zfile_flag, ZCRCW, ZCRCG, HeaderType, Header, ZCRCE}};
+use crate::{com::Com, protocol::{FileDescriptor, Zmodem, FrameType, zfile_flag, ZCRCW, ZCRCG, HeaderType, Header, ZCRCE}};
 
 #[derive(Debug)]
 pub enum SendState {
@@ -45,7 +45,7 @@ impl Sz {
             package_len: 512
         }
     }
-
+/* 
     fn can_fdx(&self) -> bool {
         self.receiver_capabilities | zrinit_flag::CANFDX != 0
     }
@@ -69,7 +69,7 @@ impl Sz {
     }
     fn can_esc_8thbit(&self) -> bool {
         self.receiver_capabilities | zrinit_flag::ESC8 != 0
-    }
+    }*/
 
     pub fn is_active(&self) -> bool
     {
@@ -84,7 +84,6 @@ impl Sz {
     {
         self.cur_file += 1;
         self.cur_file_pos = 0;
-        println!(" next file {}" ,self.cur_file);
     }
 
     pub fn update<T: Com>(&mut self, com: &mut T) -> io::Result<()>
@@ -99,7 +98,6 @@ impl Sz {
         }
         let err = Header::read(com, &mut self.can_count);
         if err.is_err() {
-            println!("Last packet had error sending ZNAK: {:?} {}", err.err(), self.can_count);
             if self.can_count > 3 {
                 self.state = SendState::Idle;
                 return Ok(());
@@ -110,7 +108,7 @@ impl Sz {
         }
         let res = err?;
         if let Some(res) = res {
-            println!("Recv header {}", res);
+            // println!("Recv header {}", res);
             self.last_send = SystemTime::UNIX_EPOCH;
             match res.frame_type {
                 FrameType::ZRINIT => {
@@ -123,7 +121,7 @@ impl Sz {
                     }
 
                     self.receiver_capabilities = res.f0();
-                    if self.can_decrypt() {
+                    /*if self.can_decrypt() {
                         println!("receiver can decrypt");
                     }
                     if self.can_fdx() {
@@ -146,7 +144,7 @@ impl Sz {
                     }
                     if self.can_esc_8thbit() {
                         println!("receiver expects 8th bit to be escaped");
-                    }
+                    }*/
                     self.state = SendState::SendZFILE;
 
                 }
@@ -221,12 +219,12 @@ impl Sz {
                         format!("{}\0{}\0", f.file_name, f.size).into_bytes()
                     };
                     b.extend_from_slice(&Zmodem::encode_subpacket_crc32(ZCRCW, &data));
-
+/* 
                     print!("Send ZFILE: ");
                     for x in &b {
                         print!("{:02x}, ", *x);
                     }
-                    println!();
+                    println!();*/
             
 
                     com.write(&b)?;
@@ -242,7 +240,7 @@ impl Sz {
                 if self.cur_file < 0 {
                     return Ok(());
                 }
-                println!("Send ZDATA from {}", self. cur_file_pos);
+                // println!("Send ZDATA from {}", self. cur_file_pos);
                 Header::from_number(HeaderType::Bin32,FrameType::ZDATA, self.cur_file_pos as u32).write(com)?;
                 self.state = SendState::SendDataPackages;
             }
@@ -252,15 +250,14 @@ impl Sz {
                 }
                 let end_pos = min(self.data.len(), self.cur_file_pos + self.package_len);
                 let crc_byte = if end_pos < self.data.len() { ZCRCG } else { ZCRCE };
-                println!("Send content data {}: {} bytes crc bytes: {}", self.cur_file_pos, end_pos - self.cur_file_pos, crc_byte);
-                let mut p = Zmodem::encode_subpacket_crc32(crc_byte, &self.data[self.cur_file_pos..end_pos]);
-     
-
+                // println!("Send content data {}: {} bytes crc bytes: {}", self.cur_file_pos, end_pos - self.cur_file_pos, crc_byte);
+                let p = Zmodem::encode_subpacket_crc32(crc_byte, &self.data[self.cur_file_pos..end_pos]);
+/* 
                 for x in &p {
                     print!("{:02x}, ", *x);
                 }
                 println!();
-
+*/
                 com.write(&p)?;
 
 
@@ -278,7 +275,7 @@ impl Sz {
 
     pub fn send<T: Com>(&mut self, com: &mut T, files: Vec<FileDescriptor>) -> io::Result<()>
     {
-        println!("initiate zmodem send {}", files.len());
+        //println!("initiate zmodem send {}", files.len());
         self.state = SendState::SendZRQInit;
         self.files = files;
         self.bytes_send = 0;

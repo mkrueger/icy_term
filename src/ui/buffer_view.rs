@@ -1,6 +1,5 @@
 use std::cmp::max;
 use std::io;
-use crate::Message;
 use crate::com::Com;
 use crate::model::{Buffer, Position, TextAttribute, DosChar, display_ans};
 use iced::widget::canvas::event::{self, Event};
@@ -8,6 +7,8 @@ use iced::widget::canvas::{
     self, Cursor, Frame, Geometry,
 };
 use iced::{ Point, Rectangle, Theme};
+
+use super::main_window::Message;
 
 pub struct BufferView {
     pub buf: Buffer,
@@ -45,7 +46,6 @@ impl BufferView {
                 10 => {
                     self.caret.x = 0;
                     self.caret.y += 1;
-                    println!(">{}", self.caret.y);
                 }
                 12 => {
                     self.caret.x = 0;

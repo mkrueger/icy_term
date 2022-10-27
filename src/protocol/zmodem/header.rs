@@ -1,6 +1,6 @@
 use std::{io::{self, ErrorKind}, time::Duration, fmt::Display};
 
-use crate::{crc16, com::Com, protocol::{XON, frame_types::{ZACK}}};
+use crate::{crc, com::Com, protocol::{XON, frame_types::{ZACK}}};
 
 use super::{ZPAD, ZDLE, ZBIN, ZBIN32, ZHEX, get_hex, from_hex, frame_types::{self}};
 
@@ -104,14 +104,14 @@ impl Header {
             HeaderType::Bin => {
                 res.extend_from_slice(&[ZPAD, ZDLE, ZBIN, self.frame_type as u8]);
                 res.extend_from_slice(&self.data);
-                let crc16 = crc16::get_crc16(&res[3..]);
+                let crc16 = crc::get_crc16(&res[3..]);
                 res.extend_from_slice(&u16::to_le_bytes(crc16));
             }
 
             HeaderType::Bin32 => {
                 res.extend_from_slice(&[ZPAD, ZDLE, ZBIN32, self.frame_type as u8]);
                 res.extend_from_slice(&self.data);
-                let crc32 = crc16::get_crc32(&res[3..]);
+                let crc32 = crc::get_crc32(&res[3..]);
                 res.extend_from_slice(&u32::to_le_bytes(crc32));
             }
             
@@ -126,9 +126,9 @@ impl Header {
                     res.push(get_hex(f & 0xF));
                 }
 
-                let mut crc16 = crc16::update_crc16(0,self.frame_type as u8);
+                let mut crc16 = crc::update_crc16(0,self.frame_type as u8);
                 for b in self.data {
-                    crc16 = crc16::update_crc16(crc16, b);
+                    crc16 = crc::update_crc16(crc16, b);
                 }
                 res.push(get_hex((crc16 >> 12) as u8 & 0xF));
                 res.push(get_hex((crc16 >> 8) as u8 & 0xF));
@@ -145,7 +145,7 @@ impl Header {
 
     pub fn write<T: Com>(&mut self, com: &mut T) -> io::Result<usize>
     {
-        println!("Send Header: {}", self);
+        // println!("Send Header: {}", self);
         com.write(&self.build())
     }
     
@@ -209,7 +209,7 @@ impl Header {
             let header_data = com.read_exact(Duration::from_secs(5), header_data_size)?;
             match header_type {
                 ZBIN => {
-                    let crc16 = crc16::get_crc16(&header_data[0..5]);
+                    let crc16 = crc::get_crc16(&header_data[0..5]);
                     let check_crc16 = u16::from_le_bytes(header_data[5..7].try_into().unwrap());
                     if crc16 != check_crc16 {
                         com.discard_buffer()?;
@@ -223,7 +223,7 @@ impl Header {
                 }
                 ZBIN32 => {
                     let data = &header_data[0..5];
-                    let crc32 = crc16::get_crc32(&data);
+                    let crc32 = crc::get_crc32(&data);
                     let check_crc32 = u32::from_le_bytes(header_data[5..9].try_into().unwrap());
                     if crc32 != check_crc32 {
                         com.discard_buffer()?;
@@ -244,7 +244,7 @@ impl Header {
                         from_hex(header_data[8])? << 4 | from_hex(header_data[9])?
                     ];
 
-                    let crc16 = crc16::get_crc16(&data);
+                    let crc16 = crc::get_crc16(&data);
 
                     let mut check_crc16 = 0 ;
                     for b in &header_data[10..14] {
@@ -277,16 +277,10 @@ impl Header {
             Ok(None)
         }
     }
-
-
-
 }
-
 
 #[cfg(test)]
 mod tests {
-    use zmodem::frame_types::{ZDATA, ZRPOS, ZRQINIT, ZSINIT, ZACK, ZFIN, ZRINIT};
-
     use crate::{protocol::{*, zmodem::header::{HeaderType, Header}}, com::{TestChannel}};
 
     #[test]

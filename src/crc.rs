@@ -94,7 +94,7 @@ pub fn update_crc32(crc: u32, b: u8) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use crate::crc16::get_crc16;
+    use crate::crc::get_crc16;
 
     use super::get_crc32;
 
