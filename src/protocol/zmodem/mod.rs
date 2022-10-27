@@ -47,7 +47,7 @@ impl Zmodem {
 
         append_escape(&mut v, data);
         append_escape(&mut v, &[ZDLE, zcrc_byte]);
-        append_escape(&mut v, &u16::to_le_bytes(crc));
+        v.extend_from_slice(&u16::to_le_bytes(crc));
         v
     }
 
@@ -59,7 +59,7 @@ impl Zmodem {
         crc = !crc16::update_crc32(!crc, zcrc_byte);
 
         append_escape(&mut v, data);
-        append_escape(&mut v, &[ZDLE, zcrc_byte]);
+        v.extend_from_slice(&[ZDLE, zcrc_byte]);
         append_escape(&mut v, &u32::to_le_bytes(crc));
         v
     }
@@ -155,3 +155,17 @@ impl Protocol for Zmodem  {
     }
 }
 
+
+
+#[cfg(test)]
+mod tests {
+    use std::vec;
+
+    use crate::protocol::{Zmodem, ZCRCE};
+
+    #[test]
+    fn test_encode_subpckg_crc32() {
+        let pck = Zmodem::encode_subpacket_crc32(ZCRCE, b"a\n");
+        assert_eq!(vec![0x61, 0x0a, 0x18, 0x68, 0xe5, 0x79, 0xd2, 0x0f], pck);
+    } 
+}
