@@ -4,6 +4,7 @@ use super::TextAttribute;
 pub struct DosChar {
     pub char_code: u16,
     pub attribute: TextAttribute,
+    pub ext_font: bool
 }
 
 impl Default for DosChar {
@@ -17,16 +18,23 @@ impl DosChar {
         DosChar {
             char_code: b' ' as u16,
             attribute: super::TextAttribute::DEFAULT,
+            ext_font: false
         }
     }   
     
     pub fn from(char_code: u16, attribute: TextAttribute) -> Self {
         DosChar {
             char_code,
-            attribute
+            attribute,
+            ext_font: false
         }
     }
+
+    pub fn use_extended_font(&self) -> bool {
+        self.ext_font
+    }
 }
+
 
 impl PartialEq for DosChar {
     fn eq(&self, other: &DosChar) -> bool {

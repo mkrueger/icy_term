@@ -182,11 +182,6 @@ impl MainWindow<TelnetCom>
             return mode;
         }
 
-        if self.telnet.is_some()  {
-            if let Some(mode) = self.addresses[self.cur_addr].screen_mode {
-                return mode;
-            }
-        }
         return ScreenMode::DOS(80, 25);
     }
 
@@ -196,11 +191,6 @@ impl MainWindow<TelnetCom>
             return font.clone();
         }
 
-        if self.telnet.is_some()  {
-            if let Some(font) = &self.addresses[self.cur_addr].font_name {
-                return font.clone();
-            }
-        }
         return DEFAULT_FONT_NAME.to_string();
     }
     
@@ -225,7 +215,6 @@ impl MainWindow<TelnetCom>
             self.get_screen_mode().set_mode(&mut self.font, &mut self.buffer_view.buf);
             self.buffer_view.buf.font = BitFont::from_name(&self.get_font_name()).unwrap();
             self.buffer_view.cache.clear();
-            println!("{:?} {:?}", self.screen_mode, self.font);
         }
     }
 }

@@ -1,7 +1,7 @@
 use std::cmp::max;
 use std::io;
 use crate::com::Com;
-use crate::model::{Buffer, Position, TextAttribute, DosChar, display_ans};
+use crate::model::{Buffer, Position, TextAttribute, DosChar, parse_ansi, parse_petscii};
 use iced::widget::canvas::event::{self, Event};
 use iced::widget::canvas::{
     self, Cursor, Frame, Geometry,
@@ -18,6 +18,7 @@ pub struct BufferView {
     pub attr: TextAttribute,
     pub cache: canvas::Cache,
     state: crate::model::ParseStates,
+    pstate: crate::model::PETSCIIState,
     pub blink: bool,
     pub last_blink: u128,
     pub scale: f32
@@ -31,6 +32,7 @@ impl BufferView {
             attr: TextAttribute::DEFAULT,
             cache: canvas::Cache::default(),
             state: crate::model::ParseStates::new(),
+            pstate: crate::model::PETSCIIState::new(),
             blink: false,
             last_blink: 0,
             scale: 1.0
@@ -39,7 +41,7 @@ impl BufferView {
 
     pub fn print_char<T: Com>(&mut self, telnet: &mut T, c: u8) -> io::Result<()>
     {
-        let c = display_ans(&mut self.buf, &mut self.caret, &mut self.attr, &mut self.state, telnet, c);
+        let c = if self.buf.petscii { parse_petscii(&mut self.buf, &mut self.caret, &mut self.attr, &mut self.pstate, telnet, c) } else { parse_ansi(&mut self.buf, &mut self.caret, &mut self.attr, &mut self.state, telnet, c) };
 
         if let Err(err) = &c {
             println!("error in ansi sequence: {}", err);
@@ -63,7 +65,11 @@ impl BufferView {
                     self.caret.x = max(0, self.caret.x - 1);
                 }
                 _ => {
-                    self.buf.set_char(self.caret, Some(DosChar::from(ch as u16, self.attr)));
+                    let mut ch = DosChar::from(ch as u16, self.attr);
+                    if self.buf.petscii {
+                        ch.ext_font = self.pstate.ext_font;
+                    }
+                    self.buf.set_char(self.caret, Some(ch));
                     self.caret.x = self.caret.x + 1;
                     if self.caret.x >= self.buf.width as i32 {
                         self.caret.x = 0;

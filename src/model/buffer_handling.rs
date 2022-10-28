@@ -58,6 +58,7 @@ pub struct Buffer {
     pub extended_font: Option<BitFont>,
     
     pub layer: Layer,
+    pub petscii: bool
 }
 
 impl std::fmt::Debug for Buffer {
@@ -78,6 +79,7 @@ impl Buffer {
             layer: Layer::new(),
             font: BitFont::default(),
             extended_font: None,
+            petscii: false
         }
     }
 

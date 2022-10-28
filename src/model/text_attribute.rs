@@ -72,6 +72,11 @@ impl TextAttribute
         self.foreground_color
     }
 
+    pub fn set_foreground(&mut self, color: u8) 
+    {
+        self.foreground_color = color;
+    }
+
     pub fn set_foreground_without_bold(&mut self, color: u8) 
     {
         assert!(color < 0b1000);

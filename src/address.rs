@@ -142,7 +142,6 @@ impl Address {
                                 } 
                             }
                         }
-                        println!("{:?}", adr);
                         res.push(adr);
                     }
                 }

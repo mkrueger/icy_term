@@ -39,7 +39,7 @@ const ANSI_ESC: u8 = 27;
 
 const COLOR_OFFSETS : [u8; 8] = [ 0, 4, 2, 6, 1, 5, 3, 7 ];
 
-pub fn display_ans<T: Com>(buf: &mut Buffer, caret: &mut Position, attr: &mut TextAttribute, data: &mut ParseStates, telnet: &mut T, ch: u8) -> io::Result<Option<u8>> {
+pub fn parse_ansi<T: Com>(buf: &mut Buffer, caret: &mut Position, attr: &mut TextAttribute, data: &mut ParseStates, telnet: &mut T, ch: u8) -> io::Result<Option<u8>> {
     if data.ans_esc {
         data.ans_seq.push(char::from_u32(ch as u32).unwrap());
 

@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{model::{Buffer, DosChar}};
+use crate::{model::{Buffer, DosChar, BitFont, DOS_DEFAULT_PALETTE}};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ScreenMode {
@@ -59,12 +59,11 @@ impl ScreenMode {
                 if let Some(o) = str.find('x') {
                     let x = u16::from_str_radix(&str[0..o], 10);
                     let y = u16::from_str_radix(&str[o + 1..], 10);
-                    println!("{:?}, {:?}", x, y);
-
                     if x.is_ok() && y.is_ok() {
                         return Some(ScreenMode::DOS(x.unwrap(), y.unwrap()));
                     }
                 }
+                println!("Unknown screen mode :{}", str);
                 None
             }
         }
@@ -82,26 +81,38 @@ impl ScreenMode {
                 } else {
                     *font = Some("IBM VGA".to_string());
                 }
+                buf.petscii = false;
+                buf.palette = crate::model::Palette::new();
             }
             ScreenMode::C64 => {
                 buf.width = 40;
                 buf.height = 40;
                 *font = Some("C64 PETSCII unshifted".to_string());
+                buf.extended_font = Some(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
+                buf.petscii = true;
+                buf.palette = crate::model::Palette { colors: crate::model::C64_DEFAULT_PALETTE.to_vec() };
             }
             ScreenMode::C128(col) => {
                 buf.width = 40;
                 buf.height = *col;
                 *font = Some("C64 PETSCII unshifted".to_string());
+                buf.extended_font = Some(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
+                buf.petscii = true;
+                buf.palette = crate::model::Palette { colors: crate::model::C64_DEFAULT_PALETTE.to_vec() };
             },
             ScreenMode::Atari =>  {
                 buf.width = 40;
                 buf.height = 40;
                 *font = Some("Atari ATASCII".to_string());
+                buf.petscii = false;
+                buf.palette = crate::model::Palette::new();
             },
             ScreenMode::AtariXep80 =>  {
                 buf.width = 40;
                 buf.height = 30;
                 *font = Some("Atari ATASCII".to_string());
+                buf.petscii = false;
+                buf.palette = crate::model::Palette::new();
             },
         }
 

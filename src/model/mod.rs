@@ -23,8 +23,11 @@ pub use palette_handling::*;
 mod fonts;
 pub use fonts::*;
 
-mod parser;
-pub use parser::*;
+mod parse_ansi;
+pub use parse_ansi::*;
+
+mod parse_petscii;
+pub use parse_petscii::*;
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Size<T> 
