@@ -1,7 +1,6 @@
 use std::fmt::Display;
 
-use crate::model::Buffer;
-
+use crate::{model::{Buffer, DosChar}};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ScreenMode {
@@ -48,29 +47,71 @@ impl Display for ScreenMode {
 }
 
 impl ScreenMode {
-    pub fn set_mode(&self, buf: &mut Buffer)
+    pub fn parse(str: &str) -> Option<Self>
+    {
+        match str { 
+            "C64" => Some(ScreenMode::C64),
+            "C128" | "C128#40" => Some(ScreenMode::C128(40)),
+            "C128#80" => Some(ScreenMode::C128(80)),
+            "Atari" => Some(ScreenMode::Atari),
+            "AtariXep80" => Some(ScreenMode::AtariXep80),
+            _ => {
+                if let Some(o) = str.find('x') {
+                    let x = u16::from_str_radix(&str[0..o], 10);
+                    let y = u16::from_str_radix(&str[o + 1..], 10);
+                    println!("{:?}, {:?}", x, y);
+
+                    if x.is_ok() && y.is_ok() {
+                        return Some(ScreenMode::DOS(x.unwrap(), y.unwrap()));
+                    }
+                }
+                None
+            }
+        }
+    }
+
+
+    pub fn set_mode(&self, font: &mut Option<String>, buf: &mut Buffer)
     {
         match self {
             ScreenMode::DOS(w, h) => {
                 buf.width = *w;
                 buf.height = *h;
+                if *h >= 50 {
+                    *font = Some("IBM VGA50".to_string());
+                } else {
+                    *font = Some("IBM VGA".to_string());
+                }
             }
             ScreenMode::C64 => {
                 buf.width = 40;
                 buf.height = 40;
+                *font = Some("C64 PETSCII unshifted".to_string());
             }
             ScreenMode::C128(col) => {
                 buf.width = 40;
                 buf.height = *col;
+                *font = Some("C64 PETSCII unshifted".to_string());
             },
             ScreenMode::Atari =>  {
                 buf.width = 40;
                 buf.height = 40;
+                *font = Some("Atari ATASCII".to_string());
             },
             ScreenMode::AtariXep80 =>  {
                 buf.width = 40;
                 buf.height = 30;
+                *font = Some("Atari ATASCII".to_string());
             },
+        }
+
+        for y in 0..buf.height {
+            for x in 0..buf.width {
+                let p = crate::model::Position::from(x as i32, y as i32);
+                if buf.get_char(p).is_none() {
+                    buf.set_char(p, Some(DosChar::default()));
+                }
+            }
         }
     }
 }

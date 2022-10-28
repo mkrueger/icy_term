@@ -6,18 +6,21 @@ use std::path::Path;
 
 use crate::ui::screen_modes::ScreenMode;
 
+#[derive(Debug, Clone, Copy)]
 pub enum Terminal {
     Ansi,
     _Avatar,
     _VT102
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum Connection {
     Telnet,
     _Rlogin,
     _SSH
 }
 
+#[derive(Debug, Clone)]
 pub struct Address {
     pub system_name: String,
     pub user_name: String,
@@ -48,6 +51,15 @@ const TEMPLATE: &str = r#"
 #     user: my_name
 #     password: my_pw_which_is_totally_different_from_that_above
 #     use_ice: true
+
+# "screen_mode" support: "C64", "C128", "C128#80", "Atari", "AtariXep80", [row]x[col]
+# font support via "font_name" - screen modes set the correct font
+# Amiga fonts:
+# "Amiga Topaz 1", "Amiga Topaz 1+", "Amiga Topaz 2", "Amiga Topaz 2+"
+# "Amiga P0T-NOoDLE"
+# "Amiga MicroKnight", "Amiga MicroKnight+"
+# "Amiga mOsOul"
+
 Particles! BBS:
     comment: Particles! BBS is a retro-themed BBS, running on retro-themed hardware.
     address: particlesbbs.dyndns.org:6400
@@ -96,7 +108,6 @@ impl Address {
         None
     }
 
-
     pub fn read_phone_book() -> Vec<Self> {
         let mut res = Vec::new();
         res.push(Address::new());
@@ -119,17 +130,19 @@ impl Address {
                             for (k, v) in h {
                                 let k  = k.into_string().unwrap();
                                 let v  = v.into_string().unwrap();
-
                                 match k.as_ref() {
                                     "comment" => { adr.comment = v; }
                                     "address" => { adr.address = v; }
                                     "user" => { adr.user_name = v; }
                                     "password" => { adr.password = v; }
                                     "use_ice" => { adr.ice_mode = v == "true"; }
+                                    "screen_mode" => { adr.screen_mode = ScreenMode::parse(&v); }
+                                    "font_name" => { adr.font_name = Some(v); }
                                    _ =>  {}
                                 } 
                             }
                         }
+                        println!("{:?}", adr);
                         res.push(adr);
                     }
                 }

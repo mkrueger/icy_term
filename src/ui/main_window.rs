@@ -208,11 +208,25 @@ impl MainWindow<TelnetCom>
     {
         self.log_file.push(str);
     }
-    pub fn update_fonts(&mut self)
+
+    pub fn set_font(&mut self, font: &String)
     {
-        self.buffer_view.buf.font = BitFont::from_name(&self.get_font_name()).unwrap();
-        self.get_screen_mode().set_mode(&mut self.buffer_view.buf);
-        self.buffer_view.cache.clear();
+        if font != &self.get_font_name() { 
+            self.font = Some(font.clone());
+            self.buffer_view.buf.font = BitFont::from_name(&self.get_font_name()).unwrap();
+            self.buffer_view.cache.clear();
+        }
+    }
+
+    pub fn set_screen_mode(&mut self, mode: &ScreenMode)
+    {
+        if mode != &self.get_screen_mode() { 
+            self.screen_mode = Some(*mode);
+            self.get_screen_mode().set_mode(&mut self.font, &mut self.buffer_view.buf);
+            self.buffer_view.buf.font = BitFont::from_name(&self.get_font_name()).unwrap();
+            self.buffer_view.cache.clear();
+            println!("{:?} {:?}", self.screen_mode, self.font);
+        }
     }
 }
 
@@ -345,12 +359,10 @@ impl Application for MainWindow<TelnetCom> {
                         }
                     }
                     Message::FontSelected(font) => {
-                        self.font = Some(font);
-                        self.update_fonts();
+                        self.set_font(&font);
                     }
                     Message::ScreenModeSelected(mode) => {
-                        self.screen_mode = Some(mode);
-                        self.update_fonts();
+                        self.set_screen_mode(&mode);
                     }
                     _ => {}
                 }
@@ -394,13 +406,13 @@ impl Application for MainWindow<TelnetCom> {
                                             self.cur_addr = i;
                                             self.iemsi = Some(IEmsi::new());
                                             self.connection_time = SystemTime::now();
-                                            if self.addresses[self.cur_addr].screen_mode.is_some() {
-                                                self.screen_mode = None;
+                                            let adr = self.addresses[i].clone();
+                                            if let Some(mode) = &adr.screen_mode {
+                                                self.set_screen_mode(mode);
                                             }
-                                            if self.addresses[self.cur_addr].font_name.is_some() {
-                                                self.font = None;
+                                            if let Some(font) = &adr.font_name {
+                                                self.set_font(font);
                                             }
-                                            self.update_fonts();
                                         },
                                         Err(e) => {
                                             self.print_log(format!("Error: {:?}", e));
@@ -458,7 +470,6 @@ impl Application for MainWindow<TelnetCom> {
                     .height(Length::Fill);
                 
                 let log_info = if self.log_file.len() == 0  { text("Ready.")} else { text(&self.log_file[self.log_file.len() - 1])}.width(Length::Fill).into();
-                let screen_info = text(&format!("({}%)", (100.0 * unsafe { super::SCALE }) as i32)).into();
                 let all_fonts = crate::model::_SUPPORTED_FONTS.map(|s| s.to_string()).to_vec();
                 let font_pick_list = pick_list(
                     all_fonts,
@@ -515,9 +526,7 @@ impl Application for MainWindow<TelnetCom> {
                             log_info,
                             vertical_rule(10).into(),
                             font_pick_list.into(),
-                            vertical_rule(10).into(),
                             screen_mode_pick_list.into(),
-                            screen_info,
                             vertical_rule(10).into(),
                             text("Offline").into()
                         ])
@@ -531,12 +540,10 @@ impl Application for MainWindow<TelnetCom> {
                         row(vec![
                             log_info,
                             vertical_rule(10).into(),
-                            font_pick_list.into(),
-                            vertical_rule(10).into(),
                             text(if cur.system_name.len() > 0 { &cur.system_name } else { &cur.address }).into(),
                             vertical_rule(10).into(),
+                            font_pick_list.into(),
                             screen_mode_pick_list.into(),
-                            screen_info,
                             vertical_rule(10).into(),
                             text(format!("Connected {:02}:{:02}:{:02}", hours, minutes % 60, sec % 60)).into()
                         ])
