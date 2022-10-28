@@ -15,6 +15,7 @@ use iced::{Alignment};
 
 use rfd::FileDialog;
 
+use crate::input_conversion::UNICODE_TO_CP437;
 use crate::model::{DEFAULT_FONT_NAME, BitFont};
 use crate::{VERSION, iemsi};
 use crate::address::{Address, start_read_book, READ_ADDRESSES};
@@ -325,7 +326,7 @@ impl Application for MainWindow<TelnetCom> {
                     },
                     Message::KeyPressed(ch) => {
                         if let Some(telnet) = &mut self.telnet {
-                            let data = [ch as u8];
+                            let data =  [if let Some(c) =  UNICODE_TO_CP437.get(&ch) { *c } else { ch as u8 }];
                             let state = telnet.write(&data);
                             if let Err(s) = state {
                                 self.print_log(format!("Error: {:?}", s));

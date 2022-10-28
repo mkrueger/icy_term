@@ -11,6 +11,7 @@ mod address;
 mod model;
 mod iemsi;
 mod protocol;
+mod input_conversion;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
