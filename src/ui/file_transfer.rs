@@ -1,4 +1,4 @@
-use iced::widget::{ column, row, progress_bar, text};
+use iced::widget::{ column, row, progress_bar, text, button};
 use iced::{
     Element
 };
@@ -8,16 +8,15 @@ use super::main_window::{Message};
 
 pub fn view_file_transfer<'a,T: Protocol>(protocol: &T, download: bool) ->Element<'a, Message> {
     let s = protocol.get_current_state();
-/*     if s.is_none() {
-        return;
-    }*/
+
+    if s.is_none() {
+        return text("Transfer aborted").into();
+    }
     let state = s.unwrap();
 
     let transfer_state = if download { state.recieve_state } else { state.send_state }.unwrap();
-    
-    /* 
-    button("Cancel")
-            .on_press(Message::Back)*/
+
+
     column![
         row![
             text("Protocol:"),
@@ -41,7 +40,10 @@ pub fn view_file_transfer<'a,T: Protocol>(protocol: &T, download: bool) ->Elemen
             text(transfer_state.bytes_transfered),
         ].padding(4)
         .spacing(8),
+        text(state.current_state),
         progress_bar(0.0..=transfer_state.get_total_bytes() as f32, transfer_state.bytes_transfered as f32),
-        text(state.current_state)
+        text(transfer_state.engine_state),
+        button("Cancel")
+            .on_press(Message::CancelTransfer)
     ].spacing(8).into()
 }

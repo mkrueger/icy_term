@@ -72,7 +72,7 @@ impl Ry {
         transfer_state.engine_state = format!("{:?}", self.recv_state);
         state.recieve_state = Some(transfer_state);
 
-        println!("\t\t\t\t\t\t{:?}", self.recv_state);
+        //println!(":?}", self.recv_state);
         match self.recv_state {
             RecvState::None => Ok(()),
 
@@ -115,7 +115,7 @@ impl Ry {
                     let block_num_neg = com.read_char(self.recv_timeout)?;
         
                     if block_num != block_num_neg ^ 0xFF {
-                        println!("BLOCK ERROR");
+                        //println!("BLOCK ERROR");
                         com.discard_buffer()?;
                         com.write(&[NAK])?;
 
@@ -135,6 +135,7 @@ impl Ry {
                     let chksum_size = if let Checksum::CRC16 = self.checksum_mode { 2 } else { 1 };
                     let block = com.read_exact(self.recv_timeout, len + chksum_size)?;
                     if !self.check_crc(&block) {
+                       // println!("NAK CRC FAIL");
                         self.errors += 1;
                         com.discard_buffer()?;
                         com.write(&[NAK])?;
@@ -144,7 +145,7 @@ impl Ry {
 
                     if block[0] == 0 {
                         // END transfer
-                        println!("END TRANSFER");
+                        // println!("END TRANSFER");
                         com.write(&[ACK])?;
                         self.recv_state = RecvState::None;
                         return Ok(());
@@ -267,8 +268,8 @@ impl Ry {
         match variant {
             XYModemVariant::XModem => self.block_length = DEFAULT_BLOCK_LENGTH,
             XYModemVariant::_XModem1k => self.block_length = EXT_BLOCK_LENGTH,
-            XYModemVariant::YModem => self.block_length = EXT_BLOCK_LENGTH,
-            XYModemVariant::_YModemG => self.block_length = EXT_BLOCK_LENGTH,
+            XYModemVariant::YModem => { self.block_length = EXT_BLOCK_LENGTH; self.checksum_mode = Checksum::CRC16; } ,
+            XYModemVariant::_YModemG => {  self.block_length = EXT_BLOCK_LENGTH;  self.checksum_mode = Checksum::CRC16; },
         }
         self.variant = variant;
         com.write(b"C")?;
@@ -280,18 +281,17 @@ impl Ry {
     fn check_crc(&self, block: &[u8]) -> bool
     {
         if block.len() < 3 {
-            println!("too short!");
             return false;
         }
         match self.checksum_mode {
             Checksum::Default => {
                 let chk = get_checksum(&block[..block.len() - 1]);
-                block[block.len() - 1] != chk
+                block[block.len() - 1] == chk
             }
             Checksum::CRC16 => {
-                let crc = crate::crc::get_crc16(&block[..block.len() - 2]);
-                println!("{:4X} {:02X}{:02}!",00000000);
-                block[block.len() - 2] != crc as u8 ||  block[block.len() - 1] != (crc >> 8) as u8
+                let check_crc = crate::crc::get_crc16(&block[..block.len() - 2]);
+                let crc = u16::from_be_bytes(block[block.len() - 2..].try_into().unwrap());
+                crc == check_crc
             }
         }
     }

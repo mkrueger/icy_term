@@ -28,14 +28,15 @@ pub struct Sy {
 
     pub files: Vec<FileDescriptor>,
     cur_file: usize,
-    data: Vec<u8>,
 
     block_number: u8,
     errors: usize,
     send_state: SendState,
 
-    last_header_send: SystemTime,
+    data:Vec<u8>,
 
+    last_header_send: SystemTime,
+    transfer_stopped: bool
 }
 
 impl Sy {
@@ -56,7 +57,8 @@ impl Sy {
             errors: 0,
             bytes_send: 0,
             block_number: 0,
-            cur_file: 0
+            cur_file: 0,
+            transfer_stopped: false
         }
     }
 
@@ -79,7 +81,7 @@ impl Sy {
         transfer_state.errors = self.errors;
         transfer_state.engine_state = format!("{:?}", self.send_state);
         state.send_state = Some(transfer_state);
-        println!("send state: {:?} {:?}", self.send_state, self.variant);
+        // println!("send state: {:?} {:?}", self.send_state, self.variant);
 
         match self.send_state {
             SendState::None => Ok(()),
@@ -98,18 +100,21 @@ impl Sy {
                 Ok(())
             }
             SendState::SendYModemHeader(retries) => {
-                let now = SystemTime::now();
-                if now.duration_since(self.last_header_send).unwrap().as_millis() > 3000 {
-                    self.last_header_send = now;
-                    self.block_number = 0;
-                    self.send_ymodem_header(com)?;
-                    self.send_state = SendState::AckSendYmodemHeader(retries);
+                if retries > 3 {
+                    state.current_state = "Too many retries...aborting";
+                    self.cancel(com)?;
+                    return Ok(());
                 }
+                self.last_header_send = SystemTime::now();
+                self.block_number = 0;
+                self.send_ymodem_header(com)?;
+                self.send_state = SendState::AckSendYmodemHeader(retries);
                 Ok(())
             },
             SendState::AckSendYmodemHeader(retries) => {
+                let now = SystemTime::now();
                 if com.is_data_available()? {
-                    let ack = com.read_char(self.recv_timeout)?;
+                    let ack = self.read_command(com)?;
                     if ack == NAK {
                         state.current_state = "Encountered error";
                         self.errors += 1;
@@ -122,11 +127,20 @@ impl Sy {
                         return Ok(());
                     }
                     if ack == ACK {
+                        if self.transfer_stopped {
+                            self.send_state = SendState::None;
+                            return Ok(());
+                        }
                         state.current_state = "Header accepted.";
-                        let _ = com.read_char(self.recv_timeout)?;
+                        self.data = self.files[self.cur_file].get_data()?;
+                        let _ = self.read_command(com)?;
                         // SKIP - not needed to check that
                         self.send_state = SendState::SendData(0, 0);
                     }
+                }
+                
+                if now.duration_since(self.last_header_send).unwrap().as_millis() > 3000 {
+                    self.send_state = SendState::SendYModemHeader(retries + 1);
                 }
                 Ok(())
             },
@@ -141,10 +155,10 @@ impl Sy {
             }
             SendState::AckSendData(cur_offset, retries) => {
                 if com.is_data_available()? {
-                    let ack = com.read_char(self.recv_timeout)?;
+                    let ack = self.read_command(com)?;
                     if ack == CAN {
                         // need 2 CAN
-                        let can2 = com.read_char(self.recv_timeout)?;
+                        let can2 = self.read_command(com)?;
                         if can2 == CAN {
                             self.send_state = SendState::None;
                             return Err(io::Error::new(ErrorKind::ConnectionAborted, "Connection was canceled.")); 
@@ -162,7 +176,7 @@ impl Sy {
                         }
 
                         if retries > 5 {
-                            self.send_state = SendState::None;
+                            self.eot(com)?;
                             return Err(io::Error::new(ErrorKind::ConnectionAborted, "too many retries sending ymodem header")); 
                         }
                         self.send_state = SendState::SendData(cur_offset, retries + 1);
@@ -173,7 +187,7 @@ impl Sy {
                 }
 
                 if self.bytes_send >= self.files[self.cur_file].size {
-                    com.write(&[EOT])?;
+                    self.eot(com)?;
                     if let XYModemVariant::YModem = self.variant {
                         self.send_state = SendState::YModemEndHeader(0);
                     } else {
@@ -186,30 +200,28 @@ impl Sy {
                 match step {
                     0 => {
                         if com.is_data_available()? {
-                            if com.read_char(self.recv_timeout)? == NAK {
+                            if self.read_command(com)? == NAK {
                                 com.write(&[EOT])?;
                                 self.send_state = SendState::YModemEndHeader(1);
                                 return Ok(());
                             }
                         }
                         self.cancel(com)?;
-                        self.send_state = SendState::None;
                         return Ok(());
                     },
                     1 => {
                         if com.is_data_available()? {
-                            if com.read_char(self.recv_timeout)? == ACK {
+                            if self.read_command(com)? == ACK {
                                 self.send_state = SendState::YModemEndHeader(2);
                                 return Ok(());
                             }
                         }
                         self.cancel(com)?;
-                        self.send_state = SendState::None;
                         return Ok(());
                     },
                     2 => {
                         if com.is_data_available()? {
-                            if com.read_char(self.recv_timeout)? == b'C' {
+                            if self.read_command(com)? == b'C' {
                                 self.last_header_send = SystemTime::UNIX_EPOCH;
                                 self.send_state = SendState::SendYModemHeader(0);
                                 self.cur_file += 1;
@@ -217,7 +229,6 @@ impl Sy {
                             }
                         }
                         self.cancel(com)?;
-                        self.send_state = SendState::None;
                         return Ok(());
                     },
                     _ => { 
@@ -229,9 +240,37 @@ impl Sy {
         }
     }
     
-    pub fn get_mode<T: Com>(&mut self, com: &mut T) -> io::Result<()>
+
+    fn read_command<T: Com>(&self, com: &mut T)-> io::Result<u8>
     {
         let ch = com.read_char(self.recv_timeout)?;
+       /* let cmd = match ch { 
+            b'C' => "[C]",
+            EOT => "[EOT]",
+            ACK => "[ACK]",
+            NAK => "[NAK]",
+            CAN => "[CAN]",
+            _ => ""
+        };
+
+        if cmd.len() > 0 {
+            println!("GOT CMD: {}", cmd);
+        } else {
+            println!("GOT CMD: #{} (0x{:X})", ch, ch);
+        }*/
+   
+        Ok(ch)
+    }
+
+    fn eot<T: Com>(&self, com: &mut T)-> io::Result<usize>
+    {
+        // println!("[EOT]");
+        com.write(&[EOT])
+    }
+
+    pub fn get_mode<T: Com>(&mut self, com: &mut T) -> io::Result<()>
+    {
+        let ch = self.read_command(com)?;
         match ch {
             NAK => {
                 self.checksum_mode = Checksum::Default;
@@ -258,7 +297,6 @@ impl Sy {
     fn send_block<T: Com>(&mut self, com: &mut T, data: &[u8], pad_byte: u8) -> io::Result<()>
     {
         let block_len = if data.len() <= DEFAULT_BLOCK_LENGTH  { SOH } else { STX };
-
         let mut block = Vec::new();
         block.push(block_len);
         block.push(self.block_number);
@@ -276,6 +314,7 @@ impl Sy {
                 block.extend_from_slice(&u16::to_be_bytes(crc));
             },
         }
+        // println!("Send block {:X?}", block);
         com.write(&block)?;
         self.block_number += 1;
         Ok(())
@@ -291,7 +330,6 @@ impl Sy {
             block.extend_from_slice(&name);
             block.push(0);
             block.extend_from_slice(format!("{}", fd.size).as_bytes());
-            self.data = fd.get_data()?;
             self.send_block(com, &block, 0)?;
             Ok(())
         } else {
@@ -302,7 +340,7 @@ impl Sy {
 
     fn send_data_block<T: Com>(&mut self, com: &mut T, offset: usize) -> io::Result<bool>
     {
-        let data_len = self.files[self.cur_file].size;
+        let data_len = self.data.len();
         if offset >= data_len {
             return Ok(false);
         }
@@ -312,11 +350,15 @@ impl Sy {
             self.block_length = DEFAULT_BLOCK_LENGTH;
             block_end = min(offset + self.block_length, data_len);
         }
-        self.send_block(com, &self.files[self.cur_file].data.as_ref().unwrap()[offset..block_end].to_vec(), CPMEOF)?;
+        self.send_block(com, &Vec::from_iter(self.data[offset..block_end].iter().cloned()), CPMEOF)?;
         Ok(true)
     }
 
-    pub fn cancel<T: Com>(&self, com: &mut T)-> io::Result<()> {
+    pub fn cancel<T: Com>(&mut self, com: &mut T)-> io::Result<()> {
+        self.send_state = SendState::None;
+        // println!("CANCEL!");
+        com.write(&[CAN, CAN])?;
+        com.write(&[CAN, CAN])?;
         com.write(&[CAN, CAN])?;
         Ok(())
     }
@@ -340,7 +382,7 @@ impl Sy {
 
     pub fn end_ymodem<T: Com>(&mut self, com: &mut T)-> io::Result<()> {
         self.send_block(com, &[0], 0)?;
-        // TODO: Check ACK? Or skip?
+        self.transfer_stopped = true;
         Ok(())
     }
 }

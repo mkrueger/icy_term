@@ -22,7 +22,7 @@ use crate::com::{Com, TelnetCom};
 use crate::iemsi::{IEmsi, EmsiICI};
 use crate::protocol::{Xmodem, Zmodem, Ymodem, Protocol, ProtocolType, FileDescriptor};
 
-use super::BufferView;
+use super::{BufferView};
 use super::screen_modes::{DEFAULT_MODES, ScreenMode};
 
 enum MainWindowMode {
@@ -79,7 +79,8 @@ pub enum Message {
     QuickConnectChanged(String),
     FontSelected(String),
     ScreenModeSelected(ScreenMode),
-    SelectProtocol(ProtocolType, bool)
+    SelectProtocol(ProtocolType, bool),
+    CancelTransfer
 }
 
 static KEY_MAP: &[(KeyCode, &[u8])] = &[
@@ -492,6 +493,19 @@ impl Application for MainWindow<TelnetCom> {
                         }
 
                     },
+                    Message::CancelTransfer => {
+                        if let Some(com) = &mut self.telnet {
+                            if self.zmodem.is_active() {
+                                self.zmodem.cancel(com);
+                            }
+                            if self.xmodem.is_active() {
+                                self.xmodem.cancel(com);
+                            }
+                            if self.ymodem.is_active() {
+                                self.ymodem.cancel(com);
+                            }
+                        }
+                    }
                     _ => {}
                 }
             }

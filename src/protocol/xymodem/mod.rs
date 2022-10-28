@@ -62,6 +62,9 @@ impl XYmodem {
             }
         } else if let Some(sy) = &mut self.sy {
             sy.update(com, self.transfer_state.as_mut().unwrap())?;
+            if sy.is_finished() {
+                self.transfer_state = None;
+            }
         }
         Ok(())
     }
@@ -113,6 +116,9 @@ impl XYmodem {
 
     pub fn cancel<T: crate::com::Com>(&mut self, com: &mut T) -> io::Result<()>
     {
+        self.transfer_state = None;
+        com.write(&[CAN, CAN])?;
+        com.write(&[CAN, CAN])?;
         com.write(&[CAN, CAN])?;
         Ok(())
     }
