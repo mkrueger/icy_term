@@ -1,10 +1,9 @@
-pub mod xymodem_core;
 use std::path::{ PathBuf};
 use std::time::SystemTime;
 use std::{io, fs};
 
-pub use xymodem_core::*;
-pub use xymodem_core::*;
+pub mod xymodem;
+pub use xymodem::*;
 
 pub mod xmodem;
 pub use xmodem::*;
@@ -37,6 +36,15 @@ impl FileDescriptor {
             path: PathBuf::new(),
             data: None
         }
+    }
+
+    pub fn from_paths(paths: &Vec<PathBuf>) -> io::Result<Vec<FileDescriptor>> {
+        let mut res = Vec::new();
+        for p in paths {
+            let fd = FileDescriptor::create(p)?;
+            res.push(fd);
+        }
+        Ok(res)
     }
     
     pub fn create(path: &PathBuf) -> io::Result<Self> {
@@ -82,7 +90,9 @@ pub struct FileTransferState {
     pub file: Option<FileDescriptor>,
     pub bytes_transfered: usize,
     pub errors: usize,
-    pub files_finished: Vec<String>
+    pub files_finished: Vec<String>,
+    pub check_size: String,
+    pub engine_state: String,
 }
 
 impl FileTransferState {
@@ -92,6 +102,30 @@ impl FileTransferState {
             bytes_transfered: 0,
             errors: 0,
             files_finished: Vec::new(),
+            check_size: String::new(),
+            engine_state: String::new()
+        }
+    }
+
+    pub fn get_file_name(&self) -> String {
+        match &self.file {
+            Some(file) => file.file_name.clone(),
+            None => "<unknown>".to_string()
+        }
+    }
+
+    pub fn _get_file_size(&self) -> usize {
+        match &self.file {
+            Some(file) => file.size,
+            None => 0
+        }
+    }
+
+    pub fn get_total_bytes(&self) -> usize {
+        if let Some(f) = &self.file {
+            f.size
+        } else {
+            0
         }
     }
 }
@@ -99,7 +133,7 @@ impl FileTransferState {
 
 #[derive(Clone)]
 pub struct TransferState {
-    pub cur_check: String,
+    pub current_state: &'static str,
     pub send_state: Option<FileTransferState>,
     pub recieve_state: Option<FileTransferState>,
 }
@@ -107,7 +141,7 @@ pub struct TransferState {
 impl TransferState {
     pub fn new() -> Self {
         Self {
-            cur_check: String::new(),
+            current_state: "",
             send_state: None,
             recieve_state: None
         }
@@ -116,7 +150,11 @@ impl TransferState {
 
 pub trait Protocol
 {
+    fn get_name(&self) -> &str;
+    
     fn get_current_state(&self) -> Option<TransferState>;
+
+    fn is_active(&self) -> bool;
 
     fn update<T: Com>(&mut self, com: &mut T) -> io::Result<()>;
 
@@ -124,4 +162,15 @@ pub trait Protocol
     fn initiate_recv<T: Com>(&mut self, com: &mut T) -> io::Result<()>;
 
     fn get_received_files(&mut self) -> Vec<FileDescriptor>;
+
+    fn cancel<T: Com>(&mut self, com: &mut T) -> io::Result<()>;
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ProtocolType {
+    ZModem,
+    ZedZap,
+    XModem,
+    YModem,
+    YModemG,
 }

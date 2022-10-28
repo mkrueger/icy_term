@@ -1,44 +1,33 @@
 use std::io;
-
 use crate::com::Com;
-
-use super::{xymodem_core::XYmodem, Protocol, TransferState, FileDescriptor, FileTransferState};
+use super::{xymodem::XYmodem, Protocol, TransferState, FileDescriptor, XYModemVariant};
 
 pub struct Xmodem {
-    core: XYmodem,
-    transfer_state: Option<TransferState>,
-    files: Vec<Vec<u8>>
+    core: XYmodem
 }
 
 impl Xmodem {
     pub fn new() -> Self {
         Self {
-            core: XYmodem::new(),
-            transfer_state: None,
-            files: Vec::new()
+            core: XYmodem::new()
         }
     }
 }
 
 impl Protocol for Xmodem
 {
-    fn get_current_state(&self) -> Option<TransferState>
+    fn get_name(&self) -> &str
     {
-        self.transfer_state.clone()
+        "Xmodem"
     }
+    
+    fn get_current_state(&self) -> Option<TransferState> { self.core.get_current_state() }
+    fn is_active(&self) -> bool { self.core.is_active() }
 
     fn update<T: Com>(&mut self, com: &mut T) -> io::Result<()>
     {
-        if let Some(state) = &self.transfer_state {
-            self.core.update(com)?;
-            if let super::xymodem_core::XYState::None = self.core.xy_state  {
-                if state.recieve_state.is_some() {
-                    let data = self.core.get_data()?;
-                    self.files.push(data);
-                }
-                self.transfer_state = None;
-            }
-        }
+        self.core.update(com)?;
+
         Ok(())
     }
 
@@ -47,33 +36,26 @@ impl Protocol for Xmodem
         if files.len() != 1 {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "Only 1 file can be send with x-modem."))
         }
-        self.core.block_length = super::xymodem_core::DEFAULT_BLOCK_LENGTH;
-        self.core.send(com, files)?;
-
+        self.core.send(com, XYModemVariant::XModem, files)?;
+/* 
         let mut state = TransferState::new();
         state.send_state = Some(FileTransferState::new());
-        self.transfer_state = Some(state);
+        self.transfer_state = Some(state);*/
         Ok(())
     }
     
     fn initiate_recv<T: Com>(&mut self, com: &mut T) -> io::Result<()>
     {
-        self.core.recv(com)?;
-        self.core.files.push(FileDescriptor::new());
+        self.core.recv(com, XYModemVariant::XModem)?;
+        /* self.core.files.push(FileDescriptor::new());
         let mut state = TransferState::new();
         state.recieve_state = Some(FileTransferState::new());
-        self.transfer_state = Some(state);
-
+        self.transfer_state = Some(state);*/
         Ok(())
     }
 
-    fn get_received_files(&mut self) -> Vec<FileDescriptor>
-    {
-        let c = self.core.files.clone();
-        self.core.files = Vec::new();
-        c
-    }
-
+    fn get_received_files(&mut self) -> Vec<FileDescriptor> { self.core.get_received_files() }
+    fn cancel<T: crate::com::Com>(&mut self, com: &mut T) -> io::Result<()> { self.core.cancel(com) }
 }
 
 #[cfg(test)]
@@ -90,7 +72,7 @@ mod tests {
         send.initiate_send(&mut com.sender, vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())]).expect("error.");
         recv.initiate_recv(&mut com.receiver).expect("error.");
         let mut i = 0;
-        while send.transfer_state.is_some() || recv.transfer_state.is_some()  {
+        while send.is_active() || recv.is_active()  {
             i += 1;
             if i > 10 { break; }
             send.update(&mut com.sender).expect("error.");
@@ -118,7 +100,7 @@ mod tests {
             send.initiate_send(&mut com.sender, vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())]).expect("error.");
             recv.initiate_recv(&mut com.receiver).expect("error.");
             let mut i = 0;
-            while send.transfer_state.is_some() || recv.transfer_state.is_some()  {
+            while send.is_active() || recv.is_active()  {
                 i += 1;
                 if i > 100 { break; }
                 send.update(&mut com.sender).expect("error.");

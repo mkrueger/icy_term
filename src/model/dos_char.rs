@@ -30,7 +30,7 @@ impl DosChar {
         }
     }
 
-    pub fn use_extended_font(&self) -> bool {
+    pub fn _use_extended_font(&self) -> bool {
         self.ext_font
     }
 }

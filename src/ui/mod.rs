@@ -9,3 +9,10 @@ pub use screen_modes::*;
 
 pub mod phonebook;
 pub use phonebook::*;
+
+pub mod protocol_selector;
+pub use protocol_selector::*;
+
+pub mod file_transfer;
+pub use file_transfer::*;
+

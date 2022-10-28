@@ -28,10 +28,6 @@ impl Zmodem {
         }
     }
 
-    pub fn is_active(&self) -> bool
-    {
-        self.sz.is_active()
-    }
     pub fn cancel<T: Com>(com: &mut T) -> io::Result<()> {
         com.write(&ABORT_SEQ)?;
         Ok(())
@@ -129,10 +125,20 @@ fn from_hex(n: u8) -> io::Result<u8>
     return Err(io::Error::new(io::ErrorKind::InvalidData, "Hex number expected"));
 }
 
-impl Protocol for Zmodem  {
+impl Protocol for Zmodem {
+
+    fn get_name(&self) -> &str
+    {
+        "Zmodem"
+    }
 
     fn get_current_state(&self) -> Option<super::TransferState> {
         self.transfer_state.clone()
+    }
+
+    fn is_active(&self) -> bool
+    {
+        self.sz.is_active()
     }
 
     fn update<T: crate::com::Com>(&mut self, com: &mut T) -> std::io::Result<()> {
@@ -153,6 +159,13 @@ impl Protocol for Zmodem  {
     fn get_received_files(&mut self) -> Vec<super::FileDescriptor> {
         todo!()
     }
+
+    fn cancel<T: crate::com::Com>(&mut self, com: &mut T) -> io::Result<()>
+    {
+        com.write(&ABORT_SEQ)?;
+        Ok(())
+    }
+
 }
 
 

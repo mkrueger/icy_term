@@ -12,7 +12,6 @@ use iced::widget::{
      text_input, vertical_rule
 };
 use iced::{Alignment};
-
 use rfd::FileDialog;
 
 use crate::input_conversion::UNICODE_TO_CP437;
@@ -21,14 +20,16 @@ use crate::{VERSION, iemsi};
 use crate::address::{Address, start_read_book, READ_ADDRESSES};
 use crate::com::{Com, TelnetCom};
 use crate::iemsi::{IEmsi, EmsiICI};
-use crate::protocol::{Xmodem, Zmodem, Ymodem, Protocol, FileDescriptor};
+use crate::protocol::{Xmodem, Zmodem, Ymodem, Protocol, ProtocolType, FileDescriptor};
 
 use super::BufferView;
 use super::screen_modes::{DEFAULT_MODES, ScreenMode};
 
 enum MainWindowMode {
     Default,
-    Dialout
+    ShowPhonebook,
+    SelectProtocol(bool),
+    FileTransfer(ProtocolType, bool)
 }
 
 struct Options {
@@ -58,18 +59,17 @@ pub struct MainWindow<T: Com> {
     font: Option<String>,
     screen_mode: Option<ScreenMode>,
     // protocols
-    _xmodem: Xmodem,
-    _ymodem: Ymodem,
+    xmodem: Xmodem,
+    ymodem: Ymodem,
     zmodem: Zmodem
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     Tick,
-    Upload,
-    Download,
+    InitiateFileTransfer(bool),
     SendLogin,
-    Dial,
+    ShowPhonebook,
     Back,
     Hangup,
     Edit,
@@ -78,7 +78,8 @@ pub enum Message {
     CallBBS(usize),
     QuickConnectChanged(String),
     FontSelected(String),
-    ScreenModeSelected(ScreenMode)
+    ScreenModeSelected(ScreenMode),
+    SelectProtocol(ProtocolType, bool)
 }
 
 static KEY_MAP: &[(KeyCode, &[u8])] = &[
@@ -114,14 +115,6 @@ impl MainWindow<TelnetCom>
             None => Ok(()),
             Some(telnet) => {
                 let mut do_update = false;
-
-                if self.zmodem.is_active() {
-                    if let Err(err) = self.zmodem.update(telnet) {
-                        self.print_log(format!("{}", err));
-                    }
-                    return Ok(());
-                }
-        
                 while telnet.is_data_available()? {
                     let ch = telnet.read_char_nonblocking()?;
             
@@ -200,6 +193,13 @@ impl MainWindow<TelnetCom>
         self.log_file.push(str);
     }
 
+    pub fn print_result<T>(&mut self, result: &io::Result<T>)
+    {
+        if let Err(error) = result {
+            self.log_file.push(format!("{}", error));
+        }
+    }
+
     pub fn set_font(&mut self, font: &String)
     {
         if font != &self.get_font_name() { 
@@ -247,8 +247,8 @@ impl Application for MainWindow<TelnetCom> {
             log_file: Vec::new(),
             options: Options::new(),
             iemsi: None,
-            _xmodem: Xmodem::new(),
-            _ymodem: Ymodem::new(),
+            xmodem: Xmodem::new(),
+            ymodem: Ymodem::new(),
             zmodem: Zmodem::new(),
             font: Some(DEFAULT_FONT_NAME.to_string()),
             screen_mode: None
@@ -265,7 +265,6 @@ impl Application for MainWindow<TelnetCom> {
             self.addresses = Address::read_phone_book();
         }
 
-
         let start = SystemTime::now();
         let since_the_epoch = start
             .duration_since(UNIX_EPOCH)
@@ -280,25 +279,8 @@ impl Application for MainWindow<TelnetCom> {
         match self.mode {
             MainWindowMode::Default => {
                 match message {
-                    Message::Upload => {
-                        if let Some(telnet) = &mut self.telnet {
-                            let files = FileDialog::new()
-                                .set_directory("/")
-                                .pick_file();
-                            if let Some(path) = files {
-                                let fd = FileDescriptor::create(&path).unwrap();
-                                if let Err(err) = self.zmodem.initiate_send(telnet, vec![fd]) {
-                                    self.print_log(format!("Error sending file: {}", err));
-                                }
-                            }
-                        }
-                    },
-                    Message::Download => {
-                    /*    if let Some(telnet) = &mut self.telnet {
-                            if let Err(err) = XYmodem::new().recv(telnet) {
-                                self.print_log(format!("Error sending file: {}", err));
-                            }
-                        }*/ 
+                    Message::InitiateFileTransfer(download)=> {
+                        self.mode = MainWindowMode::SelectProtocol(download);
                     },
                     Message::SendLogin => {
                         if let Some(telnet) = &mut self.telnet {
@@ -309,8 +291,8 @@ impl Application for MainWindow<TelnetCom> {
                             self.logged_in = true;
                         }
                     }
-                    Message::Dial => {
-                        self.mode = MainWindowMode::Dialout;
+                    Message::ShowPhonebook => {
+                        self.mode = MainWindowMode::ShowPhonebook;
                     },
                     Message::Hangup => {
                         self.telnet = None;
@@ -358,11 +340,11 @@ impl Application for MainWindow<TelnetCom> {
                 }
 
             },
-            MainWindowMode::Dialout => {
+            MainWindowMode::ShowPhonebook => {
                 text_input::focus::<Message>(super::INPUT_ID.clone());
                 match message {
-                    Message::Dial => {
-                        self.mode = MainWindowMode::Dialout
+                    Message::ShowPhonebook => {
+                        self.mode = MainWindowMode::ShowPhonebook
                     },
                     Message::Back => {
                         self.mode = MainWindowMode::Default
@@ -375,7 +357,6 @@ impl Application for MainWindow<TelnetCom> {
                            }
                         }
                     },
-
                     
                     Message::CallBBS(i) => {
                         self.mode = MainWindowMode::Default;
@@ -422,6 +403,98 @@ impl Application for MainWindow<TelnetCom> {
                     _ => {}
                 }
             },
+            MainWindowMode::SelectProtocol(_) => {
+                match message {
+                    Message::Back => {
+                        self.mode = MainWindowMode::Default
+                    }
+                    Message::SelectProtocol(protocol_type, download) => {
+                        self.mode = MainWindowMode::Default;
+                        if !download {
+                            let files = FileDialog::new()
+                                .pick_files();
+                                if let Some(path) = files {
+                                    let fd = FileDescriptor::from_paths(&path);
+                                    self.print_result(&fd);
+                                    if let Ok(files) =  fd {
+                                        let r = match protocol_type {
+                                            ProtocolType::ZModem => {
+                                                self.zmodem.initiate_send(self.telnet.as_mut().unwrap(), files)
+                                            },
+                                            ProtocolType::ZedZap => {
+                                                self.zmodem.initiate_send(self.telnet.as_mut().unwrap(), files)
+                                            },
+                                            ProtocolType::XModem => {
+                                                self.xmodem.initiate_send(self.telnet.as_mut().unwrap(), files)
+                                            },
+                                            ProtocolType::YModem => {
+                                                self.ymodem.initiate_send(self.telnet.as_mut().unwrap(), files)
+                                            },
+                                            ProtocolType::YModemG => {
+                                                self.ymodem.initiate_send(self.telnet.as_mut().unwrap(), files)
+                                            }
+                                        };
+                                        self.print_result(&r);
+                                        if r.is_ok() {
+                                            self.mode = MainWindowMode::FileTransfer(protocol_type, download);
+                                        }
+                                    }
+                                } 
+                        } else {
+                            let r = match protocol_type {
+                                ProtocolType::ZModem => {
+                                    self.zmodem.initiate_recv(self.telnet.as_mut().unwrap())
+                                },
+                                ProtocolType::ZedZap => {
+                                    self.zmodem.initiate_recv(self.telnet.as_mut().unwrap())
+                                },
+                                ProtocolType::XModem => {
+                                    self.xmodem.initiate_recv(self.telnet.as_mut().unwrap())
+                                },
+                                ProtocolType::YModem => {
+                                    self.ymodem.initiate_recv(self.telnet.as_mut().unwrap())
+                                },
+                                ProtocolType::YModemG => {
+                                    self.ymodem.initiate_recv(self.telnet.as_mut().unwrap())
+                                }
+                            };
+                            self.print_result(&r);
+                            if r.is_ok() {
+                                self.mode = MainWindowMode::FileTransfer(protocol_type, download);
+                            }
+                        }
+                    }
+                    _ => { }
+                }
+            }
+            MainWindowMode::FileTransfer(protocol_type, _download) => {
+
+                match message {
+                    Message::Tick => { 
+                        if let Some(com) = &mut self.telnet {
+
+                            let r = match protocol_type {
+                                ProtocolType::ZModem | ProtocolType::ZedZap => {
+                                    self.zmodem.update(com)
+                                },
+                                ProtocolType::XModem => {
+                                    self.xmodem.update(com)
+                                },
+                                ProtocolType::YModem | ProtocolType::YModemG => {
+                                    self.ymodem.update(com)
+                                },
+                            };
+                            self.print_result(&r);
+                        }
+
+                        if !self.zmodem.is_active() && !self.xmodem.is_active() && !self.ymodem.is_active() {
+                            self.mode = MainWindowMode::Default;
+                        }
+
+                    },
+                    _ => {}
+                }
+            }
         }
 
         Command::none()
@@ -477,11 +550,11 @@ impl Application for MainWindow<TelnetCom> {
                     if !self.logged_in && self.telnet.is_some() && self.addresses[self.cur_addr].user_name.len() > 0 {
                         row![
                             button("Phonebook")
-                                .on_press(Message::Dial),
+                                .on_press(Message::ShowPhonebook),
                             button("Upload")
-                                .on_press(Message::Upload),
+                                .on_press(Message::InitiateFileTransfer(false)),
                             button("Download")
-                                .on_press(Message::Download),
+                                .on_press(Message::InitiateFileTransfer(true)),
                             button("Send login")
                                 .on_press(Message::SendLogin),
                                 button("Hangup")
@@ -491,22 +564,22 @@ impl Application for MainWindow<TelnetCom> {
                         if  self.telnet.is_some()  {
                             row![
                                 button("Phonebook")
-                                    .on_press(Message::Dial),
+                                    .on_press(Message::ShowPhonebook),
                                 button("Upload")
-                                    .on_press(Message::Upload),
+                                    .on_press(Message::InitiateFileTransfer(false)),
                                 button("Download")
-                                    .on_press(Message::Download),
+                                    .on_press(Message::InitiateFileTransfer(true)),
                                 button("Hangup")                            
                                     .on_press(Message::Hangup) 
                             ]
                         } else {
                             row![
                                 button("Phonebook")
-                                    .on_press(Message::Dial),
+                                    .on_press(Message::ShowPhonebook),
                                 button("Upload")
-                                    .on_press(Message::Upload),
+                                    .on_press(Message::InitiateFileTransfer(false)),
                                 button("Download")
-                                    .on_press(Message::Download),
+                                    .on_press(Message::InitiateFileTransfer(true)),
                             ]
                         }
                     }.padding(10).spacing(20).into(),
@@ -515,10 +588,10 @@ impl Application for MainWindow<TelnetCom> {
                         row(vec![
                             log_info,
                             vertical_rule(10).into(),
+                            text("Offline").into(),
+                            vertical_rule(10).into(),
                             font_pick_list.into(),
                             screen_mode_pick_list.into(),
-                            vertical_rule(10).into(),
-                            text("Offline").into()
                         ])
                     } else {
                         let d = SystemTime::now().duration_since(self.connection_time).unwrap();
@@ -532,10 +605,10 @@ impl Application for MainWindow<TelnetCom> {
                             vertical_rule(10).into(),
                             text(if cur.system_name.len() > 0 { &cur.system_name } else { &cur.address }).into(),
                             vertical_rule(10).into(),
+                            text(format!("Connected {:02}:{:02}:{:02}", hours, minutes % 60, sec % 60)).into(),
+                            vertical_rule(10).into(),
                             font_pick_list.into(),
                             screen_mode_pick_list.into(),
-                            vertical_rule(10).into(),
-                            text(format!("Connected {:02}:{:02}:{:02}", hours, minutes % 60, sec % 60)).into()
                         ])
                     }
                     .padding(8)
@@ -546,8 +619,30 @@ impl Application for MainWindow<TelnetCom> {
                 ]).spacing(8)
                 .into()
             },
-            MainWindowMode::Dialout => {   
+            MainWindowMode::ShowPhonebook => {   
                 super::view_phonebook(self)            
+            },
+            MainWindowMode::SelectProtocol(download) => {   
+                super::view_protocol_selector(download)
+            }
+            MainWindowMode::FileTransfer(protocol_type, download) => {
+                match protocol_type {
+                    ProtocolType::ZModem => {
+                        super::view_file_transfer(&self.zmodem, download)
+                    },
+                    ProtocolType::ZedZap => {
+                        super::view_file_transfer(&self.zmodem, download)
+                    },
+                    ProtocolType::XModem => {
+                        super::view_file_transfer(&self.xmodem, download)
+                    },
+                    ProtocolType::YModem => {
+                        super::view_file_transfer(&self.ymodem, download)
+                    },
+                    ProtocolType::YModemG => {
+                        super::view_file_transfer(&self.ymodem, download)
+                    }
+                }
             }
         }
     }

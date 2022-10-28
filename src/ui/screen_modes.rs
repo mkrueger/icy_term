@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{model::{Buffer, DosChar, BitFont, DOS_DEFAULT_PALETTE}};
+use crate::{model::{Buffer, DosChar, BitFont}};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ScreenMode {

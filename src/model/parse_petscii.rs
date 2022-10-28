@@ -22,7 +22,7 @@ impl PETSCIIState {
     }
 }
 
-pub fn parse_petscii<T: Com>(buf: &mut Buffer, caret: &mut Position, attr: &mut TextAttribute, state: &mut PETSCIIState, telnet: &mut T, ch: u8) -> io::Result<Option<u8>> {
+pub fn parse_petscii<T: Com>(buf: &mut Buffer, caret: &mut Position, attr: &mut TextAttribute, state: &mut PETSCIIState, _com: &mut T, ch: u8) -> io::Result<Option<u8>> {
     if ch >= 0x20 && ch <= 0x7F || ch >= 0xA0 {
         return Ok(Some(ch));
     }
@@ -44,7 +44,7 @@ pub fn parse_petscii<T: Com>(buf: &mut Buffer, caret: &mut Position, attr: &mut 
         0x8D => {  return Ok(Some(b'\n'));  } // Carriage return
         0x90 => {  attr.set_foreground(0);  } // BLACK
         0x91 => {   caret.y -= 1; } // caret up
-        0x12 => { state.reverse_mode = false; } // reverse mode off
+        0x92 => { state.reverse_mode = false; } // reverse mode off
         0x93 => { // clear screen
             *caret = Position::new();
             buf.clear();
