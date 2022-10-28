@@ -138,7 +138,8 @@ impl<'a> canvas::Program<Message> for BufferView {
 
                 let top_x = (bounds.width - w) / 2.0;
                 let top_y = (bounds.height - h) / 2.0;
-                
+               // println!("{:?} b: {}x{} = {} / {}", bounds, w, h, top_x, top_y);
+
                 for y in 0..buffer.height as usize {
                     for x in 0..buffer.width as usize {
                         let rect  = Rectangle::new(

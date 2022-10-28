@@ -4,5 +4,8 @@ pub use main_window::*;
 pub mod buffer_view;
 pub use buffer_view::*;
 
+pub mod screen_modes;
+pub use screen_modes::*;
+
 pub mod phonebook;
 pub use phonebook::*;

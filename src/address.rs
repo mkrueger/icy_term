@@ -4,6 +4,8 @@ use yaml_rust::{YamlLoader, Yaml};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config};
 use std::path::Path;
 
+use crate::ui::screen_modes::ScreenMode;
+
 pub enum Terminal {
     Ansi,
     _Avatar,
@@ -22,15 +24,17 @@ pub struct Address {
     pub password: String,
     pub comment: String,
     pub terminal_type: Terminal,
-    pub font_name: String,
 
     pub address: String,
     pub connection: Connection,
 
     pub ice_mode: bool,
+
+    pub font_name: Option<String>,
+    pub screen_mode: Option<ScreenMode>,
 }
 
-const TEMPLATE: &str = r"
+const TEMPLATE: &str = r#"
 # 
 # Cool BBS:
 #     comment: Some description
@@ -44,7 +48,19 @@ const TEMPLATE: &str = r"
 #     user: my_name
 #     password: my_pw_which_is_totally_different_from_that_above
 #     use_ice: true
-";
+Particles! BBS:
+    comment: Particles! BBS is a retro-themed BBS, running on retro-themed hardware.
+    address: particlesbbs.dyndns.org:6400
+Heatwave BBS:
+    comment: Heatwave runs on a vintage Myarc Geneve 9640 (TI-99/4A clone) built in 1987.
+    address: heatwave.ddns.net:9640
+"Piranha: Under the Black Flag":
+    comment: If you love rich, colorful ANSI art
+    address: blackflag.acid.org
+Dark Systems BBS:
+    comment: They are using Remote Access BBS.
+    address: bbs.dsbbs.ca
+"#;
 
 impl Address {
     pub fn new() -> Self {
@@ -54,7 +70,8 @@ impl Address {
             password: String::new(),
             comment: String::new(),
             terminal_type: Terminal::Ansi,
-            font_name: String::new(),
+            font_name: None,
+            screen_mode: None,
             address: String::new(),
             connection: Connection::Telnet,
             ice_mode: true
@@ -84,11 +101,11 @@ impl Address {
         let mut res = Vec::new();
         res.push(Address::new());
         if let Some(phonebook) = Address::get_phonebook_file() {
-            let fs = fs::read_to_string(phonebook).expect("Can't read phonebook");
+            let fs = fs::read_to_string(&phonebook).expect("Can't read phonebook");
             let data = YamlLoader::load_from_str(&fs);
 
             if data.is_err() {
-                println!("Can't read phonebook.");
+                println!("Can't read phonebook from file {}.", phonebook.display());
                 return res;
             }
             let yaml = data.unwrap();
@@ -122,7 +139,7 @@ impl Address {
     }
 }
 
-pub static mut read_addresses: bool = false;
+pub static mut READ_ADDRESSES: bool = false;
 
 pub fn start_read_book() -> Vec<Address> {
     let res = Address::read_phone_book();
@@ -131,7 +148,7 @@ pub fn start_read_book() -> Vec<Address> {
         let p  = phonebook.clone();
         thread::spawn(move || {
             loop {
-                if let Err(e) = watch(&p.parent().unwrap()) {
+                if let Err(_) = watch(&p.parent().unwrap()) {
                     return;
                 }
             }
@@ -155,7 +172,7 @@ fn watch<P: AsRef<Path>>(path: P) -> notify::Result<()> {
 
     for res in rx {
         match res {
-            Ok(event) => unsafe { read_addresses = true; },
+            Ok(_) => unsafe { READ_ADDRESSES = true; },
             Err(e) => println!("watch error: {:?}", e),
         }
     }

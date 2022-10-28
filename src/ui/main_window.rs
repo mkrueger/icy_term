@@ -2,7 +2,7 @@ use std::io;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::net::{ToSocketAddrs};
 use iced::keyboard::{KeyCode, Modifiers};
-use iced::widget::{Canvas, column, row, button, text};
+use iced::widget::{Canvas, column, row, button, text, pick_list};
 use iced::{executor, subscription, Event, keyboard};
 use iced::{
     Application, Command, Element, Length, 
@@ -15,13 +15,15 @@ use iced::{Alignment};
 
 use rfd::FileDialog;
 
+use crate::model::{DEFAULT_FONT_NAME, BitFont};
 use crate::{VERSION, iemsi};
-use crate::address::{Address, start_read_book, read_addresses};
+use crate::address::{Address, start_read_book, READ_ADDRESSES};
 use crate::com::{Com, TelnetCom};
 use crate::iemsi::{IEmsi, EmsiICI};
 use crate::protocol::{Xmodem, Zmodem, Ymodem, Protocol, FileDescriptor};
 
 use super::BufferView;
+use super::screen_modes::{DEFAULT_MODES, ScreenMode};
 
 enum MainWindowMode {
     Default,
@@ -52,6 +54,8 @@ pub struct MainWindow<T: Com> {
     options: Options,
     iemsi: Option<IEmsi>,
     connection_time: SystemTime,
+    font: Option<String>,
+    screen_mode: Option<ScreenMode>,
     // protocols
     _xmodem: Xmodem,
     _ymodem: Ymodem,
@@ -71,7 +75,9 @@ pub enum Message {
     KeyPressed(char),
     KeyCode(KeyCode, Modifiers),
     CallBBS(usize),
-    QuickConnectChanged(String)
+    QuickConnectChanged(String),
+    FontSelected(String),
+    ScreenModeSelected(ScreenMode)
 }
 
 static KEY_MAP: &[(KeyCode, &[u8])] = &[
@@ -170,9 +176,43 @@ impl MainWindow<TelnetCom>
         }
     }
 
+    pub fn get_screen_mode(&self) -> ScreenMode
+    {
+        if let Some(mode) = self.screen_mode {
+            return mode;
+        }
+
+        if self.telnet.is_some()  {
+            if let Some(mode) = self.addresses[self.cur_addr].screen_mode {
+                return mode;
+            }
+        }
+        return ScreenMode::DOS(80, 25);
+    }
+
+    pub fn get_font_name(&self) -> String
+    {
+        if let Some(font) = &self.font {
+            return font.clone();
+        }
+
+        if self.telnet.is_some()  {
+            if let Some(font) = &self.addresses[self.cur_addr].font_name {
+                return font.clone();
+            }
+        }
+        return DEFAULT_FONT_NAME.to_string();
+    }
+    
     pub fn print_log(&mut self, str: String)
     {
         self.log_file.push(str);
+    }
+    pub fn update_fonts(&mut self)
+    {
+        self.buffer_view.buf.font = BitFont::from_name(&self.get_font_name()).unwrap();
+        self.get_screen_mode().set_mode(&mut self.buffer_view.buf);
+        self.buffer_view.cache.clear();
     }
 }
 
@@ -205,7 +245,9 @@ impl Application for MainWindow<TelnetCom> {
             iemsi: None,
             _xmodem: Xmodem::new(),
             _ymodem: Ymodem::new(),
-            zmodem: Zmodem::new()
+            zmodem: Zmodem::new(),
+            font: Some(DEFAULT_FONT_NAME.to_string()),
+            screen_mode: None
         };
         view.buffer_view.buf.clear();
         (view, Command::none())
@@ -214,8 +256,8 @@ impl Application for MainWindow<TelnetCom> {
     fn update(&mut self, message: Message) -> Command<Message> {
         self.trigger = !self.trigger;
 
-        if unsafe { read_addresses } {
-            unsafe { read_addresses = false; } 
+        if unsafe { READ_ADDRESSES } {
+            unsafe { READ_ADDRESSES = false; } 
             self.addresses = Address::read_phone_book();
         }
 
@@ -302,6 +344,14 @@ impl Application for MainWindow<TelnetCom> {
                             }
                         }
                     }
+                    Message::FontSelected(font) => {
+                        self.font = Some(font);
+                        self.update_fonts();
+                    }
+                    Message::ScreenModeSelected(mode) => {
+                        self.screen_mode = Some(mode);
+                        self.update_fonts();
+                    }
                     _ => {}
                 }
 
@@ -327,7 +377,10 @@ impl Application for MainWindow<TelnetCom> {
                     
                     Message::CallBBS(i) => {
                         self.mode = MainWindowMode::Default;
-                        let adr = self.addresses[i].address.clone();
+                        let mut adr = self.addresses[i].address.clone();
+                        if !adr.contains(":") {
+                            adr.push_str(":23");
+                        }
                         self.print_log(format!("Connect to {}…", adr));
                         let mut socket_addr = adr.to_socket_addrs();
                         match &mut socket_addr {
@@ -341,6 +394,13 @@ impl Application for MainWindow<TelnetCom> {
                                             self.cur_addr = i;
                                             self.iemsi = Some(IEmsi::new());
                                             self.connection_time = SystemTime::now();
+                                            if self.addresses[self.cur_addr].screen_mode.is_some() {
+                                                self.screen_mode = None;
+                                            }
+                                            if self.addresses[self.cur_addr].font_name.is_some() {
+                                                self.font = None;
+                                            }
+                                            self.update_fonts();
                                         },
                                         Err(e) => {
                                             self.print_log(format!("Error: {:?}", e));
@@ -398,7 +458,20 @@ impl Application for MainWindow<TelnetCom> {
                     .height(Length::Fill);
                 
                 let log_info = if self.log_file.len() == 0  { text("Ready.")} else { text(&self.log_file[self.log_file.len() - 1])}.width(Length::Fill).into();
-                let screen_info = text(&format!("ANSI {}x{} ({}%)",self.buffer_view.buf.width, self.buffer_view.buf.height, (100.0 * unsafe { super::SCALE }) as i32)).into();
+                let screen_info = text(&format!("({}%)", (100.0 * unsafe { super::SCALE }) as i32)).into();
+                let all_fonts = crate::model::_SUPPORTED_FONTS.map(|s| s.to_string()).to_vec();
+                let font_pick_list = pick_list(
+                    all_fonts,
+                    Some(self.get_font_name()),
+                    Message::FontSelected
+                );
+
+                let screen_mode_pick_list: iced_native::widget::pick_list::PickList<'_, ScreenMode, Message, iced::Renderer> = pick_list(
+                    DEFAULT_MODES.to_vec(),
+                    Some(self.get_screen_mode()),
+                    Message::ScreenModeSelected
+                );
+
                 column(vec![
                     if !self.logged_in && self.telnet.is_some() && self.addresses[self.cur_addr].user_name.len() > 0 {
                         row![
@@ -441,6 +514,9 @@ impl Application for MainWindow<TelnetCom> {
                         row(vec![
                             log_info,
                             vertical_rule(10).into(),
+                            font_pick_list.into(),
+                            vertical_rule(10).into(),
+                            screen_mode_pick_list.into(),
                             screen_info,
                             vertical_rule(10).into(),
                             text("Offline").into()
@@ -455,11 +531,14 @@ impl Application for MainWindow<TelnetCom> {
                         row(vec![
                             log_info,
                             vertical_rule(10).into(),
+                            font_pick_list.into(),
+                            vertical_rule(10).into(),
                             text(if cur.system_name.len() > 0 { &cur.system_name } else { &cur.address }).into(),
                             vertical_rule(10).into(),
+                            screen_mode_pick_list.into(),
                             screen_info,
                             vertical_rule(10).into(),
-                            text(format!("Online {:02}:{:02}:{:02}", hours, minutes % 60, sec % 60)).into()
+                            text(format!("Connected {:02}:{:02}:{:02}", hours, minutes % 60, sec % 60)).into()
                         ])
                     }
                     .padding(8)
