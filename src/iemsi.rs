@@ -319,7 +319,7 @@ impl EmsiICI {
 pub fn get_crc32string(block: &[u8]) -> String
 {
     let crc = crc::get_crc32(block);
-    format!("{:08X}", crc)
+    format!("{:08X}", !crc)
 }
 
 pub fn get_crc16string(block: &[u8]) -> String
@@ -719,4 +719,33 @@ mod tests {
         let enc = encode_emsi(&["f{o}o", "b\ra\x7Fr"]).unwrap();
         assert_eq!(b"{f{o}}o}{b\\0Da\\7Fr}", enc.as_slice());
     }
+
+    #[test]
+    fn test_correct_crc() {
+        assert_eq!("C816", get_crc16string(b"EMSI_INQ"));
+        assert_eq!("9F361295", get_crc32string(b"EMSI_INQ"));
+    }
+
+    #[test]
+    fn test_emsi_ici_encoding() {
+        let ici = 
+        EmsiICI {
+            name: "fooboar".to_string(),
+            alias: "foo".to_string(),
+            location: "Unit test".to_string(),
+            data_telephone: "-Unpublished-".to_string(),
+            voice_telephone: "-Unpublished-".to_string(),
+            password: "bar".to_string(),
+            birthdate: String::new(),
+            crtdef: "ANSI,24,80,0".to_string(),
+            protocols: "ZAP,ZMO,KER".to_string(),
+            capabilities: "CHT,TAB,ASCII8".to_string(),
+            requests: "HOT,MORE,FSED,NEWS,CLR".to_string(),
+            software: "Rust".to_string(),
+            xlattabl: String::new()
+        };
+        let result = ici.encode().unwrap();
+        assert_eq!("**EMSI_ICI0089{fooboar}{foo}{Unit test}{-Unpublished-}{-Unpublished-}{bar}{}{ANSI,24,80,0}{ZAP,ZMO,KER}{CHT,TAB,ASCII8}{HOT,MORE,FSED,NEWS,CLR}{Rust}{}29535C6F\r**EMSI_ACKA490\r**EMSI_ACKA490\r", std::str::from_utf8(&result).unwrap());
+    }
 }
+

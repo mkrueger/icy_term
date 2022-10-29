@@ -117,7 +117,6 @@ impl MainWindow<TelnetCom>
                 let mut do_update = false;
                 while telnet.is_data_available()? {
                     let ch = telnet.read_char_nonblocking()?;
-            
                     if let Some(iemsi) = &mut self.iemsi {
                         iemsi.push_char(ch)?;
                         if iemsi.irq_requested {
