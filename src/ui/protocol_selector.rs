@@ -7,7 +7,7 @@ use super::main_window::{Message};
 
 
 pub fn view_protocol_selector<'a>(download: bool) -> Element<'a, Message> {
-    let button_width = 90;
+    let button_width = 120;
     let space = 8;
     let left = 20;
 

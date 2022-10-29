@@ -34,6 +34,14 @@ pub const ZCRCW: u8 = b'k';	/* CRC next, ZACK expected, end of frame */
 pub const ZRUB0: u8 = b'l';	/* Translate to rubout 0177 */
 pub const ZRUB1: u8 = b'm';	/* Translate to rubout 0377 */
 
+pub const ESC_0X10:u8 = 0x10 ^ 0x40;
+pub const ESC_0X90:u8 = 0x90 ^ 0x40;
+pub const ESC_0X11:u8 = 0x11 ^ 0x40;
+pub const ESC_0X91:u8 = 0x91 ^ 0x40;
+pub const ESC_0X13:u8 = 0x13 ^ 0x40;
+pub const ESC_0X93:u8 = 0x93 ^ 0x40;
+pub const ESC_0X0D:u8 = 0x0D ^ 0x40;
+pub const ESC_0X8D:u8 = 0x8D ^ 0x40;
 
 pub const ABORT_SEQ: [u8;19] = [24,24,24,24,24,24,24,24,8,8,8,8,8,8,8,8,8,8,0];
 

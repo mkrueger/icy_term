@@ -248,7 +248,7 @@ impl Application for MainWindow<TelnetCom> {
             options: Options::new(),
             iemsi: None,
             xymodem: XYmodem::new(XYModemVariant::XModem),
-            zmodem: Zmodem::new(),
+            zmodem: Zmodem::new(1024),
             font: Some(DEFAULT_FONT_NAME.to_string()),
             screen_mode: None
         };
@@ -418,9 +418,11 @@ impl Application for MainWindow<TelnetCom> {
                                     if let Ok(files) =  fd {
                                         let r = match protocol_type {
                                             ProtocolType::ZModem => {
+                                                self.zmodem = Zmodem::new(1024);
                                                 self.zmodem.initiate_send(self.telnet.as_mut().unwrap(), files)
                                             },
                                             ProtocolType::ZedZap => {
+                                                self.zmodem = Zmodem::new(8 * 1024);
                                                 self.zmodem.initiate_send(self.telnet.as_mut().unwrap(), files)
                                             },
                                             ProtocolType::XModem => {
@@ -489,7 +491,6 @@ impl Application for MainWindow<TelnetCom> {
                 }
             }
             MainWindowMode::FileTransfer(protocol_type, _download) => {
-
                 match message {
                     Message::Tick => { 
                         if let Some(com) = &mut self.telnet {
@@ -506,17 +507,28 @@ impl Application for MainWindow<TelnetCom> {
                         }
 
                         if !self.zmodem.is_active() && !self.xymodem.is_active() {
+                            for f in self.zmodem.get_received_files() {
+                                f.save_file_in_downloads().expect("error saving file.");
+                            }
+                            for f in self.xymodem.get_received_files() {
+                                f.save_file_in_downloads().expect("error saving file.");
+                            }
                             self.mode = MainWindowMode::Default;
                         }
-
                     },
                     Message::CancelTransfer => {
                         if let Some(com) = &mut self.telnet {
                             if self.zmodem.is_active() {
-                                self.zmodem.cancel(com);
+                                let r = self.zmodem.cancel(com);
+                                if let Err(e) = r {
+                                    println!("Error while cancel {:?}", e);
+                                }
                             }
                             if self.xymodem.is_active() {
-                                self.xymodem.cancel(com);
+                                let r = self.xymodem.cancel(com);
+                                if let Err(e) = r {
+                                    println!("Error while cancel {:?}", e);
+                                }
                             }
                         }
                     }

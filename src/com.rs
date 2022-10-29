@@ -1,4 +1,6 @@
-use std::{time::Duration, io::{self, ErrorKind}, net::SocketAddr, collections::HashMap};
+use std::{time::Duration, io::{self, ErrorKind}, net::SocketAddr};
+#[cfg(test)]
+use std::{collections::HashMap};
 
 use telnet::Telnet;
 
@@ -152,7 +154,7 @@ impl Com for TestCom {
         }
 
         if let Some(b) = self.read_buf.borrow_mut().pop_front() {
-            println!("{} reads char {}({})", self.name, b, char::from_u32(b as u32).unwrap());
+            println!("{} reads char {}/0x{:0X}({})", self.name, b, b, char::from_u32(b as u32).unwrap());
             return Ok(b);
         }
         panic!("should not happen!");

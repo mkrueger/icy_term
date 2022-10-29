@@ -65,11 +65,9 @@ impl Sy {
         let mut transfer_state = FileTransferState::new();
 
         if self.cur_file < self.files.len() {
-            let mut fd = FileDescriptor::new();
             let f = &self.files[self.cur_file];
-            fd.file_name = f.file_name.clone();
-            fd.size = f.size;
-            transfer_state.file = Some(fd);
+            transfer_state.file_name = f.file_name.clone();
+            transfer_state.file_size = f.size;
         }
         transfer_state.bytes_transfered = self.bytes_send;
         transfer_state.errors = self.errors;

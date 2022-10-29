@@ -44,7 +44,18 @@ pub struct Header {
 
 impl Display for Header {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f,"[{:?} Header with {:?} frame flags = {:0X}, {:0X}, {:0X}, {:0X}]", self.header_type, self.frame_type, self.f3(), self.f2(), self.f1(), self.f0())
+
+        match self.frame_type {
+            FrameType::ZRPOS | 
+            FrameType::ZEOF | 
+            FrameType::ZFREECNT | 
+            FrameType::ZDATA =>  write!(f,"[{:?} Header with {:?} number = {}]", self.header_type, self.frame_type, self.number()),
+            FrameType::ZCRC | 
+            FrameType::ZCHALLENGE =>  write!(f,"[{:?} Header with {:?} number = x{:08X}]", self.header_type, self.frame_type, self.number()),
+            _ => write!(f,"[{:?} Header with {:?} frame flags = x{:02X}, x{:02X}, x{:02X}, x{:02X}]", self.header_type, self.frame_type, self.f3(), self.f2(), self.f1(), self.f0())
+        }
+
+        
     }
 }
 
@@ -145,7 +156,7 @@ impl Header {
 
     pub fn write<T: Com>(&mut self, com: &mut T) -> io::Result<usize>
     {
-        // println!("Send Header: {}", self);
+        println!("Send Header: {}", self);
         com.write(&self.build())
     }
     
@@ -261,7 +272,7 @@ impl Header {
                     if eol == b'\r' {
                         com.read_char(Duration::from_secs(5))?; // \n windows eol
                     }
-                    if data[0] != ZACK && data[0] != ZBIN {
+                    if data[0] != ZACK && data[0] != frame_types::ZFIN {
                         com.read_char(Duration::from_secs(5))?; // read XON
                     }
     

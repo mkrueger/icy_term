@@ -30,9 +30,9 @@ pub fn view_file_transfer<'a,T: Protocol>(protocol: &T, download: bool) ->Elemen
         .spacing(8),
         row![
             text("File name:"),
-            text(transfer_state.get_file_name()),
+            text(transfer_state.file_name),
             text("File size:"),
-            text(transfer_state._get_file_size()),
+            text(transfer_state.file_size),
         ].padding(4)
         .spacing(8),
         row![
@@ -41,7 +41,7 @@ pub fn view_file_transfer<'a,T: Protocol>(protocol: &T, download: bool) ->Elemen
         ].padding(4)
         .spacing(8),
         text(state.current_state),
-        progress_bar(0.0..=transfer_state.get_total_bytes() as f32, transfer_state.bytes_transfered as f32),
+        progress_bar(0.0..=transfer_state.bytes_transfered as f32, transfer_state.bytes_transfered as f32),
         text(transfer_state.engine_state),
         button("Cancel")
             .on_press(Message::CancelTransfer)

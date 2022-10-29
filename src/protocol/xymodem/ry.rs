@@ -23,7 +23,6 @@ pub struct Ry {
     _ack_timeout: Duration,
 
     pub files: Vec<FileDescriptor>,
-    cur_file: usize,
     data: Vec<u8>,
 
     errors: usize,
@@ -42,8 +41,7 @@ impl Ry {
             files: Vec::new(),
             data: Vec::new(),
             errors: 0,
-            bytes_send: 0,
-            cur_file: 0
+            bytes_send: 0
         }
     }
 
@@ -54,13 +52,11 @@ impl Ry {
     pub fn update<T: Com>(&mut self, com: &mut T, state: &mut TransferState) -> io::Result<()>
     {
         let mut transfer_state = FileTransferState::new();
-
-        if self.cur_file < self.files.len() {
-            let mut fd = FileDescriptor::new();
-            let f = &self.files[self.cur_file];
-            fd.file_name = f.file_name.clone();
-            fd.size = f.size;
-            transfer_state.file = Some(fd);
+        if self.files.len() > 0 {
+            let cur_file = self.files.len() - 1;
+            let f = &self.files[cur_file];
+            transfer_state.file_name = f.file_name.clone();
+            transfer_state.file_size = f.size;
         }
         transfer_state.bytes_transfered = self.bytes_send;
         transfer_state.errors = self.errors;
@@ -68,7 +64,7 @@ impl Ry {
         transfer_state.check_size = self.configuration.get_check_and_size();
         state.recieve_state = Some(transfer_state);
 
-        println!("\t\t\t\t\t\t{:?}", self.recv_state);
+        // println!("\t\t\t\t\t\t{:?}", self.recv_state);
         match self.recv_state {
             RecvState::None => Ok(()),
 
@@ -153,7 +149,6 @@ impl Ry {
                     if let Ok(file_size) = usize::from_str_radix(&num, 10) {
                         fd.size = file_size;
                     }
-                    self.cur_file = self.files.len();
                     self.files.push(fd);
                     if self.configuration.is_ymodem() {
                         com.write(&[ACK, b'C'])?;
@@ -177,14 +172,14 @@ impl Ry {
                             while self.data.ends_with(&[CPMEOF]) {
                                 self.data.pop();
                             }
-                            if self.cur_file >= self.files.len() {
+                            if self.files.len() == 0 {
                                 self.files.push(FileDescriptor::new());
                             }
 
-                            let mut fd = self.files.get_mut(self.cur_file).unwrap();
+                            let cur_file = self.files.len() - 1;
+                            let mut fd = self.files.get_mut(cur_file).unwrap();
                             fd.data = Some(self.data.clone());
                             self.data = Vec::new();
-                            self.cur_file += 1;
 
                             if self.configuration.is_ymodem() {
                                 com.write(&[NAK])?;
@@ -247,7 +242,7 @@ impl Ry {
                     let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode { 2 } else { 1 };
                     let block = com.read_exact(self.recv_timeout, len + chksum_size)?;
                     if !self.check_crc(&block) {
-                        println!("\t\t\t\t\t\trecv crc mismatch");
+                        // println!("\t\t\t\t\t\trecv crc mismatch");
                         self.errors += 1;
                         com.discard_buffer()?;
                         com.write(&[NAK])?;

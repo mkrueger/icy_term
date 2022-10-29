@@ -3,6 +3,7 @@ use std::time::SystemTime;
 use std::{io, fs};
 
 pub mod xymodem;
+use directories::UserDirs;
 pub use xymodem::*;
 
 pub mod zmodem;
@@ -39,6 +40,16 @@ impl FileDescriptor {
             res.push(fd);
         }
         Ok(res)
+    }
+
+    pub fn save_file_in_downloads(&self) -> io::Result<()> {
+
+        if let Some(user_dirs) = UserDirs::new() { 
+            let dir = user_dirs.download_dir().unwrap();
+            let file_name = dir.join(&self.file_name);
+            fs::write(file_name, &self.get_data()?)?;
+        }
+        Ok(())
     }
     
     pub fn create(path: &PathBuf) -> io::Result<Self> {
@@ -81,7 +92,8 @@ impl FileDescriptor {
 
 #[derive(Clone)]
 pub struct FileTransferState {
-    pub file: Option<FileDescriptor>,
+    pub file_name: String,
+    pub file_size: usize,
     pub bytes_transfered: usize,
     pub errors: usize,
     pub files_finished: Vec<String>,
@@ -92,7 +104,8 @@ pub struct FileTransferState {
 impl FileTransferState {
     pub fn new() -> Self {
         Self {
-            file: None,
+            file_name: String::new(),
+            file_size: 0,
             bytes_transfered: 0,
             errors: 0,
             files_finished: Vec::new(),
@@ -101,27 +114,6 @@ impl FileTransferState {
         }
     }
 
-    pub fn get_file_name(&self) -> String {
-        match &self.file {
-            Some(file) => file.file_name.clone(),
-            None => "<unknown>".to_string()
-        }
-    }
-
-    pub fn _get_file_size(&self) -> usize {
-        match &self.file {
-            Some(file) => file.size,
-            None => 0
-        }
-    }
-
-    pub fn get_total_bytes(&self) -> usize {
-        if let Some(f) = &self.file {
-            f.size
-        } else {
-            0
-        }
-    }
 }
 
 

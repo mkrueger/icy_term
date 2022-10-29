@@ -11,20 +11,26 @@ pub use header::*;
 mod sz;
 use sz::*;
 
-use crate::{crc, com::Com};
+mod rz;
+use rz::*;
 
-use super::{Protocol, TransferState};
+mod tests;
+
+use crate::{crc, com::Com};
+use super::{Protocol, TransferState, FileTransferState};
 
 pub struct Zmodem {
     transfer_state: Option<TransferState>,
-    sz: Sz
+    sz: Sz,
+    rz: Rz
 }
 
 impl Zmodem {
-    pub fn new() -> Self {
+    pub fn new(block_length: usize) -> Self {
         Self {
             transfer_state: None,
-            sz: Sz::new()
+            sz: Sz::new(block_length),
+            rz: Rz::new()
         }
     }
 
@@ -32,7 +38,6 @@ impl Zmodem {
         com.write(&ABORT_SEQ)?;
         Ok(())
     }
-
 
     pub fn _encode_subpacket_crc16(zcrc_byte: u8, data:&[u8]) -> Vec<u8>
     {
@@ -61,14 +66,7 @@ impl Zmodem {
     }
 }
 
-const ESC_0X10:u8 = 0x10 ^ 0x40;
-const ESC_0X90:u8 = 0x90 ^ 0x40;
-const ESC_0X11:u8 = 0x11 ^ 0x40;
-const ESC_0X91:u8 = 0x91 ^ 0x40;
-const ESC_0X13:u8 = 0x13 ^ 0x40;
-const ESC_0X93:u8 = 0x93 ^ 0x40;
-const ESC_0X0D:u8 = 0x0D ^ 0x40;
-const ESC_0X8D:u8 = 0x8D ^ 0x40;
+
 
 fn append_escape(v: &mut Vec<u8>, data: &[u8])
 {
@@ -138,47 +136,62 @@ impl Protocol for Zmodem {
 
     fn is_active(&self) -> bool
     {
-        self.sz.is_active()
+        self.transfer_state.is_some()
     }
 
     fn update<T: crate::com::Com>(&mut self, com: &mut T) -> std::io::Result<()> {
-        if self.sz.is_active() {
-            self.sz.update(com)?;
+        match &mut self.transfer_state  {
+            Some(s) => {
+                if self.sz.is_active() {
+                    self.sz.update(com, s)?;
+                    if !self.sz.is_active() {
+                        self.transfer_state = None;
+                    }
+                } else if self.rz.is_active() {
+                    self.rz.update(com, s)?;
+                    if !self.rz.is_active() {
+                        self.transfer_state = None;
+                    }
+                }
+            }
+            None => {
+                println!("no state");
+                return Ok(());
+            }
         }
+        
         Ok(())
     }
 
     fn initiate_send<T: crate::com::Com>(&mut self, com: &mut T, files: Vec<super::FileDescriptor>) -> std::io::Result<()> {
+        let mut state = TransferState::new();
+        state.send_state = Some(FileTransferState::new());
+        self.transfer_state = Some(state);
+
         self.sz.send(com, files)
     }
 
-    fn initiate_recv<T: crate::com::Com>(&mut self, _com: &mut T) -> std::io::Result<()> {
-        todo!()
+    fn initiate_recv<T: crate::com::Com>(&mut self, com: &mut T) -> std::io::Result<()> {
+        let mut state = TransferState::new();
+        state.recieve_state = Some(FileTransferState::new());
+        self.transfer_state = Some(state);
+
+        self.rz.recv(com)
     }
 
     fn get_received_files(&mut self) -> Vec<super::FileDescriptor> {
-        todo!()
+        let c = self.rz.files.clone();
+        self.rz.files = Vec::new();
+        c
     }
 
     fn cancel<T: crate::com::Com>(&mut self, com: &mut T) -> io::Result<()>
     {
+        self.transfer_state = None;
+        com.write(&ABORT_SEQ)?;
         com.write(&ABORT_SEQ)?;
         Ok(())
     }
 
 }
 
-
-
-#[cfg(test)]
-mod tests {
-    use std::vec;
-
-    use crate::protocol::{Zmodem, ZCRCE};
-
-    #[test]
-    fn test_encode_subpckg_crc32() {
-        let pck = Zmodem::encode_subpacket_crc32(ZCRCE, b"a\n");
-        assert_eq!(vec![0x61, 0x0a, 0x18, 0x68, 0xe5, 0x79, 0xd2, 0x0f], pck);
-    } 
-}
