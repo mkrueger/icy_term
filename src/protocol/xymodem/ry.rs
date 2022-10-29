@@ -73,6 +73,7 @@ impl Ry {
                     state.current_state = "Start receiving...";
 
                     let start = com.read_char(self.recv_timeout)?;
+                    println!("{:02X} {}, {}", start, start, char::from_u32(start as u32).unwrap());
                     if start == SOH {
                         if self.configuration.is_ymodem() {
                             self.recv_state = RecvState::ReadYModemHeader(0);
@@ -102,42 +103,32 @@ impl Ry {
 
                 if com.is_data_available()? {
                     state.current_state = "Get header...";
-
-                    let block_num = com.read_char(self.recv_timeout)?;
-                    let block_num_neg = com.read_char(self.recv_timeout)?;
-        
-                    if block_num != block_num_neg ^ 0xFF {
-                        //println!("BLOCK ERROR");
-                        com.discard_buffer()?;
-                        com.write(&[NAK])?;
-
-                        self.errors += 1;
-                        let start = com.read_char(self.recv_timeout)?;
-                        if start == SOH {
-                            self.recv_state = RecvState::ReadBlock(DEFAULT_BLOCK_LENGTH, retries + 1);
-                        } else if start == STX {
-                            self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
-                        } else {
-                            self.cancel(com)?;
-                            return Err(io::Error::new(ErrorKind::ConnectionAborted, "too many retries")); 
-                        }
-                        self.recv_state = RecvState::ReadYModemHeader(retries + 1);
-                        return Ok(());
-                    }
                     let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode { 2 } else { 1 };
-                    let block = com.read_exact(self.recv_timeout, len + chksum_size)?;
-                    if !self.check_crc(&block) {
-                       // println!("NAK CRC FAIL");
+
+                    let block = com.read_exact(self.recv_timeout, 2 + len + chksum_size)?;
+                    print!("Got Y modem header: ");
+                    for b in &block {
+                        print!("{}, ", char::from_u32(*b as u32).unwrap());
+                    }
+                    println!();
+
+                    if block[0] != block[1] ^ 0xFF {
+                        com.write(&[NAK])?;
                         self.errors += 1;
-                        com.discard_buffer()?;
+                        self.recv_state = RecvState::StartReceive(retries + 1);
+                        return Ok(());
+                    }
+                    let block = &block[2..];
+                    if !self.check_crc(block) {
+                        //println!("NAK CRC FAIL");
+                        self.errors += 1;
                         com.write(&[NAK])?;
                         self.recv_state = RecvState::ReadYModemHeader(retries + 1);
                         return Ok(());
                     }
-
                     if block[0] == 0 {
                         // END transfer
-                        // println!("END TRANSFER");
+                        //println!("END TRANSFER");
                         com.write(&[ACK])?;
                         self.recv_state = RecvState::None;
                         return Ok(());
@@ -218,11 +209,9 @@ impl Ry {
             RecvState::ReadBlock(len, retries) => {
                 if com.is_data_available()? {
                     state.current_state = "Receiving data...";
-                    let block_num = com.read_char(self.recv_timeout)?;
-                    let block_num_neg = com.read_char(self.recv_timeout)?;
-        
-                    if block_num != block_num_neg ^ 0xFF {
-                        com.discard_buffer()?;
+                    let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode { 2 } else { 1 };
+                    let block = com.read_exact(self.recv_timeout, 2 + len + chksum_size)?;
+                    if block[0] != block[1] ^ 0xFF {
                         com.write(&[NAK])?;
 
                         self.errors += 1;
@@ -239,12 +228,10 @@ impl Ry {
                         self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
                         return Ok(());
                     }
-                    let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode { 2 } else { 1 };
-                    let block = com.read_exact(self.recv_timeout, len + chksum_size)?;
+                    let block = &block[2..];
                     if !self.check_crc(&block) {
-                        // println!("\t\t\t\t\t\trecv crc mismatch");
+                        //println!("\t\t\t\t\t\trecv crc mismatch");
                         self.errors += 1;
-                        com.discard_buffer()?;
                         com.write(&[NAK])?;
                         self.recv_state = RecvState::ReadBlockStart(0, retries + 1);
                         return Ok(());

@@ -4,6 +4,7 @@ use std::{io, fs};
 
 pub mod xymodem;
 use directories::UserDirs;
+use rfd::FileDialog;
 pub use xymodem::*;
 
 pub mod zmodem;
@@ -46,6 +47,15 @@ impl FileDescriptor {
 
         if let Some(user_dirs) = UserDirs::new() { 
             let dir = user_dirs.download_dir().unwrap();
+
+            if self.file_name.is_empty() {
+                let new_name = FileDialog::new()
+                .save_file();
+                if let Some(path) = new_name {
+                    fs::write(dir.join(path), &self.get_data()?)?;
+                }
+                return Ok(());
+            }
             let file_name = dir.join(&self.file_name);
             fs::write(file_name, &self.get_data()?)?;
         }

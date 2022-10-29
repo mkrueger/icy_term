@@ -203,7 +203,6 @@ impl Header {
                 next = com.read_char(Duration::from_secs(5))?;
             }
             if next != ZDLE {
-                com.discard_buffer()?;
                 return Err(io::Error::new(io::ErrorKind::InvalidData, "ZDLE expected"));
             }
 
@@ -213,7 +212,6 @@ impl Header {
                 ZBIN32 => 9,
                 ZHEX => 14,
                 _ => {
-                    com.discard_buffer()?;
                     return Err(io::Error::new(io::ErrorKind::InvalidData, "Unknown header type"))
                 }
             };
@@ -223,7 +221,6 @@ impl Header {
                     let crc16 = crc::get_crc16(&header_data[0..5]);
                     let check_crc16 = u16::from_le_bytes(header_data[5..7].try_into().unwrap());
                     if crc16 != check_crc16 {
-                        com.discard_buffer()?;
                         return Err(io::Error::new(io::ErrorKind::InvalidData, "CRC16 mismatch"));
                     }
                     Ok(Some(Header {
@@ -237,7 +234,6 @@ impl Header {
                     let crc32 = crc::get_crc32(&data);
                     let check_crc32 = u32::from_le_bytes(header_data[5..9].try_into().unwrap());
                     if crc32 != check_crc32 {
-                        com.discard_buffer()?;
                         return Err(io::Error::new(io::ErrorKind::InvalidData, "CRC32 mismatch"));
                     }
                     Ok(Some(Header {
@@ -262,7 +258,6 @@ impl Header {
                         check_crc16 = check_crc16  << 4 | (from_hex(*b)? as u16);
                     }
                     if crc16 != check_crc16 {
-                        com.discard_buffer()?;
                         return Err(io::Error::new(io::ErrorKind::InvalidData, "CRC32 mismatch"));
                     }
                     // read rest

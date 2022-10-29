@@ -410,8 +410,8 @@ impl Application for MainWindow<TelnetCom> {
                     Message::SelectProtocol(protocol_type, download) => {
                         self.mode = MainWindowMode::Default;
                         if !download {
-                            let files = FileDialog::new()
-                                .pick_files();
+                                let files = FileDialog::new()
+                                    .pick_files();
                                 if let Some(path) = files {
                                     let fd = FileDescriptor::from_paths(&path);
                                     self.print_result(&fd);

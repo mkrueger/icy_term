@@ -19,7 +19,6 @@ pub trait Com
 
     fn disconnect(&mut self);
 
-    fn discard_buffer(&mut self) -> io::Result<()>;
 }
 
 pub struct TelnetCom
@@ -113,13 +112,6 @@ impl Com for TelnetCom {
         }
         return Err(io::Error::new(ErrorKind::NotConnected, "not connected"));
     }
-
-    fn discard_buffer(&mut self) -> io::Result<()>
-    {
-        self.fill_buffer()?;
-        self.buf.clear();
-        Ok(())
-    }
 }
 
 #[cfg(test)]
@@ -211,12 +203,6 @@ impl Com for TestCom {
         }
         self.write_buf.borrow_mut().extend(buf.iter());
         Ok(buf.len())
-    }
-
-    fn discard_buffer(&mut self) -> io::Result<()>
-    {
-        self.read_buf.borrow_mut().clear();
-        Ok(())
     }
 }
 
