@@ -86,15 +86,15 @@ impl ScreenMode {
             }
             ScreenMode::C64 => {
                 buf.width = 40;
-                buf.height = 40;
+                buf.height = 25;
                 *font = Some("C64 PETSCII unshifted".to_string());
                 buf.extended_font = Some(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
                 buf.petscii = true;
                 buf.palette = crate::model::Palette { colors: crate::model::C64_DEFAULT_PALETTE.to_vec() };
             }
             ScreenMode::C128(col) => {
-                buf.width = 40;
-                buf.height = *col;
+                buf.width = *col;
+                buf.height = 25;
                 *font = Some("C64 PETSCII unshifted".to_string());
                 buf.extended_font = Some(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
                 buf.petscii = true;

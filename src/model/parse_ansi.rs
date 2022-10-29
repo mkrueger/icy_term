@@ -39,7 +39,7 @@ const ANSI_ESC: u8 = 27;
 
 const COLOR_OFFSETS : [u8; 8] = [ 0, 4, 2, 6, 1, 5, 3, 7 ];
 
-pub fn parse_ansi<T: Com>(buf: &mut Buffer, caret: &mut Position, attr: &mut TextAttribute, data: &mut ParseStates, telnet: &mut T, ch: u8) -> io::Result<Option<u8>> {
+pub fn parse_ansi<T: Com>(buf: &mut Buffer, caret: &mut Position, attr: &mut TextAttribute, data: &mut ParseStates, telnet:Option<&mut T>, ch: u8) -> io::Result<Option<u8>> {
     if data.ans_esc {
         data.ans_seq.push(char::from_u32(ch as u32).unwrap());
 
@@ -189,12 +189,12 @@ pub fn parse_ansi<T: Com>(buf: &mut Buffer, caret: &mut Position, attr: &mut Tex
                 }
                 match data.ans_numbers[0] {
                     5 => { // Device status report
-                        telnet.write(format!("\x1b[0n").as_bytes())?;
+                        telnet.unwrap().write(format!("\x1b[0n").as_bytes())?;
                     },
                     6 => { // Get cursor position
                         let s = format!("\x1b[{};{}R", min(buf.height as i32, caret.y + 1), min(buf.width as i32, caret.x + 1));
                         println!("send cursor position <ESC>[{};{}R", min(buf.height as i32, caret.y + 1), min(buf.width as i32, caret.x + 1));
-                        telnet.write(s.as_bytes())?;
+                        telnet.unwrap().write(s.as_bytes())?;
                     },
                     _ => {
                         return Err(io::Error::new(io::ErrorKind::InvalidData, format!("unknown ANSI n sequence {}", data.ans_numbers[0])));

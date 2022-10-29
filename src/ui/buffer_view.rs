@@ -39,46 +39,61 @@ impl BufferView {
         }
     }
 
-    pub fn print_char<T: Com>(&mut self, telnet: &mut T, c: u8) -> io::Result<()>
+    pub fn print_char<T: Com>(&mut self, telnet: Option<&mut T>, c: u8) -> io::Result<()>
     {
-        let c = if self.buf.petscii { parse_petscii(&mut self.buf, &mut self.caret, &mut self.attr, &mut self.pstate, telnet, c) } else { parse_ansi(&mut self.buf, &mut self.caret, &mut self.attr, &mut self.state, telnet, c) };
+        let c = if self.buf.petscii { parse_petscii(&mut self.buf, &mut self.caret, &mut self.attr, &mut self.pstate, c) } else { parse_ansi(&mut self.buf, &mut self.caret, &mut self.attr, &mut self.state, telnet, c) };
 
         if let Err(err) = &c {
             println!("error in ansi sequence: {}", err);
         }
 
         if let Ok(Some(ch)) = c {
-            match ch {
-                10 => {
-                    self.caret.x = 0;
-                    self.caret.y += 1;
-                }
-                12 => {
-                    self.caret.x = 0;
-                    self.caret.y = 1;
-                    self.attr = TextAttribute::DEFAULT;
-                }
-                13 => {
-                    self.caret.x = 0;
-                }
-                8 => {
-                    self.caret.x = max(0, self.caret.x - 1);
-                }
-                _ => {
-                    let mut ch = DosChar::from(ch as u16, self.attr);
-                    if self.buf.petscii {
-                        ch.ext_font = self.pstate.ext_font;
-                    }
-                    self.buf.set_char(self.caret, Some(ch));
-                    self.caret.x = self.caret.x + 1;
-                    if self.caret.x >= self.buf.width as i32 {
+            if !self.buf.petscii {
+                match ch {
+                    10 => {
                         self.caret.x = 0;
-                        self.caret.y = self.caret.y + 1;
+                        self.caret.y += 1;
                     }
-                }
-            };
+                    12 => {
+                        self.caret.x = 0;
+                        self.caret.y = 1;
+                        self.attr = TextAttribute::DEFAULT;
+                    }
+                    13 => {
+                        self.caret.x = 0;
+                    }
+                    8 => {
+                        self.caret.x = max(0, self.caret.x - 1);
+                    }
+                    _ => {
+                        let mut ch = DosChar::from(ch as u16, self.attr);
+                        if self.buf.petscii {
+                            ch.ext_font  = self.pstate.ext_font;
+                        }
 
+                        self.buf.set_char(self.caret, Some(ch));
+                        self.caret.x = self.caret.x + 1;
+                        if self.caret.x >= self.buf.width as i32 {
+                            self.caret.x = 0;
+                            self.caret.y = self.caret.y + 1;
+                        }
+                    }
+                };
+            }  else {
+                let mut ch = DosChar::from(ch as u16, self.attr);
+                if self.buf.petscii {
+                    ch.ext_font  = self.pstate.ext_font;
+                }
+
+                self.buf.set_char(self.caret, Some(ch));
+                self.caret.x = self.caret.x + 1;
+                if self.caret.x >= self.buf.width as i32 {
+                    self.caret.x = 0;
+                    self.caret.y = self.caret.y + 1;
+                }
+            }
             if self.caret.y >= self.buf.height as i32 {
+
                 self.buf.layer.remove_line(0);
                 self.buf.layer.insert_line(self.buf.height as i32 - 1, crate::model::Line::new());
                 self.caret.y = self.buf.height as i32 - 1;
@@ -155,13 +170,16 @@ impl<'a> canvas::Program<Message> for BufferView {
                                 char_size
                             );
                             if let Some(ch) = buffer.get_char(crate::model::Position::from(x as i32, y as i32)) {
-                                let bg = buffer.palette.colors[ch.attribute.get_background() as usize];
+                                let (fg, bg) = 
+                                    (buffer.palette.colors[ch.attribute.get_foreground() as usize],
+                                    buffer.palette.colors[ch.attribute.get_background() as usize])
+                                ;
+                                
                                 let (r, g, b) = bg.get_rgb_f32();
 
                                 let color = iced::Color::new(r, g, b, 1.0);
                                 frame.fill_rectangle(rect.position(), rect.size(), color);
 
-                                let fg = buffer.palette.colors[ch.attribute.get_foreground() as usize];
                                 let (r, g, b) = fg.get_rgb_f32();
                                 let color = iced::Color::new(r, g, b, 1.0);
                                 for y in 0..font_dimensions.height {

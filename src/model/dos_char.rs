@@ -4,7 +4,7 @@ use super::TextAttribute;
 pub struct DosChar {
     pub char_code: u16,
     pub attribute: TextAttribute,
-    pub ext_font: bool
+    pub ext_font: bool,
 }
 
 impl Default for DosChar {

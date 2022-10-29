@@ -18,6 +18,10 @@ impl TextAttribute
 {
     pub const DEFAULT : TextAttribute = TextAttribute{ foreground_color: 7, background_color: 0, blink: false };
 
+    pub fn from(fg:u8, bg: u8) -> Self {
+        TextAttribute{ foreground_color: fg, background_color: bg, blink: false }
+    }
+    
     pub fn as_u8(self, buffer_type: BufferType) -> u8
     {
         let fg = if buffer_type.use_extended_font() {
@@ -75,6 +79,11 @@ impl TextAttribute
     pub fn set_foreground(&mut self, color: u8) 
     {
         self.foreground_color = color;
+    }
+
+    pub fn set_background(&mut self, color: u8) 
+    {
+        self.background_color = color;
     }
 
     pub fn set_foreground_without_bold(&mut self, color: u8) 
