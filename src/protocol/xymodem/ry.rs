@@ -1,6 +1,6 @@
 use std::{time::Duration, io::{self, ErrorKind}};
 use crate::{protocol::{FileDescriptor, TransferState, FileTransferState, xymodem::constants::{SOH, STX, EXT_BLOCK_LENGTH, EOT, CPMEOF, NAK, ACK}}, com::Com};
-use super::{Checksum, get_checksum, XYModemVariant, constants::{CAN, DEFAULT_BLOCK_LENGTH}};
+use super::{Checksum, get_checksum,  constants::{CAN, DEFAULT_BLOCK_LENGTH}, XYModemConfiguration};
 
 
 #[derive(Debug)]
@@ -15,11 +15,8 @@ pub enum RecvState {
 
 /// specification: http://pauillac.inria.fr/~doligez/zmodem/ymodem.txt
 pub struct Ry {
-    pub block_length: usize,
+    configuration: XYModemConfiguration,
     pub bytes_send: usize,
-
-    pub variant: XYModemVariant,
-    checksum_mode: Checksum,
 
     _send_timeout: Duration,
     recv_timeout: Duration,
@@ -34,11 +31,9 @@ pub struct Ry {
 }
 
 impl Ry {
-    pub fn new() -> Self {
+    pub fn new(configuration: XYModemConfiguration) -> Self {
         Ry {
-            variant: XYModemVariant::XModem,
-            block_length: DEFAULT_BLOCK_LENGTH,
-            checksum_mode: Checksum::CRC16,
+            configuration,
             _send_timeout: Duration::from_secs(10),
             recv_timeout: Duration::from_secs(10),
             _ack_timeout: Duration::from_secs(3),
@@ -70,9 +65,10 @@ impl Ry {
         transfer_state.bytes_transfered = self.bytes_send;
         transfer_state.errors = self.errors;
         transfer_state.engine_state = format!("{:?}", self.recv_state);
+        transfer_state.check_size = self.configuration.get_check_and_size();
         state.recieve_state = Some(transfer_state);
 
-        //println!(":?}", self.recv_state);
+        println!("\t\t\t\t\t\t{:?}", self.recv_state);
         match self.recv_state {
             RecvState::None => Ok(()),
 
@@ -82,7 +78,7 @@ impl Ry {
 
                     let start = com.read_char(self.recv_timeout)?;
                     if start == SOH {
-                        if let XYModemVariant::YModem = self.variant {
+                        if self.configuration.is_ymodem() {
                             self.recv_state = RecvState::ReadYModemHeader(0);
                         } else {
                             self.recv_state = RecvState::ReadBlock(DEFAULT_BLOCK_LENGTH, 0);
@@ -91,7 +87,7 @@ impl Ry {
                         self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, 0);
                     } else {
                         if retries < 3 {
-                            com.write(b"C")?;
+                            self.await_data(com)?;
                         } else if retries == 4  {
                             com.write(&[NAK])?;
                         } else {
@@ -132,7 +128,7 @@ impl Ry {
                         self.recv_state = RecvState::ReadYModemHeader(retries + 1);
                         return Ok(());
                     }
-                    let chksum_size = if let Checksum::CRC16 = self.checksum_mode { 2 } else { 1 };
+                    let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode { 2 } else { 1 };
                     let block = com.read_exact(self.recv_timeout, len + chksum_size)?;
                     if !self.check_crc(&block) {
                        // println!("NAK CRC FAIL");
@@ -159,7 +155,11 @@ impl Ry {
                     }
                     self.cur_file = self.files.len();
                     self.files.push(fd);
-                    com.write(&[ACK, b'C'])?;
+                    if self.configuration.is_ymodem() {
+                        com.write(&[ACK, b'C'])?;
+                    } else {
+                        com.write(&[ACK])?;
+                    }
                     self.recv_state = RecvState::ReadBlockStart(0, 0);
                 }
                 Ok(())
@@ -186,7 +186,7 @@ impl Ry {
                             self.data = Vec::new();
                             self.cur_file += 1;
 
-                            if let XYModemVariant::YModem = self.variant {
+                            if self.configuration.is_ymodem() {
                                 com.write(&[NAK])?;
                                 self.recv_state = RecvState::ReadBlockStart(1, 0);
                             } else {
@@ -209,7 +209,11 @@ impl Ry {
                             self.recv_state = RecvState::None;
                             return Ok(());
                         }
-                        com.write(&[ACK, b'C'])?;
+                        if self.configuration.is_ymodem() {
+                            com.write(&[ACK, b'C'])?;
+                        } else {
+                            com.write(&[ACK])?;
+                        }
                         self.recv_state = RecvState::StartReceive(retries);
                     }
                 }
@@ -240,9 +244,10 @@ impl Ry {
                         self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
                         return Ok(());
                     }
-                    let chksum_size = if let Checksum::CRC16 = self.checksum_mode { 2 } else { 1 };
+                    let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode { 2 } else { 1 };
                     let block = com.read_exact(self.recv_timeout, len + chksum_size)?;
                     if !self.check_crc(&block) {
+                        println!("\t\t\t\t\t\trecv crc mismatch");
                         self.errors += 1;
                         com.discard_buffer()?;
                         com.write(&[NAK])?;
@@ -250,7 +255,9 @@ impl Ry {
                         return Ok(());
                     }
                     self.data.extend_from_slice(&block[0..len]);
-                    com.write(&[ACK])?;
+                    if !self.configuration.is_streaming() {
+                        com.write(&[ACK])?;
+                    }
                     self.recv_state = RecvState::ReadBlockStart(0, 0);
                 }
                 Ok(())
@@ -263,19 +270,22 @@ impl Ry {
         Ok(())
     }
 
-    pub fn recv<T: Com>(&mut self, com: &mut T, variant: XYModemVariant) -> io::Result<()>
+    pub fn recv<T: Com>(&mut self, com: &mut T) -> io::Result<()>
     {
-        match variant {
-            XYModemVariant::XModem => self.block_length = DEFAULT_BLOCK_LENGTH,
-            XYModemVariant::_XModem1k => self.block_length = EXT_BLOCK_LENGTH,
-            XYModemVariant::YModem => { self.block_length = EXT_BLOCK_LENGTH; self.checksum_mode = Checksum::CRC16; } ,
-            XYModemVariant::_YModemG => {  self.block_length = EXT_BLOCK_LENGTH;  self.checksum_mode = Checksum::CRC16; },
-        }
-        self.variant = variant;
-        com.write(b"C")?;
+        self.await_data(com)?;
         self.data = Vec::new();
         self.recv_state = RecvState::StartReceive(0);
         Ok(())
+    }
+
+    fn await_data<T: Com>(&mut self, com: &mut T) -> io::Result<usize> {
+        if self.configuration.is_streaming() {
+            com.write(b"G")
+        } else if self.configuration.use_crc() {
+            com.write(b"C")
+        } else {
+            com.write(&[NAK])
+        }
     }
 
     fn check_crc(&self, block: &[u8]) -> bool
@@ -283,7 +293,7 @@ impl Ry {
         if block.len() < 3 {
             return false;
         }
-        match self.checksum_mode {
+        match self.configuration.checksum_mode {
             Checksum::Default => {
                 let chk = get_checksum(&block[..block.len() - 1]);
                 block[block.len() - 1] == chk

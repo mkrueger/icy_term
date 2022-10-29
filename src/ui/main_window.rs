@@ -20,7 +20,7 @@ use crate::{VERSION, iemsi};
 use crate::address::{Address, start_read_book, READ_ADDRESSES};
 use crate::com::{Com, TelnetCom};
 use crate::iemsi::{IEmsi, EmsiICI};
-use crate::protocol::{Xmodem, Zmodem, Ymodem, Protocol, ProtocolType, FileDescriptor};
+use crate::protocol::{ Zmodem, XYmodem, Protocol, ProtocolType, FileDescriptor, XYModemVariant};
 
 use super::{BufferView};
 use super::screen_modes::{DEFAULT_MODES, ScreenMode};
@@ -59,8 +59,7 @@ pub struct MainWindow<T: Com> {
     font: Option<String>,
     screen_mode: Option<ScreenMode>,
     // protocols
-    xmodem: Xmodem,
-    ymodem: Ymodem,
+    xymodem: XYmodem,
     zmodem: Zmodem
 }
 
@@ -248,8 +247,7 @@ impl Application for MainWindow<TelnetCom> {
             log_file: Vec::new(),
             options: Options::new(),
             iemsi: None,
-            xmodem: Xmodem::new(),
-            ymodem: Ymodem::new(),
+            xymodem: XYmodem::new(XYModemVariant::XModem),
             zmodem: Zmodem::new(),
             font: Some(DEFAULT_FONT_NAME.to_string()),
             screen_mode: None
@@ -426,13 +424,24 @@ impl Application for MainWindow<TelnetCom> {
                                                 self.zmodem.initiate_send(self.telnet.as_mut().unwrap(), files)
                                             },
                                             ProtocolType::XModem => {
-                                                self.xmodem.initiate_send(self.telnet.as_mut().unwrap(), files)
+                                                self.xymodem = XYmodem::new(XYModemVariant::XModem);
+                                                self.xymodem.initiate_send(self.telnet.as_mut().unwrap(), files)
+                                            },
+                                            ProtocolType::XModem1k => {
+                                                self.xymodem = XYmodem::new(XYModemVariant::XModem1k);
+                                                self.xymodem.initiate_send(self.telnet.as_mut().unwrap(), files)
+                                            },
+                                            ProtocolType::XModem1kG => {
+                                                self.xymodem = XYmodem::new(XYModemVariant::XModem1kG);
+                                                self.xymodem.initiate_send(self.telnet.as_mut().unwrap(), files)
                                             },
                                             ProtocolType::YModem => {
-                                                self.ymodem.initiate_send(self.telnet.as_mut().unwrap(), files)
+                                                self.xymodem = XYmodem::new(XYModemVariant::YModem);
+                                                self.xymodem.initiate_send(self.telnet.as_mut().unwrap(), files)
                                             },
                                             ProtocolType::YModemG => {
-                                                self.ymodem.initiate_send(self.telnet.as_mut().unwrap(), files)
+                                                self.xymodem = XYmodem::new(XYModemVariant::YModemG);
+                                                self.xymodem.initiate_send(self.telnet.as_mut().unwrap(), files)
                                             }
                                         };
                                         self.print_result(&r);
@@ -450,13 +459,24 @@ impl Application for MainWindow<TelnetCom> {
                                     self.zmodem.initiate_recv(self.telnet.as_mut().unwrap())
                                 },
                                 ProtocolType::XModem => {
-                                    self.xmodem.initiate_recv(self.telnet.as_mut().unwrap())
+                                    self.xymodem = XYmodem::new(XYModemVariant::XModem);
+                                    self.xymodem.initiate_recv(self.telnet.as_mut().unwrap())
+                                },
+                                ProtocolType::XModem1k => {
+                                    self.xymodem = XYmodem::new(XYModemVariant::XModem1k);
+                                    self.xymodem.initiate_recv(self.telnet.as_mut().unwrap())
+                                },
+                                ProtocolType::XModem1kG => {
+                                    self.xymodem = XYmodem::new(XYModemVariant::XModem1kG);
+                                    self.xymodem.initiate_recv(self.telnet.as_mut().unwrap())
                                 },
                                 ProtocolType::YModem => {
-                                    self.ymodem.initiate_recv(self.telnet.as_mut().unwrap())
+                                    self.xymodem = XYmodem::new(XYModemVariant::YModem);
+                                    self.xymodem.initiate_recv(self.telnet.as_mut().unwrap())
                                 },
                                 ProtocolType::YModemG => {
-                                    self.ymodem.initiate_recv(self.telnet.as_mut().unwrap())
+                                    self.xymodem = XYmodem::new(XYModemVariant::YModemG);
+                                    self.xymodem.initiate_recv(self.telnet.as_mut().unwrap())
                                 }
                             };
                             self.print_result(&r);
@@ -478,17 +498,14 @@ impl Application for MainWindow<TelnetCom> {
                                 ProtocolType::ZModem | ProtocolType::ZedZap => {
                                     self.zmodem.update(com)
                                 },
-                                ProtocolType::XModem => {
-                                    self.xmodem.update(com)
-                                },
-                                ProtocolType::YModem | ProtocolType::YModemG => {
-                                    self.ymodem.update(com)
-                                },
+                                _ => {
+                                    self.xymodem.update(com)
+                                }
                             };
                             self.print_result(&r);
                         }
 
-                        if !self.zmodem.is_active() && !self.xmodem.is_active() && !self.ymodem.is_active() {
+                        if !self.zmodem.is_active() && !self.xymodem.is_active() {
                             self.mode = MainWindowMode::Default;
                         }
 
@@ -498,11 +515,8 @@ impl Application for MainWindow<TelnetCom> {
                             if self.zmodem.is_active() {
                                 self.zmodem.cancel(com);
                             }
-                            if self.xmodem.is_active() {
-                                self.xmodem.cancel(com);
-                            }
-                            if self.ymodem.is_active() {
-                                self.ymodem.cancel(com);
+                            if self.xymodem.is_active() {
+                                self.xymodem.cancel(com);
                             }
                         }
                     }
@@ -647,14 +661,8 @@ impl Application for MainWindow<TelnetCom> {
                     ProtocolType::ZedZap => {
                         super::view_file_transfer(&self.zmodem, download)
                     },
-                    ProtocolType::XModem => {
-                        super::view_file_transfer(&self.xmodem, download)
-                    },
-                    ProtocolType::YModem => {
-                        super::view_file_transfer(&self.ymodem, download)
-                    },
-                    ProtocolType::YModemG => {
-                        super::view_file_transfer(&self.ymodem, download)
+                    _ => {
+                        super::view_file_transfer(&self.xymodem, download)
                     }
                 }
             }

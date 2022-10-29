@@ -1,6 +1,6 @@
 use std::{time::{Duration, SystemTime}, io::{self, ErrorKind}, cmp::min};
 use crate::{protocol::{FileDescriptor, TransferState, FileTransferState, xymodem::constants::{SOH, STX, EXT_BLOCK_LENGTH, EOT, CPMEOF, NAK, ACK}}, com::Com};
-use super::{Checksum, get_checksum, XYModemVariant, constants::{CAN, DEFAULT_BLOCK_LENGTH}};
+use super::{Checksum, get_checksum, XYModemVariant, constants::{CAN, DEFAULT_BLOCK_LENGTH}, XYModemConfiguration};
 
 
 #[derive(Debug)]
@@ -15,13 +15,9 @@ pub enum SendState {
 }
 
 pub struct Sy {
-    pub block_length: usize,
     pub bytes_send: usize,
-
-    pub variant: XYModemVariant,
-    checksum_mode: Checksum,
-    streaming_mode: bool,
-
+    configuration: XYModemConfiguration,
+    
     _send_timeout: Duration,
     recv_timeout: Duration,
     _ack_timeout: Duration,
@@ -33,19 +29,16 @@ pub struct Sy {
     errors: usize,
     send_state: SendState,
 
-    data:Vec<u8>,
+    pub data:Vec<u8>,
 
     last_header_send: SystemTime,
     transfer_stopped: bool
 }
 
 impl Sy {
-    pub fn new() -> Self {
+    pub fn new(configuration: XYModemConfiguration) -> Self {
         Self {
-            variant: XYModemVariant::XModem,
-            block_length: DEFAULT_BLOCK_LENGTH,
-            checksum_mode: Checksum::CRC16,
-            streaming_mode: false,
+            configuration,
             _send_timeout: Duration::from_secs(10),
             recv_timeout: Duration::from_secs(10),
             _ack_timeout: Duration::from_secs(3),
@@ -66,6 +59,7 @@ impl Sy {
         if let SendState::None = self.send_state { true } else { false }
     }
 
+
     pub fn update<T: Com>(&mut self, com: &mut T, state: &mut TransferState) -> io::Result<()>
     {
         let mut transfer_state = FileTransferState::new();
@@ -80,8 +74,10 @@ impl Sy {
         transfer_state.bytes_transfered = self.bytes_send;
         transfer_state.errors = self.errors;
         transfer_state.engine_state = format!("{:?}", self.send_state);
+        transfer_state.check_size = self.configuration.get_check_and_size();
+        
         state.send_state = Some(transfer_state);
-        // println!("send state: {:?} {:?}", self.send_state, self.variant);
+        println!("send state: {:?} {:?}", self.send_state, self.configuration.variant);
 
         match self.send_state {
             SendState::None => Ok(()),
@@ -90,7 +86,7 @@ impl Sy {
                 state.current_state = "Initiate send...";
                 if com.is_data_available()? {
                     self.get_mode(com)?;
-                    if let XYModemVariant::YModem = self.variant {
+                    if self.configuration.is_ymodem() {
                         self.last_header_send = SystemTime::UNIX_EPOCH;
                         self.send_state = SendState::SendYModemHeader(0);
                     } else {
@@ -146,10 +142,16 @@ impl Sy {
             },
             SendState::SendData(cur_offset, retries) => {
                 state.current_state = "Send data...";
-                self.send_state = if !self.send_data_block(com, cur_offset)? {
-                    SendState::None
+                if !self.send_data_block(com, cur_offset)? {
+                    self.send_state = SendState::None;
                 } else {
-                    SendState::AckSendData(cur_offset, retries)
+                    if self.configuration.is_streaming() {
+                        self.bytes_send = cur_offset + self.configuration.block_length;
+                        self.send_state = SendState::SendData(self.bytes_send, 0);
+                        self.check_eof(com)?;
+                    } else {
+                        self.send_state = SendState::AckSendData(cur_offset, retries);
+                    }
                 };
                 Ok(())
             }
@@ -169,8 +171,8 @@ impl Sy {
                         self.errors += 1;
 
                         // fall back to short block length after too many errors 
-                        if retries > 3 && self.block_length == EXT_BLOCK_LENGTH {
-                            self.block_length = DEFAULT_BLOCK_LENGTH;
+                        if retries > 3 && self.configuration.block_length == EXT_BLOCK_LENGTH {
+                            self.configuration.block_length = DEFAULT_BLOCK_LENGTH;
                             self.send_state = SendState::SendData(cur_offset, retries + 2);
                             return Ok(());
                         }
@@ -182,18 +184,10 @@ impl Sy {
                         self.send_state = SendState::SendData(cur_offset, retries + 1);
                         return Ok(());
                     }
-                    self.bytes_send = cur_offset + self.block_length;
+                    self.bytes_send = cur_offset + self.configuration.block_length;
                     self.send_state = SendState::SendData(self.bytes_send, 0);
                 }
-
-                if self.bytes_send >= self.files[self.cur_file].size {
-                    self.eot(com)?;
-                    if let XYModemVariant::YModem = self.variant {
-                        self.send_state = SendState::YModemEndHeader(0);
-                    } else {
-                        self.send_state = SendState::None;
-                    }
-                }
+                self.check_eof(com)?;
                 Ok(())
             },
             SendState::YModemEndHeader(step)=> {
@@ -239,6 +233,19 @@ impl Sy {
             },
         }
     }
+
+    fn check_eof<T: Com>(&mut self, com: &mut T) -> io::Result<()>
+    {
+        if self.bytes_send >= self.files[self.cur_file].size {
+            self.eot(com)?;
+            if self.configuration.is_ymodem() {
+                self.send_state = SendState::YModemEndHeader(0);
+            } else {
+                self.send_state = SendState::None;
+            }
+        }
+        Ok(())
+    }
     
 
     fn read_command<T: Com>(&self, com: &mut T)-> io::Result<u8>
@@ -273,16 +280,15 @@ impl Sy {
         let ch = self.read_command(com)?;
         match ch {
             NAK => {
-                self.checksum_mode = Checksum::Default;
+                self.configuration.checksum_mode = Checksum::Default;
                 return Ok(());
             },
             b'C' => {
-                self.checksum_mode = Checksum::CRC16;
+                self.configuration.checksum_mode = Checksum::CRC16;
                 return Ok(());
             },
             b'G' => {
-                self.streaming_mode = true;
-                self.checksum_mode = Checksum::CRC16;
+                self.configuration = if self.configuration.is_ymodem() { XYModemConfiguration::new(XYModemVariant::YModemG) } else { XYModemConfiguration::new(XYModemVariant::XModem1kG)  };
                 return Ok(());
             },
             CAN => {
@@ -304,7 +310,8 @@ impl Sy {
         block.extend_from_slice(data);
         block.resize((if block_len == SOH { DEFAULT_BLOCK_LENGTH } else { EXT_BLOCK_LENGTH }) + 3, pad_byte);
 
-        match self.checksum_mode {
+        println!("SEND {:?}", self.configuration.checksum_mode);
+        match self.configuration.checksum_mode {
             Checksum::Default => {
                 let chk_sum = get_checksum(&block[3..]);
                 block.push(chk_sum);
@@ -344,11 +351,11 @@ impl Sy {
         if offset >= data_len {
             return Ok(false);
         }
-        let mut block_end = min(offset + self.block_length, data_len);
+        let mut block_end = min(offset + self.configuration.block_length, data_len);
         
         if block_end - offset < EXT_BLOCK_LENGTH - 2 * DEFAULT_BLOCK_LENGTH {
-            self.block_length = DEFAULT_BLOCK_LENGTH;
-            block_end = min(offset + self.block_length, data_len);
+            self.configuration.block_length = DEFAULT_BLOCK_LENGTH;
+            block_end = min(offset + self.configuration.block_length, data_len);
         }
         self.send_block(com, &Vec::from_iter(self.data[offset..block_end].iter().cloned()), CPMEOF)?;
         Ok(true)
@@ -363,15 +370,8 @@ impl Sy {
         Ok(())
     }
 
-    pub fn send<T: Com>(&mut self, _com: &mut T, variant: XYModemVariant, files: Vec<FileDescriptor>) -> io::Result<()>
+    pub fn send<T: Com>(&mut self, _com: &mut T, files: Vec<FileDescriptor>) -> io::Result<()>
     {
-        match variant {
-            XYModemVariant::XModem => self.block_length = DEFAULT_BLOCK_LENGTH,
-            XYModemVariant::_XModem1k => self.block_length = EXT_BLOCK_LENGTH,
-            XYModemVariant::YModem => self.block_length = EXT_BLOCK_LENGTH,
-            XYModemVariant::_YModemG => self.block_length = EXT_BLOCK_LENGTH,
-        }
-        self.variant = variant;
         self.send_state = SendState::InitiateSend;
         self.files = files;
         self.cur_file = 0;

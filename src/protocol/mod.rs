@@ -5,12 +5,6 @@ use std::{io, fs};
 pub mod xymodem;
 pub use xymodem::*;
 
-pub mod xmodem;
-pub use xmodem::*;
-
-pub mod ymodem;
-pub use ymodem::*;
-
 pub mod zmodem;
 pub use zmodem::*;
 
@@ -171,6 +165,8 @@ pub enum ProtocolType {
     ZModem,
     ZedZap,
     XModem,
+    XModem1k,
+    XModem1kG,
     YModem,
     YModemG,
 }
