@@ -5,7 +5,7 @@ use iced::widget::canvas::{
     self, Cursor, Frame, Geometry,
 };
 use iced::{ Point, Rectangle, Theme};
-use icy_engine::{Buffer, BufferParser, Caret, AnsiParser, Position};
+use icy_engine::{Buffer, BufferParser, Caret, Position, AvatarParser};
 
 use super::main_window::Message;
 
@@ -28,7 +28,7 @@ impl BufferView {
             buf: Buffer::create(80, 25),
             caret: Caret::new(),
             cache: canvas::Cache::default(),
-            buffer_parser: Box::new(AnsiParser::new()),
+            buffer_parser: Box::new(AvatarParser::new(true)),
             blink: false,
             last_blink: 0,
             scale: 1.0,
@@ -44,6 +44,11 @@ impl BufferView {
 
     pub fn print_char<T: Com>(&mut self, telnet: Option<&mut T>, c: u8) -> io::Result<()>
     {
+        if c < 32 {
+            print!("\\x{:X}", c);
+        } else {
+            print!("{}", char::from_u32(c as u32).unwrap());
+        }
         let result_opt = self.buffer_parser.print_char(&mut self.buf, &mut self.caret, c)?;
         if let Some(result) = result_opt {
             if let Some(telnet) = telnet {

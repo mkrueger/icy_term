@@ -11,7 +11,6 @@ mod iemsi;
 mod protocol;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-
 pub fn main() -> iced::Result {
     MainWindow::run(Settings {
         antialiasing: true,
