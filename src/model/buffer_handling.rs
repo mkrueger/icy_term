@@ -57,8 +57,7 @@ pub struct Buffer {
     pub font: BitFont,
     pub extended_font: Option<BitFont>,
     
-    pub layer: Layer,
-    pub petscii: bool
+    pub layer: Layer
 }
 
 impl std::fmt::Debug for Buffer {
@@ -79,7 +78,6 @@ impl Buffer {
             layer: Layer::new(),
             font: BitFont::default(),
             extended_font: None,
-            petscii: false
         }
     }
 
@@ -100,43 +98,13 @@ impl Buffer {
         }
     }
 
-    pub fn clear_buffer_down(&mut self, y: i32) {
-        for y in y..self.height as i32 {
-            for x in 0..self.width as i32 {
-                self.set_char(Position::from(x, y), Some(DosChar::new()));
-            }
-        }
-    }
-
-    pub fn clear_buffer_up(&mut self, y: i32) {
-        for y in 0..y {
-            for x in 0..self.width as i32 {
-                self.set_char(Position::from(x, y), Some(DosChar::new()));
-            }
-        }
-    }
-
-    pub fn clear_line(&mut self, y: i32) {
-        for x in 0..self.width as i32 {
-            self.set_char(Position::from(x, y), Some(DosChar::new()));
-        }
-    }
-
-    pub fn clear_line_end(&mut self, pos: &Position) {
-        for x in pos.x..self.width as i32 {
-            self.set_char(Position::from(x, pos.y), Some(DosChar::new()));
-        }
-    }
-
-    pub fn clear_line_start(&mut self, pos: &Position) {
-        for x in 0..pos.x {
-            self.set_char(Position::from(x, pos.y), Some(DosChar::new()));
-        }
-    }
-
-    pub fn get_font_scanline(&self, ch: u16, y: usize) -> u32
+    pub fn get_font_scanline(&self, ext: bool, ch: u16, y: usize) -> u32
     {
-        self.font.get_scanline(ch, y)
+        if ext { 
+            self.extended_font.as_ref().unwrap().get_scanline(ch, y)
+        } else { 
+            self.font.get_scanline(ch, y)
+        }
     }
 
     pub fn get_font_dimensions(&self) -> Size<u8>

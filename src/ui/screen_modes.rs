@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
-use crate::{model::{Buffer, DosChar, BitFont}};
+use crate::{model::{DosChar, BitFont, AnsiParser, PETSCIIParser}};
+
+use super::BufferView;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ScreenMode {
@@ -70,8 +72,9 @@ impl ScreenMode {
     }
 
 
-    pub fn set_mode(&self, font: &mut Option<String>, buf: &mut Buffer)
+    pub fn set_mode(&self, font: &mut Option<String>, buffer_view: &mut BufferView)
     {
+        let buf = &mut buffer_view.buf;
         match self {
             ScreenMode::DOS(w, h) => {
                 buf.width = *w;
@@ -81,40 +84,47 @@ impl ScreenMode {
                 } else {
                     *font = Some("IBM VGA".to_string());
                 }
-                buf.petscii = false;
+                buffer_view.buffer_parser = Box::new(AnsiParser::new());
+                buffer_view.petscii = false;
                 buf.palette = crate::model::Palette::new();
             }
             ScreenMode::C64 => {
                 buf.width = 40;
                 buf.height = 25;
-                *font = Some("C64 PETSCII unshifted".to_string());
-                buf.extended_font = Some(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
-                buf.petscii = true;
+                *font = Some("C64 PETSCII shifted".to_string());
+                buf.extended_font = Some(BitFont::from_name(&"C64 PETSCII unshifted").unwrap());
+                buffer_view.buffer_parser = Box::new(PETSCIIParser::new());
+                buffer_view.petscii = true;
                 buf.palette = crate::model::Palette { colors: crate::model::C64_DEFAULT_PALETTE.to_vec() };
             }
             ScreenMode::C128(col) => {
                 buf.width = *col;
                 buf.height = 25;
-                *font = Some("C64 PETSCII unshifted".to_string());
-                buf.extended_font = Some(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
-                buf.petscii = true;
+                *font = Some("C64 PETSCII shifted".to_string());
+                buf.extended_font = Some(BitFont::from_name(&"C64 PETSCII unshifted").unwrap());
+                buffer_view.buffer_parser = Box::new(PETSCIIParser::new());
+                buffer_view.petscii = true;
                 buf.palette = crate::model::Palette { colors: crate::model::C64_DEFAULT_PALETTE.to_vec() };
             },
             ScreenMode::Atari =>  {
                 buf.width = 40;
                 buf.height = 40;
                 *font = Some("Atari ATASCII".to_string());
-                buf.petscii = false;
+                buffer_view.buffer_parser = Box::new(AnsiParser::new());
+                buffer_view.petscii = false;
                 buf.palette = crate::model::Palette::new();
             },
             ScreenMode::AtariXep80 =>  {
                 buf.width = 40;
                 buf.height = 30;
                 *font = Some("Atari ATASCII".to_string());
-                buf.petscii = false;
+                buffer_view.buffer_parser = Box::new(AnsiParser::new());
+                buffer_view.petscii = false;
                 buf.palette = crate::model::Palette::new();
             },
         }
+
+        buffer_view.terminal_size = crate::model::Size::from(buf.width, buf.height);
 
         for y in 0..buf.height {
             for x in 0..buf.width {

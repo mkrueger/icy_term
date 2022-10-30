@@ -1,7 +1,6 @@
-use std::cmp::max;
 use std::io;
 use crate::com::Com;
-use crate::model::{Buffer, Position, TextAttribute, DosChar, parse_ansi, parse_petscii};
+use crate::model::{Buffer, BufferParser, Caret};
 use iced::widget::canvas::event::{self, Event};
 use iced::widget::canvas::{
     self, Cursor, Frame, Geometry,
@@ -14,92 +13,41 @@ pub static mut SCALE: f32 = 1.0;
 
 pub struct BufferView {
     pub buf: Buffer,
-    pub caret: Position,
-    pub attr: TextAttribute,
     pub cache: canvas::Cache,
-    state: crate::model::ParseStates,
-    pstate: crate::model::PETSCIIState,
+    pub buffer_parser: Box<dyn BufferParser>,
+    pub caret: Caret,
     pub blink: bool,
     pub last_blink: u128,
-    pub scale: f32
+    pub scale: f32,
+    pub petscii: bool,
+    pub terminal_size: crate::model::Size<u16>
 }
 
 impl BufferView {
     pub fn new() -> Self {
         Self {
             buf: Buffer::create(80, 25),
-            caret: Position::new(),
-            attr: TextAttribute::DEFAULT,
+            caret: Caret::new(),
             cache: canvas::Cache::default(),
-            state: crate::model::ParseStates::new(),
-            pstate: crate::model::PETSCIIState::new(),
+            buffer_parser: Box::new(crate::model::AnsiParser::new()),
             blink: false,
             last_blink: 0,
-            scale: 1.0
+            scale: 1.0,
+            petscii: false,
+            terminal_size: crate::model::Size::from(80, 25)
         }
     }
 
     pub fn print_char<T: Com>(&mut self, telnet: Option<&mut T>, c: u8) -> io::Result<()>
     {
-        let c = if self.buf.petscii { parse_petscii(&mut self.buf, &mut self.caret, &mut self.attr, &mut self.pstate, c) } else { parse_ansi(&mut self.buf, &mut self.caret, &mut self.attr, &mut self.state, telnet, c) };
-
-        if let Err(err) = &c {
-            println!("error in ansi sequence: {}", err);
-        }
-
-        if let Ok(Some(ch)) = c {
-            if !self.buf.petscii {
-                match ch {
-                    10 => {
-                        self.caret.x = 0;
-                        self.caret.y += 1;
-                    }
-                    12 => {
-                        self.caret.x = 0;
-                        self.caret.y = 1;
-                        self.attr = TextAttribute::DEFAULT;
-                    }
-                    13 => {
-                        self.caret.x = 0;
-                    }
-                    8 => {
-                        self.caret.x = max(0, self.caret.x - 1);
-                    }
-                    _ => {
-                        let mut ch = DosChar::from(ch as u16, self.attr);
-                        if self.buf.petscii {
-                            ch.ext_font  = self.pstate.ext_font;
-                        }
-
-                        self.buf.set_char(self.caret, Some(ch));
-                        self.caret.x = self.caret.x + 1;
-                        if self.caret.x >= self.buf.width as i32 {
-                            self.caret.x = 0;
-                            self.caret.y = self.caret.y + 1;
-                        }
-                    }
-                };
-            }  else {
-                let mut ch = DosChar::from(ch as u16, self.attr);
-                if self.buf.petscii {
-                    ch.ext_font  = self.pstate.ext_font;
-                }
-
-                self.buf.set_char(self.caret, Some(ch));
-                self.caret.x = self.caret.x + 1;
-                if self.caret.x >= self.buf.width as i32 {
-                    self.caret.x = 0;
-                    self.caret.y = self.caret.y + 1;
-                }
-            }
-            if self.caret.y >= self.buf.height as i32 {
-
-                self.buf.layer.remove_line(0);
-                self.buf.layer.insert_line(self.buf.height as i32 - 1, crate::model::Line::new());
-                self.caret.y = self.buf.height as i32 - 1;
-                self.buf.clear_line(self.caret.y);
+        let result = self.buffer_parser.print_char(&mut self.buf, &mut self.caret, c)?;
+        if let Some(result) = result {
+            if let Some(telnet) = telnet {
+                println!("Send '{}'", result);
+                telnet.write(result.as_bytes())?;
             }
         }
+        self.cache.clear();
         Ok(())
     }
 }
@@ -141,15 +89,15 @@ impl<'a> canvas::Program<Message> for BufferView {
                 let font_dimensions = buffer.get_font_dimensions();
                 let mut char_size = iced::Size::new(font_dimensions.width as f32, font_dimensions.height as f32);
 
-                let mut w = buffer.width as f32 * char_size.width;
-                let mut h = buffer.height as f32 * char_size.height;
+                let mut w = self.terminal_size.width as f32 * char_size.width;
+                let mut h = self.terminal_size.height as f32 * char_size.height;
 
                 let double_mode = w * 2.0 <= bounds.width && h * 2.0 <= bounds.height;
                 if double_mode {
                     char_size.width *= 2.0;
                     char_size.height *= 2.0;
-                    w = buffer.width as f32 * char_size.width;
-                    h = buffer.height as f32 * char_size.height;
+                    w = self.terminal_size.width as f32 * char_size.width;
+                    h = self.terminal_size.height as f32 * char_size.height;
                     unsafe { SCALE = 2.0; }
                 }  else { 
                     unsafe {
@@ -160,16 +108,17 @@ impl<'a> canvas::Program<Message> for BufferView {
                 let top_x = (bounds.width - w) / 2.0;
                 let top_y = (bounds.height - h) / 2.0;
                // println!("{:?} b: {}x{} = {} / {}", bounds, w, h, top_x, top_y);
+                let first_line = (self.buf.height - self.terminal_size.height) as i32;
 
-                for y in 0..buffer.height as usize {
-                    for x in 0..buffer.width as usize {
+                for y in 0..self.terminal_size.height as usize {
+                    for x in 0..self.terminal_size.width as usize {
                         let rect  = Rectangle::new(
                             Point::new(
                                 top_x + (x * char_size.width as usize) as f32 + 0.5,  
                                 top_y + (y * char_size.height as usize) as f32 + 0.5), 
                                 char_size
                             );
-                            if let Some(ch) = buffer.get_char(crate::model::Position::from(x as i32, y as i32)) {
+                            if let Some(ch) = buffer.get_char(crate::model::Position::from(x as i32, first_line + y as i32)) {
                                 let (fg, bg) = 
                                     (buffer.palette.colors[ch.attribute.get_foreground() as usize],
                                     buffer.palette.colors[ch.attribute.get_background() as usize])
@@ -182,8 +131,11 @@ impl<'a> canvas::Program<Message> for BufferView {
 
                                 let (r, g, b) = fg.get_rgb_f32();
                                 let color = iced::Color::new(r, g, b, 1.0);
+                                if self.buf.extended_font.is_some() {
+                                println!("{} {:?}", ch.ext_font, self.buf.extended_font.as_ref().unwrap().name);
+                                }
                                 for y in 0..font_dimensions.height {
-                                    let line = buffer.get_font_scanline(ch.char_code, y as usize);
+                                    let line = buffer.get_font_scanline(ch.ext_font, ch.char_code, y as usize);
                                     for x in 0..font_dimensions.width {
                                         if (line & (128 >> x)) != 0 {
                                             if double_mode {
@@ -204,15 +156,15 @@ impl<'a> canvas::Program<Message> for BufferView {
                 let font_dimensions = buffer.get_font_dimensions();
                 let mut char_size = iced::Size::new(font_dimensions.width as f32, font_dimensions.height as f32);
 
-                let mut w = buffer.width as f32 * char_size.width;
-                let mut h = buffer.height as f32 * char_size.height;
+                let mut w = self.terminal_size.width as f32 * char_size.width;
+                let mut h = self.terminal_size.height as f32 * char_size.height;
 
                 let double_mode = w * 2.0 <= bounds.width && h * 2.0 <= bounds.height;
                 if double_mode {
                     char_size.width *= 2.0;
                     char_size.height *= 2.0;
-                    w = buffer.width as f32 * char_size.width;
-                    h = buffer.height as f32 * char_size.height;
+                    w = self.terminal_size.width as f32 * char_size.width;
+                    h = self.terminal_size.height as f32 * char_size.height;
                 }
                 let top_x = (bounds.width - w) / 2.0;
                 let top_y = (bounds.height - h) / 2.0;
@@ -220,12 +172,12 @@ impl<'a> canvas::Program<Message> for BufferView {
 
                 let caret_size = iced::Size::new(char_size.width, char_size.height / 8.0);
                 let p = Point::new(
-                    top_x + (self.caret.x as f32 * char_size.width) as f32 + 0.5,  
-                    top_y + (self.caret.y as f32 * char_size.height) as f32 + 0.5 + char_size.height - caret_size.height);
+                    top_x + (self.caret.get_position().x as f32 * char_size.width) as f32 + 0.5,  
+                    top_y + (self.caret.get_position().y as f32 * char_size.height) as f32 + 0.5 + char_size.height - caret_size.height);
                 let caret = canvas::Path::rectangle(p, caret_size);
                 let mut frame = Frame::new(bounds.size());
 
-                let bg = buffer.palette.colors[self.attr.get_foreground() as usize];
+                let bg = buffer.palette.colors[self.caret.get_attribute().get_foreground() as usize];
                 let (r, g, b) = bg.get_rgb_f32();
 
                 frame.fill(&caret, iced::Color::new(r, g, b, 1.0));

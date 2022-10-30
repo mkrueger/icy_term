@@ -14,15 +14,14 @@ use iced::widget::{
 use iced::{Alignment};
 use rfd::FileDialog;
 
-use crate::input_conversion::UNICODE_TO_CP437;
-use crate::model::{DEFAULT_FONT_NAME, BitFont, TextAttribute, DosChar};
+use crate::model::{DEFAULT_FONT_NAME, BitFont};
 use crate::{VERSION, iemsi};
 use crate::address::{Address, start_read_book, READ_ADDRESSES};
 use crate::com::{Com, TelnetCom};
 use crate::iemsi::{IEmsi, EmsiICI};
 use crate::protocol::{ Zmodem, XYmodem, Protocol, ProtocolType, FileDescriptor, XYModemVariant};
 
-use super::{BufferView, buffer_view};
+use super::{BufferView};
 use super::screen_modes::{DEFAULT_MODES, ScreenMode};
 
 enum MainWindowMode {
@@ -232,7 +231,7 @@ impl MainWindow<TelnetCom>
     {
         if mode != &self.get_screen_mode() { 
             self.screen_mode = Some(*mode);
-            self.get_screen_mode().set_mode(&mut self.font, &mut self.buffer_view.buf);
+            self.get_screen_mode().set_mode(&mut self.font, &mut self.buffer_view);
             self.buffer_view.buf.font = BitFont::from_name(&self.get_font_name()).unwrap();
             self.buffer_view.cache.clear();
         }
@@ -240,12 +239,7 @@ impl MainWindow<TelnetCom>
 
     pub fn output_char(&mut self, ch: char) 
     {
-        let mut translated_char = if let Some(c) =  UNICODE_TO_CP437.get(&ch) { *c } else { ch as u8 };
-        if self.buffer_view.buf.petscii {
-            if let Some(tch) = crate::input_conversion::UNICODE_TO_PETSCII.get(&(ch as u8)) {
-                translated_char = *tch;
-            }
-        }
+        let translated_char = self.buffer_view.buffer_parser.from_unicode(ch);
 
         if let Some(telnet) = &mut self.telnet {
             let state = telnet.write(&[translated_char]);
@@ -356,7 +350,7 @@ impl Application for MainWindow<TelnetCom> {
                     Message::KeyCode(code, _modifier) => {
                         
                         if let Some(telnet) = &mut self.telnet {
-                            for (k, m) in if self.buffer_view.buf.petscii { C64_KEY_MAP} else { KEY_MAP } {
+                            for (k, m) in if self.buffer_view.petscii { C64_KEY_MAP} else { KEY_MAP } {
                                 if *k == code {
                                     let state = telnet.write(m);
                                     if let Err(s) = state {
@@ -367,7 +361,7 @@ impl Application for MainWindow<TelnetCom> {
                                 }
                             }
                         } else {
-                            for (k, m) in if self.buffer_view.buf.petscii { C64_KEY_MAP} else { KEY_MAP } {
+                            for (k, m) in if self.buffer_view.petscii { C64_KEY_MAP} else { KEY_MAP } {
                                 if *k == code {
                                     for ch in *m {
                                         println!("1 - {:?} {}", *k, ch);
