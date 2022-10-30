@@ -1,14 +1,14 @@
 use std::fmt::Display;
 
-use crate::{model::{DosChar, BitFont, AnsiParser, PETSCIIParser}};
+use icy_engine::{AnsiParser, Palette, BitFont, PETSCIIParser, C64_DEFAULT_PALETTE};
 
 use super::BufferView;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ScreenMode {
-    DOS(u16, u16),
+    DOS(i32, i32),
     C64,
-    C128(u16),
+    C128(i32),
     Atari,
     AtariXep80
 }
@@ -59,8 +59,8 @@ impl ScreenMode {
             "AtariXep80" => Some(ScreenMode::AtariXep80),
             _ => {
                 if let Some(o) = str.find('x') {
-                    let x = u16::from_str_radix(&str[0..o], 10);
-                    let y = u16::from_str_radix(&str[o + 1..], 10);
+                    let x = i32::from_str_radix(&str[0..o], 10);
+                    let y = i32::from_str_radix(&str[o + 1..], 10);
                     if x.is_ok() && y.is_ok() {
                         return Some(ScreenMode::DOS(x.unwrap(), y.unwrap()));
                     }
@@ -70,7 +70,6 @@ impl ScreenMode {
             }
         }
     }
-
 
     pub fn set_mode(&self, font: &mut Option<String>, buffer_view: &mut BufferView)
     {
@@ -86,25 +85,25 @@ impl ScreenMode {
                 }
                 buffer_view.buffer_parser = Box::new(AnsiParser::new());
                 buffer_view.petscii = false;
-                buf.palette = crate::model::Palette::new();
+                buf.palette = Palette::new();
             }
             ScreenMode::C64 => {
                 buf.width = 40;
                 buf.height = 25;
-                *font = Some("C64 PETSCII shifted".to_string());
-                buf.extended_font = Some(BitFont::from_name(&"C64 PETSCII unshifted").unwrap());
+                *font = Some("C64 PETSCII unshifted".to_string());
+                buf.extended_font = Some(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
                 buffer_view.buffer_parser = Box::new(PETSCIIParser::new());
                 buffer_view.petscii = true;
-                buf.palette = crate::model::Palette { colors: crate::model::C64_DEFAULT_PALETTE.to_vec() };
+                buf.palette = Palette { colors: C64_DEFAULT_PALETTE.to_vec() };
             }
             ScreenMode::C128(col) => {
                 buf.width = *col;
                 buf.height = 25;
-                *font = Some("C64 PETSCII shifted".to_string());
-                buf.extended_font = Some(BitFont::from_name(&"C64 PETSCII unshifted").unwrap());
+                *font = Some("C64 PETSCII unshifted".to_string());
+                buf.extended_font = Some(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
                 buffer_view.buffer_parser = Box::new(PETSCIIParser::new());
                 buffer_view.petscii = true;
-                buf.palette = crate::model::Palette { colors: crate::model::C64_DEFAULT_PALETTE.to_vec() };
+                buf.palette = Palette { colors: C64_DEFAULT_PALETTE.to_vec() };
             },
             ScreenMode::Atari =>  {
                 buf.width = 40;
@@ -112,7 +111,7 @@ impl ScreenMode {
                 *font = Some("Atari ATASCII".to_string());
                 buffer_view.buffer_parser = Box::new(AnsiParser::new());
                 buffer_view.petscii = false;
-                buf.palette = crate::model::Palette::new();
+                buf.palette = Palette::new();
             },
             ScreenMode::AtariXep80 =>  {
                 buf.width = 40;
@@ -120,20 +119,10 @@ impl ScreenMode {
                 *font = Some("Atari ATASCII".to_string());
                 buffer_view.buffer_parser = Box::new(AnsiParser::new());
                 buffer_view.petscii = false;
-                buf.palette = crate::model::Palette::new();
+                buf.palette = Palette::new();
             },
         }
-
-        buffer_view.terminal_size = crate::model::Size::from(buf.width, buf.height);
-
-        for y in 0..buf.height {
-            for x in 0..buf.width {
-                let p = crate::model::Position::from(x as i32, y as i32);
-                if buf.get_char(p).is_none() {
-                    buf.set_char(p, Some(DosChar::default()));
-                }
-            }
-        }
+        buf.clear();
     }
 }
 

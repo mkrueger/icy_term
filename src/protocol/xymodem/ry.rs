@@ -1,7 +1,8 @@
 use std::{time::Duration, io::{self, ErrorKind}};
+use icy_engine::get_crc16;
+
 use crate::{protocol::{FileDescriptor, TransferState, FileTransferState, xymodem::constants::{SOH, STX, EXT_BLOCK_LENGTH, EOT, CPMEOF, NAK, ACK}}, com::Com};
 use super::{Checksum, get_checksum,  constants::{CAN, DEFAULT_BLOCK_LENGTH}, XYModemConfiguration};
-
 
 #[derive(Debug)]
 pub enum RecvState {
@@ -73,7 +74,7 @@ impl Ry {
                     state.current_state = "Start receiving...";
 
                     let start = com.read_char(self.recv_timeout)?;
-                    println!("{:02X} {}, {}", start, start, char::from_u32(start as u32).unwrap());
+                    // println!("{:02X} {}, {}", start, start, char::from_u32(start as u32).unwrap());
                     if start == SOH {
                         if self.configuration.is_ymodem() {
                             self.recv_state = RecvState::ReadYModemHeader(0);
@@ -281,7 +282,7 @@ impl Ry {
                 block[block.len() - 1] == chk
             }
             Checksum::CRC16 => {
-                let check_crc = crate::crc::get_crc16(&block[..block.len() - 2]);
+                let check_crc = get_crc16(&block[..block.len() - 2]);
                 let crc = u16::from_be_bytes(block[block.len() - 2..].try_into().unwrap());
                 crc == check_crc
             }

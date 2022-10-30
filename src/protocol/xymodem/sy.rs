@@ -1,4 +1,6 @@
 use std::{time::{Duration, SystemTime}, io::{self, ErrorKind}, cmp::min};
+use icy_engine::get_crc16;
+
 use crate::{protocol::{FileDescriptor, TransferState, FileTransferState, xymodem::constants::{SOH, STX, EXT_BLOCK_LENGTH, EOT, CPMEOF, NAK, ACK}}, com::Com};
 use super::{Checksum, get_checksum, XYModemVariant, constants::{CAN, DEFAULT_BLOCK_LENGTH}, XYModemConfiguration};
 
@@ -259,7 +261,7 @@ impl Sy {
         };
 
         if cmd.len() > 0 {
-            println!("GOT CMD: {}", cmd);
+            "GOT CMD: {}", cmd);
         } else {
             println!("GOT CMD: #{} (0x{:X})", ch, ch);
         }*/
@@ -315,7 +317,7 @@ impl Sy {
                 block.push(chk_sum);
             },
             Checksum::CRC16 => {
-                let crc = crate::crc::get_crc16(&block[3..]);
+                let crc = get_crc16(&block[3..]);
                 block.extend_from_slice(&u16::to_be_bytes(crc));
             },
         }

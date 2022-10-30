@@ -3,7 +3,9 @@
 // IEMSI autologin implementation http://ftsc.org/docs/fsc-0056.001
 use std::{fmt, io::{self, ErrorKind}};
 
-use crate::{VERSION, crc};
+use icy_engine::{get_crc32, get_crc16, update_crc32};
+
+use crate::{VERSION};
 
 /// EMSI Inquiry is transmitted by the calling system to identify it as
 /// EMSI capable. If an EMSI_REQ sequence is received in response, it is
@@ -318,13 +320,13 @@ impl EmsiICI {
 
 pub fn get_crc32string(block: &[u8]) -> String
 {
-    let crc = crc::get_crc32(block);
+    let crc = get_crc32(block);
     format!("{:08X}", !crc)
 }
 
 pub fn get_crc16string(block: &[u8]) -> String
 {
-    let crc = crc::get_crc16(block);
+    let crc = get_crc16(block);
     format!("{:04X}", crc)
 }
 
@@ -371,7 +373,7 @@ pub fn _encode_ism(data: &[u8]) -> Vec<u8>
     let mut block = Vec::new();
     block.extend_from_slice(format!("EMSI_ISM{:X}", data.len()).as_bytes());
     block.extend_from_slice(data);
-    let crc = crc::get_crc16(&block);
+    let crc = get_crc16(&block);
 
     let mut result = Vec::new();
     result.extend_from_slice(b"**");
@@ -428,14 +430,14 @@ impl IEmsi {
             if self.isi_seq > 7 {
                 match self.isi_seq {
                     8..=11 => {
-                        self.isi_check_crc = crc::update_crc32(self.isi_check_crc, ch);
+                        self.isi_check_crc = update_crc32(self.isi_check_crc, ch);
                         self.isi_len = self.isi_len * 16 + get_value(ch);
                         self.isi_seq += 1;
                         return Ok(());
                     },
                     12.. => {
                         if self.isi_seq < self.isi_len + 12 { // Read data
-                            self.isi_check_crc = crc::update_crc32(self.isi_check_crc, ch);
+                            self.isi_check_crc = update_crc32(self.isi_check_crc, ch);
                             self.isi_data.push(ch);
                         } else if self.isi_seq < self.isi_len + 12 + 8 { // Read CRC
                             self.isi_crc = self.isi_crc * 16 + get_value(ch);
@@ -477,7 +479,7 @@ impl IEmsi {
 
             if ch == ISI_START[self.isi_seq] 
             {
-                self.isi_check_crc = crc::update_crc32(self.isi_check_crc, ch);
+                self.isi_check_crc = update_crc32(self.isi_check_crc, ch);
                 self.isi_seq += 1;
                 self.isi_len = 0;
                 got_seq = true;

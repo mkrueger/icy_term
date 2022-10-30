@@ -12,9 +12,9 @@ use iced::widget::{
      text_input, vertical_rule
 };
 use iced::{Alignment};
+use icy_engine::{SUPPORTED_FONTS, DEFAULT_FONT_NAME, BitFont};
 use rfd::FileDialog;
 
-use crate::model::{DEFAULT_FONT_NAME, BitFont};
 use crate::{VERSION, iemsi};
 use crate::address::{Address, start_read_book, READ_ADDRESSES};
 use crate::com::{Com, TelnetCom};
@@ -44,7 +44,7 @@ impl Options {
 }
 
 pub struct MainWindow<T: Com> {
-    buffer_view: BufferView,
+    pub buffer_view: BufferView,
     telnet: Option<T>,
     trigger: bool,
     mode: MainWindowMode,
@@ -229,12 +229,10 @@ impl MainWindow<TelnetCom>
 
     pub fn set_screen_mode(&mut self, mode: &ScreenMode)
     {
-        if mode != &self.get_screen_mode() { 
-            self.screen_mode = Some(*mode);
-            self.get_screen_mode().set_mode(&mut self.font, &mut self.buffer_view);
-            self.buffer_view.buf.font = BitFont::from_name(&self.get_font_name()).unwrap();
-            self.buffer_view.cache.clear();
-        }
+        self.screen_mode = Some(*mode);
+        self.get_screen_mode().set_mode(&mut self.font, &mut self.buffer_view);
+        self.buffer_view.buf.font = BitFont::from_name(&self.get_font_name()).unwrap();
+        self.buffer_view.cache.clear();
     }
 
     pub fn output_char(&mut self, ch: char) 
@@ -270,7 +268,7 @@ impl Application for MainWindow<TelnetCom> {
     }
 
     fn new(_flags: ()) ->  (Self, Command<Message>) {
-       let mut view =  MainWindow {
+       let view =  MainWindow {
             buffer_view: BufferView::new(),
             telnet:None,
             trigger: true,
@@ -287,7 +285,6 @@ impl Application for MainWindow<TelnetCom> {
             font: Some(DEFAULT_FONT_NAME.to_string()),
             screen_mode: None
         };
-        view.buffer_view.buf.clear();
         (view, Command::none())
     }
 
@@ -364,7 +361,6 @@ impl Application for MainWindow<TelnetCom> {
                             for (k, m) in if self.buffer_view.petscii { C64_KEY_MAP} else { KEY_MAP } {
                                 if *k == code {
                                     for ch in *m {
-                                        println!("1 - {:?} {}", *k, ch);
                                         let state = self.buffer_view.print_char::<TelnetCom>(Option::<&mut TelnetCom>::None, *ch);
                                         if let Err(s) = state {
                                             self.print_log(format!("Error: {:?}", s));
@@ -417,14 +413,18 @@ impl Application for MainWindow<TelnetCom> {
                                     let t = TelnetCom::connect(addr, self.options.connect_timeout);
                                     match t {
                                         Ok(t) => {
+                                            self.buffer_view.clear();
                                             self.logged_in = false;
                                             self.telnet = Some(t);
                                             self.cur_addr = i;
                                             self.iemsi = Some(IEmsi::new());
                                             self.connection_time = SystemTime::now();
                                             let adr = self.addresses[i].clone();
+                                            self.buffer_view.buf.clear();
                                             if let Some(mode) = &adr.screen_mode {
                                                 self.set_screen_mode(mode);
+                                            } else {
+                                                self.set_screen_mode(&ScreenMode::DOS(80, 25));
                                             }
                                             if let Some(font) = &adr.font_name {
                                                 self.set_font(font);
@@ -619,7 +619,7 @@ impl Application for MainWindow<TelnetCom> {
                     .height(Length::Fill);
                 
                 let log_info = if self.log_file.len() == 0  { text("Ready.")} else { text(&self.log_file[self.log_file.len() - 1])}.width(Length::Fill).into();
-                let all_fonts = crate::model::_SUPPORTED_FONTS.map(|s| s.to_string()).to_vec();
+                let all_fonts = SUPPORTED_FONTS.map(|s| s.to_string()).to_vec();
                 let font_pick_list = pick_list(
                     all_fonts,
                     Some(self.get_font_name()),

@@ -4,11 +4,9 @@ mod ui;
 use iced::{Settings, Application};
 use ui::*;
 
-mod crc;
 mod com;
 mod address;
 
-mod model;
 mod iemsi;
 mod protocol;
 

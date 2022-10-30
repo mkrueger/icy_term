@@ -1,6 +1,8 @@
 use std::{io::{self, ErrorKind}, time::{SystemTime, Duration}};
 
-use crate::{com::Com, protocol::{FileDescriptor, Zmodem, FrameType, ZCRCW, ZCRCG, HeaderType, Header, ZCRCE, TransferState, FileTransferState}, crc};
+use icy_engine::{get_crc32, update_crc32};
+
+use crate::{com::Com, protocol::{FileDescriptor, Zmodem, FrameType, ZCRCW, ZCRCG, HeaderType, Header, ZCRCE, TransferState, FileTransferState}};
 
 use super::constants::*;
 
@@ -260,8 +262,8 @@ impl Rz {
     }
 
     fn check_crc<T: Com>(&mut self, com: &mut T, data: &Vec<u8>, zcrc_byte: u8)  -> io::Result<bool> {
-        let mut crc = crc::get_crc32(data);
-        crc = !crc::update_crc32(!crc, zcrc_byte);
+        let mut crc = get_crc32(data);
+        crc = !update_crc32(!crc, zcrc_byte);
     
         let crc_bytes = com.read_exact(Duration::from_secs(5), 4)?;
         let check_crc = u32::from_le_bytes(crc_bytes.try_into().unwrap());

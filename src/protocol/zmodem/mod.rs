@@ -9,6 +9,7 @@ mod header;
 pub use header::*;
 
 mod sz;
+use icy_engine::{get_crc16, get_crc32, update_crc32, update_crc16};
 use sz::*;
 
 mod rz;
@@ -16,7 +17,7 @@ use rz::*;
 
 mod tests;
 
-use crate::{crc, com::Com};
+use crate::{com::Com};
 use super::{Protocol, TransferState, FileTransferState};
 
 pub struct Zmodem {
@@ -43,8 +44,8 @@ impl Zmodem {
     {
         let mut v = Vec::new();
 
-        let mut crc = crc::get_crc16(data);
-        crc = crc::update_crc16(crc, zcrc_byte);
+        let mut crc = get_crc16(data);
+        crc = update_crc16(crc, zcrc_byte);
 
         append_escape(&mut v, data);
         append_escape(&mut v, &[ZDLE, zcrc_byte]);
@@ -56,8 +57,8 @@ impl Zmodem {
     {
         let mut v = Vec::new();
 
-        let mut crc = crc::get_crc32(data);
-        crc = !crc::update_crc32(!crc, zcrc_byte);
+        let mut crc = get_crc32(data);
+        crc = !update_crc32(!crc, zcrc_byte);
 
         append_escape(&mut v, data);
         v.extend_from_slice(&[ZDLE, zcrc_byte]);
