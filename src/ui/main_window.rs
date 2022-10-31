@@ -270,7 +270,7 @@ impl Application for MainWindow<TelnetCom> {
     }
 
     fn new(_flags: ()) ->  (Self, Command<Message>) {
-       let view =  MainWindow {
+       let mut view =  MainWindow {
             buffer_view: BufferView::new(),
             telnet:None,
             trigger: true,
@@ -287,6 +287,14 @@ impl Application for MainWindow<TelnetCom> {
             font: Some(DEFAULT_FONT_NAME.to_string()),
             screen_mode: None
         };
+        /* 
+        let txt = b"test";
+        for b in txt {
+            if let Err(e) = view.buffer_view.buffer_parser.print_char(&mut view.buffer_view.buf, &mut view.buffer_view.caret, *b) {
+                println!("Err: {}", e);
+            }
+        }*/
+
         (view, Command::none())
     }
 

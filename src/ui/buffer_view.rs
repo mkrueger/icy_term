@@ -55,11 +55,17 @@ impl BufferView {
     pub fn print_char<T: Com>(&mut self, telnet: Option<&mut T>, c: u8) -> io::Result<()>
     {
         self.scroll_back_line = 0;
-        /*if c < 32 {
-            print!("\\x{:X}", c);
+        if c < 32 || c > 127 {
+            if c == b'\n'  {
+                print!("\\n");
+            } else if c == b'\r'  {
+                print!("\\r");
+            } else { 
+                print!("\\x{:X}", c);
+            }
         } else {
             print!("{}", char::from_u32(c as u32).unwrap());
-        }*/
+        }
         let result_opt = self.buffer_parser.print_char(&mut self.buf, &mut self.caret, c)?;
         if let Some(result) = result_opt {
             if let Some(telnet) = telnet {
@@ -167,7 +173,7 @@ impl<'a> canvas::Program<Message> for BufferView {
 
             let top_line = first_line - self.scroll_back_line;
 
-            if !self.blink && (top_line..(top_line + self.buf.height)).contains(&self.caret.get_position().y) {
+            if self.caret.is_visible && !self.blink && (top_line..(top_line + self.buf.height)).contains(&self.caret.get_position().y) {
                 let buffer = &self.buf;
                 let font_dimensions = buffer.get_font_dimensions();
                 let mut char_size = iced::Size::new(font_dimensions.width as f32, font_dimensions.height as f32);
