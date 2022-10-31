@@ -52,10 +52,10 @@ impl BufferView {
         self.caret.ff(&mut self.buf);
     }
 
-    pub fn print_char<T: Com>(&mut self, telnet: Option<&mut T>, c: u8) -> io::Result<()>
+    pub fn print_char<T: Com>(&mut self, com: Option<&mut T>, c: u8) -> io::Result<()>
     {
         self.scroll_back_line = 0;
-        if c < 32 || c > 127 {
+       /* if c < 32 || c > 127 {
             if c == b'\n'  {
                 print!("\\n");
             } else if c == b'\r'  {
@@ -65,11 +65,11 @@ impl BufferView {
             }
         } else {
             print!("{}", char::from_u32(c as u32).unwrap());
-        }
+        }*/
         let result_opt = self.buffer_parser.print_char(&mut self.buf, &mut self.caret, c)?;
         if let Some(result) = result_opt {
-            if let Some(telnet) = telnet {
-                telnet.write(result.as_bytes())?;
+            if let Some(com) = com {
+                com.write(result.as_bytes())?;
             }
         }
         self.cache.clear();

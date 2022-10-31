@@ -9,6 +9,7 @@ mod address;
 
 mod iemsi;
 mod protocol;
+mod auto_login;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub fn main() -> iced::Result {

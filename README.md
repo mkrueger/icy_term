@@ -21,11 +21,11 @@ Features supported so far:
   - [x] Zmodem/ZedZap (implemented but needs testing)
 - Auto login
   - [x] IEMSI
-  - [ ] Terminate style auto login system
+  - [x] Terminate style auto login system
 - [x] Misc features
   - [x] Scrollback buffer (scrollwheel)
   - [ ] Exporting buffer to disk
-  - [ ] Phonebook editor (you need to edit it as text for the moment)
+  - [ ] Phonebook/IEMSI/Autologin editor (you need to edit it as text for the moment)
   - [ ] Better rendering engine (maybe switching the UI lib)
   - [ ] Copy & Paste
 

@@ -5,7 +5,7 @@ use std::{fmt, io::{self, ErrorKind}};
 
 use icy_engine::{get_crc32, get_crc16, update_crc32};
 
-use crate::{VERSION};
+use crate::{VERSION, com::Com, address::Address};
 
 /// EMSI Inquiry is transmitted by the calling system to identify it as
 /// EMSI capable. If an EMSI_REQ sequence is received in response, it is
@@ -398,7 +398,9 @@ pub struct IEmsi {
     isi_crc: usize,
     isi_check_crc: u32,
     pub got_invavid_isi: bool,
-    isi_data: Vec<u8>
+    isi_data: Vec<u8>,
+
+    pub aborted: bool
 }
 
 // **EMSI_ISI<len><data><crc32><CR>
@@ -420,11 +422,12 @@ impl IEmsi {
             isi_crc:0,
             isi_check_crc:0,
             got_invavid_isi: false,
-            isi_data:Vec::new()
+            isi_data:Vec::new(),
+            aborted: false
         }
     }
    
-    pub fn push_char(&mut self, ch: u8) -> io::Result<()>
+    pub fn parse_char(&mut self, ch: u8) -> io::Result<()>
     {
         if self.stars_read >= 2 {
             if self.isi_seq > 7 {
@@ -527,7 +530,53 @@ impl IEmsi {
             return Ok(());
         }
         self.stars_read = 0;
+
         Ok(())
+    }
+    
+
+    pub fn try_login<T: Com>(&mut self, com: &mut T, adr: &Address, ch: u8) -> io::Result<bool>
+    {
+        if self.aborted {
+            return Ok(false);
+        }
+        self.parse_char(ch)?;
+        if self.irq_requested {
+            self.irq_requested = false;
+            // self.log_file.push("Starting IEMSI negotiation…".to_string());
+            let mut data = EmsiICI::new();
+            data.name = adr.user_name.clone();
+            data.password = adr.password.clone();
+            com.write(&data.encode().unwrap())?;
+        } else if let Some(isi) = &self.isi  {
+            // self.log_file.push("Receiving valid IEMSI server info…".to_string());
+            // self.log_file.push(format!("Name:{} Location:{} Operator:{} Notice:{} System:{}", isi.name, isi.location, isi.operator, isi.notice, isi.id));
+            println!("Name:{} Location:{} Operator:{} Notice:{} System:{}", isi.name, isi.location, isi.operator, isi.notice, isi.id);
+            com.write(EMSI_2ACK)?;
+            self.aborted = true;
+            return Ok(true);
+        } else if self.got_invavid_isi  {
+            self.got_invavid_isi = false;
+            // self.log_file.push("Got invalid IEMSI server info…".to_string());
+            com.write(EMSI_2ACK)?;
+            self.aborted = true;
+            return Ok(true);
+        } else if self.nak_requested {
+            self.nak_requested = false;
+            if self.retries < 2  {
+                // self.log_file.push("IEMSI retry…".to_string());
+                let mut data = EmsiICI::new();
+                data.name = adr.user_name.clone();
+                data.password = adr.password.clone();
+                com.write(&data.encode().unwrap())?;
+                self.retries += 1;
+            } else  {
+                // self.log_file.push("IEMSI aborted…".to_string());
+                com.write(EMSI_IIR)?;
+                self.aborted = true;
+            }
+        }
+        Ok(false)
     }
 
     fn reset_sequences(&mut self) {
@@ -652,10 +701,10 @@ mod tests {
     #[test]
     fn test_iemsi_irq() {
         let mut state = IEmsi::new();
-        state.push_char(b'b').ok();
+        state.parse_char(b'b').ok();
         assert_eq!(false, state.irq_requested);
         for b in EMSI_IRQ {
-            state.push_char(*b).ok();
+            state.parse_char(*b).ok();
         }
         assert_eq!(true, state.irq_requested);
     }
@@ -665,12 +714,12 @@ mod tests {
         let mut state = IEmsi::new();
         assert_eq!(false, state.nak_requested);
         for b in EMSI_IRQ {
-            state.push_char(*b).ok();
+            state.parse_char(*b).ok();
         }
         assert_eq!(false, state.nak_requested);
         assert_eq!(true, state.irq_requested);
         for b in EMSI_NAK {
-            state.push_char(*b).ok();
+            state.parse_char(*b).ok();
         }
         assert_eq!(true, state.nak_requested);
     }
@@ -680,7 +729,7 @@ mod tests {
         let mut state = IEmsi::new();
         let data = b"<garbage>**EMSI_ISI0080{RemoteAccess,2.62.1,1161}{bbs}{Canada, eh!}{sysop}{63555308}{Copyright 1989-2000 Bruce F. Morse, All Rights Reserved}{\\01}{ZAP}4675DB04\r<garbage>"; 
         for b in data {
-            state.push_char(*b).ok();
+            state.parse_char(*b).ok();
         }
         assert_eq!(true, state.isi.is_some());
         let isi = state.isi.unwrap();

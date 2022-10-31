@@ -29,6 +29,7 @@ pub struct Address {
     pub terminal_type: Terminal,
 
     pub address: String,
+    pub auto_login: String,
     pub connection: Connection,
 
     pub ice_mode: bool,
@@ -84,6 +85,7 @@ impl Address {
             terminal_type: Terminal::Ansi,
             font_name: None,
             screen_mode: None,
+            auto_login: "!E!W!N!P".to_string(),
             address: String::new(),
             connection: Connection::Telnet,
             ice_mode: true
@@ -131,6 +133,7 @@ impl Address {
                                             "address" => { adr.address = v; }
                                             "user" => { adr.user_name = v; }
                                             "password" => { adr.password = v; }
+                                            "auto_login" => { adr.auto_login = v; }
                                             "use_ice" => { adr.ice_mode = v == "true"; }
                                             "screen_mode" => { adr.screen_mode = ScreenMode::parse(&v); }
                                             "font_name" => { adr.font_name = Some(v); }

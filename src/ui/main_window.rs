@@ -16,10 +16,10 @@ use iced::{Alignment};
 use icy_engine::{SUPPORTED_FONTS, DEFAULT_FONT_NAME, BitFont};
 use rfd::FileDialog;
 
-use crate::{VERSION, iemsi};
+use crate::auto_login::AutoLogin;
+use crate::{VERSION};
 use crate::address::{Address, start_read_book, READ_ADDRESSES};
 use crate::com::{Com, TelnetCom};
-use crate::iemsi::{IEmsi, EmsiICI};
 use crate::protocol::{ Zmodem, XYmodem, Protocol, ProtocolType, FileDescriptor, XYModemVariant};
 
 use super::{BufferView};
@@ -46,18 +46,17 @@ impl Options {
 
 pub struct MainWindow<T: Com> {
     pub buffer_view: BufferView,
-    telnet: Option<T>,
+    com: Option<T>,
     trigger: bool,
     mode: MainWindowMode,
     pub addresses: Vec<Address>,
     cur_addr: usize,
-    logged_in: bool,
     log_file: Vec<String>,
     options: Options,
-    iemsi: Option<IEmsi>,
     connection_time: SystemTime,
     font: Option<String>,
     screen_mode: Option<ScreenMode>,
+    auto_login: AutoLogin,
     // protocols
     xymodem: XYmodem,
     zmodem: Zmodem
@@ -86,6 +85,7 @@ pub enum Message {
 static KEY_MAP: &[(KeyCode, &[u8])] = &[
     (KeyCode::Home, "\x1b[1~".as_bytes()),
     (KeyCode::Insert, "\x1b[2~".as_bytes()),
+    (KeyCode::Backspace, &[8]),
     (KeyCode::Delete, "\x1b[3~".as_bytes()),
     (KeyCode::End, "\x1b[4~".as_bytes()),
     (KeyCode::PageUp, "\x1b[5~".as_bytes()),
@@ -132,56 +132,25 @@ impl MainWindow<TelnetCom>
 {
     pub fn update_state(&mut self) -> io::Result<()>
     {
-        match &mut self.telnet {
+        match &mut self.com {
             None => Ok(()),
-            Some(telnet) => {
+            Some(com) => {
+                if let Some(adr) = self.addresses.get(self.cur_addr) {
+                    if let Err(error) = self.auto_login.run_autologin(com, adr) {
+                        self.log_file.push(format!("{}", error));
+                    }
+                }
                 let mut do_update = false;
-                while telnet.is_data_available()? {
-                    let ch = telnet.read_char_nonblocking()?;
-                    if let Some(iemsi) = &mut self.iemsi {
-                        iemsi.push_char(ch)?;
-                        if iemsi.irq_requested {
-                            iemsi.irq_requested = false;
-                            self.log_file.push("Starting IEMSI negotiation…".to_string());
-                            let mut data = EmsiICI::new();
-                            if let Some(adr) = self.addresses.get(self.cur_addr) {
-                                data.name = adr.user_name.clone();
-                                data.password = adr.password.clone();
-                                telnet.write(&data.encode().unwrap())?;
-                                self.logged_in = true;
-                            }
-                        } else if let Some(isi) = &iemsi.isi  {
-                            self.log_file.push("Receiving valid IEMSI server info…".to_string());
-                            self.log_file.push(format!("Name:{} Location:{} Operator:{} Notice:{} System:{}", isi.name, isi.location, isi.operator, isi.notice, isi.id));
-                            telnet.write(iemsi::EMSI_2ACK)?;
-                            self.logged_in = true;
-                            self.iemsi = None;
-                        } else if iemsi.got_invavid_isi  {
-                            iemsi.got_invavid_isi = false;
-                            self.log_file.push("Got invalid IEMSI server info…".to_string());
-                            telnet.write(iemsi::EMSI_2ACK)?;
-                            self.logged_in = true;
-                            self.iemsi = None;
-                        } else if iemsi.nak_requested && self.logged_in {
-                            iemsi.nak_requested = false;
-                            if iemsi.retries < 2  {
-                                self.log_file.push("IEMSI retry…".to_string());
-                                let mut data = EmsiICI::new();
-                                if let Some(adr) = self.addresses.get(self.cur_addr) {
-                                    data.name = adr.user_name.clone();
-                                    data.password = adr.password.clone();
-                                    telnet.write(&data.encode().unwrap())?;
-                                }
-                                iemsi.retries += 1;
-                            } else  {
-                                self.log_file.push("IEMSI aborted…".to_string());
-                                telnet.write(iemsi::EMSI_IIR)?;
-                                self.iemsi = None;
-                            }
+                while com.is_data_available()? {
+                    let ch = com.read_char_nonblocking()?;
+
+
+                    if let Some(adr) = self.addresses.get(self.cur_addr) {
+                        if let Err(error) = self.auto_login.try_login(com, adr, ch) {
+                            self.log_file.push(format!("{}", error));
                         }
                     }
-        
-                    self.buffer_view.print_char(Some(telnet), ch)?;
+                    self.buffer_view.print_char(Some(com), ch)?;
                     do_update = true;
                 }
                 if do_update {
@@ -243,11 +212,11 @@ impl MainWindow<TelnetCom>
     {
         let translated_char = self.buffer_view.buffer_parser.from_unicode(ch);
 
-        if let Some(telnet) = &mut self.telnet {
-            let state = telnet.write(&[translated_char]);
+        if let Some(com) = &mut self.com {
+            let state = com.write(&[translated_char]);
             if let Err(s) = state {
                 self.print_log(format!("Error: {:?}", s));
-                self.telnet = None;
+                self.com = None;
             }
         } else {
             let r = self.buffer_view.print_char::<TelnetCom>(Option::<&mut TelnetCom>::None, translated_char);
@@ -274,20 +243,19 @@ impl Application for MainWindow<TelnetCom> {
     fn new(_flags: ()) ->  (Self, Command<Message>) {
        let view =  MainWindow {
             buffer_view: BufferView::new(),
-            telnet:None,
+            com:None,
             trigger: true,
             mode: MainWindowMode::Default,
             addresses: start_read_book(),
             cur_addr: 0,
-            logged_in: false,
             connection_time: SystemTime::now(),
             log_file: Vec::new(),
             options: Options::new(),
-            iemsi: None,
+            auto_login: AutoLogin::new(String::new()),
             xymodem: XYmodem::new(XYModemVariant::XModem),
             zmodem: Zmodem::new(1024),
             font: Some(DEFAULT_FONT_NAME.to_string()),
-            screen_mode: None
+            screen_mode: None,
         };
         /* 
         let txt = b"test";
@@ -326,19 +294,19 @@ impl Application for MainWindow<TelnetCom> {
                         self.mode = MainWindowMode::SelectProtocol(download);
                     },
                     Message::SendLogin => {
-                        if let Some(telnet) = &mut self.telnet {
+                        if let Some(com) = &mut self.com {
                             let adr = self.addresses.get(self.cur_addr).unwrap();
-                            if let Err(err) = telnet.write([adr.user_name.as_bytes(), b"\r", adr.password.as_bytes(), b"\r"].concat().as_slice()) {
+                            if let Err(err) = com.write([adr.user_name.as_bytes(), b"\r", adr.password.as_bytes(), b"\r"].concat().as_slice()) {
                                 self.print_log(format!("Error sending login: {}", err));
                             }
-                            self.logged_in = true;
+                            self.auto_login.logged_in = true;
                         }
                     }
                     Message::ShowPhonebook => {
                         self.mode = MainWindowMode::ShowPhonebook;
                     },
                     Message::Hangup => {
-                        self.telnet = None;
+                        self.com = None;
                         self.print_log(format!("Disconnected."));
 
                     },
@@ -358,13 +326,13 @@ impl Application for MainWindow<TelnetCom> {
                     },
                     Message::KeyCode(code, _modifier) => {
                         
-                        if let Some(telnet) = &mut self.telnet {
+                        if let Some(com) = &mut self.com {
                             for (k, m) in if self.buffer_view.petscii { C64_KEY_MAP} else { KEY_MAP } {
                                 if *k == code {
-                                    let state = telnet.write(m);
+                                    let state = com.write(m);
                                     if let Err(s) = state {
                                         self.print_log(format!("Error: {:?}", s));
-                                        self.telnet = None;
+                                        self.com = None;
                                     }
                                     break;
                                 }
@@ -432,12 +400,12 @@ impl Application for MainWindow<TelnetCom> {
                                     match t {
                                         Ok(t) => {
                                             self.buffer_view.clear();
-                                            self.logged_in = false;
-                                            self.telnet = Some(t);
+                                            self.com = Some(t);
                                             self.cur_addr = i;
-                                            self.iemsi = Some(IEmsi::new());
                                             self.connection_time = SystemTime::now();
                                             let adr = self.addresses[i].clone();
+                                            self.auto_login = AutoLogin::new(adr.auto_login);
+
                                             self.buffer_view.buf.clear();
                                             if let Some(mode) = &adr.screen_mode {
                                                 self.set_screen_mode(mode);
@@ -473,7 +441,7 @@ impl Application for MainWindow<TelnetCom> {
                     }
                     Message::SelectProtocol(protocol_type, download) => {
                         self.mode = MainWindowMode::Default;
-                        if let Some(com) = self.telnet.as_mut() {
+                        if let Some(com) = self.com.as_mut() {
                             if !download {
                                     let files = FileDialog::new()
                                         .pick_files();
@@ -519,7 +487,7 @@ impl Application for MainWindow<TelnetCom> {
                                         }
                                     } 
                             } else {
-                                if let Some(com) = self.telnet.as_mut() {
+                                if let Some(com) = self.com.as_mut() {
                                     let r = match protocol_type {
                                         ProtocolType::ZModem => {
                                             self.zmodem.initiate_recv(com)
@@ -567,8 +535,7 @@ impl Application for MainWindow<TelnetCom> {
             MainWindowMode::FileTransfer(protocol_type, _download) => {
                 match message {
                     Message::Tick => { 
-                        if let Some(com) = &mut self.telnet {
-
+                        if let Some(com) = &mut self.com {
                             let r = match protocol_type {
                                 ProtocolType::ZModem | ProtocolType::ZedZap => {
                                     self.zmodem.update(com)
@@ -591,7 +558,7 @@ impl Application for MainWindow<TelnetCom> {
                         }
                     },
                     Message::CancelTransfer => {
-                        if let Some(com) = &mut self.telnet {
+                        if let Some(com) = &mut self.com {
                             if self.zmodem.is_active() {
                                 let r = self.zmodem.cancel(com);
                                 if let Err(e) = r {
@@ -652,7 +619,7 @@ impl Application for MainWindow<TelnetCom> {
                 );
 
                 column(vec![
-                    if !self.logged_in && self.telnet.is_some() && self.addresses[self.cur_addr].user_name.len() > 0 {
+                    if !self.auto_login.logged_in && self.com.is_some() && self.addresses[self.cur_addr].user_name.len() > 0 {
                         row![
                             button("Phonebook")
                                 .on_press(Message::ShowPhonebook),
@@ -666,7 +633,7 @@ impl Application for MainWindow<TelnetCom> {
                                 .on_press(Message::Hangup)
                         ]
                     } else {
-                        if  self.telnet.is_some()  {
+                        if  self.com.is_some()  {
                             row![
                                 button("Phonebook")
                                     .on_press(Message::ShowPhonebook),
@@ -689,7 +656,7 @@ impl Application for MainWindow<TelnetCom> {
                         }
                     }.padding(10).spacing(20).into(),
                     c.into(),
-                    if self.telnet.is_none() {
+                    if self.com.is_none() {
                         row(vec![
                             log_info,
                             vertical_rule(10).into(),
