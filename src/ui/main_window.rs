@@ -144,11 +144,12 @@ impl MainWindow<TelnetCom>
                             iemsi.irq_requested = false;
                             self.log_file.push("Starting IEMSI negotiation…".to_string());
                             let mut data = EmsiICI::new();
-                            let adr = self.addresses.get(self.cur_addr).unwrap();
-                            data.name = adr.user_name.clone();
-                            data.password = adr.password.clone();
-                            telnet.write(&data.encode().unwrap())?;
-                            self.logged_in = true;
+                            if let Some(adr) = self.addresses.get(self.cur_addr) {
+                                data.name = adr.user_name.clone();
+                                data.password = adr.password.clone();
+                                telnet.write(&data.encode().unwrap())?;
+                                self.logged_in = true;
+                            }
                         } else if let Some(isi) = &iemsi.isi  {
                             self.log_file.push("Receiving valid IEMSI server info…".to_string());
                             self.log_file.push(format!("Name:{} Location:{} Operator:{} Notice:{} System:{}", isi.name, isi.location, isi.operator, isi.notice, isi.id));
@@ -166,10 +167,11 @@ impl MainWindow<TelnetCom>
                             if iemsi.retries < 2  {
                                 self.log_file.push("IEMSI retry…".to_string());
                                 let mut data = EmsiICI::new();
-                                let adr = self.addresses.get(self.cur_addr).unwrap();
-                                data.name = adr.user_name.clone();
-                                data.password = adr.password.clone();
-                                telnet.write(&data.encode().unwrap())?;
+                                if let Some(adr) = self.addresses.get(self.cur_addr) {
+                                    data.name = adr.user_name.clone();
+                                    data.password = adr.password.clone();
+                                    telnet.write(&data.encode().unwrap())?;
+                                }
                                 iemsi.retries += 1;
                             } else  {
                                 self.log_file.push("IEMSI aborted…".to_string());
@@ -270,7 +272,7 @@ impl Application for MainWindow<TelnetCom> {
     }
 
     fn new(_flags: ()) ->  (Self, Command<Message>) {
-       let mut view =  MainWindow {
+       let view =  MainWindow {
             buffer_view: BufferView::new(),
             telnet:None,
             trigger: true,
@@ -471,82 +473,92 @@ impl Application for MainWindow<TelnetCom> {
                     }
                     Message::SelectProtocol(protocol_type, download) => {
                         self.mode = MainWindowMode::Default;
-                        if !download {
-                                let files = FileDialog::new()
-                                    .pick_files();
-                                if let Some(path) = files {
-                                    let fd = FileDescriptor::from_paths(&path);
-                                    self.print_result(&fd);
-                                    if let Ok(files) =  fd {
-                                        let r = match protocol_type {
-                                            ProtocolType::ZModem => {
-                                                self.zmodem = Zmodem::new(1024);
-                                                self.zmodem.initiate_send(self.telnet.as_mut().unwrap(), files)
-                                            },
-                                            ProtocolType::ZedZap => {
-                                                self.zmodem = Zmodem::new(8 * 1024);
-                                                self.zmodem.initiate_send(self.telnet.as_mut().unwrap(), files)
-                                            },
-                                            ProtocolType::XModem => {
-                                                self.xymodem = XYmodem::new(XYModemVariant::XModem);
-                                                self.xymodem.initiate_send(self.telnet.as_mut().unwrap(), files)
-                                            },
-                                            ProtocolType::XModem1k => {
-                                                self.xymodem = XYmodem::new(XYModemVariant::XModem1k);
-                                                self.xymodem.initiate_send(self.telnet.as_mut().unwrap(), files)
-                                            },
-                                            ProtocolType::XModem1kG => {
-                                                self.xymodem = XYmodem::new(XYModemVariant::XModem1kG);
-                                                self.xymodem.initiate_send(self.telnet.as_mut().unwrap(), files)
-                                            },
-                                            ProtocolType::YModem => {
-                                                self.xymodem = XYmodem::new(XYModemVariant::YModem);
-                                                self.xymodem.initiate_send(self.telnet.as_mut().unwrap(), files)
-                                            },
-                                            ProtocolType::YModemG => {
-                                                self.xymodem = XYmodem::new(XYModemVariant::YModemG);
-                                                self.xymodem.initiate_send(self.telnet.as_mut().unwrap(), files)
-                                            }
-                                        };
-                                        self.print_result(&r);
-                                        if r.is_ok() {
-                                            self.mode = MainWindowMode::FileTransfer(protocol_type, download);
+                        if let Some(com) = self.telnet.as_mut() {
+                            if !download {
+                                    let files = FileDialog::new()
+                                        .pick_files();
+                                    if let Some(path) = files {
+                                        let fd = FileDescriptor::from_paths(&path);
+                                        if let Ok(files) =  fd {
+                                                let r = match protocol_type {
+                                                    ProtocolType::ZModem => {
+                                                        self.zmodem = Zmodem::new(1024);
+                                                        self.zmodem.initiate_send(com, files)
+                                                    },
+                                                    ProtocolType::ZedZap => {
+                                                        self.zmodem = Zmodem::new(8 * 1024);
+                                                        self.zmodem.initiate_send(com, files)
+                                                    },
+                                                    ProtocolType::XModem => {
+                                                        self.xymodem = XYmodem::new(XYModemVariant::XModem);
+                                                        self.xymodem.initiate_send(com, files)
+                                                    },
+                                                    ProtocolType::XModem1k => {
+                                                        self.xymodem = XYmodem::new(XYModemVariant::XModem1k);
+                                                        self.xymodem.initiate_send(com, files)
+                                                    },
+                                                    ProtocolType::XModem1kG => {
+                                                        self.xymodem = XYmodem::new(XYModemVariant::XModem1kG);
+                                                        self.xymodem.initiate_send(com, files)
+                                                    },
+                                                    ProtocolType::YModem => {
+                                                        self.xymodem = XYmodem::new(XYModemVariant::YModem);
+                                                        self.xymodem.initiate_send(com, files)
+                                                    },
+                                                    ProtocolType::YModemG => {
+                                                        self.xymodem = XYmodem::new(XYModemVariant::YModemG);
+                                                        self.xymodem.initiate_send(com, files)
+                                                    }
+                                                };
+                                                self.print_result(&r);
+                                                if r.is_ok() {
+                                                    self.mode = MainWindowMode::FileTransfer(protocol_type, download);
+                                                }
+                                        } else {
+                                            self.print_result(&fd);
                                         }
+                                    } 
+                            } else {
+                                if let Some(com) = self.telnet.as_mut() {
+                                    let r = match protocol_type {
+                                        ProtocolType::ZModem => {
+                                            self.zmodem.initiate_recv(com)
+                                        },
+                                        ProtocolType::ZedZap => {
+                                            self.zmodem.initiate_recv(com)
+                                        },
+                                        ProtocolType::XModem => {
+                                            self.xymodem = XYmodem::new(XYModemVariant::XModem);
+                                            self.xymodem.initiate_recv(com)
+                                        },
+                                        ProtocolType::XModem1k => {
+                                            self.xymodem = XYmodem::new(XYModemVariant::XModem1k);
+                                            self.xymodem.initiate_recv(com)
+                                        },
+                                        ProtocolType::XModem1kG => {
+                                            self.xymodem = XYmodem::new(XYModemVariant::XModem1kG);
+                                            self.xymodem.initiate_recv(com)
+                                        },
+                                        ProtocolType::YModem => {
+                                            self.xymodem = XYmodem::new(XYModemVariant::YModem);
+                                            self.xymodem.initiate_recv(com)
+                                        },
+                                        ProtocolType::YModemG => {
+                                            self.xymodem = XYmodem::new(XYModemVariant::YModemG);
+                                            self.xymodem.initiate_recv(com)
+                                        }
+                                    };
+                                    self.print_result(&r);
+                                    if r.is_ok() {
+                                        self.mode = MainWindowMode::FileTransfer(protocol_type, download);
                                     }
-                                } 
-                        } else {
-                            let r = match protocol_type {
-                                ProtocolType::ZModem => {
-                                    self.zmodem.initiate_recv(self.telnet.as_mut().unwrap())
-                                },
-                                ProtocolType::ZedZap => {
-                                    self.zmodem.initiate_recv(self.telnet.as_mut().unwrap())
-                                },
-                                ProtocolType::XModem => {
-                                    self.xymodem = XYmodem::new(XYModemVariant::XModem);
-                                    self.xymodem.initiate_recv(self.telnet.as_mut().unwrap())
-                                },
-                                ProtocolType::XModem1k => {
-                                    self.xymodem = XYmodem::new(XYModemVariant::XModem1k);
-                                    self.xymodem.initiate_recv(self.telnet.as_mut().unwrap())
-                                },
-                                ProtocolType::XModem1kG => {
-                                    self.xymodem = XYmodem::new(XYModemVariant::XModem1kG);
-                                    self.xymodem.initiate_recv(self.telnet.as_mut().unwrap())
-                                },
-                                ProtocolType::YModem => {
-                                    self.xymodem = XYmodem::new(XYModemVariant::YModem);
-                                    self.xymodem.initiate_recv(self.telnet.as_mut().unwrap())
-                                },
-                                ProtocolType::YModemG => {
-                                    self.xymodem = XYmodem::new(XYModemVariant::YModemG);
-                                    self.xymodem.initiate_recv(self.telnet.as_mut().unwrap())
+                                } else {
+                                    self.print_log("Communication error.".to_string());
                                 }
-                            };
-                            self.print_result(&r);
-                            if r.is_ok() {
-                                self.mode = MainWindowMode::FileTransfer(protocol_type, download);
+
                             }
+                        } else {
+                            self.print_log("Communication error.".to_string());
                         }
                     }
                     _ => { }

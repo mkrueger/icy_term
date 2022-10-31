@@ -114,36 +114,38 @@ impl Address {
         if let Some(phonebook) = Address::get_phonebook_file() {
             let fs = fs::read_to_string(&phonebook).expect("Can't read phonebook");
             let data = YamlLoader::load_from_str(&fs);
-
-            if data.is_err() {
-                println!("Can't read phonebook from file {}.", phonebook.display());
-                return res;
-            }
-            let yaml = data.unwrap();
-            for adr in yaml {
-                if let Yaml::Hash(h) = adr {
-                    for (k, v) in h {
-                        let mut adr = Address::new();
-                        adr.system_name = k.into_string().unwrap();
-
-                        if let Yaml::Hash(h) = v {
+            match data {
+                Ok(yaml) => {
+                    for adr in yaml {
+                        if let Yaml::Hash(h) = adr {
                             for (k, v) in h {
-                                let k  = k.into_string().unwrap();
-                                let v  = v.into_string().unwrap();
-                                match k.as_ref() {
-                                    "comment" => { adr.comment = v; }
-                                    "address" => { adr.address = v; }
-                                    "user" => { adr.user_name = v; }
-                                    "password" => { adr.password = v; }
-                                    "use_ice" => { adr.ice_mode = v == "true"; }
-                                    "screen_mode" => { adr.screen_mode = ScreenMode::parse(&v); }
-                                    "font_name" => { adr.font_name = Some(v); }
-                                   _ =>  {}
-                                } 
+                                let mut adr = Address::new();
+                                adr.system_name = k.into_string().unwrap();
+
+                                if let Yaml::Hash(h) = v {
+                                    for (k, v) in h {
+                                        let k  = k.into_string().unwrap();
+                                        let v  = v.into_string().unwrap();
+                                        match k.as_ref() {
+                                            "comment" => { adr.comment = v; }
+                                            "address" => { adr.address = v; }
+                                            "user" => { adr.user_name = v; }
+                                            "password" => { adr.password = v; }
+                                            "use_ice" => { adr.ice_mode = v == "true"; }
+                                            "screen_mode" => { adr.screen_mode = ScreenMode::parse(&v); }
+                                            "font_name" => { adr.font_name = Some(v); }
+                                        _ =>  {}
+                                        } 
+                                    }
+                                }
+                                res.push(adr);
                             }
                         }
-                        res.push(adr);
                     }
+                }
+                Err(err) => {
+                    println!("Can't read phonebook from file {}: {:?}.", phonebook.display(), err);
+                    return res;
                 }
             }
         }
@@ -160,8 +162,10 @@ pub fn start_read_book() -> Vec<Address> {
         let p  = phonebook.clone();
         thread::spawn(move || {
             loop {
-                if let Err(_) = watch(&p.parent().unwrap()) {
-                    return;
+                if let Some(path) = p.parent() {
+                    if let Err(_) = watch(path) {
+                        return;
+                    }
                 }
             }
         });

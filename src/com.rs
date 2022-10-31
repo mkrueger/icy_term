@@ -39,24 +39,32 @@ impl TelnetCom
 
     fn fill_buffer(&mut self) -> io::Result<()>
     {
-        if let telnet::Event::Data(buffer) = &(self.telnet.as_mut().unwrap()).read_nonblocking()? {
-            if self.buf.try_reserve(buffer.len()).is_err() {
-                return Err(io::Error::new(ErrorKind::OutOfMemory, "out of memory"));
+        if let Some(t) = self.telnet.as_mut() {
+            if let telnet::Event::Data(buffer) = t.read_nonblocking()? {
+                if self.buf.try_reserve(buffer.len()).is_err() {
+                    return Err(io::Error::new(ErrorKind::OutOfMemory, "out of memory"));
+                }
+                self.buf.extend(buffer.iter());
             }
-            self.buf.extend(buffer.iter());
+            Ok(())
+        } else {
+            Err(io::Error::new(ErrorKind::OutOfMemory, "Connection error"))
         }
-        Ok(())
     }
 
     fn fill_buffer_wait(&mut self, timeout: Duration) -> io::Result<()>
     {
-        if let telnet::Event::Data(buffer) = &(self.telnet.as_mut().unwrap()).read_timeout(timeout)? {
-            if self.buf.try_reserve(buffer.len()).is_err() {
-                return Err(io::Error::new(ErrorKind::OutOfMemory, "out of memory"));
+        if let Some(t) = self.telnet.as_mut() {
+            if let telnet::Event::Data(buffer) = &t.read_timeout(timeout)? {
+                if self.buf.try_reserve(buffer.len()).is_err() {
+                    return Err(io::Error::new(ErrorKind::OutOfMemory, "out of memory"));
+                }
+                self.buf.extend(buffer.iter());
             }
-            self.buf.extend(buffer.iter());
+            Ok(())
+        } else {
+            Err(io::Error::new(ErrorKind::OutOfMemory, "Connection error"))
         }
-        Ok(())
     }
 }
 
