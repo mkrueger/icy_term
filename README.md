@@ -1,23 +1,53 @@
 # icy_term
 
-# Features 
+IcyTERM is a BBS terminal program with allows you to connect to BBSes.
+Visit https://www.telnetbbsguide.com/ for a start to enter the BBS world.
 
- * Telnet only so far 
- * Ansi, Avatar, Petscii display
- * Built in fonts, many DOS fonts, C64, Amiga & Atari fonts supported.
- * Scrollback buffer
- * Protocols supported Xmodem, Xmodem1k, Xmodem1k-G, Ymodem, Ymodem-G, Zmodem, ZedZap (Zmodem 8k)
- * IEMSI auto login support
- 
- # Bugs
- * Please file some - I'm sure the protocols still have issues
- 
- # Planed features
- 
-  * Better phonebook
-  * More intelligent auto login system (unfortunately IEMSI support in modern BBSes is lacking)
-  * SSH, Rlogin 
-  * Bette rendering engine 
-  * Possiblie switching to another UI lib 
- 
- 
+Features supported so far:
+- Connection
+  - [x] Telnet
+  - [ ] SSH
+  - [ ] Rlogin
+  - [ ] Raw
+- Terminal encoding support
+  - [x] Ansi
+  - [x] Avatar
+  - [x] Petscii
+  - [x] Built in fonts, many DOS fonts, C64, Amiga & Atari font supported.
+  - [ ] ATASCII 
+- File transfer protocols 
+  - [x] Xmodem, 1k & 1k-G (implemented but needs testing)
+  - [x] Ymodem batch & Ymodem-G (implemented but needs testing)
+  - [x] Zmodem/ZedZap (implemented but needs testing)
+- Auto login
+  - [x] IEMSI
+  - [ ] Terminate style auto login system
+- [x] Misc features
+  - [x] Scrollback buffer (scrollwheel)
+  - [ ] Exporting buffer to disk
+  - [ ] Phonebook editor (you need to edit it as text for the moment)
+  - [ ] Better rendering engine (maybe switching the UI lib)
+  - [ ] Copy & Paste
+
+# History
+
+I had an own BBS back in the 90'. When I started rust I searched a project and some days earlier I spoke with my wife about the good old days, PCBoard and then I got the idea to improve the PPL decompiler we used these days.
+That was my first project and it was successful (https://github.com/mkrueger/PPLEngine).
+Around that time I learned that there are still BBSes in the internet and I started to update my old ansi drawing tool (MysticDraw) however I lost a bit track because of the gtk4 bindings. It's very difficult to write even a mid sized UI application with these.
+
+I tried to use druid & egui for that but none of these libraries felt that it was the way to go.
+
+Now I want to make some small real world projects for each. 
+
+- I made a small prototype for the ansi drawer in druid (feels very comfortable to work with but the APP looks bad)
+- Made a game cheating tool with egui - very nice tool but the APPs still have not the look & feel 
+- Now I made a terminal app with iced - PopOS! is switching to that library.
+
+With all my ansi & buffer routines I've already written it makes sense to make a terminal. I need one program as well - most terminal programs are a bit too old school. Time to change that. 
+
+# Iced ui lib
+Works to a degree, but I would switch to another UI lib. It's very limited - you can't even make a popup dialog, hasn't a main menu and has many pieces missing. Druid or Egui would give a better base. I'll continue with iced until I can decide.
+Chances are high that it'll have all the features I need by then :).
+
+# Bugs
+Please file some - I'm sure the protocols still have issues
