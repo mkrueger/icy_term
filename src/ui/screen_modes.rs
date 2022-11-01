@@ -76,8 +76,8 @@ impl ScreenMode {
         let buf = &mut buffer_view.buf;
         match self {
             ScreenMode::DOS(w, h) => {
-                buf.width = *w;
-                buf.height = *h;
+                buf.set_buffer_width(*w);
+                buf.set_buffer_height(*h);
                 if *h >= 50 {
                     *font = Some("IBM VGA50".to_string());
                 } else {
@@ -88,8 +88,8 @@ impl ScreenMode {
                 buf.palette = Palette::new();
             }
             ScreenMode::C64 => {
-                buf.width = 40;
-                buf.height = 25;
+                buf.set_buffer_width(40);
+                buf.set_buffer_height(25);
                 *font = Some("C64 PETSCII unshifted".to_string());
                 buf.extended_font = Some(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
                 buffer_view.buffer_parser = Box::new(PETSCIIParser::new());
@@ -97,8 +97,8 @@ impl ScreenMode {
                 buf.palette = Palette { colors: C64_DEFAULT_PALETTE.to_vec() };
             }
             ScreenMode::C128(col) => {
-                buf.width = *col;
-                buf.height = 25;
+                buf.set_buffer_width(*col);
+                buf.set_buffer_height(25);
                 *font = Some("C64 PETSCII unshifted".to_string());
                 buf.extended_font = Some(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
                 buffer_view.buffer_parser = Box::new(PETSCIIParser::new());
@@ -106,16 +106,16 @@ impl ScreenMode {
                 buf.palette = Palette { colors: C64_DEFAULT_PALETTE.to_vec() };
             },
             ScreenMode::Atari =>  {
-                buf.width = 40;
-                buf.height = 40;
+                buf.set_buffer_width(40);
+                buf.set_buffer_height(40);
                 *font = Some("Atari ATASCII".to_string());
                 buffer_view.buffer_parser = Box::new(AvatarParser::new(true));
                 buffer_view.petscii = false;
                 buf.palette = Palette::new();
             },
             ScreenMode::AtariXep80 =>  {
-                buf.width = 40;
-                buf.height = 30;
+                buf.set_buffer_width(40);
+                buf.set_buffer_height(30);
                 *font = Some("Atari ATASCII".to_string());
                 buffer_view.buffer_parser = Box::new(AvatarParser::new(true));
                 buffer_view.petscii = false;

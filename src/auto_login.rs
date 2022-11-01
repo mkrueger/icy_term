@@ -72,7 +72,6 @@ impl AutoLogin {
                 }
             }
             ch => {
-                println!("{}", char::from_u32(ch as u32).unwrap());
                 com.write(&[ch as u8])?;
                 self.cur_expr_idx += 1;
             }

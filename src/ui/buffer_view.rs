@@ -44,7 +44,7 @@ impl BufferView {
 
     pub fn scroll(&mut self, lines: i32) {
         
-        self.scroll_back_line = max(0, min(self.buf.layers[0].lines.len() as i32 - self.buf.height, self.scroll_back_line + lines));
+        self.scroll_back_line = max(0, min(self.buf.layers[0].lines.len() as i32 - self.buf.get_buffer_height(), self.scroll_back_line + lines));
     }
 
     pub fn clear(&mut self)
@@ -55,8 +55,10 @@ impl BufferView {
     pub fn print_char<T: Com>(&mut self, com: Option<&mut T>, c: u8) -> io::Result<()>
     {
         self.scroll_back_line = 0;
-       /* if c < 32 || c > 127 {
-            if c == b'\n'  {
+        /*if c < 32 || c > 127 {
+            if c == b'"'  {
+                print!("\\\"");
+            } if c == b'\n'  {
                 print!("\\n");
             } else if c == b'\r'  {
                 print!("\\r");
@@ -104,7 +106,7 @@ impl<'a> canvas::Program<Message> for BufferView {
         bounds: Rectangle,
         _cursor: Cursor,
     ) -> Vec<Geometry> {
-        let first_line = max(0, self.buf.layers[0].lines.len() as i32 - self.buf.height);
+        let first_line = max(0, self.buf.layers[0].lines.len() as i32 - self.buf.get_buffer_height());
 
         let content =
             self.cache.draw(bounds.size(), |frame: &mut Frame| {
@@ -115,15 +117,15 @@ impl<'a> canvas::Program<Message> for BufferView {
                 let font_dimensions = buffer.get_font_dimensions();
                 let mut char_size = iced::Size::new(font_dimensions.width as f32, font_dimensions.height as f32);
 
-                let mut w = self.buf.width as f32 * char_size.width;
-                let mut h = self.buf.height as f32 * char_size.height;
+                let mut w = self.buf.get_buffer_width() as f32 * char_size.width;
+                let mut h = self.buf.get_buffer_height() as f32 * char_size.height;
 
                 let double_mode = w * 2.0 <= bounds.width && h * 2.0 <= bounds.height;
                 if double_mode {
                     char_size.width *= 2.0;
                     char_size.height *= 2.0;
-                    w = self.buf.width as f32 * char_size.width;
-                    h = self.buf.height as f32 * char_size.height;
+                    w = self.buf.get_buffer_width() as f32 * char_size.width;
+                    h = self.buf.get_buffer_height() as f32 * char_size.height;
                     unsafe { SCALE = 2.0; }
                 }  else { 
                     unsafe {
@@ -133,8 +135,8 @@ impl<'a> canvas::Program<Message> for BufferView {
 
                 let top_x = (bounds.width - w) / 2.0;
                 let top_y = (bounds.height - h) / 2.0;
-                for y in 0..self.buf.height as usize {
-                    for x in 0..self.buf.width as usize {
+                for y in 0..self.buf.get_buffer_height() as usize {
+                    for x in 0..self.buf.get_buffer_width() as usize {
                         let rect  = Rectangle::new(
                             Point::new(
                                 top_x + (x * char_size.width as usize) as f32 + 0.5,  
@@ -173,20 +175,20 @@ impl<'a> canvas::Program<Message> for BufferView {
 
             let top_line = first_line - self.scroll_back_line;
 
-            if self.caret.is_visible && !self.blink && (top_line..(top_line + self.buf.height)).contains(&self.caret.get_position().y) {
+            if self.caret.is_visible && !self.blink && (top_line..(top_line + self.buf.get_buffer_height())).contains(&self.caret.get_position().y) {
                 let buffer = &self.buf;
                 let font_dimensions = buffer.get_font_dimensions();
                 let mut char_size = iced::Size::new(font_dimensions.width as f32, font_dimensions.height as f32);
 
-                let mut w = self.buf.width as f32 * char_size.width;
-                let mut h = self.buf.height as f32 * char_size.height;
+                let mut w = self.buf.get_buffer_width() as f32 * char_size.width;
+                let mut h = self.buf.get_buffer_height() as f32 * char_size.height;
 
                 let double_mode = w * 2.0 <= bounds.width && h * 2.0 <= bounds.height;
                 if double_mode {
                     char_size.width *= 2.0;
                     char_size.height *= 2.0;
-                    w = self.buf.width as f32 * char_size.width;
-                    h = self.buf.height as f32 * char_size.height;
+                    w = self.buf.get_buffer_width() as f32 * char_size.width;
+                    h = self.buf.get_buffer_height() as f32 * char_size.height;
                 }
                 let top_x = (bounds.width - w) / 2.0;
                 let top_y = (bounds.height - h) / 2.0;
