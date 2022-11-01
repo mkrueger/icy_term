@@ -1,4 +1,4 @@
-use std::{io, time::{SystemTime, Duration}, thread};
+use std::{io, time::{SystemTime, Duration}};
 use crate::{iemsi::{IEmsi}, com::Com, address::Address};
 
 pub struct AutoLogin {

@@ -52,9 +52,9 @@ impl super::Protocol for XYmodem {
         self.config.get_protocol_name()
     }
 
-    fn get_current_state(&self) -> Option<TransferState>
+    fn get_current_state(&self) -> Option<&TransferState>
     {
-        self.transfer_state.clone()
+       self.transfer_state.as_ref()
     }
     
     fn is_active(&self) -> bool {

@@ -1,5 +1,5 @@
 use std::path::{ PathBuf};
-use std::time::SystemTime;
+use std::time::{SystemTime, Duration};
 use std::{io, fs};
 
 pub mod xymodem;
@@ -56,7 +56,12 @@ impl FileDescriptor {
                 }
                 return Ok(());
             }
-            let file_name = dir.join(&self.file_name);
+            let mut file_name = dir.join(&self.file_name);
+            let mut i = 1;
+            while file_name.exists() {
+                file_name = dir.join(&format!("{}.{}", self.file_name, i));
+                i += 1;
+            }
             fs::write(file_name, &self.get_data()?)?;
         }
         Ok(())
@@ -109,6 +114,9 @@ pub struct FileTransferState {
     pub files_finished: Vec<String>,
     pub check_size: String,
     pub engine_state: String,
+    time: SystemTime,
+    bytes_transferred_timed: usize,
+    bps: u64
 }
 
 impl FileTransferState {
@@ -120,10 +128,36 @@ impl FileTransferState {
             errors: 0,
             files_finished: Vec::new(),
             check_size: String::new(),
-            engine_state: String::new()
+            engine_state: String::new(),
+            time: SystemTime::now(),
+            bytes_transferred_timed: 0,
+            bps: 0
         }
     }
 
+    pub fn update_bps(&mut self) 
+    {
+        let bytes = self.bytes_transfered.saturating_sub(self.bytes_transferred_timed);
+        let length = SystemTime::now().duration_since(self.time).unwrap();
+    
+        if length > Duration::from_secs(10) {
+            self.bytes_transferred_timed = self.bytes_transfered;
+        }
+    
+        let length = length.as_secs() as usize;
+
+        if length > 0 {
+            self.bps = self.bps / 2 +  (bytes / length) as u64;
+        }
+
+        let length = SystemTime::now().duration_since(self.time).unwrap();
+        if length > Duration::from_secs(5) {
+            self.bytes_transferred_timed = self.bytes_transfered;
+            self.time = SystemTime::now();
+        }
+    }
+
+    pub fn get_bps(&self) -> u64 { self.bps }
 }
 
 
@@ -142,13 +176,14 @@ impl TransferState {
             recieve_state: None
         }
     }
+
 }
 
 pub trait Protocol
 {
     fn get_name(&self) -> &str;
     
-    fn get_current_state(&self) -> Option<TransferState>;
+    fn get_current_state(&self) -> Option<&TransferState>;
 
     fn is_active(&self) -> bool;
 

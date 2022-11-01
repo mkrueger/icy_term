@@ -1,7 +1,7 @@
 use std::{time::Duration, io::{self, ErrorKind}};
 use icy_engine::get_crc16;
 
-use crate::{protocol::{FileDescriptor, TransferState, FileTransferState, xymodem::constants::{SOH, STX, EXT_BLOCK_LENGTH, EOT, CPMEOF, NAK, ACK}}, com::Com};
+use crate::{protocol::{FileDescriptor, TransferState, xymodem::constants::{SOH, STX, EXT_BLOCK_LENGTH, EOT, CPMEOF, NAK, ACK}}, com::Com};
 use super::{Checksum, get_checksum,  constants::{CAN, DEFAULT_BLOCK_LENGTH}, XYModemConfiguration};
 
 #[derive(Debug)]
@@ -52,18 +52,19 @@ impl Ry {
 
     pub fn update<T: Com>(&mut self, com: &mut T, state: &mut TransferState) -> io::Result<()>
     {
-        let mut transfer_state = FileTransferState::new();
-        if self.files.len() > 0 {
-            let cur_file = self.files.len() - 1;
-            let f = &self.files[cur_file];
-            transfer_state.file_name = f.file_name.clone();
-            transfer_state.file_size = f.size;
+        if let Some(transfer_state) = &mut state.recieve_state {
+            if self.files.len() > 0 {
+                let cur_file = self.files.len() - 1;
+                let f = &self.files[cur_file];
+                transfer_state.file_name = f.file_name.clone();
+                transfer_state.file_size = f.size;
+            }
+            transfer_state.bytes_transfered = self.bytes_send;
+            transfer_state.errors = self.errors;
+            transfer_state.engine_state = format!("{:?}", self.recv_state);
+            transfer_state.check_size = self.configuration.get_check_and_size();
+            transfer_state.update_bps();
         }
-        transfer_state.bytes_transfered = self.bytes_send;
-        transfer_state.errors = self.errors;
-        transfer_state.engine_state = format!("{:?}", self.recv_state);
-        transfer_state.check_size = self.configuration.get_check_and_size();
-        state.recieve_state = Some(transfer_state);
 
         // println!("\t\t\t\t\t\t{:?}", self.recv_state);
         match self.recv_state {

@@ -21,6 +21,7 @@ use crate::{com::Com};
 use super::{Protocol, TransferState, FileTransferState};
 
 pub struct Zmodem {
+    block_length: usize,
     transfer_state: Option<TransferState>,
     sz: Sz,
     rz: Rz
@@ -29,6 +30,7 @@ pub struct Zmodem {
 impl Zmodem {
     pub fn new(block_length: usize) -> Self {
         Self {
+            block_length,
             transfer_state: None,
             sz: Sz::new(block_length),
             rz: Rz::new()
@@ -128,11 +130,12 @@ impl Protocol for Zmodem {
 
     fn get_name(&self) -> &str
     {
-        "Zmodem"
+        if self.block_length == 1024 { "Zmodem" } else { "ZedZap (Zmodem 8k)" }
     }
 
-    fn get_current_state(&self) -> Option<super::TransferState> {
-        self.transfer_state.clone()
+    fn get_current_state(&self) -> Option<&TransferState>
+    {
+       self.transfer_state.as_ref()
     }
 
     fn is_active(&self) -> bool

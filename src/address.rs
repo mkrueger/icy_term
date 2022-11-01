@@ -85,7 +85,7 @@ impl Address {
             terminal_type: Terminal::Ansi,
             font_name: None,
             screen_mode: None,
-            auto_login: "!E!W!N!P".to_string(),
+            auto_login: String::new(),
             address: String::new(),
             connection: Connection::Telnet,
             ice_mode: true
