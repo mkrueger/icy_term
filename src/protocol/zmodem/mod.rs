@@ -33,7 +33,7 @@ impl Zmodem {
             block_length,
             transfer_state: None,
             sz: Sz::new(block_length),
-            rz: Rz::new()
+            rz: Rz::new(block_length)
         }
     }
 
@@ -151,15 +151,21 @@ impl Protocol for Zmodem {
                     if !self.sz.is_active() {
                         self.transfer_state = None;
                     }
-                } else if self.rz.is_active() {
-                    self.rz.update(com, s)?;
-                    if !self.rz.is_active() {
-                        self.transfer_state = None;
+                } else {
+                     while self.rz.is_active() {
+                        if !com.is_data_available()? || self.block_length > 1024 {
+                            break;
+                        }
+                        self.rz.update(com, s)?;
+                        if !self.rz.is_active() {
+                            self.transfer_state = None;
+                            break;
+                        }
                     }
                 }
             }
             None => {
-                println!("no state");
+                self.cancel(com)?;
                 return Ok(());
             }
         }

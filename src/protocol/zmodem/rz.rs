@@ -23,15 +23,17 @@ pub struct Rz {
     last_send: SystemTime,
     retries: usize,
     can_count: usize,
+    block_length: usize
 }
 
 impl Rz {
-    pub fn new() -> Self
+    pub fn new(block_length: usize) -> Self
     {
         Self {
             state: RevcState::Idle,
             files: Vec::new(),
             last_send: SystemTime::now(),
+            block_length,
             retries: 0,
             can_count: 0,
             errors: 0
@@ -110,7 +112,6 @@ impl Rz {
                     return Ok(());
                 }
                 let (block, is_last) = pck.unwrap();
-                println!("is LAST {}", is_last);
                 if let Some(fd) = self.files.get_mut(last) {
                     if let Some(data) = &mut fd.data {
                         data.extend_from_slice(&block);
@@ -156,7 +157,7 @@ impl Rz {
                         return Ok(true);
                     }
                     FrameType::ZFILE => {
-                            let pck = self.read_subpacket(com)?;
+                        let pck = self.read_subpacket(com)?;
                         if pck.is_none() {
                             return Ok(false);
                         }
@@ -262,12 +263,13 @@ impl Rz {
 
     pub fn read_subpacket<T: Com>(&mut self, com: &mut T) -> io::Result<Option<(Vec<u8>, bool)>>
     {
-        let mut data = Vec::new();
+        let mut data = Vec::with_capacity(self.block_length);
+        let d = Duration::from_secs(5);
         loop {
-            let c = com.read_char(Duration::from_secs(5))?;
+            let c = com.read_char(d)?;
             match c {
                 ZDLE  => {
-                    let c2 = com.read_char(Duration::from_secs(5))?;
+                    let c2 = com.read_char(d)?;
                     match c2 {
                         ZDLEE => data.push(ZDLE),
                         ESC_0X10 => data.push(0x10),

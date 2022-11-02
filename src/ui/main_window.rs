@@ -241,7 +241,7 @@ impl Application for MainWindow<TelnetCom> {
     }
 
     fn new(_flags: ()) ->  (Self, Command<Message>) {
-       let mut view =  MainWindow {
+       let view =  MainWindow {
             buffer_view: BufferView::new(),
             com:None,
             trigger: true,
@@ -545,16 +545,16 @@ impl Application for MainWindow<TelnetCom> {
                                 }
                             };
                             self.print_result(&r);
-                        }
 
-                        if !self.zmodem.is_active() && !self.xymodem.is_active() {
-                            for f in self.zmodem.get_received_files() {
-                                f.save_file_in_downloads().expect("error saving file.");
+                            if !self.zmodem.is_active() && !self.xymodem.is_active() {
+                                for f in self.zmodem.get_received_files() {
+                                    f.save_file_in_downloads().expect("error saving file.");
+                                }
+                                for f in self.xymodem.get_received_files() {
+                                    f.save_file_in_downloads().expect("error saving file.");
+                                }
+                                self.mode = MainWindowMode::Default;
                             }
-                            for f in self.xymodem.get_received_files() {
-                                f.save_file_in_downloads().expect("error saving file.");
-                            }
-                            self.mode = MainWindowMode::Default;
                         }
                     },
                     Message::CancelTransfer => {

@@ -60,7 +60,7 @@ impl BufferView {
                 print!("\\\"");
             } if c == b'\n'  {
                 print!("\\n");
-            } else if c == b'\r'  {
+            } else if c == b'\r'  { 
                 print!("\\r");
             } else { 
                 print!("\\x{:X}", c);

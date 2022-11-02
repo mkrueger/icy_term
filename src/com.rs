@@ -39,6 +39,7 @@ impl TelnetCom
 
     fn fill_buffer(&mut self) -> io::Result<()>
     {
+        if self.buf.len() > 0 { return Ok(()); }
         if let Some(t) = self.telnet.as_mut() {
             if let telnet::Event::Data(buffer) = t.read_nonblocking()? {
                 if self.buf.try_reserve(buffer.len()).is_err() {

@@ -1,6 +1,6 @@
 use std::{io::{self, ErrorKind}, cmp::min, time::{SystemTime}};
 
-use crate::{com::Com, protocol::{FileDescriptor, Zmodem, FrameType, zfile_flag, ZCRCW, ZCRCG, HeaderType, Header, ZCRCE, TransferState}};
+use crate::{com::Com, protocol::{FileDescriptor, Zmodem, FrameType, zfile_flag, ZCRCG, HeaderType, Header, ZCRCE, TransferState}};
 
 #[derive(Debug)]
 pub enum SendState {

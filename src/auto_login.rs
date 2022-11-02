@@ -4,7 +4,7 @@ use crate::{iemsi::{IEmsi}, com::Com, address::Address};
 pub struct AutoLogin {
     pub logged_in: bool,
     pub iemsi: Option<IEmsi>,
-    last_send: SystemTime,
+    last_char_recv: SystemTime,
     continue_time: SystemTime,
 
     login_expr: Vec<u8>,
@@ -20,7 +20,7 @@ impl AutoLogin {
         Self {
             logged_in: false,
             iemsi: Some(IEmsi::new()),
-            last_send: SystemTime::now(),
+            last_char_recv: SystemTime::now(),
             continue_time: SystemTime::now(),
             login_expr: login_expr.as_bytes().to_vec(),
             cur_expr_idx: 0,
@@ -33,10 +33,13 @@ impl AutoLogin {
         match self.login_expr[self.cur_expr_idx + 1] {
             b'D' => { // Delay for x seconds. !D4= Delay for 4 seconds
                 let ch = self.login_expr[self.cur_expr_idx + 2];
-                self.continue_time = self.last_send + Duration::from_secs((ch - b'0') as u64);
+                self.continue_time = self.last_char_recv + Duration::from_secs((ch - b'0') as u64);
                 self.cur_expr_idx += 3;
             }
             b'E' => { // Send cr+cr then esc + wait until other end responds
+                if SystemTime::now().duration_since(self.last_char_recv).unwrap().as_millis() > 500 {
+                    return Ok(true);
+                }
                 self.cur_expr_idx += 2;
                 com.write(b"\n\n\x1b")?;
             }
@@ -88,7 +91,7 @@ impl AutoLogin {
             self.logged_in = true;
             return Ok(());
         }
-        self.last_send = SystemTime::now();
+        self.last_char_recv = SystemTime::now();
         if self.name_idx < NAME_STR.len() {
             let c = if (b'a'..b'z').contains(&ch) { ch - b'a' + b'A' } else  { ch };
             if (b'A'..b'Z').contains(&c) {
@@ -111,8 +114,8 @@ impl AutoLogin {
         if self.logged_in && self.cur_expr_idx >= self.login_expr.len() {
             return Ok(());
         }
-        self.last_send = SystemTime::now();
-        if self.last_send < self.continue_time {
+        self.last_char_recv = SystemTime::now();
+        if self.last_char_recv < self.continue_time {
             return Ok(());
         }
         if self.cur_expr_idx < self.login_expr.len() {
