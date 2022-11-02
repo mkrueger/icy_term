@@ -52,7 +52,9 @@ impl FileDescriptor {
                 let new_name = FileDialog::new()
                 .save_file();
                 if let Some(path) = new_name {
-                    fs::write(dir.join(path), &self.get_data()?)?;
+                    let out_file = dir.join(path);
+                    println!("Storing file as '{:?}'…", out_file);
+                    fs::write(out_file, &self.get_data()?)?;
                 }
                 return Ok(());
             }
@@ -62,6 +64,7 @@ impl FileDescriptor {
                 file_name = dir.join(&format!("{}.{}", self.file_name, i));
                 i += 1;
             }
+            println!("Storing file as '{:?}'…", file_name);
             fs::write(file_name, &self.get_data()?)?;
         }
         Ok(())

@@ -136,18 +136,18 @@ impl MainWindow<TelnetCom>
             None => Ok(()),
             Some(com) => {
                 if let Some(adr) = self.addresses.get(self.cur_addr) {
-                    if let Err(error) = self.auto_login.run_autologin(com, adr) {
-                        self.log_file.push(format!("{}", error));
+                    if let Err(err) = self.auto_login.run_autologin(com, adr) {
+                        eprintln!("{}", err);
+                        self.log_file.push(format!("{}", err));
                     }
                 }
                 let mut do_update = false;
                 while com.is_data_available()? {
                     let ch = com.read_char_nonblocking()?;
-
-
                     if let Some(adr) = self.addresses.get(self.cur_addr) {
-                        if let Err(error) = self.auto_login.try_login(com, adr, ch) {
-                            self.log_file.push(format!("{}", error));
+                        if let Err(err) = self.auto_login.try_login(com, adr, ch) {
+                            eprintln!("{}", err);
+                            self.log_file.push(format!("{}", err));
                         }
                     }
                     self.buffer_view.print_char(Some(com), ch)?;
@@ -187,6 +187,7 @@ impl MainWindow<TelnetCom>
     pub fn print_result<T>(&mut self, result: &io::Result<T>)
     {
         if let Err(error) = result {
+            eprintln!("{}", error);
             self.log_file.push(format!("{}", error));
         }
     }
@@ -214,8 +215,9 @@ impl MainWindow<TelnetCom>
 
         if let Some(com) = &mut self.com {
             let state = com.write(&[translated_char]);
-            if let Err(s) = state {
-                self.print_log(format!("Error: {:?}", s));
+            if let Err(err) = state {
+                eprintln!("{}", err);
+                self.print_log(format!("Error: {:?}", err));
                 self.com = None;
             }
         } else {
@@ -241,7 +243,7 @@ impl Application for MainWindow<TelnetCom> {
     }
 
     fn new(_flags: ()) ->  (Self, Command<Message>) {
-       let view =  MainWindow {
+       let mut view =  MainWindow {
             buffer_view: BufferView::new(),
             com:None,
             trigger: true,
@@ -257,13 +259,13 @@ impl Application for MainWindow<TelnetCom> {
             font: Some(DEFAULT_FONT_NAME.to_string()),
             screen_mode: None,
         };
-        /*
+        
         let txt = b"";
         for b in txt {
-            if let Err(e) = view.buffer_view.buffer_parser.print_char(&mut view.buffer_view.buf, &mut view.buffer_view.caret, *b) {
-                println!("Err: {}", e);
+            if let Err(err) = view.buffer_view.buffer_parser.print_char(&mut view.buffer_view.buf, &mut view.buffer_view.caret, *b) {
+                eprintln!("{}", err);
             }
-        }*/
+        }
 
         (view, Command::none())
     }
@@ -297,6 +299,7 @@ impl Application for MainWindow<TelnetCom> {
                         if let Some(com) = &mut self.com {
                             let adr = self.addresses.get(self.cur_addr).unwrap();
                             if let Err(err) = com.write([adr.user_name.as_bytes(), b"\r", adr.password.as_bytes(), b"\r"].concat().as_slice()) {
+                                eprintln!("Error sending login: {}", err);
                                 self.print_log(format!("Error sending login: {}", err));
                             }
                             self.auto_login.logged_in = true;
@@ -313,8 +316,9 @@ impl Application for MainWindow<TelnetCom> {
                     Message::Tick => { 
                         let state = self.update_state(); 
 
-                        if let Err(s) = state {
-                            self.print_log(format!("Error: {:?}", s));
+                        if let Err(err) = state {
+                            eprintln!("{}", err);
+                            self.print_log(format!("Error: {:?}", err));
                         }
                     },
                     Message::KeyPressed(ch) => {
@@ -330,8 +334,9 @@ impl Application for MainWindow<TelnetCom> {
                             for (k, m) in if self.buffer_view.petscii { C64_KEY_MAP} else { KEY_MAP } {
                                 if *k == code {
                                     let state = com.write(m);
-                                    if let Err(s) = state {
-                                        self.print_log(format!("Error: {:?}", s));
+                                    if let Err(err) = state {
+                                        eprintln!("{}", err);
+                                        self.print_log(format!("Error: {:?}", err));
                                         self.com = None;
                                     }
                                     break;
@@ -379,6 +384,7 @@ impl Application for MainWindow<TelnetCom> {
                     Message::Edit => {
                         if let Some(phonebook) = Address::get_phonebook_file() {
                            if let Err(err) =  open::that(phonebook) {
+                               eprintln!("{}", err);
                                self.print_log(format!("Error open phonebook file: {:?}", err));
                                self.mode = MainWindowMode::Default
                            }
@@ -416,13 +422,15 @@ impl Application for MainWindow<TelnetCom> {
                                                 self.set_font(font);
                                             }
                                         },
-                                        Err(e) => {
-                                            self.print_log(format!("Error: {:?}", e));
+                                        Err(err) => {
+                                            eprintln!("{}", err);
+                                            self.print_log(format!("Error: {:?}", err));
                                         }
                                     }
                                 }
                             }
                             Err(error) => {
+                                eprintln!("{}", error);
                                 self.print_log(format!("Socket error: {:?}", error));
                             }
                         }
@@ -561,14 +569,16 @@ impl Application for MainWindow<TelnetCom> {
                         if let Some(com) = &mut self.com {
                             if self.zmodem.is_active() {
                                 let r = self.zmodem.cancel(com);
-                                if let Err(e) = r {
-                                    println!("Error while cancel {:?}", e);
+                                if let Err(err) = r {
+                                    eprintln!("{}", err);
+                                    println!("Error while cancel {:?}", err);
                                 }
                             }
                             if self.xymodem.is_active() {
                                 let r = self.xymodem.cancel(com);
-                                if let Err(e) = r {
-                                    println!("Error while cancel {:?}", e);
+                                if let Err(err) = r {
+                                    eprintln!("{}", err);
+                                    println!("Error while cancel {:?}", err);
                                 }
                             }
                         }

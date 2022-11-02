@@ -1,10 +1,11 @@
-use std::{io, time::{SystemTime, Duration}};
+use std::{io::{self, ErrorKind}, time::{SystemTime, Duration}};
 use crate::{iemsi::{IEmsi}, com::Com, address::Address};
 
 pub struct AutoLogin {
     pub logged_in: bool,
     pub iemsi: Option<IEmsi>,
     last_char_recv: SystemTime,
+    first_char_recv: Option<SystemTime>,
     continue_time: SystemTime,
 
     login_expr: Vec<u8>,
@@ -20,6 +21,7 @@ impl AutoLogin {
         Self {
             logged_in: false,
             iemsi: Some(IEmsi::new()),
+            first_char_recv: None,
             last_char_recv: SystemTime::now(),
             continue_time: SystemTime::now(),
             login_expr: login_expr.as_bytes().to_vec(),
@@ -36,12 +38,18 @@ impl AutoLogin {
                 self.continue_time = self.last_char_recv + Duration::from_secs((ch - b'0') as u64);
                 self.cur_expr_idx += 3;
             }
-            b'E' => { // Send cr+cr then esc + wait until other end responds
-                if SystemTime::now().duration_since(self.last_char_recv).unwrap().as_millis() > 500 {
-                    return Ok(true);
+            b'E' => { // wait until data came in
+                match self.first_char_recv {
+                    Some(t) => {
+                        if SystemTime::now().duration_since(t).unwrap().as_millis() < 500 {
+                            return Ok(true);
+                        }
+                        self.first_char_recv = None;
+                        self.cur_expr_idx += 2;
+                    }
+                    _ => {}
                 }
-                self.cur_expr_idx += 2;
-                com.write(b"\n\n\x1b")?;
+                return Ok(true);
             }
             b'W' => { // Wait for one of the name questions defined arrives
                 if self.got_name {
@@ -91,6 +99,13 @@ impl AutoLogin {
             self.logged_in = true;
             return Ok(());
         }
+
+        if self.first_char_recv.is_none() {
+            if (b'A'..b'Z').contains(&ch)  || (b'a'..b'z').contains(&ch) {
+                self.first_char_recv = Some(SystemTime::now());
+            }
+        }
+
         self.last_char_recv = SystemTime::now();
         if self.name_idx < NAME_STR.len() {
             let c = if (b'a'..b'z').contains(&ch) { ch - b'a' + b'A' } else  { ch };
@@ -122,6 +137,22 @@ impl AutoLogin {
             match self.login_expr[self.cur_expr_idx] {
                 b'!' => {
                     self.run_command(com, adr)?;
+                }
+                b'\\' => {
+                    self.cur_expr_idx += 1; // escape 
+                    match self.login_expr[self.cur_expr_idx] {
+                        b'e' => { com.write(&[b'\x1B'])?; println!("send escape"); } , 
+                        b'n' => { com.write(&[b'\n'])?; } ,
+                        b'r' => { com.write(&[b'\r'])?; println!("send return");  } ,
+                        b't' => { com.write(&[b'\t'])?; } ,
+                        ch => {
+                            self.cur_expr_idx += 1; // escape 
+                            return Err(io::Error::new(ErrorKind::InvalidData, format!("invalid escape sequence in autologin string: {:?}", char::from_u32(ch as u32))));
+                        }
+                    }
+
+                    self.cur_expr_idx += 1; // escape 
+
                 }
                 ch => {
                     com.write(&[ch])?;
