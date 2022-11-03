@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use icy_engine::{Palette, BitFont, PETSCIIParser, C64_DEFAULT_PALETTE, AvatarParser};
+use icy_engine::{Palette, BitFont, PETSCIIParser, C64_DEFAULT_PALETTE, AvatarParser, AnsiParser};
 
 use super::BufferView;
 
@@ -109,7 +109,7 @@ impl ScreenMode {
                 buf.set_buffer_width(40);
                 buf.set_buffer_height(40);
                 *font = Some("Atari ATASCII".to_string());
-                buffer_view.buffer_parser = Box::new(AvatarParser::new(true));
+                buffer_view.buffer_parser = Box::new(AnsiParser::new());
                 buffer_view.petscii = false;
                 buf.palette = Palette::new();
             },
@@ -117,7 +117,7 @@ impl ScreenMode {
                 buf.set_buffer_width(40);
                 buf.set_buffer_height(30);
                 *font = Some("Atari ATASCII".to_string());
-                buffer_view.buffer_parser = Box::new(AvatarParser::new(true));
+                buffer_view.buffer_parser = Box::new(AnsiParser::new());
                 buffer_view.petscii = false;
                 buf.palette = Palette::new();
             },

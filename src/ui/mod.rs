@@ -1,3 +1,6 @@
+pub mod message;
+pub use message::*;
+
 pub mod main_window;
 pub use main_window::*;
 
@@ -9,6 +12,9 @@ pub use screen_modes::*;
 
 pub mod phonebook;
 pub use phonebook::*;
+
+pub mod edit_bbs;
+pub use edit_bbs::*;
 
 pub mod protocol_selector;
 pub use protocol_selector::*;

@@ -7,7 +7,7 @@ use iced::{
     Element
 };
 use crate::protocol::{Protocol};
-use super::main_window::{Message};
+use super::Message;
 
 
 pub fn view_file_transfer<'a,T: Protocol>(protocol: &T, download: bool) ->Element<'a, Message> {

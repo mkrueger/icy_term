@@ -25,9 +25,19 @@ Features supported so far:
 - [x] Misc features
   - [x] Scrollback buffer (scrollwheel)
   - [ ] Exporting buffer to disk
-  - [ ] Phonebook/IEMSI/Autologin editor (you need to edit it as text for the moment)
+  - [ ] IEMSI/Autologin editor (you need to edit it as text for the moment)
   - [ ] Better rendering engine (maybe switching the UI lib)
   - [ ] Copy & Paste
+
+# Screenshots
+
+Code page 437 (aka "DOS") support:
+
+![DOS](assets/dos_bbs.png?raw=true "CP437 DOS")
+
+Petscii screenshot:
+
+![Petscii](assets/c64_bbs.png?raw=true "Petscii")
 
 # History
 
@@ -44,10 +54,6 @@ Now I want to make some small real world projects for each.
 - Now I made a terminal app with iced - PopOS! is switching to that library.
 
 With all my ansi & buffer routines I've already written it makes sense to make a terminal. I need one program as well - most terminal programs are a bit too old school. Time to change that. 
-
-# Iced ui lib
-Works to a degree, but I would switch to another UI lib. It's very limited - you can't even make a popup dialog, hasn't a main menu and has many pieces missing. Druid or Egui would give a better base. I'll continue with iced until I can decide.
-Chances are high that it'll have all the features I need by then :).
 
 # Bugs
 Please file some - I'm sure the protocols still have issues

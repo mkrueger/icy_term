@@ -8,9 +8,7 @@ use iced::widget::canvas::{
 use iced::{ Point, Rectangle, Theme};
 use icy_engine::{Buffer, BufferParser, Caret, Position, AvatarParser};
 
-use super::main_window::Message;
-
-pub static mut SCALE: f32 = 1.0;
+use super::Message;
 
 pub struct BufferView {
     pub buf: Buffer,
@@ -55,21 +53,23 @@ impl BufferView {
     pub fn print_char<T: Com>(&mut self, com: Option<&mut T>, c: u8) -> io::Result<()>
     {
         self.scroll_back_line = 0;
-        if c < 32 || c > 127 {
-            if c == b'"'  {
-                print!("\\\"");
-            } else if c == b'\\'  {
+        /*if c < 32 || c > 127 {
+            if c == b'\\'  {
                 print!("\\\\");
             } else if c == b'\n'  {
                 print!("\\n");
             } else if c == b'\r'  { 
                 print!("\\r");
             } else { 
-                print!("\\x{:X}", c);
+                print!("\\x{:02X}", c);
             }
         } else {
-            print!("{}", char::from_u32(c as u32).unwrap());
-        }
+            if c == b'"' {
+                print!("\\\"");
+            } else {
+                print!("{}", char::from_u32(c as u32).unwrap());
+            }
+        }*/
         let result_opt = self.buffer_parser.print_char(&mut self.buf, &mut self.caret, c)?;
         if let Some(result) = result_opt {
             if let Some(com) = com {
@@ -117,23 +117,19 @@ impl<'a> canvas::Program<Message> for BufferView {
             
                 let buffer = &self.buf;
                 let font_dimensions = buffer.get_font_dimensions();
-                let mut char_size = iced::Size::new(font_dimensions.width as f32, font_dimensions.height as f32);
 
-                let mut w = self.buf.get_buffer_width() as f32 * char_size.width;
-                let mut h = self.buf.get_buffer_height() as f32 * char_size.height;
+                let mut scale_x = bounds.width / font_dimensions.width as f32 / buffer.get_buffer_width() as f32;
+                let mut scale_y = bounds.height / font_dimensions.height as f32 / buffer.get_buffer_height() as f32;
 
-                let double_mode = w * 2.0 <= bounds.width && h * 2.0 <= bounds.height;
-                if double_mode {
-                    char_size.width *= 2.0;
-                    char_size.height *= 2.0;
-                    w = self.buf.get_buffer_width() as f32 * char_size.width;
-                    h = self.buf.get_buffer_height() as f32 * char_size.height;
-                    unsafe { SCALE = 2.0; }
-                }  else { 
-                    unsafe {
-                        SCALE = 1.0;
-                    }
+                if scale_x < scale_y {
+                    scale_y = scale_x;
+                } else {
+                    scale_x = scale_y;
                 }
+
+                let char_size = iced::Size::new(font_dimensions.width as f32 * scale_x, font_dimensions.height as f32 * scale_y);
+                let w = self.buf.get_buffer_width() as f32 * char_size.width;
+                let h = self.buf.get_buffer_height() as f32 * char_size.height;
 
                 let top_x = (bounds.width - w) / 2.0;
                 let top_y = (bounds.height - h) / 2.0;
@@ -162,11 +158,7 @@ impl<'a> canvas::Program<Message> for BufferView {
                                     let line = buffer.get_font_scanline(ch.ext_font, ch.char_code as u8, y as usize);
                                     for x in 0..font_dimensions.width {
                                         if (line & (128 >> x)) != 0 {
-                                            if double_mode {
-                                                frame.fill_rectangle(Point::new(rect.x + x as f32 * 2.0, rect.y + y as f32 * 2.0), iced::Size::new(2_f32, 2_f32), color);
-                                            } else {
-                                                frame.fill_rectangle(Point::new(rect.x + x as f32, rect.y + y as f32), iced::Size::new(1_f32, 1_f32), color);
-                                            }
+                                            frame.fill_rectangle(Point::new(rect.x + x as f32 * scale_x, rect.y + y as f32 * scale_y), iced::Size::new(scale_x, scale_y), color);
                                         }
                                     }
                                 }
@@ -180,18 +172,19 @@ impl<'a> canvas::Program<Message> for BufferView {
             if self.caret.is_visible && !self.blink && (top_line..(top_line + self.buf.get_buffer_height())).contains(&self.caret.get_position().y) {
                 let buffer = &self.buf;
                 let font_dimensions = buffer.get_font_dimensions();
-                let mut char_size = iced::Size::new(font_dimensions.width as f32, font_dimensions.height as f32);
 
-                let mut w = self.buf.get_buffer_width() as f32 * char_size.width;
-                let mut h = self.buf.get_buffer_height() as f32 * char_size.height;
+                let mut scale_x = bounds.width / font_dimensions.width as f32 / buffer.get_buffer_width() as f32;
+                let mut scale_y = bounds.height / font_dimensions.height as f32 / buffer.get_buffer_height() as f32;
 
-                let double_mode = w * 2.0 <= bounds.width && h * 2.0 <= bounds.height;
-                if double_mode {
-                    char_size.width *= 2.0;
-                    char_size.height *= 2.0;
-                    w = self.buf.get_buffer_width() as f32 * char_size.width;
-                    h = self.buf.get_buffer_height() as f32 * char_size.height;
+                if scale_x < scale_y {
+                    scale_y = scale_x;
+                } else {
+                    scale_x = scale_y;
                 }
+
+                let char_size = iced::Size::new(font_dimensions.width as f32 * scale_x, font_dimensions.height as f32 * scale_y);
+                let w = self.buf.get_buffer_width() as f32 * char_size.width;
+                let h = self.buf.get_buffer_height() as f32 * char_size.height;
                 let top_x = (bounds.width - w) / 2.0;
                 let top_y = (bounds.height - h) / 2.0;
 

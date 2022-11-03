@@ -3,7 +3,7 @@ use iced::{
     Element, Length
 };
 use crate::protocol::ProtocolType;
-use super::main_window::{Message};
+use super::Message;
 
 
 pub fn view_protocol_selector<'a>(download: bool) -> Element<'a, Message> {

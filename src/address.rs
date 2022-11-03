@@ -1,16 +1,28 @@
-use std::{fs::{self}, path::PathBuf, thread};
+use std::{fs::{self, File}, path::{PathBuf}, thread, fmt::Display, io::{self, Write}};
 use directories::ProjectDirs;
+use icy_engine::{BufferParser, AnsiParser, AvatarParser, PETSCIIParser};
 use yaml_rust::{YamlLoader, Yaml};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config};
 use std::path::Path;
 
 use crate::ui::screen_modes::ScreenMode;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Terminal {
     Ansi,
-    _Avatar,
-    _VT102
+    Avatar
+}
+impl Terminal {
+    pub const ALL: [Terminal;2] = [
+        Terminal::Ansi,
+        Terminal::Avatar
+    ];
+}
+
+impl Display for Terminal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -61,18 +73,15 @@ const TEMPLATE: &str = r#"
 # "Amiga MicroKnight", "Amiga MicroKnight+"
 # "Amiga mOsOul"
 
-Particles! BBS:
-    comment: Particles! BBS is a retro-themed BBS, running on retro-themed hardware.
-    address: particlesbbs.dyndns.org:6400
-Heatwave BBS:
-    comment: Heatwave runs on a vintage Myarc Geneve 9640 (TI-99/4A clone) built in 1987.
-    address: heatwave.ddns.net:9640
-"Piranha: Under the Black Flag":
-    comment: If you love rich, colorful ANSI art
-    address: blackflag.acid.org
-Dark Systems BBS:
-    comment: They are using Remote Access BBS.
+Crazy Paradise BBS:
+    comment: Last Amiga BBS in germany
     address: bbs.dsbbs.ca
+Deadline BBS:
+    comment: One of the coolest looking PCboard systems I've ever seen.
+    address: deadline.aegis-corp.org:1337   
+BBS Retroacademy:
+    comment: Petsci BBS.
+    address: bbs.retroacademy.it:6510
 "#;
 
 impl Address {
@@ -92,6 +101,20 @@ impl Address {
         }
     }
 
+    pub fn get_terminal_parser(&self) -> Box<dyn BufferParser> {
+
+        match self.screen_mode {
+            Some(ScreenMode::C64)|  Some(ScreenMode::C128(_)) => {
+                return Box::new(PETSCIIParser::new());
+            }
+            _ => {}
+        }
+
+        match self.terminal_type {
+            Terminal::Avatar => Box::new(AvatarParser::new(true)),
+            _ => Box::new(AnsiParser::new()),
+        }
+    }
 
     pub fn get_phonebook_file() -> Option<PathBuf> {
         if let Some(proj_dirs) = ProjectDirs::from("com", "GitHub",  "icy_term") {
@@ -137,6 +160,7 @@ impl Address {
                                             "use_ice" => { adr.ice_mode = v == "true"; }
                                             "screen_mode" => { adr.screen_mode = ScreenMode::parse(&v); }
                                             "font_name" => { adr.font_name = Some(v); }
+                                            "terminal" => { adr.terminal_type = if v.to_uppercase() == "ANSI" { Terminal::Ansi } else { Terminal::Avatar } }
                                         _ =>  {}
                                         } 
                                     }
@@ -173,8 +197,65 @@ pub fn start_read_book() -> Vec<Address> {
             }
         });
     }
-
     res
+}
+
+fn escape(str: &str) -> String
+{
+    let mut result = String::new();
+    result.push('"');
+    for c in str.chars() {
+
+        if c < ' ' || c > '\x7F' {
+            if c == '\\'  {
+                result.push_str("\\\\");
+            } else if c == '\n'  {
+                result.push_str("\\n");
+            } else if c == '\r'  { 
+                result.push_str("\\r");
+            } else { 
+                result.push_str(&format!("\\x{:02X}", c as u8));
+            }
+        } else {
+            if c == '"' {
+                result.push_str("\\\"");
+            } else {
+                result.push(c);
+            }
+        }
+    }
+    result.push('"');
+    result 
+}
+
+pub fn store_phone_book(addr: &Vec<Address>) -> io::Result<()> {
+    if let Some(file_name) = Address::get_phonebook_file() {
+        let mut tmp = file_name.clone();
+        if !tmp.set_extension("tmp") { 
+            return Ok(());
+        }
+        {
+            let mut file = File::create(&tmp)?;
+
+            for entry in &addr[1..] {
+                file.write(format!("{}:\n", entry.system_name).as_bytes())?;
+                file.write(format!("   address: {}\n", escape(&entry.address)).as_bytes())?;
+                file.write(format!("   user: {}\n", escape(&entry.user_name)).as_bytes())?;
+                file.write(format!("   password: {}\n", escape(&entry.password)).as_bytes())?;
+                file.write(format!("   comment: {}\n", escape(&entry.comment)).as_bytes())?;
+                file.write(format!("   terminal: {}\n", escape(&entry.terminal_type.to_string())).as_bytes())?;
+                file.write(format!("   auto_login: {}\n", escape(&entry.auto_login)).as_bytes())?;
+                if let Some(screen_mode) = &entry.screen_mode {
+                    file.write(format!("   screen_mode: \"{}\"\n", screen_mode).as_bytes())?;
+                }
+                file.write(b"\n")?;
+            }
+            file.sync_all()?;
+        }
+        fs::rename(&tmp, file_name)?;
+    }
+
+   Ok(())
 }
 
 

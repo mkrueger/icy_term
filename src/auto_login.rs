@@ -129,6 +129,15 @@ impl AutoLogin {
         if self.logged_in && self.cur_expr_idx >= self.login_expr.len() {
             return Ok(());
         }
+        if adr.user_name.len()  == 0 || adr.password.len() == 0|| adr.auto_login.len() == 0 {
+            self.logged_in = true;
+            return Ok(());
+        }
+
+        if adr.auto_login.len() == 0 {
+            return Ok(());
+        }
+
         self.last_char_recv = SystemTime::now();
         if self.last_char_recv < self.continue_time {
             return Ok(());

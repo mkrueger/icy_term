@@ -1,7 +1,7 @@
 use std::io;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::net::{ToSocketAddrs};
-use iced::keyboard::{KeyCode, Modifiers};
+use iced::keyboard::{KeyCode};
 use iced::mouse::ScrollDelta;
 use iced::widget::{Canvas, column, row, button, text, pick_list};
 use iced::{executor, subscription, Event, keyboard, mouse};
@@ -18,18 +18,19 @@ use rfd::FileDialog;
 
 use crate::auto_login::AutoLogin;
 use crate::{VERSION};
-use crate::address::{Address, start_read_book, READ_ADDRESSES};
+use crate::address::{Address, start_read_book, READ_ADDRESSES, store_phone_book};
 use crate::com::{Com, TelnetCom};
 use crate::protocol::{ Zmodem, XYmodem, Protocol, ProtocolType, FileDescriptor, XYModemVariant};
 
-use super::{BufferView};
+use super::{BufferView, Message};
 use super::screen_modes::{DEFAULT_MODES, ScreenMode};
 
 enum MainWindowMode {
     Default,
     ShowPhonebook,
     SelectProtocol(bool),
-    FileTransfer(ProtocolType, bool)
+    FileTransfer(ProtocolType, bool),
+    EditBBS(usize)
 }
 
 struct Options {
@@ -50,6 +51,7 @@ pub struct MainWindow<T: Com> {
     trigger: bool,
     mode: MainWindowMode,
     pub addresses: Vec<Address>,
+    edit_bbs: Address,
     cur_addr: usize,
     log_file: Vec<String>,
     options: Options,
@@ -62,25 +64,7 @@ pub struct MainWindow<T: Com> {
     zmodem: Zmodem
 }
 
-#[derive(Debug, Clone)]
-pub enum Message {
-    Tick,
-    InitiateFileTransfer(bool),
-    SendLogin,
-    ShowPhonebook,
-    Back,
-    Hangup,
-    Edit,
-    KeyPressed(char),
-    KeyCode(KeyCode, Modifiers),
-    WheelScrolled(ScrollDelta),
-    CallBBS(usize),
-    QuickConnectChanged(String),
-    FontSelected(String),
-    ScreenModeSelected(ScreenMode),
-    SelectProtocol(ProtocolType, bool),
-    CancelTransfer
-}
+
 
 static KEY_MAP: &[(KeyCode, &[u8])] = &[
     (KeyCode::Home, "\x1b[1~".as_bytes()),
@@ -249,6 +233,7 @@ impl Application for MainWindow<TelnetCom> {
             trigger: true,
             mode: MainWindowMode::Default,
             addresses: start_read_book(),
+            edit_bbs: Address::new(),
             cur_addr: 0,
             connection_time: SystemTime::now(),
             log_file: Vec::new(),
@@ -259,13 +244,14 @@ impl Application for MainWindow<TelnetCom> {
             font: Some(DEFAULT_FONT_NAME.to_string()),
             screen_mode: None,
         };
-        
+        view.set_screen_mode(&ScreenMode::C64);
+/* 
         let txt = b"";
         for b in txt {
             if let Err(err) = view.buffer_view.buffer_parser.print_char(&mut view.buffer_view.buf, &mut view.buffer_view.caret, *b) {
                 eprintln!("{}", err);
             }
-        }
+        }*/
 
         (view, Command::none())
     }
@@ -288,6 +274,13 @@ impl Application for MainWindow<TelnetCom> {
             self.buffer_view.blink = !self.buffer_view.blink;
             self.buffer_view.last_blink = in_ms;
         }
+        
+        match &message {
+            Message::OpenURL(url) => {
+                open::that(url);
+            }
+            _ => {}
+        };
 
         match self.mode {
             MainWindowMode::Default => {
@@ -324,6 +317,9 @@ impl Application for MainWindow<TelnetCom> {
                     Message::KeyPressed(ch) => {
                         let c = ch as u8;
 
+                        if c == 0x13 || c == 0x14 {
+                            println!();
+                        }
                         if c != 8 && c != 127 { // handled by key
                             self.output_char(ch);
                         }
@@ -381,15 +377,11 @@ impl Application for MainWindow<TelnetCom> {
                     Message::Back => {
                         self.mode = MainWindowMode::Default
                     },
-                    Message::Edit => {
-                        if let Some(phonebook) = Address::get_phonebook_file() {
-                           if let Err(err) =  open::that(phonebook) {
-                               eprintln!("{}", err);
-                               self.print_log(format!("Error open phonebook file: {:?}", err));
-                               self.mode = MainWindowMode::Default
-                           }
-                        }
-                    },
+
+                    Message::EditBBS(i) => {
+                        self.edit_bbs = if i == 0 { Address::new() } else { self.addresses[i].clone() };
+                        self.mode = MainWindowMode::EditBBS(i)
+                    }
                     
                     Message::CallBBS(i) => {
                         self.mode = MainWindowMode::Default;
@@ -421,6 +413,7 @@ impl Application for MainWindow<TelnetCom> {
                                             if let Some(font) = &adr.font_name {
                                                 self.set_font(font);
                                             }
+                                            self.buffer_view.buffer_parser = self.addresses[i].get_terminal_parser();
                                         },
                                         Err(err) => {
                                             eprintln!("{}", err);
@@ -586,6 +579,43 @@ impl Application for MainWindow<TelnetCom> {
                     _ => {}
                 }
             }
+            
+            MainWindowMode::EditBBS(_) => {
+                text_input::focus::<Message>(super::INPUT_ID.clone());
+                match message {
+                    Message::Back => {
+                        self.mode = MainWindowMode::ShowPhonebook;
+                    },
+
+                    Message::EditBbsSystemNameChanged(str) => self.edit_bbs.system_name = str,
+                    Message::EditBbsAddressChanged(str) => self.edit_bbs.address = str,
+                    Message::EditBbsUserNameChanged(str) => self.edit_bbs.user_name = str,
+                    Message::EditBbsPasswordChanged(str) => self.edit_bbs.password = str,
+                    Message::EditBbsCommentChanged(str) => self.edit_bbs.comment = str,
+                    Message::EditBbsTerminalTypeSelected(terminal) => self.edit_bbs.terminal_type = terminal,
+                    Message::EditBbsScreenModeSelected(screen_mode) => self.edit_bbs.screen_mode = Some(screen_mode),
+                    Message::EditBbsAutoLoginChanged(str) => self.edit_bbs.auto_login = str,
+                    
+                    Message::EditBbsSaveChanges(i) => {
+                        if i == 0 { 
+                            self.addresses.push(self.edit_bbs.clone());
+                        } else {
+                            self.addresses[i] = self.edit_bbs.clone();
+                        }
+                        self.print_result(&store_phone_book(&self.addresses));
+                        self.mode = MainWindowMode::ShowPhonebook;
+                    }
+                    Message::EditBbsDeleteEntry(i) => {
+                        if i > 0 { 
+                            self.addresses.remove(i);
+                        }
+                        self.print_result(&store_phone_book(&self.addresses));
+                        self.mode = MainWindowMode::ShowPhonebook;
+                    }
+                    _ => {}
+                }
+            }
+
         }
 
         Command::none()
@@ -700,12 +730,15 @@ impl Application for MainWindow<TelnetCom> {
                     .into()
                 ]).spacing(8)
                 .into()
-            },
+            }
             MainWindowMode::ShowPhonebook => {   
                 super::view_phonebook(self)            
-            },
+            }
             MainWindowMode::SelectProtocol(download) => {   
                 super::view_protocol_selector(download)
+            }
+            MainWindowMode::EditBBS(i) => {
+                super::view_edit_bbs(self, &self.edit_bbs, i)
             }
             MainWindowMode::FileTransfer(protocol_type, download) => {
                 match protocol_type {
