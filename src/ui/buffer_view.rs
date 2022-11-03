@@ -53,7 +53,7 @@ impl BufferView {
     pub fn print_char<T: Com>(&mut self, com: Option<&mut T>, c: u8) -> io::Result<()>
     {
         self.scroll_back_line = 0;
-        /*if c < 32 || c > 127 {
+        if c < 32 || c > 127 {
             if c == b'\\'  {
                 print!("\\\\");
             } else if c == b'\n'  {
@@ -69,7 +69,7 @@ impl BufferView {
             } else {
                 print!("{}", char::from_u32(c as u32).unwrap());
             }
-        }*/
+        }
         let result_opt = self.buffer_parser.print_char(&mut self.buf, &mut self.caret, c)?;
         if let Some(result) = result_opt {
             if let Some(com) = com {
@@ -185,13 +185,15 @@ impl<'a> canvas::Program<Message> for BufferView {
                 let char_size = iced::Size::new(font_dimensions.width as f32 * scale_x, font_dimensions.height as f32 * scale_y);
                 let w = self.buf.get_buffer_width() as f32 * char_size.width;
                 let h = self.buf.get_buffer_height() as f32 * char_size.height;
+
                 let top_x = (bounds.width - w) / 2.0;
                 let top_y = (bounds.height - h) / 2.0;
 
                 let caret_size = iced::Size::new(char_size.width, char_size.height / 8.0);
+
                 let p = Point::new(
-                    top_x + (self.caret.get_position().x as f32 * char_size.width) as f32 + 0.5,  
-                    top_y + ((self.caret.get_position().y - top_line) as f32 * char_size.height) as f32 + 0.5 + char_size.height - caret_size.height);
+                    top_x + (self.caret.get_position().x * char_size.width as i32) as f32 + 0.5,  
+                    top_y + ((self.caret.get_position().y - top_line) * char_size.height as i32) as f32 + 0.5 + char_size.height - caret_size.height);
                 let caret = canvas::Path::rectangle(p, caret_size);
                 let mut frame = Frame::new(bounds.size());
 
