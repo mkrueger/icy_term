@@ -120,7 +120,7 @@ impl Address {
         if let Some(proj_dirs) = ProjectDirs::from("com", "GitHub",  "icy_term") {
             if !proj_dirs.config_dir().exists()
             {
-                fs::create_dir(proj_dirs.config_dir()).expect("Can't create configuration directory");
+                fs::create_dir_all(proj_dirs.config_dir()).expect(&format!("Can't create configuration directory {:?}", proj_dirs.config_dir()));
             }
             let phonebook = proj_dirs.config_dir().join("phonebook.yaml");
             if !phonebook.exists()

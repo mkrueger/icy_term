@@ -2,8 +2,14 @@
 name = "icy_term"
 version = "0.1.0"
 edition = "2021"
+description = "A terminal program supporting CP437 and PetScii"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[package.metadata.bundle]
+name = "Icy Term"
+identifier = "com.github.icy_term"
+icon = [ "assets/128x128.png", "assets/128x128@2x.png"]
+resources = []
+copyright = "Copyright (c) Mike Krüger 2022. All rights reserved."
 
 [dependencies]
 iced = { path = "../iced", features = ["canvas", "image", "tokio", "debug"] }
@@ -18,3 +24,6 @@ lazy_static = "1.4.0"
 open = "3.0.3"
 notify = "5.0.0"
 gabi = "0.2.6"
+
+[profile.release]
+strip = "symbols"
