@@ -185,19 +185,13 @@ impl TransferState {
 pub trait Protocol
 {
     fn get_name(&self) -> &str;
-    
     fn get_current_state(&self) -> Option<&TransferState>;
-
     fn is_active(&self) -> bool;
-
-    fn update<T: Com>(&mut self, com: &mut T) -> io::Result<()>;
-
-    fn initiate_send<T: Com>(&mut self, com: &mut T, files: Vec<FileDescriptor>) -> io::Result<()>;
-    fn initiate_recv<T: Com>(&mut self, com: &mut T) -> io::Result<()>;
-
+    fn update(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>;
+    fn initiate_send(&mut self, com: &mut Box<dyn Com>, files: Vec<FileDescriptor>) -> io::Result<()>;
+    fn initiate_recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>;
     fn get_received_files(&mut self) -> Vec<FileDescriptor>;
-
-    fn cancel<T: Com>(&mut self, com: &mut T) -> io::Result<()>;
+    fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -209,4 +203,18 @@ pub enum ProtocolType {
     XModem1kG,
     YModem,
     YModemG,
+}
+
+impl ProtocolType {
+    pub fn create(&self) -> Box<dyn Protocol> {
+        match self {
+            ProtocolType::ZModem => Box::new(Zmodem::new(1024)),
+            ProtocolType::ZedZap => Box::new(Zmodem::new(8 * 1024)),
+            ProtocolType::XModem => Box::new(XYmodem::new(XYModemVariant::XModem)),
+            ProtocolType::XModem1k => Box::new(XYmodem::new(XYModemVariant::XModem1k)),
+            ProtocolType::XModem1kG => Box::new(XYmodem::new(XYModemVariant::XModem1kG)),
+            ProtocolType::YModem => Box::new(XYmodem::new(XYModemVariant::YModem)),
+            ProtocolType::YModemG => Box::new(XYmodem::new(XYModemVariant::YModemG)),
+        }
+    }
 }

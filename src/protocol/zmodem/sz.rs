@@ -83,7 +83,7 @@ impl Sz {
         self.cur_file += 1;
     }
 
-    pub fn update<T: Com>(&mut self, com: &mut T, state: &mut TransferState) -> io::Result<()>
+    pub fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()>
     {
         if let SendState::Idle = self.state {
             return Ok(());
@@ -286,7 +286,7 @@ impl Sz {
         Ok(())
     }
 
-    pub fn send<T: Com>(&mut self, com: &mut T, files: Vec<FileDescriptor>) -> io::Result<()>
+    pub fn send(&mut self, com: &mut Box<dyn Com>, files: Vec<FileDescriptor>) -> io::Result<()>
     {
         //println!("initiate zmodem send {}", files.len());
         self.state = SendState::SendZRQInit;
@@ -300,13 +300,13 @@ impl Sz {
         Ok(())
     }
 
-    pub fn send_zrqinit<T: Com>(&mut self, com: &mut T) -> io::Result<()> {
+    pub fn send_zrqinit(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
         self.cur_file = -1;
         Header::empty(HeaderType::Hex,FrameType::ZRQINIT).write(com)?;
         Ok(())
     }
 
-    pub fn send_zfin<T: Com>(&mut self, com: &mut T, size: u32) -> io::Result<()> {
+    pub fn send_zfin(&mut self, com: &mut Box<dyn Com>, size: u32) -> io::Result<()> {
         Header::from_number(HeaderType::Hex,FrameType::ZFIN, size).write(com)?;
         Ok(())
     }

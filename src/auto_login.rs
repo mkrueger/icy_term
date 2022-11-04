@@ -31,7 +31,7 @@ impl AutoLogin {
         }
     }
 
-    pub fn run_command<T: Com>(&mut self, com: &mut T, adr: &Address) -> io::Result<bool> {
+    pub fn run_command(&mut self, com: &mut Box<dyn Com>, adr: &Address) -> io::Result<bool> {
         match self.login_expr[self.cur_expr_idx + 1] {
             b'D' => { // Delay for x seconds. !D4= Delay for 4 seconds
                 let ch = self.login_expr[self.cur_expr_idx + 2];
@@ -91,7 +91,7 @@ impl AutoLogin {
         Ok(true)
     }
 
-    pub fn try_login<T: Com>(&mut self, com: &mut T, adr: &Address, ch: u8) -> io::Result<()> {
+    pub fn try_login(&mut self, com: &mut Box<dyn Com>, adr: &Address, ch: u8) -> io::Result<()> {
         if self.logged_in {
             return Ok(());
         }
@@ -125,7 +125,7 @@ impl AutoLogin {
         Ok(())
     }
 
-    pub fn run_autologin<T: Com>(&mut self, com: &mut T, adr: &Address) -> io::Result<()> {
+    pub fn run_autologin(&mut self, com: &mut Box<dyn Com>, adr: &Address) -> io::Result<()> {
         if self.logged_in && self.cur_expr_idx >= self.login_expr.len() {
             return Ok(());
         }

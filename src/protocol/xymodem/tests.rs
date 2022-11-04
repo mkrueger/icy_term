@@ -1,8 +1,7 @@
 
-
 #[cfg(test)]
 mod tests {
-    use crate::{protocol::*, com::{TestChannel, TestCom}};
+    use crate::{protocol::*, com::{TestChannel}};
 
     #[test]
     fn test_xmodem_simple() {
@@ -106,19 +105,19 @@ mod tests {
         }
     }
 
-    fn setup_xmodem_cmds(com: &mut TestCom) {
+  /*   fn setup_xmodem_cmds(com: &TestCom) {
         com.cmd_table.insert(b'C', "C".to_string());
         com.cmd_table.insert(b'G', "G".to_string());
         com.cmd_table.insert(0x04, "EOT".to_string());
         com.cmd_table.insert(0x06, "ACK".to_string());
         com.cmd_table.insert(0x15, "NAK".to_string());
         com.cmd_table.insert(0x18, "CAN".to_string());
-    }
+    }*/
 
     fn create_channel() -> TestChannel {
         let mut res = TestChannel::new();
-        setup_xmodem_cmds(&mut res.sender);
-        setup_xmodem_cmds(&mut res.receiver);
+       // setup_xmodem_cmds(&res.sender);
+       // setup_xmodem_cmds(&res.receiver);
         res
     }
 

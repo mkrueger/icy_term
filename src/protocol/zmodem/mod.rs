@@ -37,7 +37,7 @@ impl Zmodem {
         }
     }
 
-    pub fn cancel<T: Com>(com: &mut T) -> io::Result<()> {
+    pub fn cancel(com: &mut Box<dyn Com>) -> io::Result<()> {
         com.write(&ABORT_SEQ)?;
         Ok(())
     }
@@ -143,7 +143,7 @@ impl Protocol for Zmodem {
         self.transfer_state.is_some()
     }
 
-    fn update<T: crate::com::Com>(&mut self, com: &mut T) -> std::io::Result<()> {
+    fn update(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
         match &mut self.transfer_state  {
             Some(s) => {
                 if self.sz.is_active() {
@@ -173,7 +173,7 @@ impl Protocol for Zmodem {
         Ok(())
     }
 
-    fn initiate_send<T: crate::com::Com>(&mut self, com: &mut T, files: Vec<super::FileDescriptor>) -> std::io::Result<()> {
+    fn initiate_send(&mut self, com: &mut Box<dyn Com>, files: Vec<super::FileDescriptor>) -> std::io::Result<()> {
         let mut state = TransferState::new();
         state.send_state = Some(FileTransferState::new());
         self.transfer_state = Some(state);
@@ -181,7 +181,7 @@ impl Protocol for Zmodem {
         self.sz.send(com, files)
     }
 
-    fn initiate_recv<T: crate::com::Com>(&mut self, com: &mut T) -> std::io::Result<()> {
+    fn initiate_recv(&mut self, com: &mut Box<dyn Com>) -> std::io::Result<()> {
         let mut state = TransferState::new();
         state.recieve_state = Some(FileTransferState::new());
         self.transfer_state = Some(state);
@@ -195,7 +195,7 @@ impl Protocol for Zmodem {
         c
     }
 
-    fn cancel<T: crate::com::Com>(&mut self, com: &mut T) -> io::Result<()>
+    fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
         self.transfer_state = None;
         com.write(&ABORT_SEQ)?;

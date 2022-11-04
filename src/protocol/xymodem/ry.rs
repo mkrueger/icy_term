@@ -50,7 +50,7 @@ impl Ry {
         if let RecvState::None = self.recv_state { true } else { false }
     }
 
-    pub fn update<T: Com>(&mut self, com: &mut T, state: &mut TransferState) -> io::Result<()>
+    pub fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()>
     {
         if let Some(transfer_state) = &mut state.recieve_state {
             if self.files.len() > 0 {
@@ -249,12 +249,12 @@ impl Ry {
         }
     }
 
-    pub fn cancel<T: Com>(&self, com: &mut T)-> io::Result<()> {
+    pub fn cancel(&self, com: &mut Box<dyn Com>)-> io::Result<()> {
         com.write(&[CAN, CAN])?;
         Ok(())
     }
 
-    pub fn recv<T: Com>(&mut self, com: &mut T) -> io::Result<()>
+    pub fn recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
         self.await_data(com)?;
         self.data = Vec::new();
@@ -262,7 +262,7 @@ impl Ry {
         Ok(())
     }
 
-    fn await_data<T: Com>(&mut self, com: &mut T) -> io::Result<usize> {
+    fn await_data(&mut self, com: &mut Box<dyn Com>) -> io::Result<usize> {
         if self.configuration.is_streaming() {
             com.write(b"G")
         } else if self.configuration.use_crc() {

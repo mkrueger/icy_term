@@ -62,7 +62,7 @@ impl Sy {
     }
 
 
-    pub fn update<T: Com>(&mut self, com: &mut T, state: &mut TransferState) -> io::Result<()>
+    pub fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()>
     {
         if let Some(transfer_state) = &mut state.send_state {
             if self.cur_file < self.files.len() {
@@ -235,7 +235,7 @@ impl Sy {
         }
     }
 
-    fn check_eof<T: Com>(&mut self, com: &mut T) -> io::Result<()>
+    fn check_eof(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
         if self.bytes_send >= self.files[self.cur_file].size {
             self.eot(com)?;
@@ -249,7 +249,7 @@ impl Sy {
     }
     
 
-    fn read_command<T: Com>(&self, com: &mut T)-> io::Result<u8>
+    fn read_command(&self, com: &mut Box<dyn Com>)-> io::Result<u8>
     {
         let ch = com.read_char(self.recv_timeout)?;
        /* let cmd = match ch { 
@@ -270,13 +270,13 @@ impl Sy {
         Ok(ch)
     }
 
-    fn eot<T: Com>(&self, com: &mut T)-> io::Result<usize>
+    fn eot(&self, com: &mut Box<dyn Com>)-> io::Result<usize>
     {
         // println!("[EOT]");
         com.write(&[EOT])
     }
 
-    pub fn get_mode<T: Com>(&mut self, com: &mut T) -> io::Result<()>
+    pub fn get_mode(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
         let ch = self.read_command(com)?;
         match ch {
@@ -301,7 +301,7 @@ impl Sy {
         }
     }
 
-    fn send_block<T: Com>(&mut self, com: &mut T, data: &[u8], pad_byte: u8) -> io::Result<()>
+    fn send_block(&mut self, com: &mut Box<dyn Com>, data: &[u8], pad_byte: u8) -> io::Result<()>
     {
         let block_len = if data.len() <= DEFAULT_BLOCK_LENGTH  { SOH } else { STX };
         let mut block = Vec::new();
@@ -328,7 +328,7 @@ impl Sy {
         Ok(())
     }
 
-    fn send_ymodem_header<T: Com>(&mut self, com: &mut T) -> io::Result<()>
+    fn send_ymodem_header(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
         if self.cur_file < self.files.len() {
             // restart from 0
@@ -346,7 +346,7 @@ impl Sy {
         }
     }
 
-    fn send_data_block<T: Com>(&mut self, com: &mut T, offset: usize) -> io::Result<bool>
+    fn send_data_block(&mut self, com: &mut Box<dyn Com>, offset: usize) -> io::Result<bool>
     {
         let data_len = self.data.len();
         if offset >= data_len {
@@ -362,7 +362,7 @@ impl Sy {
         Ok(true)
     }
 
-    pub fn cancel<T: Com>(&mut self, com: &mut T)-> io::Result<()> {
+    pub fn cancel(&mut self, com: &mut Box<dyn Com>)-> io::Result<()> {
         self.send_state = SendState::None;
         // println!("CANCEL!");
         com.write(&[CAN, CAN])?;
@@ -371,7 +371,7 @@ impl Sy {
         Ok(())
     }
 
-    pub fn send<T: Com>(&mut self, _com: &mut T, files: Vec<FileDescriptor>) -> io::Result<()>
+    pub fn send(&mut self, _com: &Box<dyn Com>, files: Vec<FileDescriptor>) -> io::Result<()>
     {
         self.send_state = SendState::InitiateSend;
         self.files = files;
@@ -381,7 +381,7 @@ impl Sy {
         Ok(())
     }
 
-    pub fn end_ymodem<T: Com>(&mut self, com: &mut T)-> io::Result<()> {
+    pub fn end_ymodem(&mut self, com: &mut Box<dyn Com>)-> io::Result<()> {
         self.send_block(com, &[0], 0)?;
         self.transfer_stopped = true;
         Ok(())

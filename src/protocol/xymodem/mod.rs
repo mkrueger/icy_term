@@ -47,13 +47,11 @@ impl XYmodem {
 
 impl super::Protocol for XYmodem {
 
-    fn get_name(&self) -> &str
-    {
+    fn get_name(&self) -> &str {
         self.config.get_protocol_name()
     }
 
-    fn get_current_state(&self) -> Option<&TransferState>
-    {
+    fn get_current_state(&self) -> Option<&TransferState> {
        self.transfer_state.as_ref()
     }
     
@@ -61,8 +59,7 @@ impl super::Protocol for XYmodem {
         self.transfer_state.is_some()
     }
 
-    fn update<T: Com>(&mut self, com: &mut T) -> io::Result<()>
-    {
+    fn update(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
         if self.transfer_state.is_none() {
             return Ok(());
         }
@@ -82,7 +79,7 @@ impl super::Protocol for XYmodem {
         Ok(())
     }
     
-    fn initiate_send<T: Com>(&mut self, com: &mut T, files: Vec<FileDescriptor>) -> io::Result<()>
+    fn initiate_send(&mut self, com: &mut Box<dyn Com>, files: Vec<FileDescriptor>) -> io::Result<()>
     {
         if !self.config.is_ymodem() && files.len() != 1 {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "Only 1 file can be send with x-modem."))
@@ -103,7 +100,7 @@ impl super::Protocol for XYmodem {
        Ok(())
     }
 
-    fn initiate_recv<T: Com>(&mut self, com: &mut T) -> io::Result<()>
+    fn initiate_recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
        let mut ry = ry::Ry::new(self.config);
        ry.recv(com)?;
@@ -133,7 +130,7 @@ impl super::Protocol for XYmodem {
         }
     }
 
-    fn cancel<T: crate::com::Com>(&mut self, com: &mut T) -> io::Result<()>
+    fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
         self.transfer_state = None;
         com.write(&[CAN, CAN])?;

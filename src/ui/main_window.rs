@@ -20,7 +20,7 @@ use crate::auto_login::AutoLogin;
 use crate::{VERSION};
 use crate::address::{Address, start_read_book, READ_ADDRESSES, store_phone_book};
 use crate::com::{Com, TelnetCom};
-use crate::protocol::{ Zmodem, XYmodem, Protocol, ProtocolType, FileDescriptor, XYModemVariant};
+use crate::protocol::{ Protocol, FileDescriptor};
 
 use super::{BufferView, Message};
 use super::screen_modes::{DEFAULT_MODES, ScreenMode};
@@ -29,7 +29,7 @@ enum MainWindowMode {
     Default,
     ShowPhonebook,
     SelectProtocol(bool),
-    FileTransfer(ProtocolType, bool),
+    FileTransfer(bool),
     EditBBS(usize)
 }
 
@@ -45,9 +45,9 @@ impl Options {
     }
 }
 
-pub struct MainWindow<T: Com> {
+pub struct MainWindow {
     pub buffer_view: BufferView,
-    com: Option<T>,
+    com: Option<Box<dyn Com>>,
     trigger: bool,
     mode: MainWindowMode,
     pub addresses: Vec<Address>,
@@ -60,11 +60,8 @@ pub struct MainWindow<T: Com> {
     screen_mode: Option<ScreenMode>,
     auto_login: AutoLogin,
     // protocols
-    xymodem: XYmodem,
-    zmodem: Zmodem
+    current_protocol: Option<Box<dyn Protocol>>
 }
-
-
 
 static KEY_MAP: &[(KeyCode, &[u8])] = &[
     (KeyCode::Home, "\x1b[1~".as_bytes()),
@@ -112,7 +109,7 @@ static C64_KEY_MAP: &[(KeyCode, &[u8])] = &[
     (KeyCode::Left, &[0x9D])
 ];
 
-impl MainWindow<TelnetCom> 
+impl MainWindow
 {
     pub fn update_state(&mut self) -> io::Result<()>
     {
@@ -134,7 +131,7 @@ impl MainWindow<TelnetCom>
                             self.log_file.push(format!("{}", err));
                         }
                     }
-                    self.buffer_view.print_char(Some(com), ch)?;
+                    self.buffer_view.print_char(Some(com.as_mut()), ch)?;
                     do_update = true;
                 }
                 if do_update {
@@ -205,14 +202,14 @@ impl MainWindow<TelnetCom>
                 self.com = None;
             }
         } else {
-            let r = self.buffer_view.print_char::<TelnetCom>(Option::<&mut TelnetCom>::None, translated_char);
+            let r = self.buffer_view.print_char(None, translated_char);
             self.print_result(&r);
             self.buffer_view.cache.clear();
         }
     }
 }
 
-impl Application for MainWindow<TelnetCom> {
+impl Application for MainWindow {
     type Executor = executor::Default;
     type Message = Message;
     type Theme = Theme;
@@ -227,7 +224,7 @@ impl Application for MainWindow<TelnetCom> {
     }
 
     fn new(_flags: ()) ->  (Self, Command<Message>) {
-       let mut view =  MainWindow {
+       let view =  MainWindow {
             buffer_view: BufferView::new(),
             com:None,
             trigger: true,
@@ -239,10 +236,9 @@ impl Application for MainWindow<TelnetCom> {
             log_file: Vec::new(),
             options: Options::new(),
             auto_login: AutoLogin::new(String::new()),
-            xymodem: XYmodem::new(XYModemVariant::XModem),
-            zmodem: Zmodem::new(1024),
             font: Some(DEFAULT_FONT_NAME.to_string()),
             screen_mode: None,
+            current_protocol: None
         };
   
         /* 
@@ -277,7 +273,9 @@ impl Application for MainWindow<TelnetCom> {
         
         match &message {
             Message::OpenURL(url) => {
-                open::that(url);
+                if let Err(err) = open::that(url) {
+                    eprintln!("{}", err);
+                }
             }
             _ => {}
         };
@@ -342,7 +340,7 @@ impl Application for MainWindow<TelnetCom> {
                             for (k, m) in if self.buffer_view.petscii { C64_KEY_MAP} else { KEY_MAP } {
                                 if *k == code {
                                     for ch in *m {
-                                        let state = self.buffer_view.print_char::<TelnetCom>(Option::<&mut TelnetCom>::None, *ch);
+                                        let state = self.buffer_view.print_char(None, *ch);
                                         if let Err(s) = state {
                                             self.print_log(format!("Error: {:?}", s));
                                         }
@@ -398,7 +396,7 @@ impl Application for MainWindow<TelnetCom> {
                                     match t {
                                         Ok(t) => {
                                             self.buffer_view.clear();
-                                            self.com = Some(t);
+                                            self.com = Some(Box::new(t));
                                             self.cur_addr = i;
                                             self.connection_time = SystemTime::now();
                                             let adr = self.addresses[i].clone();
@@ -449,77 +447,29 @@ impl Application for MainWindow<TelnetCom> {
                                     if let Some(path) = files {
                                         let fd = FileDescriptor::from_paths(&path);
                                         if let Ok(files) =  fd {
-                                                let r = match protocol_type {
-                                                    ProtocolType::ZModem => {
-                                                        self.zmodem = Zmodem::new(1024);
-                                                        self.zmodem.initiate_send(com, files)
-                                                    },
-                                                    ProtocolType::ZedZap => {
-                                                        self.zmodem = Zmodem::new(8 * 1024);
-                                                        self.zmodem.initiate_send(com, files)
-                                                    },
-                                                    ProtocolType::XModem => {
-                                                        self.xymodem = XYmodem::new(XYModemVariant::XModem);
-                                                        self.xymodem.initiate_send(com, files)
-                                                    },
-                                                    ProtocolType::XModem1k => {
-                                                        self.xymodem = XYmodem::new(XYModemVariant::XModem1k);
-                                                        self.xymodem.initiate_send(com, files)
-                                                    },
-                                                    ProtocolType::XModem1kG => {
-                                                        self.xymodem = XYmodem::new(XYModemVariant::XModem1kG);
-                                                        self.xymodem.initiate_send(com, files)
-                                                    },
-                                                    ProtocolType::YModem => {
-                                                        self.xymodem = XYmodem::new(XYModemVariant::YModem);
-                                                        self.xymodem.initiate_send(com, files)
-                                                    },
-                                                    ProtocolType::YModemG => {
-                                                        self.xymodem = XYmodem::new(XYModemVariant::YModemG);
-                                                        self.xymodem.initiate_send(com, files)
-                                                    }
-                                                };
-                                                self.print_result(&r);
-                                                if r.is_ok() {
-                                                    self.mode = MainWindowMode::FileTransfer(protocol_type, download);
-                                                }
-                                        } else {
+                                            let mut protocol = protocol_type.create();
+                                            let r = protocol.initiate_send(com, files);
+                                            self.print_result(&r);
+                                            if r.is_ok() {
+                                                self.mode = MainWindowMode::FileTransfer(download);
+                                                self.current_protocol = Some(protocol);
+                                            }
+                                    } else {
                                             self.print_result(&fd);
                                         }
                                     } 
                             } else {
                                 if let Some(com) = self.com.as_mut() {
-                                    let r = match protocol_type {
-                                        ProtocolType::ZModem => {
-                                            self.zmodem.initiate_recv(com)
-                                        },
-                                        ProtocolType::ZedZap => {
-                                            self.zmodem.initiate_recv(com)
-                                        },
-                                        ProtocolType::XModem => {
-                                            self.xymodem = XYmodem::new(XYModemVariant::XModem);
-                                            self.xymodem.initiate_recv(com)
-                                        },
-                                        ProtocolType::XModem1k => {
-                                            self.xymodem = XYmodem::new(XYModemVariant::XModem1k);
-                                            self.xymodem.initiate_recv(com)
-                                        },
-                                        ProtocolType::XModem1kG => {
-                                            self.xymodem = XYmodem::new(XYModemVariant::XModem1kG);
-                                            self.xymodem.initiate_recv(com)
-                                        },
-                                        ProtocolType::YModem => {
-                                            self.xymodem = XYmodem::new(XYModemVariant::YModem);
-                                            self.xymodem.initiate_recv(com)
-                                        },
-                                        ProtocolType::YModemG => {
-                                            self.xymodem = XYmodem::new(XYModemVariant::YModemG);
-                                            self.xymodem.initiate_recv(com)
-                                        }
-                                    };
+                                    let mut protocol = protocol_type.create();
+                                    let r = protocol.initiate_recv(com);
                                     self.print_result(&r);
                                     if r.is_ok() {
-                                        self.mode = MainWindowMode::FileTransfer(protocol_type, download);
+                                        self.mode = MainWindowMode::FileTransfer(download);
+                                        self.current_protocol = Some(protocol);
+                                    }
+                                    self.print_result(&r);
+                                    if r.is_ok() {
+                                        self.mode = MainWindowMode::FileTransfer(download);
                                     }
                                 } else {
                                     self.print_log("Communication error.".to_string());
@@ -533,42 +483,27 @@ impl Application for MainWindow<TelnetCom> {
                     _ => { }
                 }
             }
-            MainWindowMode::FileTransfer(protocol_type, _download) => {
+            MainWindowMode::FileTransfer(_) => {
                 match message {
                     Message::Tick => { 
-                        if let Some(com) = &mut self.com {
-                            let r = match protocol_type {
-                                ProtocolType::ZModem | ProtocolType::ZedZap => {
-                                    self.zmodem.update(com)
-                                },
-                                _ => {
-                                    self.xymodem.update(com)
+                        if let Some(com) = self.com.as_mut() {
+                            if let Some(protocol) = &mut self.current_protocol {
+                                protocol.update(com);
+                               // self.print_result(&r);
+                                if !protocol.is_active() {
+                                    for f in protocol.get_received_files() {
+                                        f.save_file_in_downloads().expect("error saving file.");
+                                    }
+                                    self.mode = MainWindowMode::Default;
                                 }
-                            };
-                            self.print_result(&r);
-
-                            if !self.zmodem.is_active() && !self.xymodem.is_active() {
-                                for f in self.zmodem.get_received_files() {
-                                    f.save_file_in_downloads().expect("error saving file.");
-                                }
-                                for f in self.xymodem.get_received_files() {
-                                    f.save_file_in_downloads().expect("error saving file.");
-                                }
-                                self.mode = MainWindowMode::Default;
                             }
+                          
                         }
                     },
                     Message::CancelTransfer => {
                         if let Some(com) = &mut self.com {
-                            if self.zmodem.is_active() {
-                                let r = self.zmodem.cancel(com);
-                                if let Err(err) = r {
-                                    eprintln!("{}", err);
-                                    println!("Error while cancel {:?}", err);
-                                }
-                            }
-                            if self.xymodem.is_active() {
-                                let r = self.xymodem.cancel(com);
+                            if let Some(protocol) = &mut self.current_protocol {
+                                let r = protocol.cancel(com);
                                 if let Err(err) = r {
                                     eprintln!("{}", err);
                                     println!("Error while cancel {:?}", err);
@@ -740,17 +675,15 @@ impl Application for MainWindow<TelnetCom> {
             MainWindowMode::EditBBS(i) => {
                 super::view_edit_bbs(self, &self.edit_bbs, i)
             }
-            MainWindowMode::FileTransfer(protocol_type, download) => {
-                match protocol_type {
-                    ProtocolType::ZModem => {
-                        super::view_file_transfer(&self.zmodem, download)
-                    },
-                    ProtocolType::ZedZap => {
-                        super::view_file_transfer(&self.zmodem, download)
-                    },
-                    _ => {
-                        super::view_file_transfer(&self.xymodem, download)
+            MainWindowMode::FileTransfer(download) => {
+                if let Some(protocol) = &self.current_protocol {
+                    let s = protocol.get_current_state();
+                    if s.is_none() {
+                        return text("Transfer aborted").into();
                     }
+                    super::view_file_transfer(protocol, download)
+                } else {
+                    text("invalid").into()
                 }
             }
         }

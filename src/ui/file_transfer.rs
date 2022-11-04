@@ -10,16 +10,9 @@ use crate::protocol::{Protocol};
 use super::Message;
 
 
-pub fn view_file_transfer<'a,T: Protocol>(protocol: &T, download: bool) ->Element<'a, Message> {
+pub fn view_file_transfer<'a>(protocol: &Box<dyn Protocol>, download: bool) ->Element<'a, Message> {
     let name = protocol.get_name().to_string();
-
-    let s = protocol.get_current_state();
-
-    if s.is_none() {
-        return text("Transfer aborted").into();
-    }
-
-    let state = s.unwrap();
+    let state = protocol.get_current_state().unwrap();
 
     if let Some(transfer_state) = if download { state.recieve_state.as_ref() } else { state.send_state.as_ref() } {
         let check = transfer_state.check_size.clone();

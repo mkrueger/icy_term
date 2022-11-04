@@ -5,9 +5,8 @@ use std::{collections::HashMap};
 use telnet::Telnet;
 
 pub trait Com
-    where Self: Sized
 {
-    fn get_name() -> &'static str;
+    fn get_name(&self) -> &'static str;
 
     fn read_char(&mut self, duration: Duration) -> io::Result<u8>;
     fn read_char_nonblocking(&mut self) -> io::Result<u8>;
@@ -70,7 +69,7 @@ impl TelnetCom
 }
 
 impl Com for TelnetCom {
-    fn get_name() -> &'static str
+    fn get_name(&self) -> &'static str
     {
         "Telnet"
     }
@@ -143,7 +142,7 @@ pub fn indent_receiver()
 
 #[cfg(test)]
 impl Com for TestCom {
-    fn get_name() -> &'static str
+    fn get_name(&self) -> &'static str
     {
         "Test_Com"
     }
@@ -218,8 +217,8 @@ impl Com for TestCom {
 
 #[cfg(test)]
 pub struct TestChannel {
-    pub sender: TestCom,
-    pub receiver: TestCom
+    pub sender: Box<dyn Com>,
+    pub receiver: Box<dyn Com>
 }
 
 #[cfg(test)]
@@ -228,18 +227,18 @@ impl TestChannel {
         let b1 = Rc::new(RefCell::new(std::collections::VecDeque::new()));
         let b2 = Rc::new(RefCell::new(std::collections::VecDeque::new()));
         Self { 
-            sender: TestCom { 
+            sender: Box::new(TestCom { 
                 name: "sender".to_string(),
                 read_buf:b1.clone(),
                 write_buf:b2.clone(),
                 cmd_table: HashMap::new()
-            }, 
-            receiver: TestCom {
+            }), 
+            receiver: Box::new(TestCom {
                 name: "receiver".to_string(),
                 read_buf:b2,
                 write_buf:b1,
                 cmd_table: HashMap::new()
-            }
+            })
         }
     }
 }
@@ -247,7 +246,7 @@ impl TestChannel {
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
-    use crate::com::{TestChannel, Com};
+    use crate::com::{TestChannel};
 
     #[test]
     fn test_simple() {

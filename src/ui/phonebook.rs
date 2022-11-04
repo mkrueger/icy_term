@@ -2,7 +2,6 @@ use iced::widget::{ column, row, button, text, horizontal_rule, text_input, hori
 use iced::{
     Element, Length, Alignment, theme, alignment, Font, Color
 };
-use crate::com::{Com};
 use super::main_window::{ MainWindow};
 use lazy_static::lazy_static;
 use super::Message;
@@ -13,7 +12,7 @@ lazy_static! {
 const NAME_LEN: u16 = 350;
 const ADDRESS_LEN: u16 = 250;
 
-pub fn view_phonebook<'a, T: Com>(main_window: &MainWindow<T>) -> Element<'a, Message> {
+pub fn view_phonebook<'a>(main_window: &MainWindow) -> Element<'a, Message> {
 
     let list_header = column![
         row![

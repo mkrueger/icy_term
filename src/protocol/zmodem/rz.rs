@@ -49,13 +49,13 @@ impl Rz {
         }
     }
 
-    fn cancel<T: Com>(&mut self, com: &mut T) -> io::Result<()>
+    fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
         self.state = RevcState::Idle;
         Zmodem::cancel(com)
     }
 
-    pub fn update<T: Com>(&mut self, com: &mut T, state: &mut TransferState) -> io::Result<()>
+    pub fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()>
     {
         if let RevcState::Idle = self.state {
             return Ok(());
@@ -126,13 +126,13 @@ impl Rz {
         Ok(())
     }
 
-    fn request_zpos<T: Com>(&mut self, com: &mut T) -> io::Result<usize>
+    fn request_zpos(&mut self, com: &mut Box<dyn Com>) -> io::Result<usize>
     {
         Header::from_number(HeaderType::Hex, FrameType::ZRPOS, 0).write(com)
     }
 
 
-    fn read_header<T: Com>(&mut self, com: &mut T) -> io::Result<bool>
+    fn read_header(&mut self, com: &mut Box<dyn Com>) -> io::Result<bool>
     {
         while com.is_data_available()? {
             let err = Header::read(com, &mut self.can_count);
@@ -150,7 +150,7 @@ impl Rz {
             }
             let res = err?;
             if let Some(res) = res {
-               // println!("\t\t\t\t\t\tRECV header {}", res);
+                println!("\t\t\t\t\t\tRECV header {}", res);
                 match res.frame_type {
                     FrameType::ZRQINIT => {
                         self.state = RevcState::SendZRINIT;
@@ -221,7 +221,7 @@ impl Rz {
         Ok(false)
     }
 
-    fn read_zdle_bytes<T: Com>(&mut self, com: &mut T, length: usize) -> io::Result<Vec<u8>> {
+    fn read_zdle_bytes(&mut self, com: &mut Box<dyn Com>, length: usize) -> io::Result<Vec<u8>> {
         let mut data = Vec::new();
         loop {
             let c = com.read_char(Duration::from_secs(5))?;
@@ -261,7 +261,7 @@ impl Rz {
         }
     }
 
-    pub fn read_subpacket<T: Com>(&mut self, com: &mut T) -> io::Result<Option<(Vec<u8>, bool)>>
+    pub fn read_subpacket(&mut self, com: &mut Box<dyn Com>) -> io::Result<Option<(Vec<u8>, bool)>>
     {
         let mut data = Vec::with_capacity(self.block_length);
         let d = Duration::from_secs(5);
@@ -329,7 +329,7 @@ impl Rz {
         }
     }
 
-    fn check_crc<T: Com>(&mut self, com: &mut T, data: &Vec<u8>, zcrc_byte: u8)  -> io::Result<bool> {
+    fn check_crc(&mut self, com: &mut Box<dyn Com>, data: &Vec<u8>, zcrc_byte: u8)  -> io::Result<bool> {
         let mut crc = get_crc32(data);
         crc = !update_crc32(!crc, zcrc_byte);
         let crc_bytes = self.read_zdle_bytes(com, 4)?;
@@ -343,7 +343,7 @@ impl Rz {
         }
     }
 
-    pub fn recv<T: Com>(&mut self, com: &mut T) -> io::Result<()>
+    pub fn recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
         self.state = RevcState::Await;
         self.last_send = SystemTime::UNIX_EPOCH;
@@ -352,7 +352,7 @@ impl Rz {
         Ok(())
     }
 
-    pub fn send_zrinit<T: Com>(&mut self, com: &mut T) -> io::Result<()> {
+    pub fn send_zrinit(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
         Header::from_flags(HeaderType::Hex,FrameType::ZRINIT, 0, 0, 0, 0x23).write(com)?;
         Ok(())
     }

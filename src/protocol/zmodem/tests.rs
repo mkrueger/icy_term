@@ -3,7 +3,7 @@
 mod tests {
     use std::vec;
 
-    use crate::{protocol::{Zmodem, ZCRCE, Protocol, FileDescriptor}, com::TestChannel};
+    use crate::{protocol::{Zmodem, ZCRCE, FileDescriptor, Protocol}, com::TestChannel};
 
     #[test]
     fn test_encode_subpckg_crc32() {
@@ -13,8 +13,8 @@ mod tests {
 
     fn create_channel() -> TestChannel {
         let  res = TestChannel::new();
-       // setup_xmodem_cmds(&mut res.sender);
-       // setup_xmodem_cmds(&mut res.receiver);
+        //setup_xmodem_cmds(&mut res.sender);
+        //setup_xmodem_cmds(&mut res.receiver);
         res
     }
     
