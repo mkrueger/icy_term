@@ -205,22 +205,17 @@ fn escape(str: &str) -> String
     let mut result = String::new();
     result.push('"');
     for c in str.chars() {
-
-        if c < ' ' || c > '\x7F' {
-            if c == '\\'  {
-                result.push_str("\\\\");
-            } else if c == '\n'  {
-                result.push_str("\\n");
-            } else if c == '\r'  { 
-                result.push_str("\\r");
-            } else { 
-                result.push_str(&format!("\\x{:02X}", c as u8));
-            }
-        } else {
-            if c == '"' {
-                result.push_str("\\\"");
-            } else {
-                result.push(c);
+        match c  {
+            '\\' => result.push_str("\\\\"),
+            '\n' => result.push_str("\\n"),
+            '\r' => result.push_str("\\r"),
+            '\"' => result.push_str("\\\""),
+            _ => {
+                if c < ' ' || c > '\x7F' {
+                    result.push_str(&format!("\\x{:02X}", c as u8));
+                } else {
+                    result.push(c);
+                }
             }
         }
     }
