@@ -75,7 +75,7 @@ const TEMPLATE: &str = r#"
 
 Crazy Paradise BBS:
     comment: Last Amiga BBS in germany
-    address: bbs.dsbbs.ca
+    address: cpbbs.de:2323
 Deadline BBS:
     comment: One of the coolest looking PCboard systems I've ever seen.
     address: deadline.aegis-corp.org:1337   
