@@ -7,7 +7,7 @@ description = "A terminal program supporting CP437 and PetScii"
 [package.metadata.bundle]
 name = "Icy Term"
 identifier = "com.github.icy_term"
-icon = [ "assets/128x128.png", "assets/128x128@2x.png"]
+icon = [ "assets/128x128@2x.png" ]
 resources = []
 copyright = "Copyright (c) Mike Krüger 2022. All rights reserved."
 
