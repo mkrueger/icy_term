@@ -115,7 +115,7 @@ mod tests {
     }*/
 
     fn create_channel() -> TestChannel {
-        let mut res = TestChannel::new();
+        let res = TestChannel::new();
        // setup_xmodem_cmds(&res.sender);
        // setup_xmodem_cmds(&res.receiver);
         res

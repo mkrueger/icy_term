@@ -262,7 +262,7 @@ impl Ry {
         Ok(())
     }
 
-    fn await_data(&mut self, com: &mut Box<dyn Com>) -> io::Result<usize> {
+    fn await_data(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
         if self.configuration.is_streaming() {
             com.write(b"G")
         } else if self.configuration.use_crc() {

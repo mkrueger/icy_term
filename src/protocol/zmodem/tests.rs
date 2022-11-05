@@ -3,7 +3,7 @@
 mod tests {
     use std::vec;
 
-    use crate::{protocol::{Zmodem, ZCRCE, FileDescriptor, Protocol}, com::TestChannel};
+    use crate::{protocol::{Zmodem, ZCRCE, FileDescriptor, Protocol}, com::test_com::TestChannel};
 
     #[test]
     fn test_encode_subpckg_crc32() {

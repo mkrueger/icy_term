@@ -78,6 +78,7 @@ impl Rz {
             transfer_state.check_size = format!("Crc32");
             transfer_state.update_bps();
         }
+        
         // println!("\t\t\t\t\t\tReceiver state {:?}", self.state);
         
         match self.state {
@@ -104,21 +105,25 @@ impl Rz {
             RevcState::AwaitFileData => {
                 let pck = self.read_subpacket(com)?;
                 let last = self.files.len() - 1;
-                if pck.is_none() {
-                    if let Some(fd) = self.files.get(last) {
-                        Header::from_number(HeaderType::Hex, FrameType::ZRPOS, fd.data.as_ref().unwrap().len() as u32).write(com)?;
-                        self.state = RevcState::AwaitZDATA;
+
+                match pck {
+                    Some((block, is_last)) => {
+                        if let Some(fd) = self.files.get_mut(last) {
+                            if let Some(data) = &mut fd.data {
+                                data.extend_from_slice(&block);
+                            }
+                        }
+                        if is_last {
+                            self.state = RevcState::AwaitEOF;
+                        }
                     }
-                    return Ok(());
-                }
-                let (block, is_last) = pck.unwrap();
-                if let Some(fd) = self.files.get_mut(last) {
-                    if let Some(data) = &mut fd.data {
-                        data.extend_from_slice(&block);
+                    None => {
+                        if let Some(fd) = self.files.get(last) {
+                            Header::from_number(HeaderType::Hex, FrameType::ZRPOS, fd.data.as_ref().unwrap().len() as u32).write(com)?;
+                            self.state = RevcState::AwaitZDATA;
+                        }
+                        return Ok(());
                     }
-                }
-                if is_last {
-                    self.state = RevcState::AwaitEOF;
                 }
             }
             _ => { self.read_header(com)?; }
@@ -126,7 +131,7 @@ impl Rz {
         Ok(())
     }
 
-    fn request_zpos(&mut self, com: &mut Box<dyn Com>) -> io::Result<usize>
+    fn request_zpos(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
         Header::from_number(HeaderType::Hex, FrameType::ZRPOS, 0).write(com)
     }
@@ -135,9 +140,9 @@ impl Rz {
     fn read_header(&mut self, com: &mut Box<dyn Com>) -> io::Result<bool>
     {
         while com.is_data_available()? {
-            let err = Header::read(com, &mut self.can_count);
-            if err.is_err() {
-                if self.can_count > 3 {
+            let result = Header::read(com, &mut self.can_count);
+            if let Err(err) = result {
+                if self.can_count >= 5 {
                     println!("Transfer canceled!");
                     self.cancel(com)?;
                     self.cancel(com)?;
@@ -145,10 +150,12 @@ impl Rz {
                     self.state = RevcState::Idle;
                     return Ok(false);
                 }
+                eprintln!("Error {}", err);
                 self.errors += 1;
                 continue;
             }
-            let res = err?;
+            self.can_count = 0;
+            let res = result?;
             if let Some(res) = res {
                 println!("\t\t\t\t\t\tRECV header {}", res);
                 match res.frame_type {
@@ -322,7 +329,7 @@ impl Rz {
                     }
                 }
                 0x11 | 0x91 | 0x13 | 0x93 => {
-                    println!("ignored byte");
+                    eprintln!("ignored byte");
                 }
                 _ => data.push(c)
             }

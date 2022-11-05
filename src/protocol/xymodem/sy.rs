@@ -270,7 +270,7 @@ impl Sy {
         Ok(ch)
     }
 
-    fn eot(&self, com: &mut Box<dyn Com>)-> io::Result<usize>
+    fn eot(&self, com: &mut Box<dyn Com>)-> io::Result<()>
     {
         // println!("[EOT]");
         com.write(&[EOT])

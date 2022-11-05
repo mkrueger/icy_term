@@ -156,7 +156,7 @@ impl Header {
         res
     }
 
-    pub fn write(&mut self, com: &mut Box<dyn Com>) -> io::Result<usize>
+    pub fn write(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
         println!("Send Header: {}", self);
         com.write(&self.build())

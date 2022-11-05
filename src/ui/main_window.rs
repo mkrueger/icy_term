@@ -488,7 +488,10 @@ impl Application for MainWindow {
                     Message::Tick => { 
                         if let Some(com) = self.com.as_mut() {
                             if let Some(protocol) = &mut self.current_protocol {
-                                protocol.update(com);
+                                match protocol.update(com) {
+                                    Err(err) => { eprintln!("Err {}", err); }
+                                    _ => {}
+                                }
                                // self.print_result(&r);
                                 if !protocol.is_active() {
                                     for f in protocol.get_received_files() {
