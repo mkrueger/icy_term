@@ -20,7 +20,7 @@ use crate::auto_login::AutoLogin;
 use crate::{VERSION};
 use crate::address::{Address, start_read_book, READ_ADDRESSES, store_phone_book};
 use crate::com::{Com, TelnetCom};
-use crate::protocol::{ Protocol, FileDescriptor};
+use crate::protocol::{ Protocol, FileDescriptor, TransferState};
 
 use super::{BufferView, Message};
 use super::screen_modes::{DEFAULT_MODES, ScreenMode};
@@ -60,7 +60,7 @@ pub struct MainWindow {
     screen_mode: Option<ScreenMode>,
     auto_login: AutoLogin,
     // protocols
-    current_protocol: Option<Box<dyn Protocol>>
+    current_protocol: Option<(Box<dyn Protocol>, TransferState)>
 }
 
 static KEY_MAP: &[(KeyCode, &[u8])] = &[
@@ -442,39 +442,38 @@ impl Application for MainWindow {
                         self.mode = MainWindowMode::Default;
                         if let Some(com) = self.com.as_mut() {
                             if !download {
-                                    let files = FileDialog::new()
-                                        .pick_files();
-                                    if let Some(path) = files {
-                                        let fd = FileDescriptor::from_paths(&path);
-                                        if let Ok(files) =  fd {
-                                            let mut protocol = protocol_type.create();
-                                            let r = protocol.initiate_send(com, files);
-                                            self.print_result(&r);
-                                            if r.is_ok() {
+                                let files = FileDialog::new()
+                                    .pick_files();
+                                if let Some(path) = files {
+                                    let fd = FileDescriptor::from_paths(&path);
+                                    if let Ok(files) =  fd {
+                                        let mut protocol = protocol_type.create();
+                                        match protocol.initiate_send(com, files) {
+                                            Ok(state) => {
                                                 self.mode = MainWindowMode::FileTransfer(download);
-                                                self.current_protocol = Some(protocol);
+                                                self.current_protocol = Some((protocol, state));
                                             }
-                                    } else {
-                                            self.print_result(&fd);
+                                            Err(error) => {
+                                                eprintln!("{}", error);
+                                                self.log_file.push(format!("{}", error));
+                                            }
                                         }
-                                    } 
-                            } else {
-                                if let Some(com) = self.com.as_mut() {
-                                    let mut protocol = protocol_type.create();
-                                    let r = protocol.initiate_recv(com);
-                                    self.print_result(&r);
-                                    if r.is_ok() {
-                                        self.mode = MainWindowMode::FileTransfer(download);
-                                        self.current_protocol = Some(protocol);
+                                    } else {
+                                        self.print_result(&fd);
                                     }
-                                    self.print_result(&r);
-                                    if r.is_ok() {
-                                        self.mode = MainWindowMode::FileTransfer(download);
-                                    }
-                                } else {
-                                    self.print_log("Communication error.".to_string());
                                 }
-
+                            } else {
+                                let mut protocol = protocol_type.create();
+                                match protocol.initiate_recv(com) {
+                                    Ok(state) => {
+                                        self.mode = MainWindowMode::FileTransfer(download);
+                                        self.current_protocol = Some((protocol, state));
+                                    }
+                                    Err(error) => {
+                                        eprintln!("{}", error);
+                                        self.log_file.push(format!("{}", error));
+                                    }
+                                }
                             }
                         } else {
                             self.print_log("Communication error.".to_string());
@@ -487,29 +486,29 @@ impl Application for MainWindow {
                 match message {
                     Message::Tick => { 
                         if let Some(com) = self.com.as_mut() {
-                            if let Some(protocol) = &mut self.current_protocol {
-                                match protocol.update(com) {
+                            if let Some((protocol, state)) = &mut self.current_protocol {
+                                match protocol.update(com, state) {
                                     Err(err) => { eprintln!("Err {}", err); }
                                     _ => {}
                                 }
                                // self.print_result(&r);
-                                if !protocol.is_active() {
+                                if state.is_finished {
                                     for f in protocol.get_received_files() {
                                         f.save_file_in_downloads().expect("error saving file.");
                                     }
-                                    self.mode = MainWindowMode::Default;
                                 }
                             }
-                          
                         }
                     },
+                    Message::Back => {
+                        self.current_protocol = None;
+                        self.mode = MainWindowMode::Default;
+                    }
                     Message::CancelTransfer => {
                         if let Some(com) = &mut self.com {
-                            if let Some(protocol) = &mut self.current_protocol {
-                                let r = protocol.cancel(com);
-                                if let Err(err) = r {
-                                    eprintln!("{}", err);
-                                    println!("Error while cancel {:?}", err);
+                            if let Some((protocol, state)) = &mut self.current_protocol {
+                                if let Err(err) = protocol.cancel(com) {
+                                    state.report_error(&format!("Error while cancel {:?}", err));
                                 }
                             }
                         }
@@ -679,12 +678,8 @@ impl Application for MainWindow {
                 super::view_edit_bbs(self, &self.edit_bbs, i)
             }
             MainWindowMode::FileTransfer(download) => {
-                if let Some(protocol) = &self.current_protocol {
-                    let s = protocol.get_current_state();
-                    if s.is_none() {
-                        return text("Transfer aborted").into();
-                    }
-                    super::view_file_transfer(protocol, download)
+                if let Some((_, state)) = &self.current_protocol {
+                    super::view_file_transfer(state, download)
                 } else {
                     text("invalid").into()
                 }

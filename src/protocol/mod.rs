@@ -167,6 +167,8 @@ impl FileTransferState {
 #[derive(Clone)]
 pub struct TransferState {
     pub current_state: &'static str,
+    pub is_finished: bool,
+    pub protocol_name: String,
     pub send_state: Option<FileTransferState>,
     pub recieve_state: Option<FileTransferState>,
 }
@@ -175,21 +177,24 @@ impl TransferState {
     pub fn new() -> Self {
         Self {
             current_state: "",
+            protocol_name: String::new(),
+            is_finished: false,
             send_state: None,
             recieve_state: None
         }
     }
 
+    pub fn report_error(&mut self, txt: &str)
+    {
+        eprintln!("{}", txt);
+    }
 }
 
 pub trait Protocol
 {
-    fn get_name(&self) -> &str;
-    fn get_current_state(&self) -> Option<&TransferState>;
-    fn is_active(&self) -> bool;
-    fn update(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>;
-    fn initiate_send(&mut self, com: &mut Box<dyn Com>, files: Vec<FileDescriptor>) -> io::Result<()>;
-    fn initiate_recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>;
+    fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()>;
+    fn initiate_send(&mut self, com: &mut Box<dyn Com>, files: Vec<FileDescriptor>) -> io::Result<TransferState>;
+    fn initiate_recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<TransferState>;
     fn get_received_files(&mut self) -> Vec<FileDescriptor>;
     fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>;
 }

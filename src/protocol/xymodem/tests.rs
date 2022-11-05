@@ -10,14 +10,14 @@ mod tests {
 
         let data = vec![1u8, 2, 5, 10];
         let mut com = create_channel();
-        send.initiate_send(&mut com.sender, vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())]).expect("error.");
-        recv.initiate_recv(&mut com.receiver).expect("error.");
+        let mut send_state = send.initiate_send(&mut com.sender, vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())]).expect("error.");
+        let mut recv_state = recv.initiate_recv(&mut com.receiver).expect("error.");
         let mut i = 0;
-        while send.is_active() || recv.is_active()  {
+        while !send_state.is_finished || !recv_state.is_finished  {
             i += 1;
             if i > 10 { break; }
-            send.update(&mut com.sender).expect("error.");
-            recv.update(&mut com.receiver).expect("error.");
+            send.update(&mut com.sender, &mut send_state).expect("error.");
+            recv.update(&mut com.receiver, &mut recv_state).expect("error.");
         }
 
         let rdata = recv.get_received_files();
@@ -33,14 +33,14 @@ mod tests {
 
         let data = vec![1u8, 2, 5, 10];
         let mut com = create_channel();
-        send.initiate_send(&mut com.sender, vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())]).expect("error.");
-        recv.initiate_recv(&mut com.receiver).expect("error.");
+        let mut send_state = send.initiate_send(&mut com.sender, vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())]).expect("error.");
+        let mut recv_state = recv.initiate_recv(&mut com.receiver).expect("error.");
         let mut i = 0;
-        while send.is_active() || recv.is_active()  {
+        while !send_state.is_finished || !recv_state.is_finished  {
             i += 1;
             if i > 10 { break; }
-            send.update(&mut com.sender).expect("error.");
-            recv.update(&mut com.receiver).expect("error.");
+            send.update(&mut com.sender, &mut send_state).expect("error.");
+            recv.update(&mut com.receiver, &mut recv_state).expect("error.");
         }
 
         let rdata = recv.get_received_files();
@@ -60,14 +60,14 @@ mod tests {
         }
 
         let mut com = create_channel();
-        send.initiate_send(&mut com.sender, vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())]).expect("error.");
-        recv.initiate_recv(&mut com.receiver).expect("error.");
+        let mut send_state = send.initiate_send(&mut com.sender, vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())]).expect("error.");
+        let mut recv_state = recv.initiate_recv(&mut com.receiver).expect("error.");
         let mut i = 0;
-        while send.is_active() || recv.is_active()  {
+        while !send_state.is_finished || !recv_state.is_finished  {
             i += 1;
             if i > 100 { break; }
-            send.update(&mut com.sender).expect("error.");
-            recv.update(&mut com.receiver).expect("error.");
+            send.update(&mut com.sender, &mut send_state).expect("error.");
+            recv.update(&mut com.receiver, &mut recv_state).expect("error.");
         }
 
         let rdata = recv.get_received_files();
@@ -88,14 +88,14 @@ mod tests {
             }
 
             let mut com = create_channel();
-            send.initiate_send(&mut com.sender, vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())]).expect("error.");
-            recv.initiate_recv(&mut com.receiver).expect("error.");
-            let mut i = 0;
-            while send.is_active() || recv.is_active()  {
+            let mut send_state = send.initiate_send(&mut com.sender, vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())]).expect("error.");
+            let mut recv_state = recv.initiate_recv(&mut com.receiver).expect("error.");
+                let mut i = 0;
+            while !send_state.is_finished || !recv_state.is_finished  {
                 i += 1;
                 if i > 100 { break; }
-                send.update(&mut com.sender).expect("error.");
-                recv.update(&mut com.receiver).expect("error.");
+                send.update(&mut com.sender, &mut send_state).expect("error.");
+                recv.update(&mut com.receiver, &mut recv_state).expect("error.");
             }
 
             let rdata = recv.get_received_files();
@@ -129,14 +129,14 @@ mod tests {
         let data = vec![1u8, 2, 5, 10];
         let mut com = create_channel();
 
-        send.initiate_send(&mut com.sender, vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())]).expect("error.");
-        recv.initiate_recv(&mut com.receiver).expect("error.");
+        let mut send_state = send.initiate_send(&mut com.sender, vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())]).expect("error.");
+        let mut recv_state = recv.initiate_recv(&mut com.receiver).expect("error.");
         let mut i = 0;
-        while send.is_active() || recv.is_active()  {
+        while !send_state.is_finished || !recv_state.is_finished  {
             i += 1;
             if i > 100 { break; }
-            send.update(&mut com.sender).expect("error.");
-            recv.update(&mut com.receiver).expect("error.");
+            send.update(&mut com.sender, &mut send_state).expect("error.");
+            recv.update(&mut com.receiver, &mut recv_state).expect("error.");
         }
 
         let rdata = recv.get_received_files();
@@ -152,14 +152,14 @@ mod tests {
         let data = vec![1u8, 2, 5, 10];
         let mut com = create_channel();
 
-        send.initiate_send(&mut com.sender, vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())]).expect("error.");
-        recv.initiate_recv(&mut com.receiver).expect("error.");
+        let mut send_state = send.initiate_send(&mut com.sender, vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())]).expect("error.");
+        let mut recv_state = recv.initiate_recv(&mut com.receiver).expect("error.");
         let mut i = 0;
-        while send.is_active() || recv.is_active()  {
+        while !send_state.is_finished || !recv_state.is_finished  {
             i += 1;
             if i > 100 { break; }
-            send.update(&mut com.sender).expect("error.");
-            recv.update(&mut com.receiver).expect("error.");
+            send.update(&mut com.sender, &mut send_state).expect("error.");
+            recv.update(&mut com.receiver, &mut recv_state).expect("error.");
         }
 
         let rdata = recv.get_received_files();
@@ -175,17 +175,17 @@ mod tests {
         let data1 = vec![1u8, 2, 5, 10];
         let data2 = vec![1u8, 42, 18, 19];
         let mut com = create_channel();
-        send.initiate_send(&mut com.sender, vec![
+        let mut send_state = send.initiate_send(&mut com.sender, vec![
             FileDescriptor::create_test("foo.bar".to_string(), data1.clone()),
             FileDescriptor::create_test("baz".to_string(), data2.clone())]).expect("error.");
 
-        recv.initiate_recv(&mut com.receiver).expect("error.");
+        let mut recv_state = recv.initiate_recv(&mut com.receiver).expect("error.");
         let mut i = 0;
-        while send.is_active() || recv.is_active()  {
+        while !send_state.is_finished || !recv_state.is_finished  {
             i += 1;
             if i > 100 { break; }
-            send.update(&mut com.sender).expect("error.");
-            recv.update(&mut com.receiver).expect("error.");
+            send.update(&mut com.sender, &mut send_state).expect("error.");
+            recv.update(&mut com.receiver, &mut recv_state).expect("error.");
         }
 
         let rdata = recv.get_received_files();

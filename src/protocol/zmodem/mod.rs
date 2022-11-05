@@ -22,7 +22,6 @@ use super::{Protocol, TransferState, FileTransferState};
 
 pub struct Zmodem {
     block_length: usize,
-    transfer_state: Option<TransferState>,
     sz: Sz,
     rz: Rz
 }
@@ -31,10 +30,14 @@ impl Zmodem {
     pub fn new(block_length: usize) -> Self {
         Self {
             block_length,
-            transfer_state: None,
             sz: Sz::new(block_length),
             rz: Rz::new(block_length)
         }
+    }
+
+    fn get_name(&self) -> &str
+    {
+        if self.block_length == 1024 { "Zmodem" } else { "ZedZap (Zmodem 8k)" }
     }
 
     pub fn cancel(com: &mut Box<dyn Com>) -> io::Result<()> {
@@ -127,66 +130,40 @@ fn from_hex(n: u8) -> io::Result<u8>
 }
 
 impl Protocol for Zmodem {
-
-    fn get_name(&self) -> &str
-    {
-        if self.block_length == 1024 { "Zmodem" } else { "ZedZap (Zmodem 8k)" }
-    }
-
-    fn get_current_state(&self) -> Option<&TransferState>
-    {
-       self.transfer_state.as_ref()
-    }
-
-    fn is_active(&self) -> bool
-    {
-        self.transfer_state.is_some()
-    }
-
-    fn update(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
-        match &mut self.transfer_state  {
-            Some(s) => {
-                if self.sz.is_active() {
-                    self.sz.update(com, s)?;
-                    if !self.sz.is_active() {
-                        self.transfer_state = None;
-                    }
-                } else {
-                     while self.rz.is_active() {
-                        if !com.is_data_available()? || self.block_length > 1024 {
-                            break;
-                        }
-                        self.rz.update(com, s)?;
-                        if !self.rz.is_active() {
-                            self.transfer_state = None;
-                            break;
-                        }
-                    }
+    fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()> {
+        if self.sz.is_active() {
+            self.sz.update(com, state)?;
+            if !self.sz.is_active() {
+                state.is_finished = true;
+            }
+        } else {
+            while self.rz.is_active() {
+                if !com.is_data_available()? || self.block_length > 1024 {
+                    break;
+                }
+                self.rz.update(com, state)?;
+                if !self.rz.is_active() {
+                    state.is_finished = true;
                 }
             }
-            None => {
-                self.cancel(com)?;
-                return Ok(());
-            }
         }
-        
         Ok(())
     }
 
-    fn initiate_send(&mut self, com: &mut Box<dyn Com>, files: Vec<super::FileDescriptor>) -> std::io::Result<()> {
+    fn initiate_send(&mut self, com: &mut Box<dyn Com>, files: Vec<super::FileDescriptor>) -> std::io::Result<TransferState> {
         let mut state = TransferState::new();
         state.send_state = Some(FileTransferState::new());
-        self.transfer_state = Some(state);
-
-        self.sz.send(com, files)
+        state.protocol_name = self.get_name().to_string();
+        self.sz.send(com, files)?;
+        Ok(state)
     }
 
-    fn initiate_recv(&mut self, com: &mut Box<dyn Com>) -> std::io::Result<()> {
+    fn initiate_recv(&mut self, com: &mut Box<dyn Com>) -> std::io::Result<TransferState> {
         let mut state = TransferState::new();
         state.recieve_state = Some(FileTransferState::new());
-        self.transfer_state = Some(state);
-
-        self.rz.recv(com)
+        state.protocol_name = self.get_name().to_string();
+        self.rz.recv(com)?;
+        Ok(state)
     }
 
     fn get_received_files(&mut self) -> Vec<super::FileDescriptor> {
@@ -197,11 +174,7 @@ impl Protocol for Zmodem {
 
     fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
-        self.transfer_state = None;
-        com.write(&ABORT_SEQ)?;
         com.write(&ABORT_SEQ)?;
         Ok(())
     }
-
 }
-

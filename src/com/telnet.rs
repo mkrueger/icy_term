@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 use std::{io::{ErrorKind, self, Read, Write}, time::Duration, net::{SocketAddr, TcpStream}, thread};
 use super::Com;
 
@@ -17,65 +18,99 @@ enum ParserState {
     Dont
 }
 
-mod iac_cmd {
+pub const IAC:u8 = 0xFF;
+
+#[derive(Debug, Clone, Copy)]
+enum IacCmd {
     /// End of subnegotiation parameters.
-    pub const SE:u8 = 0xF0;
+    SE = 0xF0,
 
     /// No operation.
-    pub const NOP:u8 = 0xF1;
+    NOP = 0xF1,
 
     /// The data stream portion of a Synch.
     /// This should always be accompanied
     /// by a TCP Urgent notification.
-    pub const Data_Mark:u8 = 0xF2;
+    DataMark = 0xF2,
 
     /// NVT character BRK
-    pub const Break:u8 = 0xF3;
+    Break = 0xF3,
     
     /// The function Interrupt Process
-    pub const IP:u8 = 0xF4;
+    IP = 0xF4,
 
     // The function Abort output
-    pub const AO:u8 = 0xF5;
+    AO = 0xF5,
 
     // The function Are You There
-    pub const AYT:u8 = 0xF6;
+    AYT = 0xF6,
 
     // The function Erase character
-    pub const EC:u8 = 0xF7;
+    EC = 0xF7,
 
     // The function Erase line
-    pub const EL:u8 = 0xF8;
+    EL = 0xF8,
 
     // The Go ahead signal.
-    pub const GA:u8 = 0xF9;
+    GA = 0xF9,
 
     // Indicates that what follows is subnegotiation of the indicated option.
-    pub const SB:u8 = 0xFA;
+    SB = 0xFA,
 
     ///  (option code)
     /// Indicates the desire to begin performing, or confirmation that you are now performing, the indicated option.
-    pub const WILL:u8 = 0xFB;
+    WILL = 0xFB,
 
     /// (option code) 
     /// Indicates the refusal to perform, or continue performing, the indicated option.
-    pub const WONT:u8 = 0xFC; 
+    WONT = 0xFC, 
 
     /// (option code)
     /// Indicates the request that the other party perform, or confirmation that you are expecting
     /// the other party to perform, the indicated option.
-    pub const DO:u8 = 0xFD;
+    DO = 0xFD,
 
     /// (option code) 
     /// Indicates the demand that the other party stop performing,
     /// or confirmation that you are no longer expecting the other party
     /// to perform, the indicated option.
-    pub const DONT:u8 = 0xFE;
+    DONT = 0xFE,
 
     /// Data Byte 255.
-    pub const IAC:u8 = 0xFF;
+    IAC = 0xFF
 }
 
+impl IacCmd {
+    pub fn get(byte: u8) -> io::Result<IacCmd> {
+        let cmd = match byte {
+            0xF0 => IacCmd::SE,
+            0xF1 => IacCmd::NOP,
+            0xF2 => IacCmd::DataMark,
+            0xF3 => IacCmd::Break,
+            0xF4 => IacCmd::IP,
+            0xF5 => IacCmd::AO,
+            0xF6 => IacCmd::AYT,
+            0xF7 => IacCmd::EC,
+            0xF8 => IacCmd::EL,
+            0xF9 => IacCmd::GA,
+            0xFA => IacCmd::SB,
+            0xFB => IacCmd::WILL,
+            0xFC => IacCmd::WONT, 
+            0xFD => IacCmd::DO,
+            0xFE => IacCmd::DONT,
+            0xFF => IacCmd::IAC,
+            _ => { return Err(io::Error::new(ErrorKind::InvalidData, format!("unknown IAC: {}/x{:02X}", byte, byte))); }
+        };
+        Ok(cmd)
+    }
+    pub fn to_bytes(&self) -> [u8;2] {
+        [IAC, *self as u8]
+    }
+
+    pub fn to_bytes_opt(&self, opt: u8) -> [u8;3] {
+        [IAC, *self as u8, opt]
+    }
+}
 
 #[allow(dead_code)]
 mod options {
@@ -133,49 +168,49 @@ impl TelnetCom
         for b in data {
             match self.state {
                 ParserState::Data => {
-                    if *b == iac_cmd::IAC {
+                    if *b == IAC {
                         self.state = ParserState::Iac;
                     } else {
                         self.buf.push_back(*b);
                     }
                 },
                 ParserState::Iac => {
-                    match *b {
-                        iac_cmd::AYT => {
-                            self.tcp_stream.write_all(&[iac_cmd::IAC, iac_cmd::NOP])?;
+                    match IacCmd::get(*b)? {
+                        IacCmd::AYT => {
+                            self.tcp_stream.write_all(&IacCmd::NOP.to_bytes())?;
                             self.state = ParserState::Data;
                         }
-                        iac_cmd::SE |
-                        iac_cmd::NOP |
-                        iac_cmd::GA => { self.state = ParserState::Data; }
-                        iac_cmd::IAC => {
+                        IacCmd::SE |
+                        IacCmd::NOP |
+                        IacCmd::GA => { self.state = ParserState::Data; }
+                        IacCmd::IAC => {
                             self.buf.push_back(0xFF);
                             self.state = ParserState::Data;
                         }
-                        iac_cmd::WILL => {
+                        IacCmd::WILL => {
                             self.state = ParserState::Will;
                         }
-                        iac_cmd::WONT => {
+                        IacCmd::WONT => {
                             self.state = ParserState::Wont;
                         }
-                        iac_cmd::DO => {
+                        IacCmd::DO => {
                             self.state = ParserState::Do;
                         }
-                        iac_cmd::DONT => {
+                        IacCmd::DONT => {
                             self.state = ParserState::Dont;
                         }
                         cmd => {
-                            eprintln!("unknown IAC: {}/x{:02X}", cmd, cmd);
+                            eprintln!("unsupported IAC: {:?}", cmd);
                             self.state = ParserState::Data;
                         }
                     }
                 }
                 ParserState::Will => {
                     if *b != options::TRANSMIT_BINARY {
-                        self.tcp_stream.write_all(&[iac_cmd::IAC, iac_cmd::DONT, *b])?;
+                        self.tcp_stream.write_all(&IacCmd::DONT.to_bytes_opt(*b))?;
                     } else {
                         println!("unknown will option :{:02X}", *b);
-                        self.tcp_stream.write_all(&[iac_cmd::IAC, iac_cmd::DO, options::TRANSMIT_BINARY])?;
+                        self.tcp_stream.write_all(&IacCmd::DO.to_bytes_opt(options::TRANSMIT_BINARY))?;
                     }
                     self.state = ParserState::Data;
                 },
@@ -185,10 +220,10 @@ impl TelnetCom
                 },
                 ParserState::Do => {
                     if *b == options::TRANSMIT_BINARY {
-                        self.tcp_stream.write_all(&[iac_cmd::IAC, iac_cmd::WILL, options::TRANSMIT_BINARY])?;
+                        self.tcp_stream.write_all(&IacCmd::WILL.to_bytes_opt(options::TRANSMIT_BINARY))?;
                     } else {
                         println!("unknown do option :{:02X}", *b);
-                        self.tcp_stream.write_all(&[iac_cmd::IAC, iac_cmd::WONT, *b])?;
+                        self.tcp_stream.write_all(&IacCmd::WONT.to_bytes_opt(*b))?;
                     }
                     self.state = ParserState::Data;
                 },
@@ -273,8 +308,8 @@ impl Com for TelnetCom {
     fn write(&mut self, buf: &[u8]) -> io::Result<()> {
         let mut data = Vec::with_capacity(buf.len());
         for b in buf {
-            if *b == iac_cmd::IAC {
-                data.extend_from_slice(&[iac_cmd::IAC, iac_cmd::IAC]);
+            if *b == IAC {
+                data.extend_from_slice(&[IAC, IAC]);
             } else {
                 data.push(*b);
             }

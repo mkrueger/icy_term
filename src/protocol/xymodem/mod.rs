@@ -26,7 +26,6 @@ pub enum XYModemVariant {
 
 /// specification: http://pauillac.inria.fr/~doligez/zmodem/ymodem.txt
 pub struct XYmodem {
-    transfer_state: Option<TransferState>,
     config: XYModemConfiguration,
 
     ry: Option<ry::Ry>,
@@ -36,7 +35,6 @@ pub struct XYmodem {
 impl XYmodem {
     pub fn new(variant: XYModemVariant) -> Self {
         XYmodem {
-            transfer_state: None,
             config: XYModemConfiguration::new(variant),
             ry: None,
             sy: None
@@ -46,40 +44,18 @@ impl XYmodem {
 }
 
 impl super::Protocol for XYmodem {
-
-    fn get_name(&self) -> &str {
-        self.config.get_protocol_name()
-    }
-
-    fn get_current_state(&self) -> Option<&TransferState> {
-       self.transfer_state.as_ref()
-    }
-    
-    fn is_active(&self) -> bool {
-        self.transfer_state.is_some()
-    }
-
-    fn update(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
-        if self.transfer_state.is_none() {
-            return Ok(());
-        }
-
+    fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()> {
         if let Some(ry) = &mut self.ry {
-            ry.update(com, self.transfer_state.as_mut().unwrap())?;
-
-            if ry.is_finished() {
-                self.transfer_state = None;
-            }
+            ry.update(com, state)?;
+            state.is_finished = ry.is_finished();
         } else if let Some(sy) = &mut self.sy {
-            sy.update(com, self.transfer_state.as_mut().unwrap())?;
-            if sy.is_finished() {
-                self.transfer_state = None;
-            }
+            sy.update(com, state)?;
+            state.is_finished = sy.is_finished();
         }
         Ok(())
     }
     
-    fn initiate_send(&mut self, com: &mut Box<dyn Com>, files: Vec<FileDescriptor>) -> io::Result<()>
+    fn initiate_send(&mut self, com: &mut Box<dyn Com>, files: Vec<FileDescriptor>) -> io::Result<TransferState>
     {
         if !self.config.is_ymodem() && files.len() != 1 {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "Only 1 file can be send with x-modem."))
@@ -95,12 +71,11 @@ impl super::Protocol for XYmodem {
        self.sy = Some(sy);
        let mut state = TransferState::new();
        state.send_state = Some(FileTransferState::new());
-       self.transfer_state = Some(state);
-       
-       Ok(())
+       state.protocol_name = self.config.get_protocol_name().to_string();
+       Ok(state)
     }
 
-    fn initiate_recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
+    fn initiate_recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<TransferState>
     {
        let mut ry = ry::Ry::new(self.config);
        ry.recv(com)?;
@@ -108,15 +83,15 @@ impl super::Protocol for XYmodem {
         
        let mut state = TransferState::new();
        state.recieve_state = Some(FileTransferState::new());
-       self.transfer_state = Some(state);
+       state.protocol_name = self.config.get_protocol_name().to_string();
 
        // Add ghost file with no name when receiving with x-modem because this protocol
        // doesn't transfer any file information. User needs to set a file name after download.
        if !self.config.is_ymodem() {
-        self.ry.as_mut().unwrap().files.push(FileDescriptor::new());
-    }
+            self.ry.as_mut().unwrap().files.push(FileDescriptor::new());
+       }
     
-       Ok(())
+       Ok(state)
     }
 
     fn get_received_files(&mut self) -> Vec<FileDescriptor>
@@ -132,7 +107,6 @@ impl super::Protocol for XYmodem {
 
     fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
-        self.transfer_state = None;
         com.write(&[CAN, CAN])?;
         com.write(&[CAN, CAN])?;
         com.write(&[CAN, CAN])?;

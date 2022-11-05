@@ -6,13 +6,10 @@ use iced::widget::{ column, row, progress_bar, text, button};
 use iced::{
     Element
 };
-use crate::protocol::{Protocol};
+use crate::protocol::{ TransferState };
 use super::Message;
 
-
-pub fn view_file_transfer<'a>(protocol: &Box<dyn Protocol>, download: bool) ->Element<'a, Message> {
-    let name = protocol.get_name().to_string();
-    let state = protocol.get_current_state().unwrap();
+pub fn view_file_transfer<'a>(state: &TransferState, download: bool) ->Element<'a, Message> {
 
     if let Some(transfer_state) = if download { state.recieve_state.as_ref() } else { state.send_state.as_ref() } {
         let check = transfer_state.check_size.clone();
@@ -29,7 +26,7 @@ pub fn view_file_transfer<'a>(protocol: &Box<dyn Protocol>, download: bool) ->El
         column![
             row![
                 text("Protocol:"),
-                text(name),
+                text(state.protocol_name.clone()),
             ].padding(4)
             .spacing(8),
             row![
@@ -54,7 +51,9 @@ pub fn view_file_transfer<'a>(protocol: &Box<dyn Protocol>, download: bool) ->El
             progress_bar(0.0..=transfer_state.file_size as f32, transfer_state.bytes_transfered as f32),
             text(engine_state),
             button("Cancel")
-                .on_press(Message::CancelTransfer)
+                .on_press(Message::CancelTransfer),
+            button("Back")
+                .on_press(Message::Back)
         ].spacing(8).padding(10).into()
     } else {
         column![
