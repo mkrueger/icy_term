@@ -2,7 +2,7 @@
 // ZModem protocol specification http://cristal.inria.fr/~doligez/zmodem/zmodem.txt
 
 pub mod constants;
-use std::io;
+use std::{io::{self, ErrorKind}, time::Duration};
 
 pub use constants::*;
 mod header;
@@ -52,8 +52,8 @@ impl Zmodem {
         let mut crc = get_crc16(data);
         crc = update_crc16(crc, zcrc_byte);
 
-        append_escape(&mut v, data);
-        append_escape(&mut v, &[ZDLE, zcrc_byte]);
+        append_zdle_encoded(&mut v, data);
+        append_zdle_encoded(&mut v, &[ZDLE, zcrc_byte]);
         v.extend_from_slice(&u16::to_le_bytes(crc));
         v
     }
@@ -65,16 +65,16 @@ impl Zmodem {
         let mut crc = get_crc32(data);
         crc = !update_crc32(!crc, zcrc_byte);
 
-        append_escape(&mut v, data);
+        append_zdle_encoded(&mut v, data);
         v.extend_from_slice(&[ZDLE, zcrc_byte]);
-        append_escape(&mut v, &u32::to_le_bytes(crc));
+        append_zdle_encoded(&mut v, &u32::to_le_bytes(crc));
         v
     }
 }
 
 
 
-fn append_escape(v: &mut Vec<u8>, data: &[u8])
+pub fn append_zdle_encoded(v: &mut Vec<u8>, data: &[u8])
 {
     let mut last = 0u8;
     for b in data {
@@ -104,6 +104,46 @@ fn append_escape(v: &mut Vec<u8>, data: &[u8])
             b => v.push(b),
         }
         last = *b;
+    }
+}
+
+
+pub fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> io::Result<Vec<u8>> {
+    let mut data = Vec::new();
+    loop {
+        let c = com.read_char(Duration::from_secs(5))?;
+        match c {
+            ZDLE  => {
+                let c2 = com.read_char(Duration::from_secs(5))?;
+                match c2 {
+                    ZDLEE => data.push(ZDLE),
+                    ESC_0X10 => data.push(0x10),
+                    ESC_0X90 => data.push(0x90),
+                    ESC_0X11 => data.push(0x11),
+                    ESC_0X91 => data.push(0x91),
+                    ESC_0X13 => data.push(0x13),
+                    ESC_0X93 => data.push(0x93),
+                    ESC_0X0D => data.push(0x0D),
+                    ESC_0X8D => data.push(0x8D),
+                    ZRUB0 => data.push(0x7F),
+                    ZRUB1 => data.push(0xFF),
+                    
+                    _ => {
+                        Header::empty(HeaderType::Bin32, FrameType::ZNAK).write(com)?;
+                        return Err(io::Error::new(ErrorKind::InvalidInput, format!("don't understand subpacket {}/x{:X}", c2, c2))); 
+                    }
+                }
+            }
+            0x11 | 0x91 | 0x13 | 0x93 => {
+                println!("ignored byte");
+            }
+            _ => {
+                 data.push(c);
+            }
+        }
+        if data.len() >= length {
+            return Ok(data);
+        }
     }
 }
 

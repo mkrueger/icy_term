@@ -4,7 +4,7 @@ use icy_engine::{get_crc32, update_crc32};
 
 use crate::{com::Com, protocol::{FileDescriptor, Zmodem, FrameType, ZCRCW, ZCRCG, HeaderType, Header, ZCRCE, TransferState, FileTransferState}};
 
-use super::constants::*;
+use super::{constants::*, read_zdle_bytes};
 
 #[derive(Debug)]
 pub enum RevcState {
@@ -187,7 +187,6 @@ impl Rz {
                             self.files.push(fd);
                         }
 
-
                         self.state = RevcState::AwaitZDATA;
                         self.last_send = SystemTime::now();
                         self.request_zpos(com)?;
@@ -236,45 +235,6 @@ impl Rz {
         Ok(false)
     }
 
-    fn read_zdle_bytes(&mut self, com: &mut Box<dyn Com>, length: usize) -> io::Result<Vec<u8>> {
-        let mut data = Vec::new();
-        loop {
-            let c = com.read_char(Duration::from_secs(5))?;
-            match c {
-                ZDLE  => {
-                    let c2 = com.read_char(Duration::from_secs(5))?;
-                    match c2 {
-                        ZDLEE => data.push(ZDLE),
-                        ESC_0X10 => data.push(0x10),
-                        ESC_0X90 => data.push(0x90),
-                        ESC_0X11 => data.push(0x11),
-                        ESC_0X91 => data.push(0x91),
-                        ESC_0X13 => data.push(0x13),
-                        ESC_0X93 => data.push(0x93),
-                        ESC_0X0D => data.push(0x0D),
-                        ESC_0X8D => data.push(0x8D),
-                        ZRUB0 => data.push(0x7F),
-                        ZRUB1 => data.push(0xFF),
-                        
-                        _ => {
-                            self.errors += 1;
-                            Header::empty(HeaderType::Bin32, FrameType::ZNAK).write(com)?;
-                            return Err(io::Error::new(ErrorKind::InvalidInput, format!("don't understand subpacket {}/x{:X}", c2, c2))); 
-                        }
-                    }
-                }
-                0x11 | 0x91 | 0x13 | 0x93 => {
-                    println!("ignored byte");
-                }
-                _ => {
-                     data.push(c);
-                }
-            }
-            if data.len() >= length {
-                return Ok(data);
-            }
-        }
-    }
 
     pub fn read_subpacket(&mut self, com: &mut Box<dyn Com>) -> io::Result<Option<(Vec<u8>, bool)>>
     {
@@ -347,7 +307,7 @@ impl Rz {
     fn check_crc(&mut self, com: &mut Box<dyn Com>, data: &Vec<u8>, zcrc_byte: u8)  -> io::Result<bool> {
         let mut crc = get_crc32(data);
         crc = !update_crc32(!crc, zcrc_byte);
-        let crc_bytes = self.read_zdle_bytes(com, 4)?;
+        let crc_bytes = read_zdle_bytes(com, 4)?;
         let check_crc = u32::from_le_bytes(crc_bytes.try_into().unwrap());
         if crc == check_crc {
             Ok(true)
