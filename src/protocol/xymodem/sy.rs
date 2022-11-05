@@ -62,7 +62,7 @@ impl Sy {
     }
 
 
-    pub fn update<T: Com>(&mut self, com: &mut T, state: &mut TransferState) -> io::Result<()>
+    pub fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()>
     {
         if let Some(transfer_state) = &mut state.send_state {
             if self.cur_file < self.files.len() {
@@ -73,169 +73,162 @@ impl Sy {
             
             transfer_state.bytes_transfered = self.bytes_send;
             transfer_state.errors = self.errors;
-            transfer_state.engine_state = format!("{:?}", self.send_state);
             transfer_state.check_size = self.configuration.get_check_and_size();
             transfer_state.update_bps();
-        }
         
-        println!("send state: {:?} {:?}", self.send_state, self.configuration.variant);
+       // println!("send state: {:?} {:?}", self.send_state, self.configuration.variant);
 
-        match self.send_state {
-            SendState::None => Ok(()),
+            match self.send_state {
+                SendState::None => { },
 
-            SendState::InitiateSend => {
-                state.current_state = "Initiate send...";
-                if com.is_data_available()? {
-                    self.get_mode(com)?;
-                    if self.configuration.is_ymodem() {
-                        self.last_header_send = SystemTime::UNIX_EPOCH;
-                        self.send_state = SendState::SendYModemHeader(0);
-                    } else {
-                        self.send_state = SendState::SendData(0, 0);
+                SendState::InitiateSend => {
+                    state.current_state = "Initiate send...";
+                    if com.is_data_available()? {
+                        self.get_mode(com)?;
+                        if self.configuration.is_ymodem() {
+                            self.last_header_send = SystemTime::UNIX_EPOCH;
+                            self.send_state = SendState::SendYModemHeader(0);
+                        } else {
+                            self.send_state = SendState::SendData(0, 0);
+                        }
                     }
                 }
-                Ok(())
-            }
-            SendState::SendYModemHeader(retries) => {
-                if retries > 3 {
-                    state.current_state = "Too many retries...aborting";
-                    self.cancel(com)?;
-                    return Ok(());
-                }
-                self.last_header_send = SystemTime::now();
-                self.block_number = 0;
-                self.send_ymodem_header(com)?;
-                self.send_state = SendState::AckSendYmodemHeader(retries);
-                Ok(())
-            },
-            SendState::AckSendYmodemHeader(retries) => {
-                let now = SystemTime::now();
-                if com.is_data_available()? {
-                    let ack = self.read_command(com)?;
-                    if ack == NAK {
-                        state.current_state = "Encountered error";
-                        self.errors += 1;
-                        if retries > 5 {
-                            self.send_state = SendState::None;
-                            return Err(io::Error::new(ErrorKind::ConnectionAborted, "too many retries sending ymodem header")); 
-                        }
-                        self.last_header_send = SystemTime::UNIX_EPOCH;
-                        self.send_state = SendState::SendYModemHeader(retries + 1);
+                SendState::SendYModemHeader(retries) => {
+                    if retries > 3 {
+                        state.current_state = "Too many retries...aborting";
+                        self.cancel(com)?;
                         return Ok(());
                     }
-                    if ack == ACK {
-                        if self.transfer_stopped {
-                            self.send_state = SendState::None;
+                    self.last_header_send = SystemTime::now();
+                    self.block_number = 0;
+                    transfer_state.write("Send header...".to_string());
+                    self.send_ymodem_header(com)?;
+                    self.send_state = SendState::AckSendYmodemHeader(retries);
+                },
+                SendState::AckSendYmodemHeader(retries) => {
+                    let now = SystemTime::now();
+                    if com.is_data_available()? {
+                        let ack = self.read_command(com)?;
+                        if ack == NAK {
+                            state.current_state = "Encountered error";
+                            self.errors += 1;
+                            if retries > 5 {
+                                self.send_state = SendState::None;
+                                return Err(io::Error::new(ErrorKind::ConnectionAborted, "too many retries sending ymodem header")); 
+                            }
+                            self.last_header_send = SystemTime::UNIX_EPOCH;
+                            self.send_state = SendState::SendYModemHeader(retries + 1);
                             return Ok(());
                         }
-                        state.current_state = "Header accepted.";
-                        self.data = self.files[self.cur_file].get_data()?;
-                        let _ = self.read_command(com)?;
-                        // SKIP - not needed to check that
-                        self.send_state = SendState::SendData(0, 0);
+                        if ack == ACK {
+                            if self.transfer_stopped {
+                                self.send_state = SendState::None;
+                                return Ok(());
+                            }
+                            state.current_state = "Header accepted.";
+                            self.data = self.files[self.cur_file].get_data()?;
+                            let _ = self.read_command(com)?;
+                            // SKIP - not needed to check that
+                            self.send_state = SendState::SendData(0, 0);
+                        }
                     }
+                    
+                    if now.duration_since(self.last_header_send).unwrap().as_millis() > 3000 {
+                        self.send_state = SendState::SendYModemHeader(retries + 1);
+                    }
+                },
+                SendState::SendData(cur_offset, retries) => {
+                    state.current_state = "Send data...";
+                    if !self.send_data_block(com, cur_offset)? {
+                        self.send_state = SendState::None;
+                    } else {
+                        if self.configuration.is_streaming() {
+                            self.bytes_send = cur_offset + self.configuration.block_length;
+                            self.send_state = SendState::SendData(self.bytes_send, 0);
+                            self.check_eof(com)?;
+                        } else {
+                            self.send_state = SendState::AckSendData(cur_offset, retries);
+                        }
+                    };
                 }
-                
-                if now.duration_since(self.last_header_send).unwrap().as_millis() > 3000 {
-                    self.send_state = SendState::SendYModemHeader(retries + 1);
-                }
-                Ok(())
-            },
-            SendState::SendData(cur_offset, retries) => {
-                state.current_state = "Send data...";
-                if !self.send_data_block(com, cur_offset)? {
-                    self.send_state = SendState::None;
-                } else {
-                    if self.configuration.is_streaming() {
+                SendState::AckSendData(cur_offset, retries) => {
+                    if com.is_data_available()? {
+                        let ack = self.read_command(com)?;
+                        if ack == CAN {
+                            // need 2 CAN
+                            let can2 = self.read_command(com)?;
+                            if can2 == CAN {
+                                self.send_state = SendState::None; 
+                                transfer_state.write("Got cancel ...".to_string());
+                                return Err(io::Error::new(ErrorKind::ConnectionAborted, "Connection was canceled.")); 
+                            }
+                        }
+
+                        if ack != ACK {
+                            self.errors += 1;
+
+                            // fall back to short block length after too many errors 
+                            if retries > 3 && self.configuration.block_length == EXT_BLOCK_LENGTH {
+                                self.configuration.block_length = DEFAULT_BLOCK_LENGTH;
+                                self.send_state = SendState::SendData(cur_offset, retries + 2);
+                                return Ok(());
+                            }
+
+                            if retries > 5 {
+                                self.eot(com)?;
+                                return Err(io::Error::new(ErrorKind::ConnectionAborted, "too many retries sending ymodem header")); 
+                            }
+                            self.send_state = SendState::SendData(cur_offset, retries + 1);
+                            return Ok(());
+                        }
                         self.bytes_send = cur_offset + self.configuration.block_length;
                         self.send_state = SendState::SendData(self.bytes_send, 0);
-                        self.check_eof(com)?;
-                    } else {
-                        self.send_state = SendState::AckSendData(cur_offset, retries);
                     }
-                };
-                Ok(())
-            }
-            SendState::AckSendData(cur_offset, retries) => {
-                if com.is_data_available()? {
-                    let ack = self.read_command(com)?;
-                    if ack == CAN {
-                        // need 2 CAN
-                        let can2 = self.read_command(com)?;
-                        if can2 == CAN {
+                    self.check_eof(com)?;
+                },
+                SendState::YModemEndHeader(step)=> {
+                    match step {
+                        0 => {
+                            if com.is_data_available()? {
+                                if self.read_command(com)? == NAK {
+                                    com.write(&[EOT])?;
+                                    self.send_state = SendState::YModemEndHeader(1);
+                                    return Ok(());
+                                }
+                            }
+                            self.cancel(com)?;
+                        },
+                        1 => {
+                            if com.is_data_available()? {
+                                if self.read_command(com)? == ACK {
+                                    self.send_state = SendState::YModemEndHeader(2);
+                                    return Ok(());
+                                }
+                            }
+                            self.cancel(com)?;
+                        },
+                        2 => {
+                            if com.is_data_available()? {
+                                if self.read_command(com)? == b'C' {
+                                    self.last_header_send = SystemTime::UNIX_EPOCH;
+                                    self.send_state = SendState::SendYModemHeader(0);
+                                    self.cur_file += 1;
+                                    return Ok(());
+                                }
+                            }
+                            self.cancel(com)?;
+                        },
+                        _ => { 
                             self.send_state = SendState::None;
-                            return Err(io::Error::new(ErrorKind::ConnectionAborted, "Connection was canceled.")); 
                         }
                     }
-
-                    if ack != ACK {
-                        self.errors += 1;
-
-                        // fall back to short block length after too many errors 
-                        if retries > 3 && self.configuration.block_length == EXT_BLOCK_LENGTH {
-                            self.configuration.block_length = DEFAULT_BLOCK_LENGTH;
-                            self.send_state = SendState::SendData(cur_offset, retries + 2);
-                            return Ok(());
-                        }
-
-                        if retries > 5 {
-                            self.eot(com)?;
-                            return Err(io::Error::new(ErrorKind::ConnectionAborted, "too many retries sending ymodem header")); 
-                        }
-                        self.send_state = SendState::SendData(cur_offset, retries + 1);
-                        return Ok(());
-                    }
-                    self.bytes_send = cur_offset + self.configuration.block_length;
-                    self.send_state = SendState::SendData(self.bytes_send, 0);
-                }
-                self.check_eof(com)?;
-                Ok(())
-            },
-            SendState::YModemEndHeader(step)=> {
-                match step {
-                    0 => {
-                        if com.is_data_available()? {
-                            if self.read_command(com)? == NAK {
-                                com.write(&[EOT])?;
-                                self.send_state = SendState::YModemEndHeader(1);
-                                return Ok(());
-                            }
-                        }
-                        self.cancel(com)?;
-                        return Ok(());
-                    },
-                    1 => {
-                        if com.is_data_available()? {
-                            if self.read_command(com)? == ACK {
-                                self.send_state = SendState::YModemEndHeader(2);
-                                return Ok(());
-                            }
-                        }
-                        self.cancel(com)?;
-                        return Ok(());
-                    },
-                    2 => {
-                        if com.is_data_available()? {
-                            if self.read_command(com)? == b'C' {
-                                self.last_header_send = SystemTime::UNIX_EPOCH;
-                                self.send_state = SendState::SendYModemHeader(0);
-                                self.cur_file += 1;
-                                return Ok(());
-                            }
-                        }
-                        self.cancel(com)?;
-                        return Ok(());
-                    },
-                    _ => { 
-                        self.send_state = SendState::None;
-                        return Ok(());
-                    }
-                }
-            },
+                },
+            }
         }
+        Ok(())
     }
 
-    fn check_eof<T: Com>(&mut self, com: &mut T) -> io::Result<()>
+    fn check_eof(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
         if self.bytes_send >= self.files[self.cur_file].size {
             self.eot(com)?;
@@ -249,7 +242,7 @@ impl Sy {
     }
     
 
-    fn read_command<T: Com>(&self, com: &mut T)-> io::Result<u8>
+    fn read_command(&self, com: &mut Box<dyn Com>)-> io::Result<u8>
     {
         let ch = com.read_char(self.recv_timeout)?;
        /* let cmd = match ch { 
@@ -270,13 +263,13 @@ impl Sy {
         Ok(ch)
     }
 
-    fn eot<T: Com>(&self, com: &mut T)-> io::Result<usize>
+    fn eot(&self, com: &mut Box<dyn Com>)-> io::Result<()>
     {
         // println!("[EOT]");
         com.write(&[EOT])
     }
 
-    pub fn get_mode<T: Com>(&mut self, com: &mut T) -> io::Result<()>
+    pub fn get_mode(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
         let ch = self.read_command(com)?;
         match ch {
@@ -301,7 +294,7 @@ impl Sy {
         }
     }
 
-    fn send_block<T: Com>(&mut self, com: &mut T, data: &[u8], pad_byte: u8) -> io::Result<()>
+    fn send_block(&mut self, com: &mut Box<dyn Com>, data: &[u8], pad_byte: u8) -> io::Result<()>
     {
         let block_len = if data.len() <= DEFAULT_BLOCK_LENGTH  { SOH } else { STX };
         let mut block = Vec::new();
@@ -328,7 +321,7 @@ impl Sy {
         Ok(())
     }
 
-    fn send_ymodem_header<T: Com>(&mut self, com: &mut T) -> io::Result<()>
+    fn send_ymodem_header(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
         if self.cur_file < self.files.len() {
             // restart from 0
@@ -346,7 +339,7 @@ impl Sy {
         }
     }
 
-    fn send_data_block<T: Com>(&mut self, com: &mut T, offset: usize) -> io::Result<bool>
+    fn send_data_block(&mut self, com: &mut Box<dyn Com>, offset: usize) -> io::Result<bool>
     {
         let data_len = self.data.len();
         if offset >= data_len {
@@ -362,7 +355,7 @@ impl Sy {
         Ok(true)
     }
 
-    pub fn cancel<T: Com>(&mut self, com: &mut T)-> io::Result<()> {
+    pub fn cancel(&mut self, com: &mut Box<dyn Com>)-> io::Result<()> {
         self.send_state = SendState::None;
         // println!("CANCEL!");
         com.write(&[CAN, CAN])?;
@@ -371,7 +364,7 @@ impl Sy {
         Ok(())
     }
 
-    pub fn send<T: Com>(&mut self, _com: &mut T, files: Vec<FileDescriptor>) -> io::Result<()>
+    pub fn send(&mut self, _com: &Box<dyn Com>, files: Vec<FileDescriptor>) -> io::Result<()>
     {
         self.send_state = SendState::InitiateSend;
         self.files = files;
@@ -381,7 +374,7 @@ impl Sy {
         Ok(())
     }
 
-    pub fn end_ymodem<T: Com>(&mut self, com: &mut T)-> io::Result<()> {
+    pub fn end_ymodem(&mut self, com: &mut Box<dyn Com>)-> io::Result<()> {
         self.send_block(com, &[0], 0)?;
         self.transfer_stopped = true;
         Ok(())

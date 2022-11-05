@@ -83,7 +83,7 @@ impl Sz {
         self.cur_file += 1;
     }
 
-    pub fn update<T: Com>(&mut self, com: &mut T, state: &mut TransferState) -> io::Result<()>
+    pub fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()>
     {
         if let SendState::Idle = self.state {
             return Ok(());
@@ -102,122 +102,122 @@ impl Sz {
             }
             transfer_state.bytes_transfered = self.cur_file_pos;
             transfer_state.errors = self.errors;
-            transfer_state.engine_state = format!("{:?}", self.state);
             transfer_state.check_size = format!("Crc32/{}", self.package_len);
             transfer_state.update_bps();
-        }
 
-        if com.is_data_available()? {
-            let err = Header::read(com, &mut self.can_count);
-            if let Err(err) = err {
-                println!("{}", err);
-                if self.errors > 3 {
-                    self.state = SendState::Idle;
-                    Zmodem::cancel(com)?;
-                    return Err(err);
+            if com.is_data_available()? {
+                let err = Header::read(com, &mut self.can_count);
+                if let Err(err) = err {
+                    println!("{}", err);
+                    if self.errors > 3 {
+                        self.state = SendState::Idle;
+                        Zmodem::cancel(com)?;
+                        return Err(err);
+                    }
+                    self.errors += 1;
+                //    Header::empty(HeaderType::Bin32, FrameType::ZNAK).write(com)?;
+                    return Ok(());
                 }
-                self.errors += 1;
-            //    Header::empty(HeaderType::Bin32, FrameType::ZNAK).write(com)?;
-                return Ok(());
-            }
-            self.errors = 0;
+                self.errors = 0;
 
-            let res = err?;
-            if let Some(res) = res {
-                println!("Recv header {}", res);
-                self.last_send = SystemTime::UNIX_EPOCH;
-                match res.frame_type {
-                    FrameType::ZRINIT => {
-                        self.next_file();
+                let res = err?;
+                if let Some(res) = res {
+                    // println!("Recv header {}", res);
+                    self.last_send = SystemTime::UNIX_EPOCH;
+                    match res.frame_type {
+                        FrameType::ZRINIT => {
+                            self.next_file();
 
-                        if self.cur_file as usize >= self.files.len() {
-                            self.state = SendState::Idle;
-                            self.send_zfin(com, self.cur_file_pos as u32)?;
+                            if self.cur_file as usize >= self.files.len() {
+                                self.state = SendState::Idle;
+                                self.send_zfin(com, self.cur_file_pos as u32)?;
+                                self.cur_file_pos = 0;
+                                return Ok(());
+                            }
                             self.cur_file_pos = 0;
+                            self.receiver_capabilities = res.f0();
+                            /* 
+                            if self.can_decrypt() {
+                                println!("receiver can decrypt");
+                            }
+                            if self.can_fdx() {
+                                println!("receiver can send and receive true full duplex");
+                            }
+                            if self.can_receive_data_during_io() {
+                                println!("receiver can receive data during disk I/O");
+                            }
+                            if self.can_send_break() {
+                                println!("receiver can send a break signal");
+                            }
+                            if self.can_lzw() {
+                                println!("receiver can uncompress");
+                            }
+                            if self.can_use_crc32() {
+                                println!("receiver can use 32 bit Frame Check");
+                            }
+                            if self.can_esc_control() {
+                                println!("receiver expects ctl chars to be escaped");
+                            }
+                            if self.can_esc_8thbit() {
+                                println!("receiver expects 8th bit to be escaped");
+                            }*/
+                            self.state = SendState::SendZFILE;
+
+                        }
+                        FrameType::ZNAK => {
+                            transfer_state.write("Package error, resending file header...".to_string());
+                            self.state = SendState::SendZFILE;
+                        }
+                        FrameType::ZRPOS => {
+                            self.cur_file_pos = res.number() as usize;
+                            self.last_send = SystemTime::UNIX_EPOCH;
+                            self.state = SendState::SendZDATA;
+                        }
+                        FrameType::ZFIN => {
+                            self.state = SendState::Idle;
+                            com.write(b"OO")?;
                             return Ok(());
                         }
-                        self.cur_file_pos = 0;
-                        self.receiver_capabilities = res.f0();
-                        /* 
-                        if self.can_decrypt() {
-                            println!("receiver can decrypt");
+                        FrameType::ZSKIP => {
+                            transfer_state.write("Skip file".to_string());
+                            self.next_file();
+                            self.state = SendState::SendZFILE;
                         }
-                        if self.can_fdx() {
-                            println!("receiver can send and receive true full duplex");
+                        FrameType::ZACK => {
+                            self.state = SendState::SendDataPackages;
                         }
-                        if self.can_receive_data_during_io() {
-                            println!("receiver can receive data during disk I/O");
+                        unk_frame => {
+                            return Err(io::Error::new(ErrorKind::InvalidInput, format!("unsupported frame {:?}.", unk_frame))); 
                         }
-                        if self.can_send_break() {
-                            println!("receiver can send a break signal");
-                        }
-                        if self.can_lzw() {
-                            println!("receiver can uncompress");
-                        }
-                        if self.can_use_crc32() {
-                            println!("receiver can use 32 bit Frame Check");
-                        }
-                        if self.can_esc_control() {
-                            println!("receiver expects ctl chars to be escaped");
-                        }
-                        if self.can_esc_8thbit() {
-                            println!("receiver expects 8th bit to be escaped");
-                        }*/
-                        self.state = SendState::SendZFILE;
-
-                    }
-                    FrameType::ZNAK => {
-                        self.state = SendState::SendZFILE;
-                    }
-                    FrameType::ZRPOS => {
-                        self.cur_file_pos = res.number() as usize;
-                        self.last_send = SystemTime::UNIX_EPOCH;
-                        self.state = SendState::SendZDATA;
-                    }
-                    FrameType::ZFIN => {
-                        self.state = SendState::Idle;
-                        com.write(b"OO")?;
-                        return Ok(());
-                    }
-                    FrameType::ZSKIP => {
-                        self.next_file();
-                        self.state = SendState::SendZFILE;
-                    }
-                    FrameType::ZACK => {
-                        self.state = SendState::SendDataPackages;
-                    }
-                    unk_frame => {
-                        return Err(io::Error::new(ErrorKind::InvalidInput, format!("unsupported frame {:?}.", unk_frame))); 
                     }
                 }
             }
-        }
-        if let SendState::SendZDATA = self. state { 
-        } else 
-        if self.cur_file >= 0 {
-            if self.cur_file >= self.files.len() as i32 {
-                let now = SystemTime::now();
-                if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
-                    self.send_zfin(com, 0)?;
-                    self.last_send = SystemTime::now();
+            if let SendState::SendZDATA = self.state { 
+            } else 
+            if self.cur_file >= 0 {
+                if self.cur_file >= self.files.len() as i32 {
+                    let now = SystemTime::now();
+                    if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
+                        self.send_zfin(com, 0)?;
+                        self.last_send = SystemTime::now();
 
-                }
-                self.state = SendState::Await;
-                return Ok(());
-            }
-
-            if self.cur_file_pos >= self.files[self.cur_file as usize].size {
-                let now = SystemTime::now();
-                if now.duration_since(self.last_send).unwrap().as_millis() > 6000 {
-                    Header::from_number(HeaderType::Bin32,FrameType::ZEOF, self.files[self.cur_file as usize].size as u32).write(com)?;
+                    }
                     self.state = SendState::Await;
-                    self.last_send = SystemTime::now();
+                    return Ok(());
                 }
-                return Ok(());
+
+                if self.cur_file_pos >= self.files[self.cur_file as usize].size {
+                    let now = SystemTime::now();
+                    if now.duration_since(self.last_send).unwrap().as_millis() > 6000 {
+                        Header::from_number(HeaderType::Bin32,FrameType::ZEOF, self.files[self.cur_file as usize].size as u32).write(com)?;
+                        self.state = SendState::Await;
+                        self.last_send = SystemTime::now();
+                    }
+                    return Ok(());
+                }
             }
-        }
-        // println!("State: {:?} cur file {} pos {}", self.state, self.cur_file, self.cur_file_pos);
-        match self.state {
+            // println!("State: {:?} cur file {} pos {}", self.state, self.cur_file, self.cur_file_pos);
+            match self.state {
             SendState::SendZRQInit => {
                 let now = SystemTime::now();
                 if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
@@ -233,7 +233,7 @@ impl Sz {
                 let now = SystemTime::now();
                 if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
                     let mut b = Vec::new();
-                    println!("Send ZFILE");
+                    transfer_state.write("Send file header".to_string());
                     b.extend_from_slice(&Header::from_flags(HeaderType::Bin32,FrameType::ZFILE, 0, 0, zfile_flag::ZMNEW, zfile_flag::ZCRESUM).build());
 
                     let f = &self.files[self.cur_file as usize];
@@ -275,6 +275,7 @@ impl Sz {
 
                 if end_pos >= self.data.len() {
                     p.extend_from_slice(&Header::from_number(HeaderType::Bin32,FrameType::ZEOF, end_pos as u32).build());
+                    transfer_state.write("Done sending file date.".to_string());
                 }
 
                 com.write(&p)?;
@@ -283,10 +284,12 @@ impl Sz {
             }
             _ => {}
         }
+        
+        }
         Ok(())
     }
 
-    pub fn send<T: Com>(&mut self, com: &mut T, files: Vec<FileDescriptor>) -> io::Result<()>
+    pub fn send(&mut self, com: &mut Box<dyn Com>, files: Vec<FileDescriptor>) -> io::Result<()>
     {
         //println!("initiate zmodem send {}", files.len());
         self.state = SendState::SendZRQInit;
@@ -300,13 +303,13 @@ impl Sz {
         Ok(())
     }
 
-    pub fn send_zrqinit<T: Com>(&mut self, com: &mut T) -> io::Result<()> {
+    pub fn send_zrqinit(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
         self.cur_file = -1;
         Header::empty(HeaderType::Hex,FrameType::ZRQINIT).write(com)?;
         Ok(())
     }
 
-    pub fn send_zfin<T: Com>(&mut self, com: &mut T, size: u32) -> io::Result<()> {
+    pub fn send_zfin(&mut self, com: &mut Box<dyn Com>, size: u32) -> io::Result<()> {
         Header::from_number(HeaderType::Hex,FrameType::ZFIN, size).write(com)?;
         Ok(())
     }

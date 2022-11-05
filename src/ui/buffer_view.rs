@@ -50,11 +50,11 @@ impl BufferView {
         self.caret.ff(&mut self.buf);
     }
 
-    pub fn print_char<T: Com>(&mut self, com: Option<&mut T>, c: u8) -> io::Result<()>
+    pub fn print_char(&mut self, com: Option<&mut dyn Com>, c: u8) -> io::Result<()>
     {
         self.scroll_back_line = 0;
-/* 
-        match c  {
+
+       /* match c  {
             b'\\' => print!("\\\\"),
             b'\n' => print!("\\n"),
             b'\r' => print!("\\r"),

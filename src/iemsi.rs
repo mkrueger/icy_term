@@ -535,7 +535,7 @@ impl IEmsi {
     }
     
 
-    pub fn try_login<T: Com>(&mut self, com: &mut T, adr: &Address, ch: u8) -> io::Result<bool>
+    pub fn try_login(&mut self, com: &mut Box<dyn Com>, adr: &Address, ch: u8) -> io::Result<bool>
     {
         if self.aborted {
             return Ok(false);

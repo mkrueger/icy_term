@@ -1,5 +1,5 @@
 use std::{io::{self, ErrorKind}, time::{SystemTime, Duration}};
-use crate::{iemsi::{IEmsi}, com::Com, address::Address};
+use crate::{iemsi::{IEmsi}, com::Com, address::Address, auto_file_transfer::PatternRecognizer};
 
 pub struct AutoLogin {
     pub logged_in: bool,
@@ -11,9 +11,9 @@ pub struct AutoLogin {
     login_expr: Vec<u8>,
     cur_expr_idx: usize,
     got_name: bool,
-    name_idx: usize
+    name_recognizer: PatternRecognizer,
+    login_recognizer: PatternRecognizer,
 }
-const NAME_STR: &[u8] = b"NAME";
 
 impl AutoLogin {
 
@@ -26,12 +26,13 @@ impl AutoLogin {
             continue_time: SystemTime::now(),
             login_expr: login_expr.as_bytes().to_vec(),
             cur_expr_idx: 0,
-            name_idx: 0,
-            got_name: false
+            got_name: false,
+            name_recognizer: PatternRecognizer::from(b"NAME", true),
+            login_recognizer: PatternRecognizer::from(b"LOGIN:", true),
         }
     }
 
-    pub fn run_command<T: Com>(&mut self, com: &mut T, adr: &Address) -> io::Result<bool> {
+    pub fn run_command(&mut self, com: &mut Box<dyn Com>, adr: &Address) -> io::Result<bool> {
         match self.login_expr[self.cur_expr_idx + 1] {
             b'D' => { // Delay for x seconds. !D4= Delay for 4 seconds
                 let ch = self.login_expr[self.cur_expr_idx + 2];
@@ -91,7 +92,7 @@ impl AutoLogin {
         Ok(true)
     }
 
-    pub fn try_login<T: Com>(&mut self, com: &mut T, adr: &Address, ch: u8) -> io::Result<()> {
+    pub fn try_login(&mut self, com: &mut Box<dyn Com>, adr: &Address, ch: u8) -> io::Result<()> {
         if self.logged_in {
             return Ok(());
         }
@@ -107,25 +108,14 @@ impl AutoLogin {
         }
 
         self.last_char_recv = SystemTime::now();
-        if self.name_idx < NAME_STR.len() {
-            let c = if (b'a'..b'z').contains(&ch) { ch - b'a' + b'A' } else  { ch };
-            if (b'A'..b'Z').contains(&c) {
-                if NAME_STR[self.name_idx] == c {
-                    self.name_idx += 1;
-                } else {
-                    self.name_idx = 0;
-                }
-                self.got_name |= self.name_idx >= NAME_STR.len();
-            }
-        }
-
+        self.got_name |= self.name_recognizer.push_ch(ch) |  self.login_recognizer.push_ch(ch);
         if let Some(iemsi) = &mut self.iemsi {
             self.logged_in |= iemsi.try_login(com, adr, ch)?;
         }
         Ok(())
     }
 
-    pub fn run_autologin<T: Com>(&mut self, com: &mut T, adr: &Address) -> io::Result<()> {
+    pub fn run_autologin(&mut self, com: &mut Box<dyn Com>, adr: &Address) -> io::Result<()> {
         if self.logged_in && self.cur_expr_idx >= self.login_expr.len() {
             return Ok(());
         }

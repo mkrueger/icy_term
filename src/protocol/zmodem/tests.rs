@@ -3,7 +3,7 @@
 mod tests {
     use std::vec;
 
-    use crate::{protocol::{Zmodem, ZCRCE, Protocol, FileDescriptor}, com::TestChannel};
+    use crate::{protocol::{Zmodem, ZCRCE, FileDescriptor, Protocol}, com::test_com::TestChannel};
 
     #[test]
     fn test_encode_subpckg_crc32() {
@@ -13,8 +13,8 @@ mod tests {
 
     fn create_channel() -> TestChannel {
         let  res = TestChannel::new();
-       // setup_xmodem_cmds(&mut res.sender);
-       // setup_xmodem_cmds(&mut res.receiver);
+        //setup_xmodem_cmds(&mut res.sender);
+        //setup_xmodem_cmds(&mut res.receiver);
         res
     }
     
@@ -26,16 +26,16 @@ mod tests {
         let data = vec![1u8, 2, 5, 10];
         let mut com = create_channel();
 
-        send.initiate_send(&mut com.sender, vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())]).expect("error.");
-        recv.initiate_recv(&mut com.receiver).expect("error.");
+        let mut send_state = send.initiate_send(&mut com.sender, vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())]).expect("error.");
+        let mut revc_state = recv.initiate_recv(&mut com.receiver).expect("error.");
         let mut i = 0;
-        while send.is_active() || recv.is_active()  {
+        while !send_state.is_finished || !revc_state.is_finished  {
             i += 1;
             if i > 100 { break; }
             println!("sender:");
-            send.update(&mut com.sender).expect("error.");
+            send.update(&mut com.sender, &mut send_state).expect("error.");
             println!("receiver:");
-            recv.update(&mut com.receiver).expect("error.");
+            recv.update(&mut com.receiver, &mut revc_state).expect("error.");
         }
 
         let rdata = recv.get_received_files();

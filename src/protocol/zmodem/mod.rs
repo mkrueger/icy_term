@@ -2,7 +2,7 @@
 // ZModem protocol specification http://cristal.inria.fr/~doligez/zmodem/zmodem.txt
 
 pub mod constants;
-use std::io;
+use std::{io::{self, ErrorKind}, time::Duration};
 
 pub use constants::*;
 mod header;
@@ -22,7 +22,6 @@ use super::{Protocol, TransferState, FileTransferState};
 
 pub struct Zmodem {
     block_length: usize,
-    transfer_state: Option<TransferState>,
     sz: Sz,
     rz: Rz
 }
@@ -31,13 +30,17 @@ impl Zmodem {
     pub fn new(block_length: usize) -> Self {
         Self {
             block_length,
-            transfer_state: None,
             sz: Sz::new(block_length),
             rz: Rz::new(block_length)
         }
     }
 
-    pub fn cancel<T: Com>(com: &mut T) -> io::Result<()> {
+    fn get_name(&self) -> &str
+    {
+        if self.block_length == 1024 { "Zmodem" } else { "ZedZap (Zmodem 8k)" }
+    }
+
+    pub fn cancel(com: &mut Box<dyn Com>) -> io::Result<()> {
         com.write(&ABORT_SEQ)?;
         Ok(())
     }
@@ -49,8 +52,8 @@ impl Zmodem {
         let mut crc = get_crc16(data);
         crc = update_crc16(crc, zcrc_byte);
 
-        append_escape(&mut v, data);
-        append_escape(&mut v, &[ZDLE, zcrc_byte]);
+        append_zdle_encoded(&mut v, data);
+        append_zdle_encoded(&mut v, &[ZDLE, zcrc_byte]);
         v.extend_from_slice(&u16::to_le_bytes(crc));
         v
     }
@@ -62,16 +65,16 @@ impl Zmodem {
         let mut crc = get_crc32(data);
         crc = !update_crc32(!crc, zcrc_byte);
 
-        append_escape(&mut v, data);
+        append_zdle_encoded(&mut v, data);
         v.extend_from_slice(&[ZDLE, zcrc_byte]);
-        append_escape(&mut v, &u32::to_le_bytes(crc));
+        append_zdle_encoded(&mut v, &u32::to_le_bytes(crc));
         v
     }
 }
 
 
 
-fn append_escape(v: &mut Vec<u8>, data: &[u8])
+pub fn append_zdle_encoded(v: &mut Vec<u8>, data: &[u8])
 {
     let mut last = 0u8;
     for b in data {
@@ -104,6 +107,46 @@ fn append_escape(v: &mut Vec<u8>, data: &[u8])
     }
 }
 
+
+pub fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> io::Result<Vec<u8>> {
+    let mut data = Vec::new();
+    loop {
+        let c = com.read_char(Duration::from_secs(5))?;
+        match c {
+            ZDLE  => {
+                let c2 = com.read_char(Duration::from_secs(5))?;
+                match c2 {
+                    ZDLEE => data.push(ZDLE),
+                    ESC_0X10 => data.push(0x10),
+                    ESC_0X90 => data.push(0x90),
+                    ESC_0X11 => data.push(0x11),
+                    ESC_0X91 => data.push(0x91),
+                    ESC_0X13 => data.push(0x13),
+                    ESC_0X93 => data.push(0x93),
+                    ESC_0X0D => data.push(0x0D),
+                    ESC_0X8D => data.push(0x8D),
+                    ZRUB0 => data.push(0x7F),
+                    ZRUB1 => data.push(0xFF),
+                    
+                    _ => {
+                        Header::empty(HeaderType::Bin32, FrameType::ZNAK).write(com)?;
+                        return Err(io::Error::new(ErrorKind::InvalidInput, format!("don't understand subpacket {}/x{:X}", c2, c2))); 
+                    }
+                }
+            }
+            0x11 | 0x91 | 0x13 | 0x93 => {
+                println!("ignored byte");
+            }
+            _ => {
+                 data.push(c);
+            }
+        }
+        if data.len() >= length {
+            return Ok(data);
+        }
+    }
+}
+
 fn get_hex(n: u8) -> u8
 {
     if n < 10 {
@@ -127,66 +170,40 @@ fn from_hex(n: u8) -> io::Result<u8>
 }
 
 impl Protocol for Zmodem {
-
-    fn get_name(&self) -> &str
-    {
-        if self.block_length == 1024 { "Zmodem" } else { "ZedZap (Zmodem 8k)" }
-    }
-
-    fn get_current_state(&self) -> Option<&TransferState>
-    {
-       self.transfer_state.as_ref()
-    }
-
-    fn is_active(&self) -> bool
-    {
-        self.transfer_state.is_some()
-    }
-
-    fn update<T: crate::com::Com>(&mut self, com: &mut T) -> std::io::Result<()> {
-        match &mut self.transfer_state  {
-            Some(s) => {
-                if self.sz.is_active() {
-                    self.sz.update(com, s)?;
-                    if !self.sz.is_active() {
-                        self.transfer_state = None;
-                    }
-                } else {
-                     while self.rz.is_active() {
-                        if !com.is_data_available()? || self.block_length > 1024 {
-                            break;
-                        }
-                        self.rz.update(com, s)?;
-                        if !self.rz.is_active() {
-                            self.transfer_state = None;
-                            break;
-                        }
-                    }
+    fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()> {
+        if self.sz.is_active() {
+            self.sz.update(com, state)?;
+            if !self.sz.is_active() {
+                state.is_finished = true;
+            }
+        } else {
+            while self.rz.is_active() {
+                if !com.is_data_available()? || self.block_length > 1024 {
+                    break;
+                }
+                self.rz.update(com, state)?;
+                if !self.rz.is_active() {
+                    state.is_finished = true;
                 }
             }
-            None => {
-                self.cancel(com)?;
-                return Ok(());
-            }
         }
-        
         Ok(())
     }
 
-    fn initiate_send<T: crate::com::Com>(&mut self, com: &mut T, files: Vec<super::FileDescriptor>) -> std::io::Result<()> {
+    fn initiate_send(&mut self, com: &mut Box<dyn Com>, files: Vec<super::FileDescriptor>) -> std::io::Result<TransferState> {
         let mut state = TransferState::new();
         state.send_state = Some(FileTransferState::new());
-        self.transfer_state = Some(state);
-
-        self.sz.send(com, files)
+        state.protocol_name = self.get_name().to_string();
+        self.sz.send(com, files)?;
+        Ok(state)
     }
 
-    fn initiate_recv<T: crate::com::Com>(&mut self, com: &mut T) -> std::io::Result<()> {
+    fn initiate_recv(&mut self, com: &mut Box<dyn Com>) -> std::io::Result<TransferState> {
         let mut state = TransferState::new();
         state.recieve_state = Some(FileTransferState::new());
-        self.transfer_state = Some(state);
-
-        self.rz.recv(com)
+        state.protocol_name = self.get_name().to_string();
+        self.rz.recv(com)?;
+        Ok(state)
     }
 
     fn get_received_files(&mut self) -> Vec<super::FileDescriptor> {
@@ -195,13 +212,9 @@ impl Protocol for Zmodem {
         c
     }
 
-    fn cancel<T: crate::com::Com>(&mut self, com: &mut T) -> io::Result<()>
+    fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
-        self.transfer_state = None;
-        com.write(&ABORT_SEQ)?;
         com.write(&ABORT_SEQ)?;
         Ok(())
     }
-
 }
-

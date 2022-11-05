@@ -50,7 +50,7 @@ impl Ry {
         if let RecvState::None = self.recv_state { true } else { false }
     }
 
-    pub fn update<T: Com>(&mut self, com: &mut T, state: &mut TransferState) -> io::Result<()>
+    pub fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()>
     {
         if let Some(transfer_state) = &mut state.recieve_state {
             if self.files.len() > 0 {
@@ -61,200 +61,193 @@ impl Ry {
             }
             transfer_state.bytes_transfered = self.bytes_send;
             transfer_state.errors = self.errors;
-            transfer_state.engine_state = format!("{:?}", self.recv_state);
             transfer_state.check_size = self.configuration.get_check_and_size();
             transfer_state.update_bps();
-        }
 
-        // println!("\t\t\t\t\t\t{:?}", self.recv_state);
-        match self.recv_state {
-            RecvState::None => Ok(()),
+            // println!("\t\t\t\t\t\t{:?}", self.recv_state);
+            match self.recv_state {
+                RecvState::None => {},
 
-            RecvState::StartReceive(retries) => {
-                if com.is_data_available()? {
-                    state.current_state = "Start receiving...";
+                RecvState::StartReceive(retries) => {
+                    if com.is_data_available()? {
+                        state.current_state = "Start receiving...";
 
-                    let start = com.read_char(self.recv_timeout)?;
-                    // println!("{:02X} {}, {}", start, start, char::from_u32(start as u32).unwrap());
-                    if start == SOH {
-                        if self.configuration.is_ymodem() {
-                            self.recv_state = RecvState::ReadYModemHeader(0);
-                        } else {
-                            self.recv_state = RecvState::ReadBlock(DEFAULT_BLOCK_LENGTH, 0);
-                        }
-                    } else if start == STX {
-                        self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, 0);
-                    } else {
-                        if retries < 3 {
-                            self.await_data(com)?;
-                        } else if retries == 4  {
-                            com.write(&[NAK])?;
-                        } else {
-                            self.cancel(com)?;
-                            return Err(io::Error::new(ErrorKind::ConnectionAborted, "too many retries starting the communication"));
-                        }
-                        self.errors += 1;
-                        self.recv_state = RecvState::StartReceive(retries + 1);
-                    }
-                }
-                Ok(())
-            },
-
-            RecvState::ReadYModemHeader(retries) => {
-                let len = 128; // constant header length
-
-                if com.is_data_available()? {
-                    state.current_state = "Get header...";
-                    let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode { 2 } else { 1 };
-
-                    let block = com.read_exact(self.recv_timeout, 2 + len + chksum_size)?;
-                    print!("Got Y modem header: ");
-                    for b in &block {
-                        print!("{}, ", char::from_u32(*b as u32).unwrap());
-                    }
-                    println!();
-
-                    if block[0] != block[1] ^ 0xFF {
-                        com.write(&[NAK])?;
-                        self.errors += 1;
-                        self.recv_state = RecvState::StartReceive(retries + 1);
-                        return Ok(());
-                    }
-                    let block = &block[2..];
-                    if !self.check_crc(block) {
-                        //println!("NAK CRC FAIL");
-                        self.errors += 1;
-                        com.write(&[NAK])?;
-                        self.recv_state = RecvState::ReadYModemHeader(retries + 1);
-                        return Ok(());
-                    }
-                    if block[0] == 0 {
-                        // END transfer
-                        //println!("END TRANSFER");
-                        com.write(&[ACK])?;
-                        self.recv_state = RecvState::None;
-                        return Ok(());
-                    }
-
-                    let mut fd =  FileDescriptor::new();
-                    fd.file_name = str_from_null_terminated_utf8_unchecked(&block).to_string();
-                    let num = str_from_null_terminated_utf8_unchecked(&block[(fd.file_name.len() + 1)..]).to_string();
-                    if let Ok(file_size) = usize::from_str_radix(&num, 10) {
-                        fd.size = file_size;
-                    }
-                    self.files.push(fd);
-                    if self.configuration.is_ymodem() {
-                        com.write(&[ACK, b'C'])?;
-                    } else {
-                        com.write(&[ACK])?;
-                    }
-                    self.recv_state = RecvState::ReadBlockStart(0, 0);
-                }
-                Ok(())
-            },
-
-            RecvState::ReadBlockStart(step, retries) => {
-                if com.is_data_available()? {
-                    if step == 0 {
                         let start = com.read_char(self.recv_timeout)?;
+                        // println!("{:02X} {}, {}", start, start, char::from_u32(start as u32).unwrap());
                         if start == SOH {
-                            self.recv_state = RecvState::ReadBlock(DEFAULT_BLOCK_LENGTH, 0);
+                            if self.configuration.is_ymodem() {
+                                self.recv_state = RecvState::ReadYModemHeader(0);
+                            } else {
+                                self.recv_state = RecvState::ReadBlock(DEFAULT_BLOCK_LENGTH, 0);
+                            }
                         } else if start == STX {
                             self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, 0);
-                        } else if start == EOT {
-                            while self.data.ends_with(&[CPMEOF]) {
-                                self.data.pop();
-                            }
-                            if self.files.len() == 0 {
-                                self.files.push(FileDescriptor::new());
-                            }
-
-                            let cur_file = self.files.len() - 1;
-                            let mut fd = self.files.get_mut(cur_file).unwrap();
-                            fd.data = Some(self.data.clone());
-                            self.data = Vec::new();
-
-                            if self.configuration.is_ymodem() {
-                                com.write(&[NAK])?;
-                                self.recv_state = RecvState::ReadBlockStart(1, 0);
-                            } else {
-                                com.write(&[ACK])?;
-                                self.recv_state = RecvState::None;
-                            }
                         } else {
-                            if retries < 5 {
+                            if retries < 3 {
+                                self.await_data(com)?;
+                            } else if retries == 4  {
                                 com.write(&[NAK])?;
                             } else {
                                 self.cancel(com)?;
-                                return Err(io::Error::new(ErrorKind::ConnectionAborted, "too many retries")); 
+                                return Err(io::Error::new(ErrorKind::ConnectionAborted, "too many retries starting the communication"));
                             }
                             self.errors += 1;
-                            self.recv_state = RecvState::ReadBlockStart(0, retries + 1);
+                            self.recv_state = RecvState::StartReceive(retries + 1);
                         }
-                    } else if step == 1 {
-                        let eot = com.read_char(self.recv_timeout)?;
-                        if eot != EOT {
+                    }
+                },
+
+                RecvState::ReadYModemHeader(retries) => {
+                    let len = 128; // constant header length
+
+                    if com.is_data_available()? {
+                        state.current_state = "Get header...";
+                        let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode { 2 } else { 1 };
+
+                        let block = com.read_exact(self.recv_timeout, 2 + len + chksum_size)?;
+
+                        if block[0] != block[1] ^ 0xFF {
+                            com.write(&[NAK])?;
+                            self.errors += 1;
+                            self.recv_state = RecvState::StartReceive(retries + 1);
+                            return Ok(());
+                        }
+                        let block = &block[2..];
+                        if !self.check_crc(block) {
+                            //println!("NAK CRC FAIL");
+                            self.errors += 1;
+                            com.write(&[NAK])?;
+                            self.recv_state = RecvState::ReadYModemHeader(retries + 1);
+                            return Ok(());
+                        }
+                        if block[0] == 0 {
+                            // END transfer
+                            //println!("END TRANSFER");
+                            com.write(&[ACK])?;
                             self.recv_state = RecvState::None;
                             return Ok(());
                         }
+
+                        let mut fd =  FileDescriptor::new();
+                        fd.file_name = str_from_null_terminated_utf8_unchecked(&block).to_string();
+                        let num = str_from_null_terminated_utf8_unchecked(&block[(fd.file_name.len() + 1)..]).to_string();
+                        if let Ok(file_size) = usize::from_str_radix(&num, 10) {
+                            fd.size = file_size;
+                        }
+                        transfer_state.write(format!("Receiving file '{}'…", &fd.file_name));
+                        self.files.push(fd);
                         if self.configuration.is_ymodem() {
                             com.write(&[ACK, b'C'])?;
                         } else {
                             com.write(&[ACK])?;
                         }
-                        self.recv_state = RecvState::StartReceive(retries);
+                        self.recv_state = RecvState::ReadBlockStart(0, 0);
                     }
-                }
-                Ok(())
-            },
+                },
 
-            RecvState::ReadBlock(len, retries) => {
-                if com.is_data_available()? {
-                    state.current_state = "Receiving data...";
-                    let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode { 2 } else { 1 };
-                    let block = com.read_exact(self.recv_timeout, 2 + len + chksum_size)?;
-                    if block[0] != block[1] ^ 0xFF {
-                        com.write(&[NAK])?;
+                RecvState::ReadBlockStart(step, retries) => {
+                    if com.is_data_available()? {
+                        if step == 0 {
+                            let start = com.read_char(self.recv_timeout)?;
+                            if start == SOH {
+                                self.recv_state = RecvState::ReadBlock(DEFAULT_BLOCK_LENGTH, 0);
+                            } else if start == STX {
+                                self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, 0);
+                            } else if start == EOT {
+                                while self.data.ends_with(&[CPMEOF]) {
+                                    self.data.pop();
+                                }
+                                if self.files.len() == 0 {
+                                    self.files.push(FileDescriptor::new());
+                                }
 
-                        self.errors += 1;
-                        let start = com.read_char(self.recv_timeout)?;
-                        if start == SOH {
-                            self.recv_state = RecvState::ReadBlock(DEFAULT_BLOCK_LENGTH, retries + 1);
-                        } else if start == STX {
-                            self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
-                        } else {
-                            self.cancel(com)?;
-                            return Err(io::Error::new(ErrorKind::ConnectionAborted, "too many retries")); 
+                                let cur_file = self.files.len() - 1;
+                                let mut fd = self.files.get_mut(cur_file).unwrap();
+                                fd.data = Some(self.data.clone());
+                                self.data = Vec::new();
+
+                                if self.configuration.is_ymodem() {
+                                    com.write(&[NAK])?;
+                                    self.recv_state = RecvState::ReadBlockStart(1, 0);
+                                } else {
+                                    com.write(&[ACK])?;
+                                    self.recv_state = RecvState::None;
+                                }
+                            } else {
+                                if retries < 5 {
+                                    com.write(&[NAK])?;
+                                } else {
+                                    self.cancel(com)?;
+                                    return Err(io::Error::new(ErrorKind::ConnectionAborted, "too many retries")); 
+                                }
+                                self.errors += 1;
+                                self.recv_state = RecvState::ReadBlockStart(0, retries + 1);
+                            }
+                        } else if step == 1 {
+                            let eot = com.read_char(self.recv_timeout)?;
+                            if eot != EOT {
+                                self.recv_state = RecvState::None;
+                                return Ok(());
+                            }
+                            if self.configuration.is_ymodem() {
+                                com.write(&[ACK, b'C'])?;
+                            } else {
+                                com.write(&[ACK])?;
+                            }
+                            self.recv_state = RecvState::StartReceive(retries);
                         }
-                        
-                        self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
-                        return Ok(());
                     }
-                    let block = &block[2..];
-                    if !self.check_crc(&block) {
-                        //println!("\t\t\t\t\t\trecv crc mismatch");
-                        self.errors += 1;
-                        com.write(&[NAK])?;
-                        self.recv_state = RecvState::ReadBlockStart(0, retries + 1);
-                        return Ok(());
+                },
+
+                RecvState::ReadBlock(len, retries) => {
+                    if com.is_data_available()? {
+                        state.current_state = "Receiving data...";
+                        let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode { 2 } else { 1 };
+                        let block = com.read_exact(self.recv_timeout, 2 + len + chksum_size)?;
+                        if block[0] != block[1] ^ 0xFF {
+                            com.write(&[NAK])?;
+
+                            self.errors += 1;
+                            let start = com.read_char(self.recv_timeout)?;
+                            if start == SOH {
+                                self.recv_state = RecvState::ReadBlock(DEFAULT_BLOCK_LENGTH, retries + 1);
+                            } else if start == STX {
+                                self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
+                            } else {
+                                self.cancel(com)?;
+                                return Err(io::Error::new(ErrorKind::ConnectionAborted, "too many retries")); 
+                            }
+                            
+                            self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
+                            return Ok(());
+                        }
+                        let block = &block[2..];
+                        if !self.check_crc(&block) {
+                            //println!("\t\t\t\t\t\trecv crc mismatch");
+                            self.errors += 1;
+                            com.write(&[NAK])?;
+                            self.recv_state = RecvState::ReadBlockStart(0, retries + 1);
+                            return Ok(());
+                        }
+                        self.data.extend_from_slice(&block[0..len]);
+                        if !self.configuration.is_streaming() {
+                            com.write(&[ACK])?;
+                        }
+                        self.recv_state = RecvState::ReadBlockStart(0, 0);
                     }
-                    self.data.extend_from_slice(&block[0..len]);
-                    if !self.configuration.is_streaming() {
-                        com.write(&[ACK])?;
-                    }
-                    self.recv_state = RecvState::ReadBlockStart(0, 0);
                 }
-                Ok(())
             }
+        
         }
+        Ok(())
     }
 
-    pub fn cancel<T: Com>(&self, com: &mut T)-> io::Result<()> {
+    pub fn cancel(&self, com: &mut Box<dyn Com>)-> io::Result<()> {
         com.write(&[CAN, CAN])?;
         Ok(())
     }
 
-    pub fn recv<T: Com>(&mut self, com: &mut T) -> io::Result<()>
+    pub fn recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
         self.await_data(com)?;
         self.data = Vec::new();
@@ -262,7 +255,7 @@ impl Ry {
         Ok(())
     }
 
-    fn await_data<T: Com>(&mut self, com: &mut T) -> io::Result<usize> {
+    fn await_data(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
         if self.configuration.is_streaming() {
             com.write(b"G")
         } else if self.configuration.use_crc() {

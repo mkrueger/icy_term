@@ -3,13 +3,12 @@ use iced::{
     Element, alignment, Length
 };
 use crate::address::{Terminal, Address};
-use crate::com::{Com};
 use super::Message;
 use super::main_window::{ MainWindow};
 use super::screen_modes::*;
 
 
-pub fn view_edit_bbs<'a, T: Com>(_main_window: &MainWindow<T>, adr: &Address, i: usize) -> Element<'a, Message> {
+pub fn view_edit_bbs<'a>(_main_window: &MainWindow, adr: &Address, i: usize) -> Element<'a, Message> {
     let text_width = 140;
     let padding = 10;
     column![
