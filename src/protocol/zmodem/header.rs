@@ -56,13 +56,10 @@ impl Display for Header {
             FrameType::ZCHALLENGE =>  write!(f,"[{:?} Header with {:?} number = x{:08X}]", self.header_type, self.frame_type, self.number()),
             _ => write!(f,"[{:?} Header with {:?} frame flags = x{:02X}, x{:02X}, x{:02X}, x{:02X}]", self.header_type, self.frame_type, self.f3(), self.f2(), self.f1(), self.f0())
         }
-
-        
     }
 }
 
 impl Header {
-
     pub fn empty(header_type: HeaderType, frame_type: FrameType) -> Self
     {
         Self {

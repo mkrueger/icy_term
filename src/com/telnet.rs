@@ -120,32 +120,26 @@ enum TelnetOption {
     TransmitBinary = 0x00,
     /// https://www.rfc-editor.org/rfc/rfc857
     Echo = 0x01,
-
     /// ???
     Reconnection = 0x02,
-
     /// https://www.rfc-editor.org/rfc/rfc858
     SuppressGoAhead = 0x03,
     /// https://www.rfc-editor.org/rfc/rfc859
     Status = 0x05,
     /// https://www.rfc-editor.org/rfc/rfc860
     TimingMark = 0x06,
-
     /// https://www.rfc-editor.org/rfc/rfc726.html
     RemoteControlledTransAndEcho = 0x07,
-
+    /// ???
     OutputLineWidth = 0x08,
+    /// ???
     OutputPageSize = 0x09,
-
     ///https://www.rfc-editor.org/rfc/RFC652
     OutputCarriageReturnDisposition = 10,
-    
     ///https://www.rfc-editor.org/rfc/RFC653
     OutputHorizontalTabStops = 11,
-    
     ///https://www.rfc-editor.org/rfc/RFC654
     OutputHorizontalTabDisposition = 12,
-
     ///https://www.rfc-editor.org/rfc/RFC655
     OutputFormfeedDisposition = 13,
     ///https://www.rfc-editor.org/rfc/RFC656
@@ -168,12 +162,10 @@ enum TelnetOption {
     SUPDUPOutput = 22,
     ///https://www.rfc-editor.org/rfc/RFC779
     SendLocation = 23,
-
     /// https://www.rfc-editor.org/rfc/rfc1091
     TerminalType = 24,
     /// https://www.rfc-editor.org/rfc/rfc885
     EndOfRecord = 25,
-
     /// https://www.rfc-editor.org/rfc/rfc1073
     NegotiateAboutWindowSize = 31,
     /// https://www.rfc-editor.org/rfc/rfc1079
@@ -186,14 +178,12 @@ enum TelnetOption {
     XDisplayLocation = 35,
     /// https://www.rfc-editor.org/rfc/rfc1408
     EnvironmentOption = 36,
-    
     /// https://www.rfc-editor.org/rfc/rfc2941
     Authentication = 37,
     /// https://www.rfc-editor.org/rfc/rfc2946
     Encrypt = 38,
     /// https://www.rfc-editor.org/rfc/rfc1572
     NewEnviron = 39,
-
     ///https://www.rfc-editor.org/rfc/RFC2355
     TN3270E = 40,
     ///https://www.rfc-editor.org/rfc/Rob_Earhart
@@ -214,33 +204,27 @@ enum TelnetOption {
     SendURL = 48,
     ///https://www.rfc-editor.org/rfc/Jeffrey_Altman
     ForwardX = 49,
-
     // 50-137 	Unassigned
-
     TelOptPragmaLogon = 138,///https://www.rfc-editor.org/rfc/Steve_McGregory
     TelOptSSPILogon = 139,///https://www.rfc-editor.org/rfc/Steve_McGregory
     TelOptPragmaHeartbeat = 140,///https://www.rfc-editor.org/rfc/Steve_McGregory
-
     // 141-254 	Unassigned
-
     /// https://www.rfc-editor.org/rfc/rfc861
     ExtendedOptionsList = 0xFF,
 }
 
 impl TelnetOption {
-
     pub fn get(byte: u8) -> io::Result<TelnetOption> {
         let cmd = match byte {
-            0x00 => TelnetOption::TransmitBinary,
-            0x01 => TelnetOption::Echo,
-            0x02 => TelnetOption::Reconnection,
-            0x03 => TelnetOption::SuppressGoAhead,
-            0x05 => TelnetOption::Status,
-            0x06 => TelnetOption::TimingMark,
-            0x07 => TelnetOption::RemoteControlledTransAndEcho,
-            
-            0x08 => TelnetOption::OutputLineWidth,
-            0x09 => TelnetOption::OutputPageSize,
+            0 => TelnetOption::TransmitBinary,
+            1 => TelnetOption::Echo,
+            2 => TelnetOption::Reconnection,
+            3 => TelnetOption::SuppressGoAhead,
+            5 => TelnetOption::Status,
+            6 => TelnetOption::TimingMark,
+            7 => TelnetOption::RemoteControlledTransAndEcho,
+            8 => TelnetOption::OutputLineWidth,
+            9 => TelnetOption::OutputPageSize,
             10 => TelnetOption::OutputCarriageReturnDisposition,
             11 => TelnetOption::OutputHorizontalTabStops,
             12 => TelnetOption::OutputHorizontalTabDisposition,
@@ -276,12 +260,12 @@ impl TelnetOption {
             47 => TelnetOption::Kermit,
             48 => TelnetOption::SendURL,
             49 => TelnetOption::ForwardX,
-            
+            // unassigned
             138 => TelnetOption::TelOptPragmaLogon,
             139 => TelnetOption::TelOptSSPILogon,
             140 => TelnetOption::TelOptPragmaHeartbeat,
-            
-            0xFF => TelnetOption::ExtendedOptionsList,
+            // unassigned
+            255 => TelnetOption::ExtendedOptionsList,
             _ => { return Err(io::Error::new(ErrorKind::InvalidData, format!("unknown option: {}/x{:02X}", byte, byte))); }
         };
         Ok(cmd)

@@ -235,7 +235,6 @@ impl Rz {
         Ok(false)
     }
 
-
     pub fn read_subpacket(&mut self, com: &mut Box<dyn Com>) -> io::Result<Option<(Vec<u8>, bool)>>
     {
         let mut data = Vec::with_capacity(self.block_length);

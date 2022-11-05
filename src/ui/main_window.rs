@@ -16,6 +16,7 @@ use iced::{Alignment};
 use icy_engine::{SUPPORTED_FONTS, DEFAULT_FONT_NAME, BitFont};
 use rfd::FileDialog;
 
+use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
 use crate::{VERSION};
 use crate::address::{Address, start_read_book, READ_ADDRESSES, store_phone_book};
@@ -59,6 +60,7 @@ pub struct MainWindow {
     font: Option<String>,
     screen_mode: Option<ScreenMode>,
     auto_login: AutoLogin,
+    auto_file_transfer: AutoFileTransfer,
     // protocols
     current_protocol: Option<(Box<dyn Protocol>, TransferState)>
 }
@@ -131,8 +133,14 @@ impl MainWindow
                             self.log_file.push(format!("{}", err));
                         }
                     }
+
+
                     self.buffer_view.print_char(Some(com.as_mut()), ch)?;
                     do_update = true;
+                    if let Some((protocol_type, download)) = self.auto_file_transfer.try_transfer(ch) {
+                        self.initiate_file_transfer(protocol_type, download);
+                        return Ok(());
+                    }
                 }
                 if do_update {
                     self.buffer_view.cache.clear();
@@ -207,6 +215,48 @@ impl MainWindow
             self.buffer_view.cache.clear();
         }
     }
+
+    fn initiate_file_transfer(&mut self, protocol_type: crate::protocol::ProtocolType, download: bool) {
+        self.mode = MainWindowMode::Default;
+        if let Some(com) = self.com.as_mut() {
+            if !download {
+                let files = FileDialog::new()
+                    .pick_files();
+                if let Some(path) = files {
+                    let fd = FileDescriptor::from_paths(&path);
+                    if let Ok(files) =  fd {
+                        let mut protocol = protocol_type.create();
+                        match protocol.initiate_send(com, files) {
+                            Ok(state) => {
+                                self.mode = MainWindowMode::FileTransfer(download);
+                                self.current_protocol = Some((protocol, state));
+                            }
+                            Err(error) => {
+                                eprintln!("{}", error);
+                                self.log_file.push(format!("{}", error));
+                            }
+                        }
+                    } else {
+                        self.print_result(&fd);
+                    }
+                }
+            } else {
+                let mut protocol = protocol_type.create();
+                match protocol.initiate_recv(com) {
+                    Ok(state) => {
+                        self.mode = MainWindowMode::FileTransfer(download);
+                        self.current_protocol = Some((protocol, state));
+                    }
+                    Err(error) => {
+                        eprintln!("{}", error);
+                        self.log_file.push(format!("{}", error));
+                    }
+                }
+            }
+        } else {
+            self.print_log("Communication error.".to_string());
+        }
+    }
 }
 
 impl Application for MainWindow {
@@ -236,6 +286,7 @@ impl Application for MainWindow {
             log_file: Vec::new(),
             options: Options::new(),
             auto_login: AutoLogin::new(String::new()),
+            auto_file_transfer: AutoFileTransfer::new(),
             font: Some(DEFAULT_FONT_NAME.to_string()),
             screen_mode: None,
             current_protocol: None
@@ -438,45 +489,9 @@ impl Application for MainWindow {
                         self.mode = MainWindowMode::Default
                     }
                     Message::SelectProtocol(protocol_type, download) => {
-                        self.mode = MainWindowMode::Default;
-                        if let Some(com) = self.com.as_mut() {
-                            if !download {
-                                let files = FileDialog::new()
-                                    .pick_files();
-                                if let Some(path) = files {
-                                    let fd = FileDescriptor::from_paths(&path);
-                                    if let Ok(files) =  fd {
-                                        let mut protocol = protocol_type.create();
-                                        match protocol.initiate_send(com, files) {
-                                            Ok(state) => {
-                                                self.mode = MainWindowMode::FileTransfer(download);
-                                                self.current_protocol = Some((protocol, state));
-                                            }
-                                            Err(error) => {
-                                                eprintln!("{}", error);
-                                                self.log_file.push(format!("{}", error));
-                                            }
-                                        }
-                                    } else {
-                                        self.print_result(&fd);
-                                    }
-                                }
-                            } else {
-                                let mut protocol = protocol_type.create();
-                                match protocol.initiate_recv(com) {
-                                    Ok(state) => {
-                                        self.mode = MainWindowMode::FileTransfer(download);
-                                        self.current_protocol = Some((protocol, state));
-                                    }
-                                    Err(error) => {
-                                        eprintln!("{}", error);
-                                        self.log_file.push(format!("{}", error));
-                                    }
-                                }
-                            }
-                        } else {
-                            self.print_log("Communication error.".to_string());
-                        }
+
+                        self.initiate_file_transfer(protocol_type, download);
+
                     }
                     _ => { }
                 }
