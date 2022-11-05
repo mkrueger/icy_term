@@ -559,7 +559,7 @@ impl Application for MainWindow {
                     Message::EditBbsTerminalTypeSelected(terminal) => self.edit_bbs.terminal_type = terminal,
                     Message::EditBbsScreenModeSelected(screen_mode) => self.edit_bbs.screen_mode = Some(screen_mode),
                     Message::EditBbsAutoLoginChanged(str) => self.edit_bbs.auto_login = str,
-                    
+                    Message::EditBbsConnectionType(connection_type) => self.edit_bbs.connection_type = connection_type,
                     Message::EditBbsSaveChanges(i) => {
                         if i == 0 { 
                             self.addresses.push(self.edit_bbs.clone());

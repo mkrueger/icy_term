@@ -8,7 +8,7 @@ Features supported so far:
   - [x] Telnet
   - [ ] SSH
   - [ ] Rlogin
-  - [ ] Raw
+  - [x] Raw
 - Terminal encoding support
   - [x] Ansi
   - [x] Avatar

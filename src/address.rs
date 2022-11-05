@@ -12,6 +12,7 @@ pub enum Terminal {
     Ansi,
     Avatar
 }
+
 impl Terminal {
     pub const ALL: [Terminal;2] = [
         Terminal::Ansi,
@@ -25,11 +26,34 @@ impl Display for Terminal {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Connection {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConnectionType {
     Telnet,
-    _Rlogin,
-    _SSH
+    Raw
+}
+
+impl Display for ConnectionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl ConnectionType {
+    pub const ALL: [ConnectionType;2] = [
+        ConnectionType::Telnet, 
+        ConnectionType::Raw
+    ];
+
+    pub fn parse(str: &str) -> ConnectionType
+    {
+        match str { 
+            "Telnet" => ConnectionType::Telnet,
+            "Raw" => ConnectionType::Raw,
+            _ => {
+                ConnectionType::Telnet
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -42,7 +66,7 @@ pub struct Address {
 
     pub address: String,
     pub auto_login: String,
-    pub connection: Connection,
+    pub connection_type: ConnectionType,
 
     pub ice_mode: bool,
 
@@ -96,7 +120,7 @@ impl Address {
             screen_mode: None,
             auto_login: String::new(),
             address: String::new(),
-            connection: Connection::Telnet,
+            connection_type: ConnectionType::Telnet,
             ice_mode: true
         }
     }
@@ -159,6 +183,7 @@ impl Address {
                                             "auto_login" => { adr.auto_login = v; }
                                             "use_ice" => { adr.ice_mode = v == "true"; }
                                             "screen_mode" => { adr.screen_mode = ScreenMode::parse(&v); }
+                                            "connection" => { adr.connection_type = ConnectionType::parse(&v); }
                                             "font_name" => { adr.font_name = Some(v); }
                                             "terminal" => { adr.terminal_type = if v.to_uppercase() == "ANSI" { Terminal::Ansi } else { Terminal::Avatar } }
                                         _ =>  {}
@@ -235,6 +260,7 @@ pub fn store_phone_book(addr: &Vec<Address>) -> io::Result<()> {
             for entry in &addr[1..] {
                 file.write(format!("{}:\n", entry.system_name).as_bytes())?;
                 file.write(format!("   address: {}\n", escape(&entry.address)).as_bytes())?;
+                file.write(format!("   connection_type: {:?}\n", &entry.connection_type).as_bytes())?;
                 file.write(format!("   user: {}\n", escape(&entry.user_name)).as_bytes())?;
                 file.write(format!("   password: {}\n", escape(&entry.password)).as_bytes())?;
                 file.write(format!("   comment: {}\n", escape(&entry.comment)).as_bytes())?;

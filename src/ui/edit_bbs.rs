@@ -96,6 +96,19 @@ pub fn view_edit_bbs<'a>(_main_window: &MainWindow, adr: &Address, i: usize) -> 
 
 
         row![
+            text("Connection type")
+                .horizontal_alignment(alignment::Horizontal::Right)
+                .width(Length::Units(text_width)),
+            pick_list(
+                &crate::address::ConnectionType::ALL[..],
+                Some(adr.connection_type),
+                Message::EditBbsConnectionType
+            )
+        ].padding(padding)
+        .spacing(8),
+
+
+        row![
             text("Screen Mode")
                 .horizontal_alignment(alignment::Horizontal::Right)
                 .width(Length::Units(text_width)),

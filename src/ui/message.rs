@@ -1,6 +1,6 @@
 use iced::{keyboard::{KeyCode, Modifiers}, mouse::ScrollDelta};
 
-use crate::{protocol::ProtocolType, address::Terminal};
+use crate::{protocol::ProtocolType, address::{Terminal, ConnectionType}};
 
 use super::screen_modes::ScreenMode;
 
@@ -36,5 +36,6 @@ pub enum Message {
     EditBbsScreenModeSelected(ScreenMode),
     EditBbsAutoLoginChanged(String),
     EditBbsSaveChanges(usize),
-    EditBbsDeleteEntry(usize)
+    EditBbsDeleteEntry(usize),
+    EditBbsConnectionType(ConnectionType)
 }
