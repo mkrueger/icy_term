@@ -43,8 +43,7 @@ impl FileDescriptor {
         Ok(res)
     }
 
-    pub fn save_file_in_downloads(&self) -> io::Result<()> {
-
+    pub fn save_file_in_downloads(&self, transfer_state: &mut FileTransferState) -> io::Result<()> {
         if let Some(user_dirs) = UserDirs::new() { 
             let dir = user_dirs.download_dir().unwrap();
 
@@ -53,7 +52,7 @@ impl FileDescriptor {
                 .save_file();
                 if let Some(path) = new_name {
                     let out_file = dir.join(path);
-                    println!("Storing file as '{:?}'…", out_file);
+                    transfer_state.write(format!("Storing file as '{:?}'…", out_file));
                     fs::write(out_file, &self.get_data()?)?;
                 }
                 return Ok(());
@@ -64,7 +63,7 @@ impl FileDescriptor {
                 file_name = dir.join(&format!("{}.{}", self.file_name, i));
                 i += 1;
             }
-            println!("Storing file as '{:?}'…", file_name);
+            transfer_state.write(format!("Storing file as '{:?}'…", file_name));
             fs::write(file_name, &self.get_data()?)?;
         }
         Ok(())
@@ -113,13 +112,15 @@ pub struct FileTransferState {
     pub file_name: String,
     pub file_size: usize,
     pub bytes_transfered: usize,
+
     pub errors: usize,
     pub files_finished: Vec<String>,
     pub check_size: String,
-    pub engine_state: String,
     time: SystemTime,
     bytes_transferred_timed: usize,
-    bps: u64
+    pub bps: u64,
+
+    pub output_log: Vec<String>
 }
 
 impl FileTransferState {
@@ -131,8 +132,8 @@ impl FileTransferState {
             errors: 0,
             files_finished: Vec::new(),
             check_size: String::new(),
-            engine_state: String::new(),
             time: SystemTime::now(),
+            output_log: Vec::new(),
             bytes_transferred_timed: 0,
             bps: 0
         }
@@ -161,6 +162,10 @@ impl FileTransferState {
     }
 
     pub fn get_bps(&self) -> u64 { self.bps }
+    
+    pub fn write(&mut self, txt: String) {
+        self.output_log.push(txt);
+    }
 }
 
 
@@ -169,6 +174,7 @@ pub struct TransferState {
     pub current_state: &'static str,
     pub is_finished: bool,
     pub protocol_name: String,
+    pub start_time: SystemTime,
     pub send_state: Option<FileTransferState>,
     pub recieve_state: Option<FileTransferState>,
 }
@@ -179,14 +185,10 @@ impl TransferState {
             current_state: "",
             protocol_name: String::new(),
             is_finished: false,
+            start_time: SystemTime::now(),
             send_state: None,
             recieve_state: None
         }
-    }
-
-    pub fn report_error(&mut self, txt: &str)
-    {
-        eprintln!("{}", txt);
     }
 }
 

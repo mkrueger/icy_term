@@ -2,7 +2,7 @@ use std::{io::{self, ErrorKind}, time::{SystemTime, Duration}};
 
 use icy_engine::{get_crc32, update_crc32};
 
-use crate::{com::Com, protocol::{FileDescriptor, Zmodem, FrameType, ZCRCW, ZCRCG, HeaderType, Header, ZCRCE, TransferState}};
+use crate::{com::Com, protocol::{FileDescriptor, Zmodem, FrameType, ZCRCW, ZCRCG, HeaderType, Header, ZCRCE, TransferState, FileTransferState}};
 
 use super::constants::*;
 
@@ -60,12 +60,13 @@ impl Rz {
         if let RevcState::Idle = self.state {
             return Ok(());
         }
-        if self.retries > 5  {
-            self.cancel(com)?;
-            return Ok(());
-        }
-
         if let Some(transfer_state) = &mut state.recieve_state {
+            if self.retries > 5  {
+                transfer_state.write("Too many reties cancel...".to_string());
+                self.cancel(com)?;
+                return Ok(());
+            }
+    
             if self.files.len() > 0 {
                 let cur_file = self.files.len() - 1;
                 let fd = &self.files[cur_file];
@@ -74,59 +75,57 @@ impl Rz {
                 transfer_state.bytes_transfered = fd.data.as_ref().unwrap().len();
             }
             transfer_state.errors = self.errors;
-            transfer_state.engine_state = format!("{:?}", self.state);
             transfer_state.check_size = format!("Crc32");
             transfer_state.update_bps();
-        }
         
-        // println!("\t\t\t\t\t\tReceiver state {:?}", self.state);
-        
-        match self.state {
-            RevcState::SendZRINIT => {
-                if self.read_header(com)? {
-                    return Ok(());
+            // println!("\t\t\t\t\t\tReceiver state {:?}", self.state);
+            
+            match self.state {
+                RevcState::SendZRINIT => {
+                    if self.read_header(com, transfer_state)? {
+                        return Ok(())
+                    }
+                    let now = SystemTime::now();
+                    if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
+                        self.send_zrinit(com)?;
+                        self.retries += 1;
+                        self.last_send = SystemTime::now();
+                    }
                 }
-                let now = SystemTime::now();
-                if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
-                    self.send_zrinit(com)?;
-                    self.retries += 1;
-                    self.last_send = SystemTime::now();
+                RevcState::AwaitZDATA => {
+                    let now = SystemTime::now();
+                    if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
+                        self.request_zpos(com)?;
+                        self.retries += 1;
+                        self.last_send = SystemTime::now();
+                    }
+                    self.read_header(com, transfer_state)?;
                 }
-            }
-            RevcState::AwaitZDATA => {
-                let now = SystemTime::now();
-                if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
-                    self.request_zpos(com)?;
-                    self.retries += 1;
-                    self.last_send = SystemTime::now();
-                }
-                self.read_header(com)?;
-            }
-            RevcState::AwaitFileData => {
-                let pck = self.read_subpacket(com)?;
-                let last = self.files.len() - 1;
-
-                match pck {
-                    Some((block, is_last)) => {
-                        if let Some(fd) = self.files.get_mut(last) {
-                            if let Some(data) = &mut fd.data {
-                                data.extend_from_slice(&block);
+                RevcState::AwaitFileData => {
+                    let pck = self.read_subpacket(com)?;
+                    let last = self.files.len() - 1;
+                    match pck {
+                        Some((block, is_last)) => {
+                            if let Some(fd) = self.files.get_mut(last) {
+                                if let Some(data) = &mut fd.data {
+                                    data.extend_from_slice(&block);
+                                }
+                            }
+                            if is_last {
+                                self.state = RevcState::AwaitEOF;
                             }
                         }
-                        if is_last {
-                            self.state = RevcState::AwaitEOF;
+                        None => {
+                            if let Some(fd) = self.files.get(last) {
+                                Header::from_number(HeaderType::Hex, FrameType::ZRPOS, fd.data.as_ref().unwrap().len() as u32).write(com)?;
+                                self.state = RevcState::AwaitZDATA;
+                            }
+                            return Ok(());
                         }
-                    }
-                    None => {
-                        if let Some(fd) = self.files.get(last) {
-                            Header::from_number(HeaderType::Hex, FrameType::ZRPOS, fd.data.as_ref().unwrap().len() as u32).write(com)?;
-                            self.state = RevcState::AwaitZDATA;
-                        }
-                        return Ok(());
                     }
                 }
+                _ => { self.read_header(com, transfer_state)?; }
             }
-            _ => { self.read_header(com)?; }
         }
         Ok(())
     }
@@ -136,21 +135,21 @@ impl Rz {
         Header::from_number(HeaderType::Hex, FrameType::ZRPOS, 0).write(com)
     }
 
-
-    fn read_header(&mut self, com: &mut Box<dyn Com>) -> io::Result<bool>
+    fn read_header(&mut self, com: &mut Box<dyn Com>, transfer_state: &mut FileTransferState) -> io::Result<bool>
     {
         while com.is_data_available()? {
             let result = Header::read(com, &mut self.can_count);
             if let Err(err) = result {
                 if self.can_count >= 5 {
-                    println!("Transfer canceled!");
+                    transfer_state.write("Received cancel...".to_string());
                     self.cancel(com)?;
                     self.cancel(com)?;
                     self.cancel(com)?;
                     self.state = RevcState::Idle;
                     return Ok(false);
                 }
-                eprintln!("Error {}", err);
+                println!("{}", err);
+                transfer_state.write(format!("{}", err));
                 self.errors += 1;
                 continue;
             }
@@ -169,19 +168,26 @@ impl Rz {
                             return Ok(false);
                         }
                         let (block, _) = pck.unwrap();
-                        let mut fd =  FileDescriptor::new();
-                        fd.data = Some(Vec::new());
-                        fd.file_name = str_from_null_terminated_utf8_unchecked(&block).to_string();
 
-                        let mut file_size = 0;
-                        for b in &block[(fd.file_name.len() + 1)..] {
-                            if *b < b'0' || *b > b'9' {
-                                break;
+
+                        let file_name = str_from_null_terminated_utf8_unchecked(&block).to_string();
+                        if self.files.len() == 0 || self.files.last().unwrap().file_name != file_name {
+                            let mut fd =  FileDescriptor::new();
+                            fd.data = Some(Vec::new());
+                            fd.file_name = file_name;
+                            transfer_state.write(format!("Got file header for '{}'", fd.file_name));
+                            let mut file_size = 0;
+                            for b in &block[(fd.file_name.len() + 1)..] {
+                                if *b < b'0' || *b > b'9' {
+                                    break;
+                                }
+                                file_size = file_size * 10 + (*b  - b'0') as usize;
                             }
-                            file_size = file_size * 10 + (*b  - b'0') as usize;
+                            fd.size = file_size;
+                            self.files.push(fd);
                         }
-                        fd.size = file_size;
-                        self.files.push(fd);
+
+
                         self.state = RevcState::AwaitZDATA;
                         self.last_send = SystemTime::now();
                         self.request_zpos(com)?;
@@ -210,12 +216,14 @@ impl Rz {
                     }
                     FrameType::ZEOF => {
                         self.send_zrinit(com)?;
+                        transfer_state.write("Got eof".to_string());
                         self.last_send = SystemTime::now();
                         self.state = RevcState::SendZRINIT;
                         return Ok(true);
                     }
                     FrameType::ZFIN => {
                         Header::empty(HeaderType::Hex, FrameType::ZFIN).write(com)?;
+                        transfer_state.write("Transfer finished.".to_string());
                         self.state = RevcState::Idle;
                         return Ok(true);
                     }

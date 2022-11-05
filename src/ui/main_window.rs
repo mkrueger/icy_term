@@ -240,7 +240,6 @@ impl Application for MainWindow {
             screen_mode: None,
             current_protocol: None
         };
-  
         /* 
         let txt = b""; 
         for b in txt {
@@ -494,7 +493,7 @@ impl Application for MainWindow {
                                // self.print_result(&r);
                                 if state.is_finished {
                                     for f in protocol.get_received_files() {
-                                        f.save_file_in_downloads().expect("error saving file.");
+                                        f.save_file_in_downloads(state.recieve_state.as_mut().unwrap()).expect("error saving file.");
                                     }
                                 }
                             }
@@ -506,9 +505,22 @@ impl Application for MainWindow {
                     }
                     Message::CancelTransfer => {
                         if let Some(com) = &mut self.com {
+                            
                             if let Some((protocol, state)) = &mut self.current_protocol {
-                                if let Err(err) = protocol.cancel(com) {
-                                    state.report_error(&format!("Error while cancel {:?}", err));
+                                if let Some(s) = &mut state.send_state {
+                                    s.write("Send cancel.".to_string());
+                                }
+                                if let Some(s) = &mut state.recieve_state {
+                                    s.write("Send cancel.".to_string());
+                                }
+
+                                if let Err(err) = protocol.cancel(com) {    
+                                    if let Some(s) = &mut state.send_state {
+                                        s.write(format!("Error while cancel {:?}", err));
+                                    }
+                                    if let Some(s) = &mut state.recieve_state {
+                                        s.write(format!("Error while cancel {:?}", err));
+                                    }
                                 }
                             }
                         }
@@ -681,7 +693,7 @@ impl Application for MainWindow {
                 if let Some((_, state)) = &self.current_protocol {
                     super::view_file_transfer(state, download)
                 } else {
-                    text("invalid").into()
+                     text("invalid").into()
                 }
             }
         }

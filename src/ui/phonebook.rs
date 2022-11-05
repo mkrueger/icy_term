@@ -86,11 +86,11 @@ pub fn view_phonebook<'a>(main_window: &MainWindow) -> Element<'a, Message> {
             ].padding(4)
         .spacing(8),
 
-         text("Connect to")
-            .width(Length::Fill)
-            .size(50)
-            .style(Color::from([0.5, 0.5, 0.5]))
-            .horizontal_alignment(alignment::Horizontal::Center),
+        text("Connect to")
+        .width(Length::Fill)
+        .size(50)
+        .style(Color::from([0.5, 0.5, 0.5]))
+        .horizontal_alignment(alignment::Horizontal::Center),
 
         list_header,
         
