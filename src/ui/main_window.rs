@@ -535,6 +535,8 @@ impl Application for MainWindow {
                                     for f in protocol.get_received_files() {
                                         f.save_file_in_downloads(state.recieve_state.as_mut().unwrap()).expect("error saving file.");
                                     }
+                                    self.mode = MainWindowMode::Default;
+                                    self.auto_file_transfer.reset();
                                 }
                             }
                         }
@@ -542,6 +544,7 @@ impl Application for MainWindow {
                     Message::Back => {
                         self.current_protocol = None;
                         self.mode = MainWindowMode::Default;
+                        self.auto_file_transfer.reset();
                     }
                     Message::CancelTransfer => {
                         if let Some(com) = &mut self.com {

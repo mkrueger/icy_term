@@ -42,17 +42,41 @@ pub fn view_file_transfer<'a>(state: &TransferState, download: bool) ->Element<'
             }).collect()
         )
         .spacing(10);
-        column![
-            row![
-                button("Back").on_press(Message::Back),
-                button("Send Cancel").on_press(Message::CancelTransfer)
-            ].padding(4).spacing(8),
-            
-            text(if download { "Download" } else { "Upload" })
-                .width(Length::Fill)
-                .size(50)
-                .style(Color::from([0.7, 0.7, 0.7]))
-                .horizontal_alignment(alignment::Horizontal::Center),
+
+        if state.is_finished {
+            return column![
+                row![
+                    button("Back").on_press(Message::Back),
+                    button("Send Cancel").on_press(Message::CancelTransfer)
+                ].padding(4).spacing(8),
+                
+                text(if download { "Download" } else { "Upload" })
+                    .width(Length::Fill)
+                    .size(50)
+                    .style(Color::from([0.7, 0.7, 0.7]))
+                    .horizontal_alignment(alignment::Horizontal::Center),
+                text("Completed")
+                    .width(Length::Fill)
+                    .size(30)
+                    .horizontal_alignment(alignment::Horizontal::Center),
+
+                log,
+                horizontal_rule(2)
+
+            ].spacing(5).padding(10).into()
+        }   
+
+    column![
+        row![
+            button("Back").on_press(Message::Back),
+            button("Send Cancel").on_press(Message::CancelTransfer)
+        ].padding(4).spacing(8),
+        
+        text(if download { "Download" } else { "Upload" })
+            .width(Length::Fill)
+            .size(50)
+            .style(Color::from([0.7, 0.7, 0.7]))
+            .horizontal_alignment(alignment::Horizontal::Center),
 
             row![
                 column![

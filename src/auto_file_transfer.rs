@@ -15,6 +15,10 @@ impl PatternRecognizer {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.cur_idx = 0;
+    }
+
     pub fn push_ch(&mut self, mut ch: u8) ->bool {
         if self.ignore_case {
             ch = to_upper(ch);
@@ -50,6 +54,11 @@ impl AutoFileTransfer {
             zmodem_dl: PatternRecognizer::from(b"**\x18B00000000000000", true),
             zmodem_ul: PatternRecognizer::from(b"**\x18B0100000023be50", true),
         }
+    }
+
+    pub fn reset(&mut self) {
+        self.zmodem_dl.reset();
+        self.zmodem_ul.reset();
     }
 
     pub fn try_transfer(&mut self, ch: u8) -> Option<(ProtocolType, bool)> {

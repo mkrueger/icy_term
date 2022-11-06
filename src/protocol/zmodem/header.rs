@@ -155,6 +155,7 @@ impl Header {
 
     pub fn write(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
+        // println!("Send header {}", self);
         com.write(&self.build())
     }
     
@@ -233,10 +234,6 @@ impl Header {
                     let crc32 = get_crc32(&data);
                     let check_crc32 = u32::from_le_bytes(header_data[5..9].try_into().unwrap());
                     if crc32 != check_crc32 {
-                        for b in header_data  {
-                            print!("{:02X},",b);
-                        }
-                        println!();
                         return Err(io::Error::new(io::ErrorKind::InvalidData, "CRC32 mismatch"));
                     }
                     Ok(Some(Header {

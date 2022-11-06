@@ -125,14 +125,13 @@ impl Sz {
 
                 let res = err?;
                 if let Some(res) = res {
-                    println!("Recv header {}", res);
+                    // println!("Recv header {} {:?}", res, self.state);
                     self.last_send = SystemTime::UNIX_EPOCH;
                     match res.frame_type {
                         FrameType::ZRINIT => {
                             self.next_file();
-
                             if self.cur_file as usize >= self.files.len() {
-                                self.state = SendState::Idle;
+                                self.state = SendState::Finished;
                                 self.send_zfin(com, self.cur_file_pos as u32)?;
                                 self.cur_file_pos = 0;
                                 return Ok(());
@@ -266,27 +265,25 @@ impl Sz {
                 self.state = SendState::SendDataPackages;
             }
             SendState::SendDataPackages => {
-
+                let mut p = Vec::new();
                 if self.cur_file < 0 {
                     return Ok(());
                 }
-                let end_pos = min(self.data.len(), self.cur_file_pos + self.package_len);
-                let crc_byte = if self.cur_file_pos + self.package_len < self.data.len() { ZCRCG } else { ZCRCE };
-                let mut p = Zmodem::encode_subpacket_crc32(crc_byte, &self.data[self.cur_file_pos..end_pos]);
-/* 
-                for x in &p {
-                    print!("{:02x}, ", *x);
-                }
-                println!();*/
+                    let end_pos = min(self.data.len(), self.cur_file_pos + self.package_len);
+                    let crc_byte = if self.cur_file_pos + self.package_len < self.data.len() { ZCRCG } else { ZCRCE };
+                    p.extend_from_slice(&Zmodem::encode_subpacket_crc32(crc_byte, &self.data[self.cur_file_pos..end_pos]));
+                    self.cur_file_pos = end_pos;
 
-                if end_pos >= self.data.len() {
-                    p.extend_from_slice(&Header::from_number(HeaderType::Bin32,FrameType::ZEOF, end_pos as u32).build());
-                    transfer_state.write("Done sending file date.".to_string());
-                }
+                    if end_pos >= self.data.len() {
+                        p.extend_from_slice(&Header::from_number(HeaderType::Bin32,FrameType::ZEOF, end_pos as u32).build());
+                        transfer_state.write("Done sending file date.".to_string());
+                        state.current_state = "Done data";
+                        self.state = SendState::Finished;
+                        self.last_send = SystemTime::now();
+                    }
 
-                com.write(&p)?;
+                    com.write(&p)?;
 
-                self.cur_file_pos = end_pos;
             }
             SendState::Finished => {
                 state.current_state = "Finishing transfer…";
