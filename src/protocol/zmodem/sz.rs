@@ -2,6 +2,8 @@ use std::{io::{self, ErrorKind}, cmp::min, time::{SystemTime}};
 
 use crate::{com::Com, protocol::{FileDescriptor, Zmodem, FrameType, zfile_flag, ZCRCG, HeaderType, Header, ZCRCE, TransferState}};
 
+use super::ZCRCW;
+
 #[derive(Debug)]
 pub enum SendState {
     Idle,
@@ -243,7 +245,7 @@ impl Sz {
                     }  else {
                         format!("{}\0{}\0", f.file_name, f.size).into_bytes()
                     };
-                    b.extend_from_slice(&Zmodem::encode_subpacket_crc32(ZCRCE, &data));
+                    b.extend_from_slice(&Zmodem::encode_subpacket_crc32(ZCRCW, &data));
                     com.write(&b)?;
                     self.cur_file_pos = 0;
                     self.retries += 1;
