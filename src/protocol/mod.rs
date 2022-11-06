@@ -225,3 +225,15 @@ impl ProtocolType {
         }
     }
 }
+
+pub fn str_from_null_terminated_utf8_unchecked(s: &[u8]) -> String {
+    let mut res = String::new();
+
+    for b in s {
+        if *b == 0 {
+            break;
+        }
+        res.push(char::from_u32(*b as u32).unwrap());
+    }
+    res
+}

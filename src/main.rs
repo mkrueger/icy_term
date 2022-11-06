@@ -1,5 +1,3 @@
-#![feature(cstr_from_bytes_until_nul)]
-
 mod ui;
 use iced::{Settings, Application};
 use ui::*;

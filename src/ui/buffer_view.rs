@@ -53,8 +53,8 @@ impl BufferView {
     pub fn print_char(&mut self, com: Option<&mut dyn Com>, c: u8) -> io::Result<()>
     {
         self.scroll_back_line = 0;
-
-       /* match c  {
+/* 
+        match c  {
             b'\\' => print!("\\\\"),
             b'\n' => print!("\\n"),
             b'\r' => print!("\\r"),
@@ -159,6 +159,10 @@ impl<'a> canvas::Program<Message> for BufferView {
                                             frame.fill_rectangle(Point::new(rect.x + x as f32 * scale_x, rect.y + y as f32 * scale_y), iced::Size::new(scale_x, scale_y), color);
                                         }
                                     }
+                                }
+                                if ch.attribute.get_is_underlined() {
+                                    frame.fill_rectangle(Point::new(rect.x, rect.y + rect.height - 1.0), iced::Size::new(rect.width, 1.0), color);
+
                                 }
                             }
                     }

@@ -1,7 +1,7 @@
 use std::{time::Duration, io::{self, ErrorKind}};
 use icy_engine::get_crc16;
 
-use crate::{protocol::{FileDescriptor, TransferState, xymodem::constants::{SOH, STX, EXT_BLOCK_LENGTH, EOT, CPMEOF, NAK, ACK}}, com::Com};
+use crate::{protocol::{FileDescriptor, TransferState, xymodem::constants::{SOH, STX, EXT_BLOCK_LENGTH, EOT, CPMEOF, NAK, ACK}, str_from_null_terminated_utf8_unchecked}, com::Com};
 use super::{Checksum, get_checksum,  constants::{CAN, DEFAULT_BLOCK_LENGTH}, XYModemConfiguration};
 
 #[derive(Debug)]
@@ -284,10 +284,3 @@ impl Ry {
     }
 }
 
-fn str_from_null_terminated_utf8_unchecked(s: &[u8]) -> &str {
-    if let Ok(s) = std::ffi::CStr::from_bytes_until_nul(s) {
-        s.to_str().unwrap()
-    } else {
-        ""
-    }
-}

@@ -109,6 +109,7 @@ impl AutoLogin {
 
         self.last_char_recv = SystemTime::now();
         self.got_name |= self.name_recognizer.push_ch(ch) |  self.login_recognizer.push_ch(ch);
+
         if let Some(iemsi) = &mut self.iemsi {
             self.logged_in |= iemsi.try_login(com, adr, ch)?;
         }

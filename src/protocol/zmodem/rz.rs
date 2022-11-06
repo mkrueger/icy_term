@@ -2,7 +2,7 @@ use std::{io::{self, ErrorKind}, time::{SystemTime, Duration}};
 
 use icy_engine::{get_crc32, update_crc32};
 
-use crate::{com::Com, protocol::{FileDescriptor, Zmodem, FrameType, ZCRCW, ZCRCG, HeaderType, Header, ZCRCE, TransferState, FileTransferState}};
+use crate::{com::Com, protocol::{FileDescriptor, Zmodem, FrameType, ZCRCW, ZCRCG, HeaderType, Header, ZCRCE, TransferState, FileTransferState, str_from_null_terminated_utf8_unchecked}};
 
 use super::{constants::*, read_zdle_bytes};
 
@@ -333,10 +333,3 @@ impl Rz {
 }
 
 
-fn str_from_null_terminated_utf8_unchecked(s: &[u8]) -> &str {
-    if let Ok(s) = std::ffi::CStr::from_bytes_until_nul(s) {
-        s.to_str().unwrap()
-    } else {
-        ""
-    }
-}
