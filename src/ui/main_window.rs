@@ -1,7 +1,7 @@
 use std::io;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::net::{ToSocketAddrs};
-use iced::keyboard::{KeyCode};
+use iced::keyboard::{KeyCode, Modifiers};
 use iced::mouse::ScrollDelta;
 use iced::widget::{Canvas, column, row, button, text, pick_list};
 use iced::{executor, subscription, Event, keyboard, mouse};
@@ -65,50 +65,75 @@ pub struct MainWindow {
     current_protocol: Option<(Box<dyn Protocol>, TransferState)>
 }
 
-static KEY_MAP: &[(KeyCode, &[u8])] = &[
-    (KeyCode::Home, "\x1b[1~".as_bytes()),
-    (KeyCode::Insert, "\x1b[2~".as_bytes()),
-    (KeyCode::Backspace, &[8]),
-    (KeyCode::Delete, "\x1b[3~".as_bytes()),
-    (KeyCode::End, "\x1b[4~".as_bytes()),
-    (KeyCode::PageUp, "\x1b[5~".as_bytes()),
-    (KeyCode::PageDown, "\x1b[6~".as_bytes()),
-    (KeyCode::F1, "\x1b[11~".as_bytes()),
-    (KeyCode::F2, "\x1b[12~".as_bytes()),
-    (KeyCode::F3, "\x1b[13~".as_bytes()),
-    (KeyCode::F4, "\x1b[14~".as_bytes()),
-    (KeyCode::F5, "\x1b[15~".as_bytes()),
-    (KeyCode::F6, "\x1b[17~".as_bytes()),
-    (KeyCode::F7, "\x1b[18~".as_bytes()),
-    (KeyCode::F8, "\x1b[19~".as_bytes()),
-    (KeyCode::F9, "\x1b[20~".as_bytes()),
-    (KeyCode::F10, "\x1b[21~".as_bytes()),
-    (KeyCode::F11, "\x1b[23~".as_bytes()),
-    (KeyCode::F12, "\x1b[24~".as_bytes()),
-    (KeyCode::Up, "\x1b[A".as_bytes()),
-    (KeyCode::Down, "\x1b[B".as_bytes()),
-    (KeyCode::Right, "\x1b[C".as_bytes()),
-    (KeyCode::Left, "\x1b[D".as_bytes())
+static KEY_MAP: &[(u32, &[u8])] = &[
+    (KeyCode::Home as u32, "\x1b[1~".as_bytes()),
+    (KeyCode::Insert as u32, "\x1b[2~".as_bytes()),
+    (KeyCode::Backspace as u32, &[8]),
+    (KeyCode::Delete as u32, "\x1b[3~".as_bytes()),
+    (KeyCode::End as u32, "\x1b[4~".as_bytes()),
+    (KeyCode::PageUp as u32, "\x1b[5~".as_bytes()),
+    (KeyCode::PageDown as u32, "\x1b[6~".as_bytes()),
+    (KeyCode::F1 as u32, "\x1b[11~".as_bytes()),
+    (KeyCode::F2 as u32, "\x1b[12~".as_bytes()),
+    (KeyCode::F3 as u32, "\x1b[13~".as_bytes()),
+    (KeyCode::F4 as u32, "\x1b[14~".as_bytes()),
+    (KeyCode::F5 as u32, "\x1b[15~".as_bytes()),
+    (KeyCode::F6 as u32, "\x1b[17~".as_bytes()),
+    (KeyCode::F7 as u32, "\x1b[18~".as_bytes()),
+    (KeyCode::F8 as u32, "\x1b[19~".as_bytes()),
+    (KeyCode::F9 as u32, "\x1b[20~".as_bytes()),
+    (KeyCode::F10 as u32, "\x1b[21~".as_bytes()),
+    (KeyCode::F11 as u32, "\x1b[23~".as_bytes()),
+    (KeyCode::F12 as u32, "\x1b[24~".as_bytes()),
+    (KeyCode::Up as u32, "\x1b[A".as_bytes()),
+    (KeyCode::Down as u32, "\x1b[B".as_bytes()),
+    (KeyCode::Right as u32, "\x1b[C".as_bytes()),
+    (KeyCode::Left as u32, "\x1b[D".as_bytes()),
+    (KeyCode::A as u32 | (0b100 << 3), &[1]),
+    (KeyCode::B as u32 | (0b100 << 3), &[2]),
+    (KeyCode::C as u32 | (0b100 << 3), &[3]),
+    (KeyCode::D as u32 | (0b100 << 3), &[4]),
+    (KeyCode::E as u32 | (0b100 << 3), &[5]),
+    (KeyCode::F as u32 | (0b100 << 3), &[6]),
+    (KeyCode::G as u32 | (0b100 << 3), &[7]),
+    (KeyCode::H as u32 | (0b100 << 3), &[8]),
+    (KeyCode::I as u32 | (0b100 << 3), &[9]),
+    (KeyCode::J as u32 | (0b100 << 3), &[10]),
+    (KeyCode::K as u32 | (0b100 << 3), &[11]),
+    (KeyCode::L as u32 | (0b100 << 3), &[12]),
+    (KeyCode::M as u32 | (0b100 << 3), &[13]),
+    (KeyCode::N as u32 | (0b100 << 3), &[14]),
+    (KeyCode::O as u32 | (0b100 << 3), &[15]),
+    (KeyCode::P as u32 | (0b100 << 3), &[16]),
+    (KeyCode::Q as u32 | (0b100 << 3), &[17]),
+    (KeyCode::R as u32 | (0b100 << 3), &[18]),
+    (KeyCode::S as u32 | (0b100 << 3), &[19]),
+    (KeyCode::T as u32 | (0b100 << 3), &[20]),
+    (KeyCode::U as u32 | (0b100 << 3), &[21]),
+    (KeyCode::V as u32 | (0b100 << 3), &[22]),
+    (KeyCode::W as u32 | (0b100 << 3), &[23]),
+    (KeyCode::X as u32 | (0b100 << 3), &[24]),
+    (KeyCode::Y as u32 | (0b100 << 3), &[25])
 ];
 
-static C64_KEY_MAP: &[(KeyCode, &[u8])] = &[
-    (KeyCode::Home, &[0x13]),
-    (KeyCode::Insert, &[0x94]),
-    (KeyCode::Backspace, &[0x14]),
-    (KeyCode::Delete, &[0x14]),
-    (KeyCode::F1, &[0x85]),
-    (KeyCode::F2, &[0x86]),
-    (KeyCode::F3, &[0x87]),
-    (KeyCode::F4, &[0x88]),
-    (KeyCode::F5, &[0x89]),
-    (KeyCode::F6, &[0x8A]),
-    (KeyCode::F7, &[0x8B]),
-    (KeyCode::F8, &[0x8C]),
+static C64_KEY_MAP: &[(u32, &[u8])] = &[
+    (KeyCode::Home as u32, &[0x13]),
+    (KeyCode::Insert as u32, &[0x94]),
+    (KeyCode::Backspace as u32, &[0x14]),
+    (KeyCode::Delete as u32, &[0x14]),
+    (KeyCode::F1 as u32, &[0x85]),
+    (KeyCode::F2 as u32, &[0x86]),
+    (KeyCode::F3 as u32, &[0x87]),
+    (KeyCode::F4 as u32, &[0x88]),
+    (KeyCode::F5 as u32, &[0x89]),
+    (KeyCode::F6 as u32, &[0x8A]),
+    (KeyCode::F7 as u32, &[0x8B]),
+    (KeyCode::F8 as u32, &[0x8C]),
 
-    (KeyCode::Up, &[0x91]),
-    (KeyCode::Down, &[0x11]),
-    (KeyCode::Right, &[0x1D]),
-    (KeyCode::Left, &[0x9D])
+    (KeyCode::Up as u32, &[0x91]),
+    (KeyCode::Down as u32, &[0x11]),
+    (KeyCode::Right as u32, &[0x1D]),
+    (KeyCode::Left as u32, &[0x9D])
 ];
 
 impl MainWindow
@@ -364,16 +389,16 @@ impl Application for MainWindow {
                     },
                     Message::KeyPressed(ch) => {
                         let c = ch as u8;
-
-                        if c == 0x13 || c == 0x14 {
-                            println!();
-                        }
                         if c != 8 && c != 127 { // handled by key
                             self.output_char(ch);
                         }
                     },
-                    Message::KeyCode(code, _modifier) => {
-                        
+                    Message::KeyCode(code, modifier) => {
+                        let mut code = code as u32;
+                        if modifier.control() || modifier.command() {
+                            code |=  0b100 << 3;
+                        }
+
                         if let Some(com) = &mut self.com {
                             for (k, m) in if self.buffer_view.petscii { C64_KEY_MAP} else { KEY_MAP } {
                                 if *k == code {

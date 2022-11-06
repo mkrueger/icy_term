@@ -12,7 +12,8 @@ pub enum SendState {
     SendZRQInit,
     SendZDATA,
     SendDataPackages,
-    SendZFILE
+    SendZFILE,
+    Finished
 }
 
 pub struct Sz {
@@ -124,7 +125,7 @@ impl Sz {
 
                 let res = err?;
                 if let Some(res) = res {
-                    // println!("Recv header {}", res);
+                    println!("Recv header {}", res);
                     self.last_send = SystemTime::UNIX_EPOCH;
                     match res.frame_type {
                         FrameType::ZRINIT => {
@@ -221,6 +222,7 @@ impl Sz {
             // println!("State: {:?} cur file {} pos {}", self.state, self.cur_file, self.cur_file_pos);
             match self.state {
             SendState::SendZRQInit => {
+                state.current_state = "Negotiating transfer";
                 let now = SystemTime::now();
                 if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
                     self.send_zrqinit(com)?;
@@ -229,6 +231,7 @@ impl Sz {
                 }
             }
             SendState::SendZFILE => {
+                state.current_state = "Sending header";
                 if self.cur_file < 0 {
                     return Ok(());
                 }
@@ -254,15 +257,16 @@ impl Sz {
                 }
             }
             SendState::SendZDATA => {
+                state.current_state = "Sending data";
                 if self.cur_file < 0 {
                     //println!("no file to send!");
                     return Ok(());
                 }
-                //println!("Send ZDATA from {}", self. cur_file_pos);
                 Header::from_number(HeaderType::Bin32,FrameType::ZDATA, self.cur_file_pos as u32).write(com)?;
                 self.state = SendState::SendDataPackages;
             }
             SendState::SendDataPackages => {
+
                 if self.cur_file < 0 {
                     return Ok(());
                 }
@@ -283,6 +287,15 @@ impl Sz {
                 com.write(&p)?;
 
                 self.cur_file_pos = end_pos;
+            }
+            SendState::Finished => {
+                state.current_state = "Finishing transfer…";
+                let now = SystemTime::now();
+                if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
+                    self.send_zfin(com, 0)?;
+
+                }
+                return Ok(());
             }
             _ => {}
         }
@@ -313,6 +326,8 @@ impl Sz {
 
     pub fn send_zfin(&mut self, com: &mut Box<dyn Com>, size: u32) -> io::Result<()> {
         Header::from_number(HeaderType::Hex,FrameType::ZFIN, size).write(com)?;
+        self.state = SendState::Finished;
+        self.last_send = SystemTime::now();
         Ok(())
     }
 

@@ -156,7 +156,7 @@ impl Rz {
             self.can_count = 0;
             let res = result?;
             if let Some(res) = res {
-                println!("\t\t\t\t\t\tRECV header {}", res);
+                // println!("\t\t\t\t\t\tRECV header {}", res);
                 match res.frame_type {
                     FrameType::ZRQINIT => {
                         self.state = RevcState::SendZRINIT;

@@ -32,9 +32,7 @@ mod tests {
         while !send_state.is_finished || !revc_state.is_finished  {
             i += 1;
             if i > 100 { break; }
-            println!("sender:");
             send.update(&mut com.sender, &mut send_state).expect("error.");
-            println!("receiver:");
             recv.update(&mut com.receiver, &mut revc_state).expect("error.");
         }
 
