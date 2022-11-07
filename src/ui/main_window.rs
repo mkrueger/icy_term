@@ -52,6 +52,7 @@ pub struct MainWindow {
     trigger: bool,
     mode: MainWindowMode,
     pub addresses: Vec<Address>,
+    pub handled_char: bool,
     edit_bbs: Address,
     cur_addr: usize,
     log_file: Vec<String>,
@@ -65,14 +66,14 @@ pub struct MainWindow {
     current_protocol: Option<(Box<dyn Protocol>, TransferState)>
 }
 
-const CTRL_MOD:u32 = 0b100 << 3;
+const CTRL_MOD:u32 = 0b1000_0000_0000_0000_0000;
 
 static KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::Home as u32, "\x1b[1~".as_bytes()),
     (KeyCode::Insert as u32, "\x1b[2~".as_bytes()),
- //   (KeyCode::Backspace as u32, &[8]),
- //   (KeyCode::Enter as u32, &[b'\r']),
-//    (KeyCode::Delete as u32, "\x1b[3~".as_bytes()),
+    (KeyCode::Backspace as u32, &[8]),
+    (KeyCode::Enter as u32, &[b'\r']),
+    (KeyCode::Delete as u32, "\x1b[3~".as_bytes()),
     (KeyCode::End as u32, "\x1b[4~".as_bytes()),
     (KeyCode::PageUp as u32, "\x1b[5~".as_bytes()),
     (KeyCode::PageDown as u32, "\x1b[6~".as_bytes()),
@@ -92,7 +93,7 @@ static KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::Down as u32, "\x1b[B".as_bytes()),
     (KeyCode::Right as u32, "\x1b[C".as_bytes()),
     (KeyCode::Left as u32, "\x1b[D".as_bytes()),
-    /*
+    
     (KeyCode::A as u32 | CTRL_MOD, &[1]),
     (KeyCode::B as u32 | CTRL_MOD, &[2]),
     (KeyCode::C as u32 | CTRL_MOD, &[3]),
@@ -118,11 +119,12 @@ static KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::W as u32 | CTRL_MOD, &[23]),
     (KeyCode::X as u32 | CTRL_MOD, &[24]),
     (KeyCode::Y as u32 | CTRL_MOD, &[25]),
-    (KeyCode::Z as u32 | CTRL_MOD, &[27])*/
+    (KeyCode::Z as u32 | CTRL_MOD, &[27])
 ];
 
 static C64_KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::Home as u32, &[0x13]),
+    (KeyCode::Enter as u32, &[b'\r']),
     (KeyCode::Insert as u32, &[0x94]),
     (KeyCode::Backspace as u32, &[0x14]),
     (KeyCode::Delete as u32, &[0x14]),
@@ -148,7 +150,35 @@ static ATASCII_KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::Up as u32, &[0x1b, 0x1c]),
     (KeyCode::Down as u32, &[0x1b, 0x1d]),
     (KeyCode::Right as u32, &[0x1b, 0x1f]),
-    (KeyCode::Left as u32, &[0x1b, 0x1e])
+    (KeyCode::Left as u32, &[0x1b, 0x1e]),
+
+        
+    (KeyCode::A as u32 | CTRL_MOD, &[1]),
+    (KeyCode::B as u32 | CTRL_MOD, &[2]),
+    (KeyCode::C as u32 | CTRL_MOD, &[3]),
+    (KeyCode::D as u32 | CTRL_MOD, &[4]),
+    (KeyCode::E as u32 | CTRL_MOD, &[5]),
+    (KeyCode::F as u32 | CTRL_MOD, &[6]),
+    (KeyCode::G as u32 | CTRL_MOD, &[7]),
+    (KeyCode::H as u32 | CTRL_MOD, &[8]),
+    (KeyCode::I as u32 | CTRL_MOD, &[9]),
+    (KeyCode::J as u32 | CTRL_MOD, &[10]),
+    (KeyCode::K as u32 | CTRL_MOD, &[11]),
+    (KeyCode::L as u32 | CTRL_MOD, &[12]),
+    (KeyCode::M as u32 | CTRL_MOD, &[13]),
+    (KeyCode::N as u32 | CTRL_MOD, &[14]),
+    (KeyCode::O as u32 | CTRL_MOD, &[15]),
+    (KeyCode::P as u32 | CTRL_MOD, &[16]),
+    (KeyCode::Q as u32 | CTRL_MOD, &[17]),
+    (KeyCode::R as u32 | CTRL_MOD, &[18]),
+    (KeyCode::S as u32 | CTRL_MOD, &[19]),
+    (KeyCode::T as u32 | CTRL_MOD, &[20]),
+    (KeyCode::U as u32 | CTRL_MOD, &[21]),
+    (KeyCode::V as u32 | CTRL_MOD, &[22]),
+    (KeyCode::W as u32 | CTRL_MOD, &[23]),
+    (KeyCode::X as u32 | CTRL_MOD, &[24]),
+    (KeyCode::Y as u32 | CTRL_MOD, &[25]),
+    (KeyCode::Z as u32 | CTRL_MOD, &[27])
 ];
 
 impl MainWindow
@@ -328,7 +358,8 @@ impl Application for MainWindow {
             auto_file_transfer: AutoFileTransfer::new(),
             font: Some(DEFAULT_FONT_NAME.to_string()),
             screen_mode: None,
-            current_protocol: None
+            current_protocol: None,
+            handled_char: false
         };
        //  view.set_screen_mode(&ScreenMode::DOS(80, 50));
         /*  let txt = b"";
@@ -402,23 +433,27 @@ impl Application for MainWindow {
                         }
                     },
                     Message::KeyPressed(ch) => {
-                        let c = ch as u8;
-                        self.output_char(ch);
+                        if self.handled_char {
+                            self.handled_char = false;
+                        } else {
+                            self.output_char(ch);
+                        }
                     },
                     Message::KeyCode(code, modifier) => {
                         let mut code = code as u32;
                         if modifier.control() || modifier.command() {
                             code |= CTRL_MOD;
                         }
+                        let map = match self.buffer_view.petscii {
+                            super::BufferInputMode::CP437 => KEY_MAP,
+                            super::BufferInputMode::PETSCII => C64_KEY_MAP,
+                            super::BufferInputMode::ATASCII => ATASCII_KEY_MAP,
+                        }; 
 
                         if let Some(com) = &mut self.com {
-                            let map = match self.buffer_view.petscii {
-                                super::BufferInputMode::CP437 => KEY_MAP,
-                                super::BufferInputMode::PETSCII => C64_KEY_MAP,
-                                super::BufferInputMode::ATASCII => ATASCII_KEY_MAP,
-                            }; 
                             for (k, m) in map {
                                 if *k == code {
+                                    self.handled_char = true;
                                     let state = com.write(m);
                                     if let Err(err) = state {
                                         eprintln!("{}", err);
@@ -429,14 +464,10 @@ impl Application for MainWindow {
                                 }
                             }
                         } else {
-                            let map = match self.buffer_view.petscii {
-                                super::BufferInputMode::CP437 => KEY_MAP,
-                                super::BufferInputMode::PETSCII => C64_KEY_MAP,
-                                super::BufferInputMode::ATASCII => ATASCII_KEY_MAP,
-                            }; 
                             for (k, m) in map {
                                 if *k == code {
                                     for ch in *m {
+                                        self.handled_char = true;
                                         let state = self.buffer_view.print_char(None, *ch);
                                         if let Err(s) = state {
                                             self.print_log(format!("Error: {:?}", s));
