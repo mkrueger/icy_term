@@ -70,8 +70,9 @@ const CTRL_MOD:u32 = 0b100 << 3;
 static KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::Home as u32, "\x1b[1~".as_bytes()),
     (KeyCode::Insert as u32, "\x1b[2~".as_bytes()),
-//    (KeyCode::Backspace as u32, &[8]),
-    (KeyCode::Delete as u32, "\x1b[3~".as_bytes()),
+ //   (KeyCode::Backspace as u32, &[8]),
+ //   (KeyCode::Enter as u32, &[b'\r']),
+//    (KeyCode::Delete as u32, "\x1b[3~".as_bytes()),
     (KeyCode::End as u32, "\x1b[4~".as_bytes()),
     (KeyCode::PageUp as u32, "\x1b[5~".as_bytes()),
     (KeyCode::PageDown as u32, "\x1b[6~".as_bytes()),
@@ -91,7 +92,7 @@ static KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::Down as u32, "\x1b[B".as_bytes()),
     (KeyCode::Right as u32, "\x1b[C".as_bytes()),
     (KeyCode::Left as u32, "\x1b[D".as_bytes()),
-    /* 
+    /*
     (KeyCode::A as u32 | CTRL_MOD, &[1]),
     (KeyCode::B as u32 | CTRL_MOD, &[2]),
     (KeyCode::C as u32 | CTRL_MOD, &[3]),
@@ -402,17 +403,13 @@ impl Application for MainWindow {
                     },
                     Message::KeyPressed(ch) => {
                         let c = ch as u8;
-                        if c != 127 { // handled by key code
-                            self.output_char(ch);
-                        }
+                        self.output_char(ch);
                     },
                     Message::KeyCode(code, modifier) => {
                         let mut code = code as u32;
                         if modifier.control() || modifier.command() {
                             code |= CTRL_MOD;
                         }
-
-                        println!("{}", code);
 
                         if let Some(com) = &mut self.com {
                             let map = match self.buffer_view.petscii {
