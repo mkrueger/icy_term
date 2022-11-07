@@ -236,7 +236,6 @@ impl MainWindow
     pub fn output_char(&mut self, ch: char) 
     {
         let translated_char = self.buffer_view.buffer_parser.from_unicode(ch);
-        println!("\n{} -> {} {:?}", ch as u8, translated_char, self.screen_mode);
         if let Some(com) = &mut self.com {
             let state = com.write(&[translated_char]);
             if let Err(err) = state {

@@ -107,15 +107,15 @@ impl ScreenMode {
             },
             ScreenMode::Atari =>  {
                 buf.set_buffer_width(40);
-                buf.set_buffer_height(40);
+                buf.set_buffer_height(24);
                 *font = Some("Atari ATASCII".to_string());
                 buffer_view.buffer_parser = Box::new(AtasciiParser::new());
                 buffer_view.petscii = BufferInputMode::ATASCII;
                 buf.palette = Palette { colors: ATARI_DEFAULT_PALETTE.to_vec() };
             },
             ScreenMode::AtariXep80 =>  {
-                buf.set_buffer_width(40);
-                buf.set_buffer_height(30);
+                buf.set_buffer_width(80);
+                buf.set_buffer_height(25);
                 *font = Some("Atari ATASCII".to_string());
                 buffer_view.buffer_parser = Box::new(AtasciiParser::new());
                 buffer_view.petscii = BufferInputMode::ATASCII;
