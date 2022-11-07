@@ -59,7 +59,7 @@ impl BufferView {
     pub fn print_char(&mut self, com: Option<&mut dyn Com>, c: u8) -> io::Result<()>
     {
         self.scroll_back_line = 0;
-/* 
+ /* 
         match c  {
             b'\\' => print!("\\\\"),
             b'\n' => print!("\\n"),

@@ -1,6 +1,6 @@
 [package]
 name = "icy_term"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "A terminal program supporting CP437 and PetScii"
 
@@ -14,7 +14,7 @@ copyright = "Copyright (c) Mike Krüger 2022. All rights reserved."
 [dependencies]
 iced = { git = "https://github.com/iced-rs/iced", features = ["canvas", "image", "tokio", "debug"] }
 iced_native = { git = "https://github.com/iced-rs/iced" }
-
+iced_aw = { git = "https://github.com/iced-rs/iced_aw", features = ["card", "modal", "floating_button"] }
 icy_engine = { path = "../icy_engine" }
 directories = "4.0.1"
 rfd = "0.10.0"
