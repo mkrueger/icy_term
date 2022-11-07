@@ -12,8 +12,9 @@ resources = []
 copyright = "Copyright (c) Mike Krüger 2022. All rights reserved."
 
 [dependencies]
-iced = { path = "../iced", features = ["canvas", "image", "tokio", "debug"] }
-iced_native = { path = "../iced/native" }
+iced = { git = "https://github.com/iced-rs/iced", features = ["canvas", "image", "tokio", "debug"] }
+iced_native = { git = "https://github.com/iced-rs/iced" }
+
 icy_engine = { path = "../icy_engine" }
 directories = "4.0.1"
 rfd = "0.10.0"
