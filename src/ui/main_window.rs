@@ -119,7 +119,7 @@ static KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::W as u32 | CTRL_MOD, &[23]),
     (KeyCode::X as u32 | CTRL_MOD, &[24]),
     (KeyCode::Y as u32 | CTRL_MOD, &[25]),
-    (KeyCode::Z as u32 | CTRL_MOD, &[27])
+    (KeyCode::Z as u32 | CTRL_MOD, &[26])
 ];
 
 static C64_KEY_MAP: &[(u32, &[u8])] = &[
@@ -178,7 +178,7 @@ static ATASCII_KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::W as u32 | CTRL_MOD, &[23]),
     (KeyCode::X as u32 | CTRL_MOD, &[24]),
     (KeyCode::Y as u32 | CTRL_MOD, &[25]),
-    (KeyCode::Z as u32 | CTRL_MOD, &[27])
+    (KeyCode::Z as u32 | CTRL_MOD, &[26])
 ];
 
 impl MainWindow
