@@ -10,6 +10,12 @@ use icy_engine::{Buffer, BufferParser, Caret, Position, AvatarParser};
 
 use super::Message;
 
+pub enum BufferInputMode {
+    CP437,
+    PETSCII,
+    ATASCII
+}
+
 pub struct BufferView {
     pub buf: Buffer,
     pub cache: canvas::Cache,
@@ -18,7 +24,7 @@ pub struct BufferView {
     pub blink: bool,
     pub last_blink: u128,
     pub scale: f32,
-    pub petscii: bool,
+    pub petscii: BufferInputMode,
     pub scroll_back_line: i32,
 }
 
@@ -35,7 +41,7 @@ impl BufferView {
             blink: false,
             last_blink: 0,
             scale: 1.0,
-            petscii: false,
+            petscii: BufferInputMode::CP437,
             scroll_back_line: 0
         }
     }
@@ -53,7 +59,7 @@ impl BufferView {
     pub fn print_char(&mut self, com: Option<&mut dyn Com>, c: u8) -> io::Result<()>
     {
         self.scroll_back_line = 0;
-/* 
+
         match c  {
             b'\\' => print!("\\\\"),
             b'\n' => print!("\\n"),
@@ -66,7 +72,7 @@ impl BufferView {
                     print!("{}", char::from_u32(c as u32).unwrap());
                 }
             }
-        }*/
+        }
 
         let result_opt = self.buffer_parser.print_char(&mut self.buf, &mut self.caret, c)?;
         if let Some(result) = result_opt {

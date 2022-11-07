@@ -14,7 +14,7 @@ Features supported so far:
   - [x] Avatar
   - [x] Petscii
   - [x] Built in fonts, many DOS fonts, C64, Amiga & Atari font supported.
-  - [ ] ATASCII 
+  - [x] ATASCII 
 - File transfer protocols 
   - [x] Xmodem, 1k & 1k-G (implemented but needs testing)
   - [x] Ymodem batch & Ymodem-G (implemented but needs testing)
@@ -22,7 +22,7 @@ Features supported so far:
 - Auto login
   - [x] IEMSI
   - [x] Terminate style auto login system
-- [x] Misc features
+- Misc features
   - [x] Scrollback buffer (scrollwheel)
   - [ ] Exporting buffer to disk
   - [ ] IEMSI/Autologin editor (you need to edit it as text for the moment)

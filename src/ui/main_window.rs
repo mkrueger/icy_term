@@ -1,7 +1,7 @@
 use std::io;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::net::{ToSocketAddrs};
-use iced::keyboard::{KeyCode, Modifiers};
+use iced::keyboard::{KeyCode};
 use iced::mouse::ScrollDelta;
 use iced::widget::{Canvas, column, row, button, text, pick_list};
 use iced::{executor, subscription, Event, keyboard, mouse};
@@ -136,6 +136,16 @@ static C64_KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::Left as u32, &[0x9D])
 ];
 
+
+static ATASCII_KEY_MAP: &[(u32, &[u8])] = &[
+    (KeyCode::Backspace as u32, &[0x1b, 0x7e]),
+    (KeyCode::End as u32, &[0x1b, 0x9b]),
+    (KeyCode::Up as u32, &[0x1b, 0x1c]),
+    (KeyCode::Down as u32, &[0x1b, 0x1d]),
+    (KeyCode::Right as u32, &[0x1b, 0x1f]),
+    (KeyCode::Left as u32, &[0x1b, 0x1e])
+];
+
 impl MainWindow
 {
     pub fn update_state(&mut self) -> io::Result<()>
@@ -226,7 +236,7 @@ impl MainWindow
     pub fn output_char(&mut self, ch: char) 
     {
         let translated_char = self.buffer_view.buffer_parser.from_unicode(ch);
-
+        println!("\n{} -> {} {:?}", ch as u8, translated_char, self.screen_mode);
         if let Some(com) = &mut self.com {
             let state = com.write(&[translated_char]);
             if let Err(err) = state {
@@ -299,7 +309,7 @@ impl Application for MainWindow {
     }
 
     fn new(_flags: ()) ->  (Self, Command<Message>) {
-       let mut view =  MainWindow {
+       let view =  MainWindow {
             buffer_view: BufferView::new(),
             com:None,
             trigger: true,
@@ -400,7 +410,12 @@ impl Application for MainWindow {
                         }
 
                         if let Some(com) = &mut self.com {
-                            for (k, m) in if self.buffer_view.petscii { C64_KEY_MAP} else { KEY_MAP } {
+                            let map = match self.buffer_view.petscii {
+                                super::BufferInputMode::CP437 => KEY_MAP,
+                                super::BufferInputMode::PETSCII => C64_KEY_MAP,
+                                super::BufferInputMode::ATASCII => ATASCII_KEY_MAP,
+                            }; 
+                            for (k, m) in map {
                                 if *k == code {
                                     let state = com.write(m);
                                     if let Err(err) = state {
@@ -412,7 +427,12 @@ impl Application for MainWindow {
                                 }
                             }
                         } else {
-                            for (k, m) in if self.buffer_view.petscii { C64_KEY_MAP} else { KEY_MAP } {
+                            let map = match self.buffer_view.petscii {
+                                super::BufferInputMode::CP437 => KEY_MAP,
+                                super::BufferInputMode::PETSCII => C64_KEY_MAP,
+                                super::BufferInputMode::ATASCII => ATASCII_KEY_MAP,
+                            }; 
+                            for (k, m) in map {
                                 if *k == code {
                                     for ch in *m {
                                         let state = self.buffer_view.print_char(None, *ch);

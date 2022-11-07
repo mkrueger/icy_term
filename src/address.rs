@@ -1,6 +1,6 @@
 use std::{fs::{self, File}, path::{PathBuf}, thread, fmt::Display, io::{self, Write}};
 use directories::ProjectDirs;
-use icy_engine::{BufferParser, AnsiParser, AvatarParser, PETSCIIParser};
+use icy_engine::{BufferParser, AnsiParser, AvatarParser, PETSCIIParser, AtasciiParser};
 use yaml_rust::{YamlLoader, Yaml};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config};
 use std::path::Path;
@@ -130,6 +130,9 @@ impl Address {
         match self.screen_mode {
             Some(ScreenMode::C64)|  Some(ScreenMode::C128(_)) => {
                 return Box::new(PETSCIIParser::new());
+            }
+            Some(ScreenMode::Atari)|  Some(ScreenMode::AtariXep80) => {
+                return Box::new(AtasciiParser::new());
             }
             _ => {}
         }
