@@ -65,10 +65,12 @@ pub struct MainWindow {
     current_protocol: Option<(Box<dyn Protocol>, TransferState)>
 }
 
+const CTRL_MOD:u32 = 0b100 << 3;
+
 static KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::Home as u32, "\x1b[1~".as_bytes()),
     (KeyCode::Insert as u32, "\x1b[2~".as_bytes()),
-    (KeyCode::Backspace as u32, &[8]),
+//    (KeyCode::Backspace as u32, &[8]),
     (KeyCode::Delete as u32, "\x1b[3~".as_bytes()),
     (KeyCode::End as u32, "\x1b[4~".as_bytes()),
     (KeyCode::PageUp as u32, "\x1b[5~".as_bytes()),
@@ -89,31 +91,33 @@ static KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::Down as u32, "\x1b[B".as_bytes()),
     (KeyCode::Right as u32, "\x1b[C".as_bytes()),
     (KeyCode::Left as u32, "\x1b[D".as_bytes()),
-    (KeyCode::A as u32 | (0b100 << 3), &[1]),
-    (KeyCode::B as u32 | (0b100 << 3), &[2]),
-    (KeyCode::C as u32 | (0b100 << 3), &[3]),
-    (KeyCode::D as u32 | (0b100 << 3), &[4]),
-    (KeyCode::E as u32 | (0b100 << 3), &[5]),
-    (KeyCode::F as u32 | (0b100 << 3), &[6]),
-    (KeyCode::G as u32 | (0b100 << 3), &[7]),
-    (KeyCode::H as u32 | (0b100 << 3), &[8]),
-    (KeyCode::I as u32 | (0b100 << 3), &[9]),
-    (KeyCode::J as u32 | (0b100 << 3), &[10]),
-    (KeyCode::K as u32 | (0b100 << 3), &[11]),
-    (KeyCode::L as u32 | (0b100 << 3), &[12]),
-    (KeyCode::M as u32 | (0b100 << 3), &[13]),
-    (KeyCode::N as u32 | (0b100 << 3), &[14]),
-    (KeyCode::O as u32 | (0b100 << 3), &[15]),
-    (KeyCode::P as u32 | (0b100 << 3), &[16]),
-    (KeyCode::Q as u32 | (0b100 << 3), &[17]),
-    (KeyCode::R as u32 | (0b100 << 3), &[18]),
-    (KeyCode::S as u32 | (0b100 << 3), &[19]),
-    (KeyCode::T as u32 | (0b100 << 3), &[20]),
-    (KeyCode::U as u32 | (0b100 << 3), &[21]),
-    (KeyCode::V as u32 | (0b100 << 3), &[22]),
-    (KeyCode::W as u32 | (0b100 << 3), &[23]),
-    (KeyCode::X as u32 | (0b100 << 3), &[24]),
-    (KeyCode::Y as u32 | (0b100 << 3), &[25])
+    /* 
+    (KeyCode::A as u32 | CTRL_MOD, &[1]),
+    (KeyCode::B as u32 | CTRL_MOD, &[2]),
+    (KeyCode::C as u32 | CTRL_MOD, &[3]),
+    (KeyCode::D as u32 | CTRL_MOD, &[4]),
+    (KeyCode::E as u32 | CTRL_MOD, &[5]),
+    (KeyCode::F as u32 | CTRL_MOD, &[6]),
+    (KeyCode::G as u32 | CTRL_MOD, &[7]),
+    (KeyCode::H as u32 | CTRL_MOD, &[8]),
+    (KeyCode::I as u32 | CTRL_MOD, &[9]),
+    (KeyCode::J as u32 | CTRL_MOD, &[10]),
+    (KeyCode::K as u32 | CTRL_MOD, &[11]),
+    (KeyCode::L as u32 | CTRL_MOD, &[12]),
+    (KeyCode::M as u32 | CTRL_MOD, &[13]),
+    (KeyCode::N as u32 | CTRL_MOD, &[14]),
+    (KeyCode::O as u32 | CTRL_MOD, &[15]),
+    (KeyCode::P as u32 | CTRL_MOD, &[16]),
+    (KeyCode::Q as u32 | CTRL_MOD, &[17]),
+    (KeyCode::R as u32 | CTRL_MOD, &[18]),
+    (KeyCode::S as u32 | CTRL_MOD, &[19]),
+    (KeyCode::T as u32 | CTRL_MOD, &[20]),
+    (KeyCode::U as u32 | CTRL_MOD, &[21]),
+    (KeyCode::V as u32 | CTRL_MOD, &[22]),
+    (KeyCode::W as u32 | CTRL_MOD, &[23]),
+    (KeyCode::X as u32 | CTRL_MOD, &[24]),
+    (KeyCode::Y as u32 | CTRL_MOD, &[25]),
+    (KeyCode::Z as u32 | CTRL_MOD, &[27])*/
 ];
 
 static C64_KEY_MAP: &[(u32, &[u8])] = &[
@@ -398,15 +402,17 @@ impl Application for MainWindow {
                     },
                     Message::KeyPressed(ch) => {
                         let c = ch as u8;
-                        if c != 8 && c != 127 { // handled by key
+                        if c != 127 { // handled by key code
                             self.output_char(ch);
                         }
                     },
                     Message::KeyCode(code, modifier) => {
                         let mut code = code as u32;
                         if modifier.control() || modifier.command() {
-                            code |=  0b100 << 3;
+                            code |= CTRL_MOD;
                         }
+
+                        println!("{}", code);
 
                         if let Some(com) = &mut self.com {
                             let map = match self.buffer_view.petscii {
