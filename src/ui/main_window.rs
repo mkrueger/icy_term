@@ -363,7 +363,7 @@ impl Application for MainWindow {
             handled_char: false
         };
        //  view.set_screen_mode(&ScreenMode::DOS(80, 50));
-        /*  let txt = b"";
+        /*let txt = b"";
         for b in txt {
             if let Err(err) = view.buffer_view.buffer_parser.print_char(&mut view.buffer_view.buf, &mut view.buffer_view.caret, *b) {
                 eprintln!("{}", err);
@@ -440,26 +440,14 @@ impl Application for MainWindow {
                             self.output_char(ch);
                         }
                     },
-                    Message::KeyReleased(code, modifier) => {
+                    Message::KeyReleased(code, _) => {
                         if code == KeyCode::RAlt || code == KeyCode::LAlt {
                             self.buffer_view.block_selection = false;
-                            if let Some(selection) = &mut self.buffer_view.selection{
-                                if self.buffer_view.button_pressed {
-                                    selection.block_selection = false;
-                                }
-                                self.buffer_view.cache.clear();
-                            }
                         }
                     },
                     Message::KeyPressed(code, modifier) => {
                         if code == KeyCode::RAlt || code == KeyCode::LAlt {
                             self.buffer_view.block_selection = true;
-                            if let Some(selection) = &mut self.buffer_view.selection{
-                                if self.buffer_view.button_pressed {
-                                    selection.block_selection = true;
-                                }
-                                self.buffer_view.cache.clear();
-                            }
                         }
                         let mut code = code as u32;
                         
@@ -523,11 +511,9 @@ impl Application for MainWindow {
                             }
                         }
                     }
-                    Message::ButtonPress(_bounds) => self.buffer_view.button_pressed(),
-                    Message::ButtonRelease(_) => {
-                        self.buffer_view.button_released()
+                    Message::SetSelection(selection) => {
+                        self.buffer_view.selection = selection;
                     }
-                    Message::CursorMoved(point) => self.buffer_view.cursor_moved(point),
                     _ => {}
                 }
 

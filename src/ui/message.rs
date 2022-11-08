@@ -1,8 +1,8 @@
-use iced::{keyboard::{KeyCode, Modifiers}, mouse::ScrollDelta, Point};
+use iced::{keyboard::{KeyCode, Modifiers}, mouse::ScrollDelta};
 
 use crate::{protocol::ProtocolType, address::{Terminal, ConnectionType}};
 
-use super::screen_modes::ScreenMode;
+use super::{screen_modes::ScreenMode, selection::Selection};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -22,11 +22,9 @@ pub enum Message {
     SelectProtocol(ProtocolType, bool),
     OpenURL(String),
     CancelTransfer,
-
-    ButtonPress(usize),
-    ButtonRelease(usize),
-    CursorMoved(Point),
     
+    SetSelection(Option<Selection>),
+
     // Phonebook
     ShowPhonebook,
     QuickConnectChanged(String),
