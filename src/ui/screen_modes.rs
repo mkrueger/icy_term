@@ -1,10 +1,12 @@
 use std::fmt::Display;
 
 use icy_engine::{Palette, BitFont, PETSCIIParser, C64_DEFAULT_PALETTE, AvatarParser, AtasciiParser, ATARI_DEFAULT_PALETTE};
+use serde_derive::{Serialize, Deserialize};
 
 use super::{BufferView, BufferInputMode};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "name", content = "par")]
 pub enum ScreenMode {
     DOS(i32, i32),
     C64,

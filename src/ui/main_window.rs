@@ -344,7 +344,7 @@ impl Application for MainWindow {
     }
 
     fn new(_flags: ()) ->  (Self, Command<Message>) {
-       let view =  MainWindow {
+       let mut view =  MainWindow {
             buffer_view: BufferView::new(),
             com:None,
             trigger: true,
@@ -363,12 +363,12 @@ impl Application for MainWindow {
             handled_char: false
         };
        //  view.set_screen_mode(&ScreenMode::DOS(80, 50));
-        /*let txt = b"";
+        let txt = b"";
         for b in txt {
             if let Err(err) = view.buffer_view.buffer_parser.print_char(&mut view.buffer_view.buf, &mut view.buffer_view.caret, *b) {
                 eprintln!("{}", err);
             }
-        }*/
+        }
         
         (view, Command::none())
     }

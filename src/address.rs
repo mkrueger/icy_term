@@ -1,13 +1,12 @@
-use std::{fs::{self, File}, path::{PathBuf}, thread, fmt::Display, io::{self, Write}};
+use std::{fs::{self, File}, path::{PathBuf}, thread, fmt::Display, io::{self, Write, ErrorKind}};
 use directories::ProjectDirs;
 use icy_engine::{BufferParser, AnsiParser, AvatarParser, PETSCIIParser, AtasciiParser};
-use yaml_rust::{YamlLoader, Yaml};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config};
 use std::path::Path;
+use crate::ui::{screen_modes::ScreenMode, phonebook};
+use serde_derive::{Deserialize, Serialize};
 
-use crate::ui::screen_modes::ScreenMode;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Terminal {
     Ansi,
     Avatar
@@ -26,7 +25,7 @@ impl Display for Terminal {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ConnectionType {
     Telnet,
     Raw
@@ -43,20 +42,14 @@ impl ConnectionType {
         ConnectionType::Telnet, 
         ConnectionType::Raw
     ];
-
-    pub fn parse(str: &str) -> ConnectionType
-    {
-        match str { 
-            "Telnet" => ConnectionType::Telnet,
-            "Raw" => ConnectionType::Raw,
-            _ => {
-                ConnectionType::Telnet
-            }
-        }
-    }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddressBook {
+    pub addresses: Vec<Address>
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Address {
     pub system_name: String,
     pub user_name: String,
@@ -75,37 +68,55 @@ pub struct Address {
 }
 
 const TEMPLATE: &str = r#"
-# 
-# Cool BBS:
-#     comment: Some description
-#     address: host:23
-#     user: my_name
-#     password: my_pw
-#     use_ice: true
-# Cool BBS #2:
-#     comment: Some description
-#     address: other:23
-#     user: my_name
-#     password: my_pw_which_is_totally_different_from_that_above
-#     use_ice: true
+[[addresses]]
+system_name = 'Crazy Paradise BBS'
+user_name = ''
+password = ''
+comment = 'Last german Amiga BBS. Icy Term WHQ.'
+terminal_type = 'Ansi'
+address = 'cpbbs.de:2323'
+auto_login = ''
+connection_type = 'Telnet'
+ice_mode = true
 
-# "screen_mode" support: "C64", "C128", "C128#80", "Atari", "AtariXep80", [row]x[col]
-# font support via "font_name" - screen modes set the correct font
-# Amiga fonts:
-# "Amiga Topaz 1", "Amiga Topaz 1+", "Amiga Topaz 2", "Amiga Topaz 2+"
-# "Amiga P0T-NOoDLE"
-# "Amiga MicroKnight", "Amiga MicroKnight+"
-# "Amiga mOsOul"
+[[addresses]]
+system_name = 'Deadline BBS'
+user_name = ''
+password = ''
+comment = 'Cool BBS running PCBoard.'
+terminal_type = 'Ansi'
+address = 'deadline.aegis-corp.org:1337'
+auto_login = ''
+connection_type = 'Telnet'
+ice_mode = true
 
-Crazy Paradise BBS:
-    comment: Last Amiga BBS in germany
-    address: cpbbs.de:2323
-Deadline BBS:
-    comment: One of the coolest looking PCboard systems I've ever seen.
-    address: deadline.aegis-corp.org:1337   
-BBS Retroacademy:
-    comment: Petsci BBS.
-    address: bbs.retroacademy.it:6510
+[[addresses]]
+system_name = 'BBS Retroacademy'
+user_name = ''
+password = ''
+comment = 'Lovely Petscii BBS'
+terminal_type = 'Ansi'
+address = 'bbs.retroacademy.it:6510'
+auto_login = ''
+connection_type = 'Telnet'
+ice_mode = true
+
+[addresses.screen_mode]
+name = 'C64'
+
+[[addresses]]
+system_name = 'Amis XE'
+user_name = 'amis86'
+password = 'amis86'
+comment = 'Atasii id&pw: amis86'
+terminal_type = 'Ansi'
+address = 'amis86.ddns.net:9000'
+auto_login = ''
+connection_type = 'Telnet'
+ice_mode = true
+
+[addresses.screen_mode]
+name = 'Atari'
 "#;
 
 impl Address {
@@ -149,7 +160,7 @@ impl Address {
             {
                 fs::create_dir_all(proj_dirs.config_dir()).expect(&format!("Can't create configuration directory {:?}", proj_dirs.config_dir()));
             }
-            let phonebook = proj_dirs.config_dir().join("phonebook.yaml");
+            let phonebook = proj_dirs.config_dir().join("phonebook.toml");
             if !phonebook.exists()
             {
                 fs::write(phonebook, &TEMPLATE).expect("Can't create phonebook");
@@ -165,38 +176,10 @@ impl Address {
         res.push(Address::new());
         if let Some(phonebook) = Address::get_phonebook_file() {
             let fs = fs::read_to_string(&phonebook).expect("Can't read phonebook");
-            let data = YamlLoader::load_from_str(&fs);
-            match data {
-                Ok(yaml) => {
-                    for adr in yaml {
-                        if let Yaml::Hash(h) = adr {
-                            for (k, v) in h {
-                                let mut adr = Address::new();
-                                adr.system_name = k.into_string().unwrap();
-
-                                if let Yaml::Hash(h) = v {
-                                    for (k, v) in h {
-                                        let k  = k.into_string().unwrap();
-                                        let v  = v.into_string().unwrap();
-                                        match k.as_ref() {
-                                            "comment" => { adr.comment = v; }
-                                            "address" => { adr.address = v; }
-                                            "user" => { adr.user_name = v; }
-                                            "password" => { adr.password = v; }
-                                            "auto_login" => { adr.auto_login = v; }
-                                            "use_ice" => { adr.ice_mode = v == "true"; }
-                                            "screen_mode" => { adr.screen_mode = ScreenMode::parse(&v); }
-                                            "connection" => { adr.connection_type = ConnectionType::parse(&v); }
-                                            "font_name" => { adr.font_name = Some(v); }
-                                            "terminal" => { adr.terminal_type = if v.to_uppercase() == "ANSI" { Terminal::Ansi } else { Terminal::Avatar } }
-                                        _ =>  {}
-                                        } 
-                                    }
-                                }
-                                res.push(adr);
-                            }
-                        }
-                    }
+            match toml::from_str::<AddressBook>(&fs.as_str()) {
+                Ok(addresses) => {
+                    res.extend_from_slice(&addresses.addresses);
+                    return res;
                 }
                 Err(err) => {
                     println!("Can't read phonebook from file {}: {:?}.", phonebook.display(), err);
@@ -228,60 +211,35 @@ pub fn start_read_book() -> Vec<Address> {
     res
 }
 
-fn escape(str: &str) -> String
-{
-    let mut result = String::new();
-    result.push('"');
-    for c in str.chars() {
-        match c  {
-            '\\' => result.push_str("\\\\"),
-            '\n' => result.push_str("\\n"),
-            '\r' => result.push_str("\\r"),
-            '\"' => result.push_str("\\\""),
-            _ => {
-                if c < ' ' || c > '\x7F' {
-                    result.push_str(&format!("\\x{:02X}", c as u8));
-                } else {
-                    result.push(c);
-                }
-            }
-        }
-    }
-    result.push('"');
-    result 
-}
-
 pub fn store_phone_book(addr: &Vec<Address>) -> io::Result<()> {
+    println!("1");
     if let Some(file_name) = Address::get_phonebook_file() {
-        let mut tmp = file_name.clone();
-        if !tmp.set_extension("tmp") { 
-            return Ok(());
+        println!("2");
+        let mut addresses = Vec::new();
+        for i in 1..addr.len() {
+            addresses.push(addr[i].clone());
         }
-        {
-            let mut file = File::create(&tmp)?;
-
-            for entry in &addr[1..] {
-                file.write(format!("{}:\n", entry.system_name).as_bytes())?;
-                file.write(format!("   address: {}\n", escape(&entry.address)).as_bytes())?;
-                file.write(format!("   connection_type: {:?}\n", &entry.connection_type).as_bytes())?;
-                file.write(format!("   user: {}\n", escape(&entry.user_name)).as_bytes())?;
-                file.write(format!("   password: {}\n", escape(&entry.password)).as_bytes())?;
-                file.write(format!("   comment: {}\n", escape(&entry.comment)).as_bytes())?;
-                file.write(format!("   terminal: {}\n", escape(&entry.terminal_type.to_string())).as_bytes())?;
-                file.write(format!("   auto_login: {}\n", escape(&entry.auto_login)).as_bytes())?;
-                if let Some(screen_mode) = &entry.screen_mode {
-                    file.write(format!("   screen_mode: \"{}\"\n", screen_mode).as_bytes())?;
+        let phonebook = AddressBook {
+            addresses
+        }; 
+        
+        match toml::to_string_pretty(&phonebook) {
+            Ok(str) => {
+                println!("store {}", str);
+                let mut tmp = file_name.clone();
+                if !tmp.set_extension("tmp") { 
+                    return Ok(());
                 }
-                file.write(b"\n")?;
+                let mut file = File::create(&tmp)?;
+                file.write_all(str.as_bytes())?;
+                file.sync_all()?;
+                fs::rename(&tmp, file_name)?;
             }
-            file.sync_all()?;
+            Err(err) => return Err(io::Error::new(ErrorKind::InvalidData, err))
         }
-        fs::rename(&tmp, file_name)?;
     }
-
    Ok(())
 }
-
 
 fn watch<P: AsRef<Path>>(path: P) -> notify::Result<()> {
     let (tx, rx) = std::sync::mpsc::channel();
