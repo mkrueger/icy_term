@@ -33,6 +33,9 @@ impl Selection {
             selection_anchor_end: Position::new(),
         }
     }
+    pub fn is_empty(&self) -> bool {
+        self.selection_anchor_start == self.selection_anchor_end
+    }
 } 
 
 impl Selection {

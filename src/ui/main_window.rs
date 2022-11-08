@@ -440,15 +440,7 @@ impl Application for MainWindow {
                             self.output_char(ch);
                         }
                     },
-                    Message::KeyReleased(code, _) => {
-                        if code == KeyCode::RAlt || code == KeyCode::LAlt {
-                            self.buffer_view.block_selection = false;
-                        }
-                    },
                     Message::KeyPressed(code, modifier) => {
-                        if code == KeyCode::RAlt || code == KeyCode::LAlt {
-                            self.buffer_view.block_selection = true;
-                        }
                         let mut code = code as u32;
                         
                         if modifier.control() || modifier.command() {
@@ -693,7 +685,6 @@ impl Application for MainWindow {
         let s = subscription::events_with(|event, status| match (event, status) {
             (Event::Keyboard(keyboard::Event::CharacterReceived(ch)), iced::event::Status::Ignored) => Some(Message::KeyReceived(ch)),
             (Event::Keyboard(keyboard::Event::KeyPressed {key_code, modifiers, ..}), iced::event::Status::Ignored) => Some(Message::KeyPressed(key_code, modifiers)),
-            (Event::Keyboard(keyboard::Event::KeyReleased {key_code, modifiers, ..}), iced::event::Status::Ignored) => Some(Message::KeyReleased(key_code, modifiers)),
             (Event::Mouse(mouse::Event::WheelScrolled {delta, ..}), iced::event::Status::Ignored) => Some(Message::WheelScrolled(delta)),
 
             _ => None,

@@ -15,7 +15,6 @@ pub enum Message {
     Paste,
     KeyReceived(char),
     KeyPressed(KeyCode, Modifiers),
-    KeyReleased(KeyCode, Modifiers),
     WheelScrolled(ScrollDelta),
     FontSelected(String),
     ScreenModeSelected(ScreenMode),

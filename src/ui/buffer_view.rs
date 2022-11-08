@@ -2,11 +2,12 @@ use std::cmp::{max, min};
 use std::io;
 use crate::com::Com;
 use clipboard::{ClipboardProvider, ClipboardContext};
+use iced::keyboard::KeyCode;
 use iced::widget::canvas::event::{self, Event};
 use iced::widget::canvas::{
     self, Cursor, Frame, Geometry,
 };
-use iced::{ Point, Rectangle, Theme, mouse};
+use iced::{ Point, Rectangle, Theme, mouse, keyboard};
 use icy_engine::{Buffer, BufferParser, Caret, Position, AvatarParser};
 
 use super::Message;
@@ -17,7 +18,6 @@ pub enum BufferInputMode {
     PETSCII,
     ATASCII
 }
-
 
 pub struct BufferView {
     pub buf: Buffer,
@@ -31,8 +31,7 @@ pub struct BufferView {
     pub scroll_back_line: i32,
 
     pub selection: Option<Selection>,
-    pub button_pressed: bool,
-    pub block_selection: bool
+    pub button_pressed: bool
 }
 
 impl BufferView {
@@ -51,8 +50,7 @@ impl BufferView {
             petscii: BufferInputMode::CP437,
             scroll_back_line: 0,
             selection: None,
-            button_pressed: false,
-            block_selection: false
+            button_pressed: false
         }
     }
 
@@ -152,7 +150,8 @@ impl BufferView {
 #[derive(Default, Debug, Clone)]
 pub struct DrawInfoState {
     pub selection: Option<Selection>,
-    pub button_pressed: bool
+    pub button_pressed: bool,
+    pub block_selection: bool
 }
 
 impl<'a> canvas::Program<Message> for BufferView {
@@ -168,18 +167,38 @@ impl<'a> canvas::Program<Message> for BufferView {
         let Some(cursor_position) = cursor.position_in(&bounds) else {
             return (event::Status::Ignored, None);
         };
-
         if let Some(selection) = &mut state.selection {
             let (_, _, _, _, char_size) = calc(&self.buf, &bounds);
 
             let top_line = (self.buf.get_first_visible_line() - self.scroll_back_line) as f32 * char_size.height.floor();
             selection.update(&self.buf, &bounds, Point {x: cursor_position.x, y: cursor_position.y + top_line});
-            selection.block_selection = self.block_selection;
         }
 
         match event {
+            Event::Keyboard(keyboard::Event::KeyReleased {key_code, ..}) => {
+                if key_code == KeyCode::RAlt || key_code == KeyCode::LAlt {
+                    state.block_selection = false;
+                    if let Some(selection) = &mut state.selection {
+                        selection.block_selection = false;
+                    }
+                }
+                return (event::Status::Ignored, None);
+
+            },
+            Event::Keyboard(keyboard::Event::KeyPressed {key_code, ..}) => {
+                if key_code == KeyCode::RAlt || key_code == KeyCode::LAlt {
+                    state.block_selection = true;
+                    if let Some(selection) = &mut state.selection {
+                        selection.block_selection = true;
+                    }
+                }
+                return (event::Status::Ignored, None);
+
+            },
+
             Event::Mouse(mouse_event) => {
                 let message = match mouse_event {
+
                     mouse::Event::ButtonPressed(button) => {
                         match button {
                             mouse::Button::Left => {
@@ -187,7 +206,8 @@ impl<'a> canvas::Program<Message> for BufferView {
 
                                 let top_line = (self.buf.get_first_visible_line() - self.scroll_back_line) as f32 * char_size.height.floor();
                                 let mut s = Selection::new(Point {x: cursor_position.x, y: cursor_position.y + top_line});
-                                s.block_selection = self.block_selection;
+                                s.update(&self.buf, &bounds, Point {x: cursor_position.x, y: cursor_position.y + top_line});
+                                s.block_selection = state.block_selection;
                                 state.selection = Some(s);
                                 state.button_pressed = true;
                                 return (event::Status::Captured, None);
@@ -200,8 +220,16 @@ impl<'a> canvas::Program<Message> for BufferView {
                     mouse::Event::ButtonReleased(button) => {
                         match button {
                             mouse::Button::Left => {
-                                let r = Some(Message::SetSelection(state.selection.clone()));
                                 state.button_pressed = false;
+
+                                if let Some(selection) = &state.selection {
+                                    if selection.is_empty() {
+                                        state.selection = None;
+                                        return (event::Status::Captured, Some(Message::SetSelection(None)));
+                                    }
+                                }
+
+                                let r = Some(Message::SetSelection(state.selection.clone()));
                                 state.selection = None;
                                 r
                             }
@@ -299,7 +327,9 @@ impl<'a> canvas::Program<Message> for BufferView {
         }
  
         if let Some(selection) = &state.selection {
-            result.push(selection.draw(&self.buf, self.scroll_back_line, &bounds));
+            if !selection.is_empty() {
+                result.push(selection.draw(&self.buf, self.scroll_back_line, &bounds));
+            }
         } else if let Some(selection) = &self.selection {
             result.push(selection.draw(&self.buf, self.scroll_back_line, &bounds));
         }
