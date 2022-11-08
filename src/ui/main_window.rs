@@ -1,6 +1,7 @@
 use std::io;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::net::{ToSocketAddrs};
+use clipboard::{ClipboardProvider, ClipboardContext};
 use iced::keyboard::{KeyCode};
 use iced::mouse::ScrollDelta;
 use iced::widget::{Canvas, column, row, button, text, pick_list};
@@ -432,15 +433,36 @@ impl Application for MainWindow {
                             self.print_log(format!("Error: {:?}", err));
                         }
                     },
-                    Message::KeyPressed(ch) => {
+                    Message::KeyReceived(ch) => {
                         if self.handled_char {
                             self.handled_char = false;
                         } else {
                             self.output_char(ch);
                         }
                     },
-                    Message::KeyCode(code, modifier) => {
+                    Message::KeyReleased(code, modifier) => {
+                        if code == KeyCode::RAlt || code == KeyCode::LAlt {
+                            self.buffer_view.block_selection = false;
+                            if let Some(selection) = &mut self.buffer_view.selection{
+                                if self.buffer_view.button_pressed {
+                                    selection.block_selection = false;
+                                }
+                                self.buffer_view.cache.clear();
+                            }
+                        }
+                    },
+                    Message::KeyPressed(code, modifier) => {
+                        if code == KeyCode::RAlt || code == KeyCode::LAlt {
+                            self.buffer_view.block_selection = true;
+                            if let Some(selection) = &mut self.buffer_view.selection{
+                                if self.buffer_view.button_pressed {
+                                    selection.block_selection = true;
+                                }
+                                self.buffer_view.cache.clear();
+                            }
+                        }
                         let mut code = code as u32;
+                        
                         if modifier.control() || modifier.command() {
                             code |= CTRL_MOD;
                         }
@@ -490,6 +512,22 @@ impl Application for MainWindow {
                     Message::ScreenModeSelected(mode) => {
                         self.set_screen_mode(&mode);
                     }
+                    Message::Copy => { 
+                        self.buffer_view.copy_to_clipboard();
+                    }
+                    Message::Paste => {
+                        let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
+                        if let Ok(r) = ctx.get_contents() {
+                            for c in r.chars() {
+                                self.output_char(c);
+                            }
+                        }
+                    }
+                    Message::ButtonPress(_bounds) => self.buffer_view.button_pressed(),
+                    Message::ButtonRelease(_) => {
+                        self.buffer_view.button_released()
+                    }
+                    Message::CursorMoved(point) => self.buffer_view.cursor_moved(point),
                     _ => {}
                 }
 
@@ -567,9 +605,7 @@ impl Application for MainWindow {
                         self.mode = MainWindowMode::Default
                     }
                     Message::SelectProtocol(protocol_type, download) => {
-
                         self.initiate_file_transfer(protocol_type, download);
-
                     }
                     _ => { }
                 }
@@ -669,9 +705,11 @@ impl Application for MainWindow {
     fn subscription(&self) -> Subscription<Message> {
         
         let s = subscription::events_with(|event, status| match (event, status) {
-            (Event::Keyboard(keyboard::Event::CharacterReceived(ch)), iced::event::Status::Ignored) => Some(Message::KeyPressed(ch)),
-            (Event::Keyboard(keyboard::Event::KeyPressed {key_code, modifiers, ..}), iced::event::Status::Ignored) => Some(Message::KeyCode(key_code, modifiers)),
+            (Event::Keyboard(keyboard::Event::CharacterReceived(ch)), iced::event::Status::Ignored) => Some(Message::KeyReceived(ch)),
+            (Event::Keyboard(keyboard::Event::KeyPressed {key_code, modifiers, ..}), iced::event::Status::Ignored) => Some(Message::KeyPressed(key_code, modifiers)),
+            (Event::Keyboard(keyboard::Event::KeyReleased {key_code, modifiers, ..}), iced::event::Status::Ignored) => Some(Message::KeyReleased(key_code, modifiers)),
             (Event::Mouse(mouse::Event::WheelScrolled {delta, ..}), iced::event::Status::Ignored) => Some(Message::WheelScrolled(delta)),
+
             _ => None,
         });
 
@@ -688,7 +726,7 @@ impl Application for MainWindow {
                 let c = Canvas::new(&self.buffer_view)
                     .width(Length::Fill)
                     .height(Length::Fill);
-                
+
                 let log_info = if self.log_file.len() == 0  { text("Ready.")} else { text(&self.log_file[self.log_file.len() - 1])}.width(Length::Fill).into();
                 let all_fonts = SUPPORTED_FONTS.map(|s| s.to_string()).to_vec();
                 let font_pick_list = pick_list(

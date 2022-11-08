@@ -12,9 +12,8 @@ resources = []
 copyright = "Copyright (c) Mike Krüger 2022. All rights reserved."
 
 [dependencies]
-iced = { git = "https://github.com/iced-rs/iced", features = ["canvas", "image", "tokio", "debug"] }
-iced_native = { git = "https://github.com/iced-rs/iced" }
-iced_aw = { git = "https://github.com/iced-rs/iced_aw", features = ["card", "modal", "floating_button"] }
+iced = { path = "../iced", features = ["canvas", "image", "tokio", "debug"] }
+iced_native = { path = "../iced/native" }
 icy_engine = { path = "../icy_engine" }
 directories = "4.0.1"
 rfd = "0.10.0"
@@ -24,6 +23,7 @@ lazy_static = "1.4.0"
 open = "3.0.3"
 notify = "5.0.0"
 gabi = "0.2.6"
+clipboard = "0.5.0"
 
 [profile.release]
 strip = "symbols"

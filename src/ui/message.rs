@@ -1,4 +1,4 @@
-use iced::{keyboard::{KeyCode, Modifiers}, mouse::ScrollDelta};
+use iced::{keyboard::{KeyCode, Modifiers}, mouse::ScrollDelta, Point};
 
 use crate::{protocol::ProtocolType, address::{Terminal, ConnectionType}};
 
@@ -11,8 +11,11 @@ pub enum Message {
     SendLogin,
     Back,
     Hangup,
-    KeyPressed(char),
-    KeyCode(KeyCode, Modifiers),
+    Copy,
+    Paste,
+    KeyReceived(char),
+    KeyPressed(KeyCode, Modifiers),
+    KeyReleased(KeyCode, Modifiers),
     WheelScrolled(ScrollDelta),
     FontSelected(String),
     ScreenModeSelected(ScreenMode),
@@ -20,6 +23,10 @@ pub enum Message {
     OpenURL(String),
     CancelTransfer,
 
+    ButtonPress(usize),
+    ButtonRelease(usize),
+    CursorMoved(Point),
+    
     // Phonebook
     ShowPhonebook,
     QuickConnectChanged(String),

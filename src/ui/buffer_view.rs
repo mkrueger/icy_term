@@ -1,20 +1,24 @@
 use std::cmp::{max, min};
 use std::io;
+use std::mem::swap;
 use crate::com::Com;
+use clipboard::{ClipboardProvider, ClipboardContext};
 use iced::widget::canvas::event::{self, Event};
 use iced::widget::canvas::{
     self, Cursor, Frame, Geometry,
 };
-use iced::{ Point, Rectangle, Theme};
+use iced::{ Point, Rectangle, Theme, mouse};
 use icy_engine::{Buffer, BufferParser, Caret, Position, AvatarParser};
 
 use super::Message;
+use super::selection::Selection;
 
 pub enum BufferInputMode {
     CP437,
     PETSCII,
     ATASCII
 }
+
 
 pub struct BufferView {
     pub buf: Buffer,
@@ -26,6 +30,11 @@ pub struct BufferView {
     pub scale: f32,
     pub petscii: BufferInputMode,
     pub scroll_back_line: i32,
+
+    pub selection: Option<Selection>,
+    pub caret_pos: Point,
+    pub button_pressed: bool,
+    pub block_selection: bool
 }
 
 impl BufferView {
@@ -42,7 +51,11 @@ impl BufferView {
             last_blink: 0,
             scale: 1.0,
             petscii: BufferInputMode::CP437,
-            scroll_back_line: 0
+            scroll_back_line: 0,
+            selection: None,
+            caret_pos: Point::new(0.0,0.0),
+            button_pressed: false,
+            block_selection: false
         }
     }
 
@@ -83,6 +96,90 @@ impl BufferView {
         self.cache.clear();
         Ok(())
     }
+
+    pub fn button_pressed(&mut self) {
+        println!("press button!");
+        let mut s = Selection::new(self.caret_pos);
+        s.block_selection = self.block_selection;
+        self.selection = Some(s);
+        self.button_pressed = true;
+    }
+
+    pub fn button_released(&mut self) {
+        if !self.button_pressed {
+            return;
+        }
+        self.button_pressed = false;
+        if let Some(selection) = &self.selection {
+            if selection.start == selection.end {
+                self.selection = None;
+            }
+        }
+    }
+
+    pub fn cursor_moved(&mut self, point: Point) {
+        self.caret_pos = point;
+
+        if self.button_pressed {
+            if let Some(selection) = &mut self.selection {
+                selection.end = point;
+            }
+            self.cache.clear();
+        }
+    }
+
+    pub fn copy_to_clipboard(&mut self) {
+        let Some(selection) = &self.selection else {
+            return;
+        };
+        
+        let mut res = String::new();
+        unsafe {
+            if selection.block_selection {
+                for y in selection_start.y..=selection_end.y  {
+                    for x in selection_start.x..selection_end.x {
+                        let ch = self.buf.get_char(Position::from(x, y)).unwrap();
+                        res.push(self.buffer_parser.to_unicode(ch.char_code));
+                    }
+                    res.push('\n');
+                }
+            } else {
+                let (start, end) = 
+                if selection_anchor_start < selection_anchor_end {
+                    (selection_anchor_start, selection_anchor_end)
+                } else {
+                    (selection_anchor_end, selection_anchor_start)
+                };
+                if start.y != end.y {
+                    for x in start.x..self.buf.get_line_length(start.y)  {
+                        let ch = self.buf.get_char(Position::from(x, start.y)).unwrap();
+                        res.push(self.buffer_parser.to_unicode(ch.char_code));
+                    }
+                    res.push('\n');
+                    for y in start.y + 1..end.y  {
+                        for x in 0..self.buf.get_line_length(y) {
+                            let ch = self.buf.get_char(Position::from(x, y)).unwrap();
+                            res.push(self.buffer_parser.to_unicode(ch.char_code));
+                        }
+                        res.push('\n');
+                    }
+                    for x in 0..end.x  {
+                        let ch = self.buf.get_char(Position::from(x, end.y)).unwrap();
+                        res.push(self.buffer_parser.to_unicode(ch.char_code));
+                    }
+                } else {
+                    for x in start.x..end.x  {
+                        let ch = self.buf.get_char(Position::from(x, start.y)).unwrap();
+                        res.push(self.buffer_parser.to_unicode(ch.char_code));
+                    }
+                }
+            }
+        }
+        let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
+        ctx.set_contents(res);
+        self.selection = None;
+        self.cache.clear();
+    }
 }
 
 
@@ -90,6 +187,10 @@ impl BufferView {
 pub struct DrawInfoState {
 }
 
+static mut selection_start:Position = Position { x:0, y:0 };
+static mut selection_end:Position = Position { x:0, y:0 };
+static mut selection_anchor_start:Position = Position { x:0, y:0 };
+static mut selection_anchor_end:Position = Position { x:0, y:0 };
 
 impl<'a> canvas::Program<Message> for BufferView {
     type State = DrawInfoState;
@@ -97,12 +198,40 @@ impl<'a> canvas::Program<Message> for BufferView {
     fn update(
         &self,
         _state: &mut Self::State,
-        _event: Event,
-        _bounds: Rectangle,
-        _cursor: Cursor,
+        event: Event,
+        bounds: Rectangle,
+        cursor: Cursor,
     ) -> (event::Status, Option<Message>) {
+        let Some(cursor_position) = cursor.position_in(&bounds) else {
+            return (event::Status::Ignored, None);
+        };
+        match event {
+            Event::Mouse(mouse_event) => {
+                let message = match mouse_event {
+                    mouse::Event::ButtonPressed(button) => {
+                        match button {
+                            mouse::Button::Left => Some(Message::ButtonPress(0)),
+                            mouse::Button::Right => Some(Message::Copy),
+                            mouse::Button::Middle => { println!("paste!"); Some(Message::Paste)},
+                            _ => None,
+                        }
+                    }
+                    mouse::Event::ButtonReleased(button) => {
+                        match button {
+                            mouse::Button::Left => Some(Message::ButtonRelease(0)),
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                };
 
-        (event::Status::Ignored, None)
+                if message.is_some() {
+                    return (event::Status::Captured, message);
+                }
+                return (event::Status::Captured, Some(Message::CursorMoved(cursor_position)));
+            }
+            _ => (event::Status::Ignored, None),
+        }
     }
 
     fn draw(
@@ -137,24 +266,69 @@ impl<'a> canvas::Program<Message> for BufferView {
 
                 let top_x = (bounds.width - w) / 2.0;
                 let top_y = (bounds.height - h) / 2.0;
-                for y in 0..self.buf.get_buffer_height() as usize {
-                    for x in 0..self.buf.get_buffer_width() as usize {
-                        let rect  = Rectangle::new(
-                            Point::new(
-                                top_x + (x * char_size.width as usize) as f32 + 0.5,  
-                                top_y + (y * char_size.height as usize) as f32 + 0.5), 
-                                char_size
-                            );
+
+                unsafe {
+                    selection_start= Position::new();
+                    selection_end = Position::new();
+                    selection_anchor_start=  Position::new();
+                    selection_anchor_end = Position::new();
+                    let mut select_down = true;
+
+                    if let Some(selection) = &self.selection {
+                        let start = selection.start;
+                        let end  = selection.end;
+                        select_down = start.y < end.y;
+                        selection_anchor_start = Position::from(
+                            ((start.x - top_x) / char_size.width.floor()) as i32,
+                            ((start.y - top_x) / char_size.height.floor()) as i32
+                        );
+                        selection_anchor_end = Position::from(
+                            ((end.x - top_x) / char_size.width.floor()) as i32,
+                            ((end.y - top_x) / char_size.height.floor()) as i32
+                        );
+                        selection_start = Position::from(min(selection_anchor_start.x, selection_anchor_end.x), min(selection_anchor_start.y, selection_anchor_end.y));
+                        selection_end = Position::from(max(selection_anchor_start.x, selection_anchor_end.x), max(selection_anchor_start.y, selection_anchor_end.y));
+                    }
+
+                    for y in 0..self.buf.get_buffer_height() as usize {
+                        for x in 0..self.buf.get_buffer_width() as usize {
+                            let rect  = Rectangle::new(
+                                Point::new(
+                                    top_x + (x * char_size.width as usize) as f32 + 0.5,  
+                                    top_y + (y * char_size.height as usize) as f32 + 0.5), 
+                                    char_size
+                                );
                             if let Some(ch) = buffer.get_char(Position::from(x as i32, first_line - self.scroll_back_line + y as i32)) {
                                 let (fg, bg) = 
                                     (buffer.palette.colors[ch.attribute.get_foreground() as usize],
                                     buffer.palette.colors[ch.attribute.get_background() as usize])
                                 ;
-                                
                                 let (r, g, b) = bg.get_rgb_f32();
 
                                 let color = iced::Color::new(r, g, b, 1.0);
                                 frame.fill_rectangle(rect.position(), rect.size(), color);
+
+                                if let Some(selection) = &self.selection {
+                                    if (selection_start.y..=selection_end.y).contains(&(y as i32)) {
+                                        let selected = if selection.block_selection {
+                                            (selection_start.x..selection_end.x).contains(&(x as i32))
+                                        } else {
+                                            selection_start.y < y as i32 && (y as i32) < selection_end.y ||
+                                            selection_start.y == selection_end.y &&  (x as i32) >= selection_start.x &&  (x as i32) < selection_end.x ||
+                                            selection_start.y != selection_end.y && (
+                                                selection_anchor_start.y == y as i32 && (
+                                                    select_down && (x as i32) >= selection_anchor_start.x ||
+                                                    !select_down && (x as i32) < selection_anchor_start.x) ||
+                                                selection_anchor_end.y == y as i32 && (
+                                                    !select_down && (x as i32) >= selection_anchor_end.x ||
+                                                    select_down && (x as i32) < selection_anchor_end.x)
+                                            )
+                                        };
+                                        if selected {
+                                            frame.fill_rectangle(rect.position(), rect.size(), iced::Color::new(1.0, 1.0, 1.0, 1.0));
+                                        }
+                                    }
+                                }
 
                                 let (r, g, b) = fg.get_rgb_f32();
                                 let color = iced::Color::new(r, g, b, 1.0);
@@ -168,9 +342,9 @@ impl<'a> canvas::Program<Message> for BufferView {
                                 }
                                 if ch.attribute.get_is_underlined() {
                                     frame.fill_rectangle(Point::new(rect.x, rect.y + rect.height - 1.0), iced::Size::new(rect.width, 1.0), color);
-
                                 }
                             }
+                        }
                     }
                 }
             });
