@@ -363,7 +363,7 @@ impl TelnetCom
     }
 
     fn fill_buffer(&mut self) -> io::Result<()> {
-        let mut buf = [0;1024 * 8];
+        let mut buf = [0;1024 * 256];
         loop {
             match self.tcp_stream.read(&mut buf) {
                 Ok(size) => {

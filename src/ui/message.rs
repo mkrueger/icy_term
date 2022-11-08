@@ -13,7 +13,7 @@ pub enum Message {
     Hangup,
     Copy,
     Paste,
-    KeyReceived(char),
+    CharacterReceived(char),
     KeyPressed(KeyCode, Modifiers),
     WheelScrolled(ScrollDelta),
     FontSelected(String),

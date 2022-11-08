@@ -108,10 +108,10 @@ impl BufferView {
             }
         } else {
             let (start, end) = 
-            if selection.selection_anchor_start < selection.selection_anchor_end {
-                (selection.selection_anchor_start, selection.selection_anchor_end)
+            if selection.anchor < selection.lead {
+                (selection.anchor, selection.lead)
             } else {
-                (selection.selection_anchor_end, selection.selection_anchor_start)
+                (selection.lead, selection.anchor)
             };
             if start.y != end.y {
                 for x in start.x..self.buf.get_line_length(start.y)  {
