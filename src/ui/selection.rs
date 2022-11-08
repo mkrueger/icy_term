@@ -67,7 +67,6 @@ impl Selection {
 
         let top_line = buffer.get_first_visible_line() - scroll_back_line;
 
-        let stroke = Stroke::default().with_width(2.0).with_color(Color::from_rgb8(21, 42, 253));
         if self.block_selection || self.selection_start.y == self.selection_end.y {
             let line = Path::rectangle(
                 Point { 
@@ -77,7 +76,7 @@ impl Selection {
                     width: (self.selection_end.x - self.selection_start.x + 1) as f32 * char_size.width,
                     height: (self.selection_end.y - self.selection_start.y + 1) as f32 * char_size.height}
             );
-            frame.stroke(&line, stroke);
+            frame.stroke(&line, create_stroke());
         } else {
             let a = 1;
             let b = 0;
@@ -87,18 +86,18 @@ impl Selection {
                 Point { x: top_x, y: top_y + (self.selection_anchor_start.y - top_line + a) as f32 * char_size.height }, 
                 Point { x: top_x + self.selection_anchor_start.x as f32 * char_size.width, y: top_y + (self.selection_anchor_start.y - top_line + a) as f32 * char_size.height }, 
             );
-            frame.stroke(&line, stroke);
+            frame.stroke(&line, create_stroke());
 
             let line = Path::line(
                 Point { x: top_x + self.selection_anchor_start.x as f32 * char_size.width, y: top_y + (self.selection_anchor_start.y - top_line) as f32 * char_size.height }, 
                 Point { x: top_x + self.selection_anchor_start.x as f32 * char_size.width, y: top_y + (self.selection_anchor_start.y - top_line  + 1) as f32 * char_size.height }, 
             );
-            frame.stroke(&line, stroke);
+            frame.stroke(&line, create_stroke());
             let line = Path::line(
                 Point { x: top_x + self.selection_anchor_start.x as f32 * char_size.width, y: top_y + (self.selection_anchor_start.y - top_line + b) as f32 * char_size.height }, 
                 Point { x: top_x + w, y: top_y + (self.selection_anchor_start.y  - top_line + b) as f32 * char_size.height }, 
             );
-            frame.stroke(&line, stroke);
+            frame.stroke(&line, create_stroke());
 
             // bottom border
 
@@ -106,24 +105,24 @@ impl Selection {
                 Point { x: top_x, y: top_y + (self.selection_anchor_end.y + a  - top_line ) as f32 * char_size.height }, 
                 Point { x: top_x + self.selection_anchor_end.x as f32 * char_size.width, y: top_y + (self.selection_anchor_end.y - top_line  + a) as f32 * char_size.height }, 
             );
-            frame.stroke(&line, stroke);
+            frame.stroke(&line, create_stroke());
 
             let line = Path::line(
                 Point { x: top_x + self.selection_anchor_end.x as f32 * char_size.width, y: top_y + (self.selection_anchor_end.y - top_line  + 1)  as f32 * char_size.height }, 
                 Point { x: top_x + self.selection_anchor_end.x as f32 * char_size.width, y: top_y + (self.selection_anchor_end.y - top_line) as f32 * char_size.height }, 
             );
-            frame.stroke(&line, stroke);
+            frame.stroke(&line, create_stroke());
             let line = Path::line(
                 Point { x: top_x + self.selection_anchor_end.x as f32 * char_size.width, y: top_y + (self.selection_anchor_end.y - top_line + b) as f32 * char_size.height }, 
                 Point { x: top_x + w, y: top_y + (self.selection_anchor_end.y - top_line + b) as f32 * char_size.height }, 
             );
-            frame.stroke(&line, stroke);
-
-
+            frame.stroke(&line, create_stroke());
         }
-
-
-
         frame.into_geometry()
     }
+}
+
+fn create_stroke<'a>() -> Stroke<'a>
+{
+    Stroke::default().with_width(2.0).with_color(Color::from_rgb8(21, 42, 253))
 }
