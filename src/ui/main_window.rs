@@ -446,6 +446,9 @@ impl Application for MainWindow {
                             self.output_char(ch);
                         }
                     },
+                    Message::KeyReleased(_, _) => {
+                        self.handled_char = false;
+                    }
                     Message::KeyPressed(code, modifier) => {
                         let mut code = code as u32;
                         if modifier.control() || modifier.command() {
@@ -690,6 +693,7 @@ impl Application for MainWindow {
         let s = subscription::events_with(|event, status| match (event, status) {
             (Event::Keyboard(keyboard::Event::CharacterReceived(ch)), iced::event::Status::Ignored) => Some(Message::CharacterReceived(ch)),
             (Event::Keyboard(keyboard::Event::KeyPressed {key_code, modifiers, ..}), iced::event::Status::Ignored) => Some(Message::KeyPressed(key_code, modifiers)),
+            (Event::Keyboard(keyboard::Event::KeyReleased {key_code, modifiers, ..}), iced::event::Status::Ignored) => Some(Message::KeyReleased(key_code, modifiers)),
             (Event::Mouse(mouse::Event::WheelScrolled {delta, ..}), iced::event::Status::Ignored) => Some(Message::WheelScrolled(delta)),
 
             _ => None,
