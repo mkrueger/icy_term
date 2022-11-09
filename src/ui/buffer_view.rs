@@ -152,7 +152,7 @@ impl BufferView {
 pub struct DrawInfoState {
     pub selection: Option<Selection>,
     pub button_pressed: bool,
-    pub block_selection: bool
+    pub is_alt_pressed: bool
 }
 
 impl<'a> canvas::Program<Message> for BufferView {
@@ -178,20 +178,22 @@ impl<'a> canvas::Program<Message> for BufferView {
         match event {
             Event::Keyboard(keyboard::Event::KeyReleased {key_code, ..}) => {
                 if key_code == KeyCode::RAlt || key_code == KeyCode::LAlt {
-                    state.block_selection = false;
+                    state.is_alt_pressed = false;
                     if let Some(selection) = &mut state.selection {
                         selection.block_selection = false;
                     }
+                    return (event::Status::Captured, Some(Message::AltKeyPressed(state.is_alt_pressed)));
                 }
                 return (event::Status::Ignored, None);
 
             },
             Event::Keyboard(keyboard::Event::KeyPressed {key_code, ..}) => {
                 if key_code == KeyCode::RAlt || key_code == KeyCode::LAlt {
-                    state.block_selection = true;
+                    state.is_alt_pressed = true;
                     if let Some(selection) = &mut state.selection {
                         selection.block_selection = true;
                     }
+                    return (event::Status::Captured, Some(Message::AltKeyPressed(state.is_alt_pressed)));
                 }
                 return (event::Status::Ignored, None);
 
@@ -208,7 +210,7 @@ impl<'a> canvas::Program<Message> for BufferView {
                                 let top_line = (self.buf.get_first_visible_line() - self.scroll_back_line) as f32 * char_size.height.floor();
                                 let mut s = Selection::new(Point {x: cursor_position.x, y: cursor_position.y + top_line});
                                 s.update(&self.buf, &bounds, Point {x: cursor_position.x, y: cursor_position.y + top_line});
-                                s.block_selection = state.block_selection;
+                                s.block_selection = state.is_alt_pressed;
                                 state.selection = Some(s);
                                 state.button_pressed = true;
                                 return (event::Status::Captured, None);

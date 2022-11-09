@@ -3,6 +3,7 @@ use crate::{iemsi::{IEmsi}, com::Com, address::Address, auto_file_transfer::Patt
 
 pub struct AutoLogin {
     pub logged_in: bool,
+    pub disabled: bool,
     pub iemsi: Option<IEmsi>,
     last_char_recv: SystemTime,
     first_char_recv: Option<SystemTime>,
@@ -20,6 +21,7 @@ impl AutoLogin {
     pub fn new(login_expr: String) -> Self {
         Self {
             logged_in: false,
+            disabled: false,
             iemsi: Some(IEmsi::new()),
             first_char_recv: None,
             last_char_recv: SystemTime::now(),
@@ -93,7 +95,7 @@ impl AutoLogin {
     }
 
     pub fn try_login(&mut self, com: &mut Box<dyn Com>, adr: &Address, ch: u8) -> io::Result<()> {
-        if self.logged_in {
+        if self.logged_in || self.disabled {
             return Ok(());
         }
         if adr.user_name.len()  == 0 || adr.password.len() == 0 {
@@ -117,7 +119,7 @@ impl AutoLogin {
     }
 
     pub fn run_autologin(&mut self, com: &mut Box<dyn Com>, adr: &Address) -> io::Result<()> {
-        if self.logged_in && self.cur_expr_idx >= self.login_expr.len() {
+        if self.logged_in && self.cur_expr_idx >= self.login_expr.len() || self.disabled {
             return Ok(());
         }
         if adr.user_name.len()  == 0 || adr.password.len() == 0 {
@@ -141,18 +143,16 @@ impl AutoLogin {
                 b'\\' => {
                     self.cur_expr_idx += 1; // escape 
                     match self.login_expr[self.cur_expr_idx] {
-                        b'e' => { com.write(&[b'\x1B'])?; } , 
-                        b'n' => { com.write(&[b'\n'])?; } ,
+                        b'e' => { com.write(&[b'\x1B'])?; },
+                        b'n' => { com.write(&[b'\n'])?; },
                         b'r' => { com.write(&[b'\r'])?; } ,
-                        b't' => { com.write(&[b'\t'])?; } ,
+                        b't' => { com.write(&[b'\t'])?; },
                         ch => {
                             self.cur_expr_idx += 1; // escape 
                             return Err(io::Error::new(ErrorKind::InvalidData, format!("invalid escape sequence in autologin string: {:?}", char::from_u32(ch as u32))));
                         }
                     }
-
                     self.cur_expr_idx += 1; // escape 
-
                 }
                 ch => {
                     com.write(&[ch])?;

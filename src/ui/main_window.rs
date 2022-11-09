@@ -64,7 +64,8 @@ pub struct MainWindow {
     auto_login: AutoLogin,
     auto_file_transfer: AutoFileTransfer,
     // protocols
-    current_protocol: Option<(Box<dyn Protocol>, TransferState)>
+    current_protocol: Option<(Box<dyn Protocol>, TransferState)>,
+    is_alt_pressed: bool
 }
 
 const CTRL_MOD:u32 = 0b1000_0000_0000_0000_0000;
@@ -196,6 +197,7 @@ impl MainWindow
         match &mut self.com {
             None => Ok(()),
             Some(com) => {
+                self.auto_login.disabled |= self.is_alt_pressed;
                 if let Some(adr) = self.addresses.get(self.cur_addr) {
                     if let Err(err) = self.auto_login.run_autologin(com, adr) {
                         eprintln!("{}", err);
@@ -371,7 +373,8 @@ impl Application for MainWindow {
             font: Some(DEFAULT_FONT_NAME.to_string()),
             screen_mode: None,
             current_protocol: None,
-            handled_char: false
+            handled_char: false,
+            is_alt_pressed: false
         };
 
        //  view.set_screen_mode(&ScreenMode::DOS(80, 50));
@@ -501,6 +504,7 @@ impl Application for MainWindow {
                             }
                         }
                     }
+                    Message::AltKeyPressed(b) => self.is_alt_pressed = b,
                     Message::WheelScrolled(delta) => {
                         if let ScrollDelta::Lines { y, .. } = delta {
                             self.buffer_view.scroll(y as i32);
@@ -813,7 +817,7 @@ impl MainWindow {
                             self.connection_time = SystemTime::now();
                             let adr = self.addresses[i].clone();
                             self.auto_login = AutoLogin::new(adr.auto_login);
-
+                            self.auto_login.disabled = self.is_alt_pressed;
                             self.buffer_view.buf.clear();
                             if let Some(mode) = &adr.screen_mode {
                                 self.set_screen_mode(mode);

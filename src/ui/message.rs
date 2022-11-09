@@ -17,6 +17,7 @@ pub enum Message {
     KeyPressed(KeyCode, Modifiers),
     KeyReleased(KeyCode, Modifiers),
     WheelScrolled(ScrollDelta),
+    AltKeyPressed(bool),
     FontSelected(String),
     ScreenModeSelected(ScreenMode),
     SelectProtocol(ProtocolType, bool),
