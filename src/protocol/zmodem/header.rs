@@ -155,7 +155,7 @@ impl Header {
 
     pub fn write(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
-        // println!("Send header {}", self);
+        println!("Send header {}", self);
         com.write(&self.build())
     }
     
@@ -234,7 +234,7 @@ impl Header {
                     let crc32 = get_crc32(&data);
                     let check_crc32 = u32::from_le_bytes(header_data[5..9].try_into().unwrap());
                     if crc32 != check_crc32 {
-                        return Err(io::Error::new(io::ErrorKind::InvalidData, "CRC32 mismatch"));
+                        return Err(io::Error::new(ErrorKind::InvalidData, format!("crc32 mismatch got {:08X} expected {:08X}", crc32, check_crc32)));
                     }
                     Ok(Some(Header {
                         header_type: HeaderType::Bin32,
@@ -258,7 +258,7 @@ impl Header {
                         check_crc16 = check_crc16  << 4 | (from_hex(*b)? as u16);
                     }
                     if crc16 != check_crc16 {
-                        return Err(io::Error::new(io::ErrorKind::InvalidData, "CRC32 mismatch"));
+                        return Err(io::Error::new(ErrorKind::InvalidData, format!("crc16 mismatch got {:04X} expected {:04X}", crc16, check_crc16)));
                     }
                     // read rest
                     let eol  = com.read_char(Duration::from_secs(5))?;

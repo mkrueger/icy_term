@@ -12,7 +12,6 @@ pub enum SendState {
     SendZRQInit,
     SendZDATA,
     SendDataPackages,
-    SendZFILE,
     Finished
 }
 
@@ -23,6 +22,7 @@ pub struct Sz {
     cur_file_pos: usize,
     pub errors: usize,
     pub package_len: usize,
+    pub transfered_file: bool,
     data: Vec<u8>,
     last_send: SystemTime,
     retries: usize,
@@ -37,6 +37,7 @@ impl Sz {
             state: SendState::Idle,
             files: Vec::new(),
             cur_file: 0,
+            transfered_file: false,
             cur_file_pos: 0,
             errors: 0,
             data: Vec::new(),
@@ -47,7 +48,7 @@ impl Sz {
             package_len: block_length
         }
     }
- /*
+ 
     fn can_fdx(&self) -> bool {
         self.receiver_capabilities | super::zrinit_flag::CANFDX != 0
     }
@@ -71,7 +72,32 @@ impl Sz {
     }
     fn can_esc_8thbit(&self) -> bool {
         self.receiver_capabilities | super::zrinit_flag::ESC8 != 0
-    }*/
+    }
+
+    fn get_header_type(&self) -> HeaderType {
+        // Other headers fall back to crc16 
+        // And the original crc16 implementation has a bug which isn't shared with only a few implementations these days crc32 is safe.
+        HeaderType::Bin32
+/* 
+        if self.can_esc_control() || self.can_esc_8thbit() {
+            HeaderType::Hex
+        } else {
+            if self.can_use_crc32() {
+                HeaderType::Bin32
+            }  else {
+                HeaderType::Bin
+            }
+        }*/
+    }
+
+    fn encode_subpacket(&self, zcrc_byte: u8, data: &[u8]) -> Vec<u8> {
+        match self.get_header_type()  {
+            HeaderType::Bin |
+            HeaderType::Hex => Zmodem::encode_subpacket_crc16(zcrc_byte, data),
+            HeaderType::Bin32 => Zmodem::encode_subpacket_crc32(zcrc_byte, data)
+        }
+    }
+
     pub fn is_active(&self) -> bool
     {
         if let SendState::Idle = self.state {
@@ -118,19 +144,23 @@ impl Sz {
                         return Err(err);
                     }
                     self.errors += 1;
-                //    Header::empty(HeaderType::Bin32, FrameType::ZNAK).write(com)?;
                     return Ok(());
                 }
                 self.errors = 0;
 
                 let res = err?;
                 if let Some(res) = res {
-                    // println!("Recv header {} {:?}", res, self.state);
+                    //println!("Recv header {} {:?}", res, self.state);
                     self.last_send = SystemTime::UNIX_EPOCH;
                     match res.frame_type {
                         FrameType::ZRINIT => {
-                            self.next_file();
+                            if self.transfered_file {
+                                self.next_file();
+                                self.transfered_file  = false;
+                            }
+
                             if self.cur_file as usize >= self.files.len() {
+
                                 self.state = SendState::Finished;
                                 self.send_zfin(com, self.cur_file_pos as u32)?;
                                 self.cur_file_pos = 0;
@@ -138,6 +168,7 @@ impl Sz {
                             }
                             self.cur_file_pos = 0;
                             self.receiver_capabilities = res.f0();
+
                             /* 
                             if self.can_decrypt() {
                                 println!("receiver can decrypt");
@@ -163,17 +194,30 @@ impl Sz {
                             if self.can_esc_8thbit() {
                                 println!("receiver expects 8th bit to be escaped");
                             }*/
-                            self.state = SendState::SendZFILE;
-
+                            state.current_state = "Sending header";
+                            self.send_zfile(com, transfer_state)?;
+                            self.state = SendState::AwaitZRPos;
+                            return Ok(());
                         }
                         FrameType::ZNAK => {
                             transfer_state.write("Package error, resending file header...".to_string());
-                            self.state = SendState::SendZFILE;
                         }
                         FrameType::ZRPOS => {
                             self.cur_file_pos = res.number() as usize;
                             self.last_send = SystemTime::UNIX_EPOCH;
                             self.state = SendState::SendZDATA;
+
+                            if let SendState::SendDataPackages = self.state {
+                                if self.package_len > 512 {
+                                    //reinit transfer.
+                                    self.package_len /= 2;
+                                    self.state = SendState::SendZRQInit;
+                                    self.last_send = SystemTime::now();
+                            //        com.write(b"rz\r")?;
+                                    self.send_zrqinit(com)?;
+                                    return Ok(());
+                                }
+                            }
                         }
                         FrameType::ZFIN => {
                             self.state = SendState::Idle;
@@ -183,10 +227,19 @@ impl Sz {
                         FrameType::ZSKIP => {
                             transfer_state.write("Skip file".to_string());
                             self.next_file();
-                            self.state = SendState::SendZFILE;
+                            state.current_state = "Skipped… next file";
+                            self.send_zfile(com, transfer_state)?;
+                            return Ok(());
                         }
                         FrameType::ZACK => {
                             self.state = SendState::SendDataPackages;
+                        }
+                        FrameType::ZCHALLENGE => {
+                            Header::from_number(self.get_header_type(), FrameType::ZACK, res.number()).write(com)?;
+                        }
+                        FrameType::ZABORT | FrameType::ZFERR | FrameType::ZCAN => {
+                            Header::empty(self.get_header_type(), FrameType::ZFIN).write(com)?;
+                            self.state = SendState::Idle;
                         }
                         unk_frame => {
                             return Err(io::Error::new(ErrorKind::InvalidInput, format!("unsupported frame {:?}.", unk_frame))); 
@@ -211,7 +264,7 @@ impl Sz {
                 if self.cur_file_pos >= self.files[self.cur_file as usize].size {
                     let now = SystemTime::now();
                     if now.duration_since(self.last_send).unwrap().as_millis() > 6000 {
-                        Header::from_number(HeaderType::Bin32,FrameType::ZEOF, self.files[self.cur_file as usize].size as u32).write(com)?;
+                        Header::from_number(self.get_header_type(), FrameType::ZEOF, self.files[self.cur_file as usize].size as u32).write(com)?;
                         self.state = SendState::Await;
                         self.last_send = SystemTime::now();
                     }
@@ -229,39 +282,13 @@ impl Sz {
                     self.last_send = SystemTime::now();
                 }
             }
-            SendState::SendZFILE => {
-                state.current_state = "Sending header";
-                if self.cur_file < 0 {
-                    return Ok(());
-                }
-                let now = SystemTime::now();
-                if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
-                    let mut b = Vec::new();
-                    transfer_state.write("Send file header".to_string());
-                    b.extend_from_slice(&Header::from_flags(HeaderType::Bin32,FrameType::ZFILE, 0, 0, zfile_flag::ZMNEW, zfile_flag::ZCRESUM).build());
-
-                    let f = &self.files[self.cur_file as usize];
-                    self.data = f.get_data()?;
-                    let data = if f.date > 0 { 
-                        format!("{}\0{} {}\0", f.file_name, f.size, f.date).into_bytes()
-                    }  else {
-                        format!("{}\0{}\0", f.file_name, f.size).into_bytes()
-                    };
-                    b.extend_from_slice(&Zmodem::encode_subpacket_crc32(ZCRCW, &data));
-                    com.write(&b)?;
-                    self.cur_file_pos = 0;
-                    self.retries += 1;
-                    self.last_send = SystemTime::now();
-                    self.state = SendState::AwaitZRPos;
-                }
-            }
             SendState::SendZDATA => {
                 state.current_state = "Sending data";
                 if self.cur_file < 0 {
                     //println!("no file to send!");
                     return Ok(());
                 }
-                Header::from_number(HeaderType::Bin32,FrameType::ZDATA, self.cur_file_pos as u32).write(com)?;
+                Header::from_number(self.get_header_type(),FrameType::ZDATA, self.cur_file_pos as u32).write(com)?;
                 self.state = SendState::SendDataPackages;
             }
             SendState::SendDataPackages => {
@@ -269,21 +296,20 @@ impl Sz {
                 if self.cur_file < 0 {
                     return Ok(());
                 }
-                    let end_pos = min(self.data.len(), self.cur_file_pos + self.package_len);
-                    let crc_byte = if self.cur_file_pos + self.package_len < self.data.len() { ZCRCG } else { ZCRCE };
-                    p.extend_from_slice(&Zmodem::encode_subpacket_crc32(crc_byte, &self.data[self.cur_file_pos..end_pos]));
-                    self.cur_file_pos = end_pos;
+                let end_pos = min(self.data.len(), self.cur_file_pos + self.package_len);
+                let crc_byte = if self.cur_file_pos + self.package_len < self.data.len() { ZCRCG } else { ZCRCE };
+                p.extend_from_slice(&self.encode_subpacket(crc_byte, &self.data[self.cur_file_pos..end_pos]));
+                self.cur_file_pos = end_pos;
 
-                    if end_pos >= self.data.len() {
-                        p.extend_from_slice(&Header::from_number(HeaderType::Bin32,FrameType::ZEOF, end_pos as u32).build());
-                        transfer_state.write("Done sending file date.".to_string());
-                        state.current_state = "Done data";
-                        self.state = SendState::Finished;
-                        self.last_send = SystemTime::now();
-                    }
-
-                    com.write(&p)?;
-
+                if end_pos >= self.data.len() {
+                    p.extend_from_slice(&Header::from_number(self.get_header_type(), FrameType::ZEOF, end_pos as u32).build());
+                    transfer_state.write("Done sending file date.".to_string());
+                    state.current_state = "Done data";
+                    self.transfered_file = true;
+                    self.state = SendState::Finished;
+                    self.last_send = SystemTime::now();
+                }
+                com.write(&p)?;
             }
             SendState::Finished => {
                 state.current_state = "Finishing transfer…";
@@ -301,6 +327,32 @@ impl Sz {
         Ok(())
     }
 
+    fn send_zfile(&mut self, com: &mut Box<dyn Com>, transfer_state: &mut crate::protocol::FileTransferState) -> Result<(), io::Error> {
+        if self.cur_file < 0 {
+            return Ok(());
+        }
+        let mut b = Vec::new();
+        transfer_state.write("Send file header".to_string());
+        b.extend_from_slice(&Header::from_flags(self.get_header_type(), FrameType::ZFILE, 0, 0, zfile_flag::ZMNEW, zfile_flag::ZCRESUM).build());
+
+        let f = &self.files[self.cur_file as usize];
+        self.data = f.get_data()?;
+        let data = if f.date > 0 { 
+            let bytes_left = self.files.iter().skip(self.cur_file as usize + 1).fold(0, |b, f| b + f.size);
+            format!("{}\0{} {} 0 0 {} {}\0", f.file_name, f.size, f.date, self.files.len() - self.cur_file as usize, bytes_left).into_bytes()
+        }  else {
+            format!("{}\0{}\0", f.file_name, f.size).into_bytes()
+        };
+
+        b.extend_from_slice(&self.encode_subpacket(ZCRCW, &data));
+
+        com.write(&b)?;
+        self.cur_file_pos = 0;
+        self.last_send = SystemTime::now();
+        self.state = SendState::AwaitZRPos;
+        Ok(())
+    }
+
     pub fn send(&mut self, com: &mut Box<dyn Com>, files: Vec<FileDescriptor>) -> io::Result<()>
     {
         //println!("initiate zmodem send {}", files.len());
@@ -310,23 +362,24 @@ impl Sz {
         self.cur_file_pos = 0;
         self.last_send = SystemTime::now();
         self.retries = 0;
-        com.write(b"rz\r")?;
+//        com.write(b"rz\r")?;
         self.send_zrqinit(com)?;
         Ok(())
     }
 
     pub fn send_zrqinit(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
         self.cur_file = -1;
-        Header::empty(HeaderType::Hex,FrameType::ZRQINIT).write(com)?;
+        self.transfered_file = true;
+        Header::empty(self.get_header_type(), FrameType::ZRQINIT).write(com)?;
         Ok(())
     }
 
     pub fn send_zfin(&mut self, com: &mut Box<dyn Com>, size: u32) -> io::Result<()> {
-        Header::from_number(HeaderType::Hex,FrameType::ZFIN, size).write(com)?;
+        Header::from_number(self.get_header_type(), FrameType::ZFIN, size).write(com)?;
         self.state = SendState::Finished;
         self.last_send = SystemTime::now();
         Ok(())
     }
-
+    
 }
 

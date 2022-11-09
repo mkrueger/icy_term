@@ -215,7 +215,11 @@ impl MainWindow
                     self.buffer_view.print_char(Some(com.as_mut()), ch)?;
                     do_update = true;
                     if let Some((protocol_type, download)) = self.auto_file_transfer.try_transfer(ch) {
-                        self.initiate_file_transfer(protocol_type, download);
+//                        if !download {
+//                            self.mode = MainWindowMode::SelectProtocol(download);
+//                        } else {
+                            self.initiate_file_transfer(protocol_type, download);
+//                        }
                         return Ok(());
                     }
                 }

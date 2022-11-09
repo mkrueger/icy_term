@@ -3,7 +3,7 @@
 mod tests {
     use std::vec;
 
-    use crate::{protocol::{Zmodem, ZCRCE, FileDescriptor, Protocol}, com::test_com::TestChannel};
+    use crate::{protocol::{Zmodem, ZCRCE, FileDescriptor, Protocol, Header, HeaderType, FrameType, zmodem::rz::read_subpacket, str_from_null_terminated_utf8_unchecked}, com::test_com::TestChannel};
 
     #[test]
     fn test_encode_subpckg_crc32() {
@@ -40,5 +40,57 @@ mod tests {
         assert_eq!(1, rdata.len());
         assert_eq!("foo.bar", rdata[0].file_name.as_str());
         assert_eq!(&data, &rdata[0].get_data().unwrap());
+    }
+
+    #[test]
+    fn test_zmodem_simple_send() {
+        let mut send = Zmodem::new(512);
+        
+        let data = vec![1u8, 2, 5, 10];
+        let mut com = create_channel();
+
+        let mut send_state = send.initiate_send(&mut com.sender, vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())]).expect("error.");
+        let mut can_count = 0;
+        // sender          receiver
+        // ZRQINIT(0)
+        //                 ZRINIT
+        // ZFILE
+        //                 ZRPOS
+        // ZDATA data…
+        // ZEOF
+        //                 ZRINIT
+        // ZFIN
+        //                 ZFIN
+        // OO
+        send.update(&mut com.sender, &mut send_state).expect("error.");
+        let header = Header::read(&mut com.receiver, &mut can_count).unwrap().unwrap();
+        assert_eq!(FrameType::ZRQINIT, header.frame_type);
+        Header::from_flags(HeaderType::Hex, FrameType::ZRINIT, 0, 0, 0, 0x23).write(&mut com.receiver).unwrap();
+
+        send.update(&mut com.sender, &mut send_state).expect("error.");
+        let header = Header::read(&mut com.receiver, &mut can_count).unwrap().unwrap();
+        assert_eq!(FrameType::ZFILE, header.frame_type);
+        let (block, _, _) = read_subpacket(&mut com.receiver, 1024, header.header_type == HeaderType::Bin32).unwrap();
+        let file_name = str_from_null_terminated_utf8_unchecked(&block).to_string();
+        assert_eq!("foo.bar", file_name);
+        Header::from_number(HeaderType::Hex, FrameType::ZRPOS, 0).write(&mut com.receiver).unwrap();
+
+        send.update(&mut com.sender, &mut send_state).expect("error.");
+        send.update(&mut com.sender, &mut send_state).expect("error.");
+        let header = Header::read(&mut com.receiver, &mut can_count).unwrap().unwrap();
+        assert_eq!(FrameType::ZDATA, header.frame_type);
+        let (block, last, _) = read_subpacket(&mut com.receiver, 1024, header.header_type == HeaderType::Bin32).unwrap();
+        assert_eq!(true, last);
+        assert_eq!(data, block);
+
+        send.update(&mut com.sender, &mut send_state).expect("error.");
+        let header = Header::read(&mut com.receiver, &mut can_count).unwrap().unwrap();
+        assert_eq!(FrameType::ZEOF, header.frame_type);
+        Header::from_flags(HeaderType::Hex, FrameType::ZRINIT, 0, 0, 0, 0x23).write(&mut com.receiver).unwrap();
+
+        send.update(&mut com.sender, &mut send_state).expect("error.");
+        let header = Header::read(&mut com.receiver, &mut can_count).unwrap().unwrap();
+        assert_eq!(FrameType::ZFIN, header.frame_type);
+
     }
 }

@@ -45,23 +45,19 @@ impl Zmodem {
         Ok(())
     }
 
-    pub fn _encode_subpacket_crc16(zcrc_byte: u8, data:&[u8]) -> Vec<u8>
+    pub fn encode_subpacket_crc16(zcrc_byte: u8, data:&[u8]) -> Vec<u8>
     {
         let mut v = Vec::new();
-
-        let mut crc = get_crc16(data);
-        crc = update_crc16(crc, zcrc_byte);
-
+        let crc = icy_engine::get_crc16_buggy(data, zcrc_byte);
         append_zdle_encoded(&mut v, data);
-        append_zdle_encoded(&mut v, &[ZDLE, zcrc_byte]);
-        v.extend_from_slice(&u16::to_le_bytes(crc));
+        v.extend_from_slice(&[ZDLE, zcrc_byte]);
+        append_zdle_encoded(&mut v, &u16::to_le_bytes(crc));
         v
     }
 
     pub fn encode_subpacket_crc32(zcrc_byte: u8, data:&[u8]) -> Vec<u8>
     {
         let mut v = Vec::new();
-
         let mut crc = get_crc32(data);
         crc = !update_crc32(!crc, zcrc_byte);
 

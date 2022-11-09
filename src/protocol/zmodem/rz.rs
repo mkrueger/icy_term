@@ -1,6 +1,6 @@
 use std::{io::{self, ErrorKind}, time::{SystemTime, Duration}};
 
-use icy_engine::{get_crc32, update_crc32};
+use icy_engine::{get_crc32, update_crc32, get_crc16, update_crc16};
 
 use crate::{com::Com, protocol::{FileDescriptor, Zmodem, FrameType, ZCRCW, ZCRCG, HeaderType, Header, ZCRCE, TransferState, FileTransferState, str_from_null_terminated_utf8_unchecked}};
 
@@ -23,7 +23,9 @@ pub struct Rz {
     last_send: SystemTime,
     retries: usize,
     can_count: usize,
-    block_length: usize
+    block_length: usize,
+    sender_flags: u8,
+    use_crc32: bool
 }
 
 impl Rz {
@@ -36,7 +38,9 @@ impl Rz {
             block_length,
             retries: 0,
             can_count: 0,
-            errors: 0
+            errors: 0,
+            sender_flags: 0,
+            use_crc32: false
         }
     }
 
@@ -48,6 +52,15 @@ impl Rz {
             true 
         }
     }
+
+
+    fn get_header_type(&self) -> HeaderType {
+        // does it make sense to value the flags from ZSINIT here?
+        // Hex seems to be understood by all implementations and can be read by a human.
+        // The receiver doesn't send large files so binary headers don't make much sense for the subpackets.
+        HeaderType::Hex
+    }
+
 
     fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
@@ -102,10 +115,13 @@ impl Rz {
                     self.read_header(com, transfer_state)?;
                 }
                 RevcState::AwaitFileData => {
-                    let pck = self.read_subpacket(com)?;
+                    let pck = read_subpacket(com, self.block_length, self.use_crc32);
                     let last = self.files.len() - 1;
                     match pck {
-                        Some((block, is_last)) => {
+                        Ok((block, is_last, expect_ack)) => {
+                            if expect_ack {
+                                Header::empty(self.get_header_type(), FrameType::ZACK).write(com)?;
+                            }
                             if let Some(fd) = self.files.get_mut(last) {
                                 if let Some(data) = &mut fd.data {
                                     data.extend_from_slice(&block);
@@ -115,9 +131,12 @@ impl Rz {
                                 self.state = RevcState::AwaitEOF;
                             }
                         }
-                        None => {
+                        Err(err) => {
+                            self.errors += 1;
+                            transfer_state.write(err.to_string());
+
                             if let Some(fd) = self.files.get(last) {
-                                Header::from_number(HeaderType::Hex, FrameType::ZRPOS, fd.data.as_ref().unwrap().len() as u32).write(com)?;
+                                Header::from_number(self.get_header_type(), FrameType::ZRPOS, fd.data.as_ref().unwrap().len() as u32).write(com)?;
                                 self.state = RevcState::AwaitZDATA;
                             }
                             return Ok(());
@@ -132,7 +151,7 @@ impl Rz {
 
     fn request_zpos(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
     {
-        Header::from_number(HeaderType::Hex, FrameType::ZRPOS, 0).write(com)
+        Header::from_number(self.get_header_type(), FrameType::ZRPOS, 0).write(com)
     }
 
     fn read_header(&mut self, com: &mut Box<dyn Com>, transfer_state: &mut FileTransferState) -> io::Result<bool>
@@ -157,41 +176,58 @@ impl Rz {
             let res = result?;
             if let Some(res) = res {
                 // println!("\t\t\t\t\t\tRECV header {}", res);
+                self.use_crc32 = res.header_type == HeaderType::Bin32;
                 match res.frame_type {
+                    FrameType::ZSINIT => {
+                        let pck = read_subpacket(com, self.block_length, self.use_crc32);
+                        if pck.is_err() {
+                            Header::empty(self.get_header_type(), FrameType::ZNAK).write(com)?;
+                            return Ok(false);
+                        }
+                        // TODO: Atn sequence
+                        self.sender_flags = res.f0();
+                        Header::empty(self.get_header_type(), FrameType::ZACK).write(com)?;
+                        return Ok(true);
+                    }
+
                     FrameType::ZRQINIT => {
                         self.state = RevcState::SendZRINIT;
                         return Ok(true);
                     }
                     FrameType::ZFILE => {
-                        let pck = self.read_subpacket(com)?;
-                        if pck.is_none() {
-                            return Ok(false);
-                        }
-                        let (block, _) = pck.unwrap();
+                        let pck = read_subpacket(com, self.block_length, self.use_crc32);
 
-
-                        let file_name = str_from_null_terminated_utf8_unchecked(&block).to_string();
-                        if self.files.len() == 0 || self.files.last().unwrap().file_name != file_name {
-                            let mut fd =  FileDescriptor::new();
-                            fd.data = Some(Vec::new());
-                            fd.file_name = file_name;
-                            transfer_state.write(format!("Got file header for '{}'", fd.file_name));
-                            let mut file_size = 0;
-                            for b in &block[(fd.file_name.len() + 1)..] {
-                                if *b < b'0' || *b > b'9' {
-                                    break;
+                        match pck  {
+                            Ok((block, _, _)) => {
+                                let file_name = str_from_null_terminated_utf8_unchecked(&block).to_string();
+                                if self.files.len() == 0 || self.files.last().unwrap().file_name != file_name {
+                                    let mut fd =  FileDescriptor::new();
+                                    fd.data = Some(Vec::new());
+                                    fd.file_name = file_name;
+                                    transfer_state.write(format!("Got file header for '{}'", fd.file_name));
+                                    let mut file_size = 0;
+                                    for b in &block[(fd.file_name.len() + 1)..] {
+                                        if *b < b'0' || *b > b'9' {
+                                            break;
+                                        }
+                                        file_size = file_size * 10 + (*b  - b'0') as usize;
+                                    }
+                                    fd.size = file_size;
+                                    self.files.push(fd);
                                 }
-                                file_size = file_size * 10 + (*b  - b'0') as usize;
+        
+                                self.state = RevcState::AwaitZDATA;
+                                self.last_send = SystemTime::now();
+                                self.request_zpos(com)?;
+                                
+                                return Ok(true);
                             }
-                            fd.size = file_size;
-                            self.files.push(fd);
+                            Err(err) => {
+                                self.errors += 1;
+                                transfer_state.write(format!("Got no ZFILE subpacket: {}", err));
+                                return Ok(false);
+                            }
                         }
-
-                        self.state = RevcState::AwaitZDATA;
-                        self.last_send = SystemTime::now();
-                        self.request_zpos(com)?;
-                        
-                        return Ok(true);
                     }
                     FrameType::ZDATA => {
                         let offset = res.number();
@@ -199,13 +235,14 @@ impl Rz {
                             self.cancel(com)?;
                             return Err(io::Error::new(ErrorKind::InvalidInput, "Got ZDATA before ZFILE")); 
                         }
+                        let header_type = self.get_header_type();
                         let last = self.files.len() - 1;
                         if let Some(fd) = self.files.get_mut(last) {
                             if let Some(data) = &mut fd.data {
                                 if data.len() > offset as usize {
                                     data.resize(offset as usize, 0);
                                 } else if data.len() < offset as usize {
-                                    Header::from_number(HeaderType::Hex, FrameType::ZRPOS, data.len() as u32).write(com)?;
+                                    Header::from_number(header_type, FrameType::ZRPOS, data.len() as u32).write(com)?;
                                     return Ok(false);
                                 }
                                 self.state = RevcState::AwaitFileData;
@@ -221,10 +258,31 @@ impl Rz {
                         return Ok(true);
                     }
                     FrameType::ZFIN => {
-                        Header::empty(HeaderType::Hex, FrameType::ZFIN).write(com)?;
+                        Header::empty(self.get_header_type(), FrameType::ZFIN).write(com)?;
                         transfer_state.write("Transfer finished.".to_string());
                         self.state = RevcState::Idle;
                         return Ok(true);
+                    }
+                    FrameType::ZCHALLENGE => {
+                        // isn't specfied for receiver side.
+                        Header::from_number(self.get_header_type(), FrameType::ZACK, res.number()).write(com)?;
+                    }
+                    FrameType::ZFREECNT => {
+                        // 0 means unlimited space but sending free hd space to an unknown source is a security issue
+                        Header::from_number(self.get_header_type(), FrameType::ZACK, 0).write(com)?;
+                    }
+                    FrameType::ZCOMMAND => {
+                        // just protocol it.
+                        let package = read_subpacket(com, self.block_length, self.use_crc32);
+                        if let Ok((block, _, _)) = &package {
+                            let cmd = str_from_null_terminated_utf8_unchecked(&block).to_string();
+                            eprintln!("Remote wanted to execute {} on the system. (did not execute)", cmd);
+                        }
+                        Header::from_number(self.get_header_type(), FrameType::ZCOMPL, 0).write(com)?;
+                    }
+                    FrameType::ZABORT | FrameType::ZFERR | FrameType::ZCAN => {
+                        Header::empty(self.get_header_type(), FrameType::ZFIN).write(com)?;
+                        self.state = RevcState::Idle;
                     }
                     unk_frame => {
                         return Err(io::Error::new(ErrorKind::InvalidInput, format!("unsupported frame {:?}.", unk_frame))); 
@@ -233,88 +291,6 @@ impl Rz {
             }
         }
         Ok(false)
-    }
-
-    pub fn read_subpacket(&mut self, com: &mut Box<dyn Com>) -> io::Result<Option<(Vec<u8>, bool)>>
-    {
-        let mut data = Vec::with_capacity(self.block_length);
-        let d = Duration::from_secs(5);
-        loop {
-            let c = com.read_char(d)?;
-            match c {
-                ZDLE  => {
-                    let c2 = com.read_char(d)?;
-                    match c2 {
-                        ZDLEE => data.push(ZDLE),
-                        ESC_0X10 => data.push(0x10),
-                        ESC_0X90 => data.push(0x90),
-                        ESC_0X11 => data.push(0x11),
-                        ESC_0X91 => data.push(0x91),
-                        ESC_0X13 => data.push(0x13),
-                        ESC_0X93 => data.push(0x93),
-                        ESC_0X0D => data.push(0x0D),
-                        ESC_0X8D => data.push(0x8D),
-                        ZRUB0 => data.push(0x7F),
-                        ZRUB1 => data.push(0xFF),
-                        
-                        ZCRCE => { // CRC next, frame ends, header packet follows 
-                            if !self.check_crc(com, &data, c2)? { 
-                                Header::empty(HeaderType::Bin32, FrameType::ZNAK).write(com)?;
-                                return Ok(None); 
-                            }
-                            return Ok(Some((data, true)));
-                        },
-                        ZCRCG => { // CRC next, frame continues nonstop 
-                            if !self.check_crc(com, &data, c2)? { 
-                                Header::empty(HeaderType::Bin32, FrameType::ZNAK).write(com)?;
-                                return Ok(None); 
-                            }
-                            return Ok(Some((data, false)));
-                        },
-                        ZCRCQ => { // CRC next, frame continues, ZACK expected
-                            if !self.check_crc(com, &data, c2)? {
-                                Header::empty(HeaderType::Bin32, FrameType::ZNAK).write(com)?;
-                                return Ok(None);
-                            }
-                            Header::empty(HeaderType::Bin32, FrameType::ZACK).write(com)?;
-                            return Ok(Some((data, false)));
-                        },
-                        ZCRCW => { // CRC next, ZACK expected, end of frame
-                            if !self.check_crc(com, &data, c2)? { 
-                                Header::empty(HeaderType::Bin32, FrameType::ZNAK).write(com)?;
-                                return Ok(None);
-                             }
-                            Header::empty(HeaderType::Bin32, FrameType::ZACK).write(com)?;
-                            return Ok(Some((data, true)));
-                        },
-                        _ => {
-                            self.errors += 1;
-                            println!("don't understand subpacket {}/x{:X}", c2, c2);
-                            Header::empty(HeaderType::Bin32, FrameType::ZNAK).write(com)?;
-                            return Ok(None);
-                        }
-                    }
-                }
-                0x11 | 0x91 | 0x13 | 0x93 => {
-                    eprintln!("ignored byte");
-                }
-                _ => data.push(c)
-            }
-        }
-    }
-
-    fn check_crc(&mut self, com: &mut Box<dyn Com>, data: &Vec<u8>, zcrc_byte: u8)  -> io::Result<bool> {
-        let mut crc = get_crc32(data);
-        crc = !update_crc32(!crc, zcrc_byte);
-        let crc_bytes = read_zdle_bytes(com, 4)?;
-        let check_crc = u32::from_le_bytes(crc_bytes.try_into().unwrap());
-        if crc == check_crc {
-            Ok(true)
-        } else {
-            self.errors += 1;
-            Header::empty(HeaderType::Bin32, FrameType::ZNAK).write(com)?;
-            Ok(false)
-        }
     }
 
     pub fn recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
@@ -327,9 +303,82 @@ impl Rz {
     }
 
     pub fn send_zrinit(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
-        Header::from_flags(HeaderType::Hex,FrameType::ZRINIT, 0, 0, 0, 0x23).write(com)?;
+        Header::from_flags(self.get_header_type(), FrameType::ZRINIT, 0, 0, 0, 0x23).write(com)?;
         Ok(())
     }
 }
 
+pub fn read_subpacket(com: &mut Box<dyn Com>, block_length: usize, use_crc32: bool) -> io::Result<(Vec<u8>, bool, bool)>
+{
+    let mut data = Vec::with_capacity(block_length);
+    let d = Duration::from_secs(5);
+    loop {
+        let c = com.read_char(d)?;
+        match c {
+            ZDLE  => {
+                let c2 = com.read_char(d)?;
+                match c2 {
+                    ZDLEE => data.push(ZDLE),
+                    ESC_0X10 => data.push(0x10),
+                    ESC_0X90 => data.push(0x90),
+                    ESC_0X11 => data.push(0x11),
+                    ESC_0X91 => data.push(0x91),
+                    ESC_0X13 => data.push(0x13),
+                    ESC_0X93 => data.push(0x93),
+                    ESC_0X0D => data.push(0x0D),
+                    ESC_0X8D => data.push(0x8D),
+                    ZRUB0 => data.push(0x7F),
+                    ZRUB1 => data.push(0xFF),
+                    
+                    ZCRCE => { // CRC next, frame ends, header packet follows 
+                        check_crc(com, use_crc32, &data, c2)?;
+                        return Ok((data, true, false));
+                    },
+                    ZCRCG => { // CRC next, frame continues nonstop 
+                        check_crc(com, use_crc32, &data, c2)?;
+                        return Ok((data, false, false));
+                    },
+                    ZCRCQ => { // CRC next, frame continues, ZACK expected
+                        check_crc(com, use_crc32, &data, c2)?;
+                        return Ok((data, false, true));
+                    },
+                    ZCRCW => { // CRC next, ZACK expected, end of frame
+                        check_crc(com, use_crc32, &data, c2)?;
+                        return Ok((data, true, true));
+                    },
+                    _ => {
+                        return Err(io::Error::new(ErrorKind::InvalidData, format!("don't understand subpacket {}/x{:X}", c2, c2)));
+                    }
+                }
+            }
+            0x11 | 0x91 | 0x13 | 0x93 => {
+                // they should be ignored, not errored according to spec
+                eprintln!("ignored byte");
+            }
+            _ => data.push(c)
+        }
+    }
+}
 
+fn check_crc(com: &mut Box<dyn Com>, use_crc32: bool, data: &Vec<u8>, zcrc_byte: u8)  -> io::Result<bool> {
+    if use_crc32 {
+        let mut crc = get_crc32(data);
+        crc = !update_crc32(!crc, zcrc_byte);
+        let crc_bytes = read_zdle_bytes(com, 4)?;
+        let check_crc = u32::from_le_bytes(crc_bytes.try_into().unwrap());
+        if crc == check_crc {
+            Ok(true)
+        } else {
+            Err(io::Error::new(ErrorKind::InvalidData, format!("crc32 mismatch got {:08X} expected {:08X}", crc, check_crc)))
+        }
+    } else {
+        let mut crc = icy_engine::get_crc16_buggy(data, zcrc_byte);
+        let crc_bytes = read_zdle_bytes(com, 2)?;
+        let check_crc = u16::from_le_bytes(crc_bytes.try_into().unwrap());
+        if crc == check_crc {
+            Ok(true)
+        } else {
+            Err(io::Error::new(ErrorKind::InvalidData, format!("crc16 mismatch got {:04X} expected {:04X}", crc, check_crc)))
+        }
+    }
+}

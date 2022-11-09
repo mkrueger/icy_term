@@ -43,7 +43,10 @@ pub const ESC_0X93:u8 = 0x93 ^ 0x40;
 pub const ESC_0X0D:u8 = 0x0D ^ 0x40;
 pub const ESC_0X8D:u8 = 0x8D ^ 0x40;
 
-pub const ABORT_SEQ: [u8;19] = [24,24,24,24,24,24,24,24,8,8,8,8,8,8,8,8,8,8,0];
+pub const ABORT_SEQ: [u8;21] = [
+    0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
+    0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x00
+];
 
 pub mod zfile_flag {
     pub const ZCBIN:u8 = 1;	    /* Binary transfer - inhibit conversion */
@@ -75,6 +78,10 @@ pub mod zfile_flag {
 
 
 }
+pub mod zsinit_flag {
+    pub const TESCCTL: u8 = 0x40;
+    pub const TESC8: u8 = 0x80;
+}
 
 pub mod zrinit_flag {
     // Bit Masks for ZRINIT flags byte ZF0
@@ -86,6 +93,9 @@ pub mod zrinit_flag {
     pub const CANFC32: u8 = 0x20; // Receiver can use 32 bit Frame Check
     pub const ESCCTL: u8 = 0x40;  // Receiver expects ctl chars to be escaped
     pub const ESC8: u8 = 0x80;    // Receiver expects 8th bit to be escaped
+
+    pub const YOOHOO:u8 = 0xf1;
+    pub const TSYNC:u8  = 0xae;
 
     // Bit Masks for ZRINIT flags byte ZF1
     const CANVHDR: u8 = 0x01;	// Variable headers OK 
