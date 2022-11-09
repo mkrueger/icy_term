@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, env};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::net::{ToSocketAddrs};
 use clipboard::{ClipboardProvider, ClipboardContext};
@@ -74,7 +74,8 @@ static KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::Insert as u32, "\x1b[2~".as_bytes()),
     (KeyCode::Backspace as u32, &[8]),
     (KeyCode::Enter as u32, &[b'\r']),
-    (KeyCode::Delete as u32, "\x1b[3~".as_bytes()),
+//    (KeyCode::Delete as u32, "\x1b[3~".as_bytes()),
+    (KeyCode::Delete as u32, &[127]),
     (KeyCode::End as u32, "\x1b[4~".as_bytes()),
     (KeyCode::PageUp as u32, "\x1b[5~".as_bytes()),
     (KeyCode::PageDown as u32, "\x1b[6~".as_bytes()),
@@ -372,14 +373,22 @@ impl Application for MainWindow {
             current_protocol: None,
             handled_char: false
         };
+
        //  view.set_screen_mode(&ScreenMode::DOS(80, 50));
-        let txt = b"";
+        /* let txt = b"";
         for b in txt {
             if let Err(err) = view.buffer_view.buffer_parser.print_char(&mut view.buffer_view.buf, &mut view.buffer_view.caret, *b) {
                 eprintln!("{}", err);
             }
-        }
+        }*/
         
+        let args: Vec<String> = env::args().collect();
+        if let Some(arg) = args.get(1) {
+            println!("{}", arg);
+            view.addresses[0].address = arg.clone();
+            view.call_bbs(0);
+        }
+
         (view, Command::none())
     }
 
@@ -538,49 +547,7 @@ impl Application for MainWindow {
                     }
                     
                     Message::CallBBS(i) => {
-                        self.mode = MainWindowMode::Default;
-                        let mut adr = self.addresses[i].address.clone();
-                        if !adr.contains(":") {
-                            adr.push_str(":23");
-                        }
-                        self.print_log(format!("Connect to {}…", adr));
-                        let mut socket_addr = adr.to_socket_addrs();
-                        match &mut socket_addr {
-                            Ok(socket_addr) => {
-                                if let Some(addr) = &socket_addr.next() {
-                                    let t = TelnetCom::connect(addr, self.options.connect_timeout);
-                                    match t {
-                                        Ok(t) => {
-                                            self.buffer_view.clear();
-                                            self.com = Some(Box::new(t));
-                                            self.cur_addr = i;
-                                            self.connection_time = SystemTime::now();
-                                            let adr = self.addresses[i].clone();
-                                            self.auto_login = AutoLogin::new(adr.auto_login);
-
-                                            self.buffer_view.buf.clear();
-                                            if let Some(mode) = &adr.screen_mode {
-                                                self.set_screen_mode(mode);
-                                            } else {
-                                                self.set_screen_mode(&ScreenMode::DOS(80, 25));
-                                            }
-                                            if let Some(font) = &adr.font_name {
-                                                self.set_font(font);
-                                            }
-                                            self.buffer_view.buffer_parser = self.addresses[i].get_terminal_parser();
-                                        },
-                                        Err(err) => {
-                                            eprintln!("{}", err);
-                                            self.print_log(format!("Error: {:?}", err));
-                                        }
-                                    }
-                                }
-                            }
-                            Err(error) => {
-                                eprintln!("{}", error);
-                                self.print_log(format!("Socket error: {:?}", error));
-                            }
-                        }
+                        self.call_bbs(i);
                     },
 
                     Message::QuickConnectChanged(addr) => {
@@ -819,6 +786,55 @@ impl Application for MainWindow {
                 } else {
                      text("invalid").into()
                 }
+            }
+        }
+    }
+}
+
+impl MainWindow {
+    fn call_bbs(&mut self, i: usize) 
+    {
+        self.mode = MainWindowMode::Default;
+        let mut adr = self.addresses[i].address.clone();
+        if !adr.contains(":") {
+            adr.push_str(":23");
+        }
+        self.print_log(format!("Connect to {}…", adr));
+        let mut socket_addr = adr.to_socket_addrs();
+        match &mut socket_addr {
+            Ok(socket_addr) => {
+                if let Some(addr) = &socket_addr.next() {
+                    let t = TelnetCom::connect(addr, self.options.connect_timeout);
+                    match t {
+                        Ok(t) => {
+                            self.buffer_view.clear();
+                            self.com = Some(Box::new(t));
+                            self.cur_addr = i;
+                            self.connection_time = SystemTime::now();
+                            let adr = self.addresses[i].clone();
+                            self.auto_login = AutoLogin::new(adr.auto_login);
+
+                            self.buffer_view.buf.clear();
+                            if let Some(mode) = &adr.screen_mode {
+                                self.set_screen_mode(mode);
+                            } else {
+                                self.set_screen_mode(&ScreenMode::DOS(80, 25));
+                            }
+                            if let Some(font) = &adr.font_name {
+                                self.set_font(font);
+                            }
+                            self.buffer_view.buffer_parser = self.addresses[i].get_terminal_parser();
+                        },
+                        Err(err) => {
+                            eprintln!("{}", err);
+                            self.print_log(format!("Error: {:?}", err));
+                        }
+                    }
+                }
+            }
+            Err(error) => {
+                eprintln!("{}", error);
+                self.print_log(format!("Socket error: {:?}", error));
             }
         }
     }

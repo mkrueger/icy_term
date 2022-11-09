@@ -1,6 +1,6 @@
 use std::{io::{self, ErrorKind}, time::{SystemTime, Duration}};
 
-use icy_engine::{get_crc32, update_crc32, get_crc16, update_crc16};
+use icy_engine::{get_crc32, update_crc32};
 
 use crate::{com::Com, protocol::{FileDescriptor, Zmodem, FrameType, ZCRCW, ZCRCG, HeaderType, Header, ZCRCE, TransferState, FileTransferState, str_from_null_terminated_utf8_unchecked}};
 
@@ -372,7 +372,7 @@ fn check_crc(com: &mut Box<dyn Com>, use_crc32: bool, data: &Vec<u8>, zcrc_byte:
             Err(io::Error::new(ErrorKind::InvalidData, format!("crc32 mismatch got {:08X} expected {:08X}", crc, check_crc)))
         }
     } else {
-        let mut crc = icy_engine::get_crc16_buggy(data, zcrc_byte);
+        let crc = icy_engine::get_crc16_buggy(data, zcrc_byte);
         let crc_bytes = read_zdle_bytes(com, 2)?;
         let check_crc = u16::from_le_bytes(crc_bytes.try_into().unwrap());
         if crc == check_crc {

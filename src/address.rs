@@ -3,7 +3,7 @@ use directories::ProjectDirs;
 use icy_engine::{BufferParser, AnsiParser, AvatarParser, PETSCIIParser, AtasciiParser};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config};
 use std::path::Path;
-use crate::ui::{screen_modes::ScreenMode, phonebook};
+use crate::ui::{screen_modes::ScreenMode};
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

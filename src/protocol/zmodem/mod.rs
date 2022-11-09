@@ -9,7 +9,7 @@ mod header;
 pub use header::*;
 
 mod sz;
-use icy_engine::{get_crc16, get_crc32, update_crc32, update_crc16};
+use icy_engine::{ get_crc32, update_crc32};
 use sz::*;
 
 mod rz;

@@ -49,28 +49,28 @@ impl Sz {
         }
     }
  
-    fn can_fdx(&self) -> bool {
+    fn _can_fdx(&self) -> bool {
         self.receiver_capabilities | super::zrinit_flag::CANFDX != 0
     }
-    fn can_receive_data_during_io(&self) -> bool {
+    fn _can_receive_data_during_io(&self) -> bool {
         self.receiver_capabilities | super::zrinit_flag::CANOVIO != 0
     }
-    fn can_send_break(&self) -> bool {
+    fn _can_send_break(&self) -> bool {
         self.receiver_capabilities | super::zrinit_flag::CANBRK != 0
     }
-    fn can_decrypt(&self) -> bool {
+    fn _can_decrypt(&self) -> bool {
         self.receiver_capabilities | super::zrinit_flag::CANCRY != 0
     }
-    fn can_lzw(&self) -> bool {
+    fn _can_lzw(&self) -> bool {
         self.receiver_capabilities | super::zrinit_flag::CANLZW != 0
     }
-    fn can_use_crc32(&self) -> bool {
+    fn _can_use_crc32(&self) -> bool {
         self.receiver_capabilities | super::zrinit_flag::CANFC32 != 0
     }
-    fn can_esc_control(&self) -> bool {
+    fn _can_esc_control(&self) -> bool {
         self.receiver_capabilities | super::zrinit_flag::ESCCTL != 0
     }
-    fn can_esc_8thbit(&self) -> bool {
+    fn _can_esc_8thbit(&self) -> bool {
         self.receiver_capabilities | super::zrinit_flag::ESC8 != 0
     }
 
