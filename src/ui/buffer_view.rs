@@ -364,8 +364,8 @@ pub fn calc(buffer: &Buffer, bounds: &Rectangle) -> (f32, f32, f32, f32, iced::S
     }
 
     let char_size = iced::Size::new(font_dimensions.width as f32 * scale_x, font_dimensions.height as f32 * scale_y);
-    let w = buffer.get_buffer_width() as f32 * char_size.width;
-    let h = buffer.get_buffer_height() as f32 * char_size.height;
+    let w = buffer.get_buffer_width() as f32 * char_size.width.floor();
+    let h = buffer.get_buffer_height() as f32 * char_size.height.floor();
 
     let top_x = (bounds.width - w) / 2.0;
     let top_y = (bounds.height - h) / 2.0;
