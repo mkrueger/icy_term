@@ -51,28 +51,6 @@ impl Display for ScreenMode {
 }
 
 impl ScreenMode {
-    pub fn parse(str: &str) -> Option<Self>
-    {
-        match str { 
-            "C64" => Some(ScreenMode::C64),
-            "C128" | "C128#40" => Some(ScreenMode::C128(40)),
-            "C128#80" => Some(ScreenMode::C128(80)),
-            "Atari" => Some(ScreenMode::Atari),
-            "AtariXep80" => Some(ScreenMode::AtariXep80),
-            _ => {
-                if let Some(o) = str.find('x') {
-                    let x = i32::from_str_radix(&str[0..o], 10);
-                    let y = i32::from_str_radix(&str[o + 1..], 10);
-                    if x.is_ok() && y.is_ok() {
-                        return Some(ScreenMode::DOS(x.unwrap(), y.unwrap()));
-                    }
-                }
-                println!("Unknown screen mode :{}", str);
-                None
-            }
-        }
-    }
-
     pub fn set_mode(&self, font: &mut Option<String>, buffer_view: &mut BufferView)
     {
         let buf = &mut buffer_view.buf;

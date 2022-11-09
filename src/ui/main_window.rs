@@ -4,17 +4,16 @@ use std::net::{ToSocketAddrs};
 use clipboard::{ClipboardProvider, ClipboardContext};
 use iced::keyboard::{KeyCode};
 use iced::mouse::ScrollDelta;
-use iced::widget::{Canvas, column, row, button, text, pick_list};
-use iced::{executor, subscription, Event, keyboard, mouse};
+use iced::widget::{Canvas, column, button, text, Row};
+use iced::{executor, subscription, Event, keyboard, mouse, Alignment};
 use iced::{
     Application, Command, Element, Length, 
     Subscription, Theme,
 };
 use iced::widget::{
-     text_input, vertical_rule
+     text_input
 };
-use iced::{Alignment};
-use icy_engine::{SUPPORTED_FONTS, DEFAULT_FONT_NAME, BitFont};
+use icy_engine::{DEFAULT_FONT_NAME, BitFont};
 use rfd::FileDialog;
 
 use crate::auto_file_transfer::AutoFileTransfer;
@@ -25,7 +24,7 @@ use crate::com::{Com, TelnetCom};
 use crate::protocol::{ Protocol, FileDescriptor, TransferState};
 
 use super::{BufferView, Message};
-use super::screen_modes::{DEFAULT_MODES, ScreenMode};
+use super::screen_modes::{ ScreenMode};
 
 enum MainWindowMode {
     Default,
@@ -522,12 +521,12 @@ impl Application for MainWindow {
                             self.buffer_view.cache.clear();
                         }
                     }
-                    Message::FontSelected(font) => {
+                   /*  Message::FontSelected(font) => {
                         self.set_font(&font);
                     }
                     Message::ScreenModeSelected(mode) => {
                         self.set_screen_mode(&mode);
-                    }
+                    }*/
                     Message::Copy => { 
                         self.buffer_view.copy_to_clipboard();
                     }
@@ -699,80 +698,38 @@ impl Application for MainWindow {
                     .width(Length::Fill)
                     .height(Length::Fill);
 
-                let log_info = if self.log_file.len() == 0  { text("Ready.")} else { text(&self.log_file[self.log_file.len() - 1])}.width(Length::Fill).into();
-                let all_fonts = SUPPORTED_FONTS.map(|s| s.to_string()).to_vec();
-                let font_pick_list = pick_list(
-                    all_fonts,
-                    Some(self.get_font_name()),
-                    Message::FontSelected
-                );
+               
+                
+                let mut title_row = Row::new()
+                     .push(button("Phonebook")
+                        .on_press(Message::ShowPhonebook));
 
-                let screen_mode_pick_list: iced_native::widget::pick_list::PickList<'_, ScreenMode, Message, iced::Renderer> = pick_list(
-                    DEFAULT_MODES.to_vec(),
-                    Some(self.get_screen_mode()),
-                    Message::ScreenModeSelected
-                );
+                if self.com.is_some()  {
+                    title_row = title_row.push(button("Upload")
+                    .on_press(Message::InitiateFileTransfer(false)));
+                    title_row = title_row.push(button("Download")
+                    .on_press(Message::InitiateFileTransfer(true)));
+
+                    if !self.auto_login.logged_in {
+                        title_row = title_row.push(button("Send login")
+                        .on_press(Message::SendLogin));
+    
+                    }
+
+                    title_row = title_row.push(button("Hangup")
+                    .on_press(Message::Hangup));
+
+                }
+
+                let log_info = if self.log_file.len() == 0  { text("")} else { text(&self.log_file[self.log_file.len() - 1])}
+                .size(16)
+                .width(Length::Fill);
+                title_row = title_row.push(log_info);
 
                 column(vec![
-                    if !self.auto_login.logged_in && self.com.is_some() && self.addresses[self.cur_addr].user_name.len() > 0 {
-                        row![
-                            button("Phonebook")
-                                .on_press(Message::ShowPhonebook),
-                            button("Upload")
-                                .on_press(Message::InitiateFileTransfer(false)),
-                            button("Download")
-                                .on_press(Message::InitiateFileTransfer(true)),
-                            button("Send login")
-                                .on_press(Message::SendLogin),
-                            button("Hangup")
-                                .on_press(Message::Hangup)
-                        ]
-                    } else {
-                        if  self.com.is_some()  {
-                            row![
-                                button("Phonebook")
-                                    .on_press(Message::ShowPhonebook),
-                                button("Upload")
-                                    .on_press(Message::InitiateFileTransfer(false)),
-                                button("Download")
-                                    .on_press(Message::InitiateFileTransfer(true)),
-                                button("Hangup")                            
-                                    .on_press(Message::Hangup) 
-                            ]
-                        } else {
-                            row![
-                                button("Phonebook")
-                                    .on_press(Message::ShowPhonebook),
-                                button("Upload")
-                                    .on_press(Message::InitiateFileTransfer(false)),
-                                button("Download")
-                                    .on_press(Message::InitiateFileTransfer(true)),
-                            ]
-                        }
-                    }.padding(10).spacing(20).into(),
-                    c.into(),
-                    if self.com.is_none() {
-                        row(vec![
-                            log_info,
-                            vertical_rule(10).into(),
-                            font_pick_list.into(),
-                            screen_mode_pick_list.into(),
-                        ])
-                    } else {
-
-                        row(vec![
-                            log_info,
-                            vertical_rule(10).into(),
-                            font_pick_list.into(),
-                            screen_mode_pick_list.into(),
-                        ])
-                    }
-                    .padding(8)
-                    .spacing(20)
-                    .height(Length::Units(40))
-                    .align_items(Alignment::Start)
-                    .into()
-                ]).spacing(8)
+                    title_row.align_items(Alignment::Center) .spacing(8).padding(8).into(),
+                    c.into()
+                ])
                 .into()
             }
             MainWindowMode::ShowPhonebook => {   
@@ -828,10 +785,12 @@ impl MainWindow {
                                 self.set_font(font);
                             }
                             self.buffer_view.buffer_parser = self.addresses[i].get_terminal_parser();
+                            self.print_log("Logged in".to_string());
+
                         },
                         Err(err) => {
                             eprintln!("{}", err);
-                            self.print_log(format!("Error: {:?}", err));
+                            self.print_log(format!("{}", err));
                             self.com = None;
                         }
                     }
