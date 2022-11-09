@@ -828,6 +828,7 @@ impl MainWindow {
                         Err(err) => {
                             eprintln!("{}", err);
                             self.print_log(format!("Error: {:?}", err));
+                            self.com = None;
                         }
                     }
                 }

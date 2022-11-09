@@ -66,6 +66,7 @@ impl BufferView {
 
     pub fn print_char(&mut self, com: Option<&mut dyn Com>, c: u8) -> io::Result<()>
     {
+        self.selection = None;
         self.scroll_back_line = 0;
   /* 
         match c  {

@@ -400,7 +400,8 @@ pub struct IEmsi {
     pub got_invavid_isi: bool,
     isi_data: Vec<u8>,
 
-    pub aborted: bool
+    pub aborted: bool,
+    logged_in: bool
 }
 
 // **EMSI_ISI<len><data><crc32><CR>
@@ -423,7 +424,8 @@ impl IEmsi {
             isi_check_crc:0,
             got_invavid_isi: false,
             isi_data:Vec::new(),
-            aborted: false
+            aborted: false,
+            logged_in: false
         }
     }
    
@@ -540,6 +542,16 @@ impl IEmsi {
         if self.aborted {
             return Ok(false);
         }
+        if let Some(data) = self.advance_char(adr, ch)? {
+            com.write(&data)?;
+        }
+        Ok(self.logged_in)
+    }
+
+    pub fn advance_char(&mut self, adr: &Address, ch: u8) -> io::Result<Option<Vec<u8>>> {
+        if self.aborted {
+            return Ok(None);
+        }
         self.parse_char(ch)?;
         if self.irq_requested {
             self.irq_requested = false;
@@ -547,20 +559,20 @@ impl IEmsi {
             let mut data = EmsiICI::new();
             data.name = adr.user_name.clone();
             data.password = adr.password.clone();
-            com.write(&data.encode().unwrap())?;
+            return Ok(Some(data.encode()?));
         } else if let Some(isi) = &self.isi  {
             // self.log_file.push("Receiving valid IEMSI server info…".to_string());
             // self.log_file.push(format!("Name:{} Location:{} Operator:{} Notice:{} System:{}", isi.name, isi.location, isi.operator, isi.notice, isi.id));
-            println!("Name:{} Location:{} Operator:{} Notice:{} System:{}", isi.name, isi.location, isi.operator, isi.notice, isi.id);
-            com.write(EMSI_2ACK)?;
+            //println!("Name:{} Location:{} Operator:{} Notice:{} System:{}", isi.name, isi.location, isi.operator, isi.notice, isi.id);
             self.aborted = true;
-            return Ok(true);
+            self.logged_in = true;
+            return Ok(Some(EMSI_2ACK.to_vec()));
         } else if self.got_invavid_isi  {
             self.got_invavid_isi = false;
             // self.log_file.push("Got invalid IEMSI server info…".to_string());
-            com.write(EMSI_2ACK)?;
             self.aborted = true;
-            return Ok(true);
+            self.logged_in = true;
+            return Ok(Some(EMSI_2ACK.to_vec()));
         } else if self.nak_requested {
             self.nak_requested = false;
             if self.retries < 2  {
@@ -568,15 +580,15 @@ impl IEmsi {
                 let mut data = EmsiICI::new();
                 data.name = adr.user_name.clone();
                 data.password = adr.password.clone();
-                com.write(&data.encode().unwrap())?;
                 self.retries += 1;
+                return Ok(Some(data.encode()?));
             } else  {
                 // self.log_file.push("IEMSI aborted…".to_string());
-                com.write(EMSI_IIR)?;
                 self.aborted = true;
+                return Ok(Some(EMSI_IIR.to_vec()));
             }
         }
-        Ok(false)
+        Ok(None)
     }
 
     fn reset_sequences(&mut self) {
@@ -797,6 +809,24 @@ mod tests {
         };
         let result = ici.encode().unwrap();
         assert_eq!("**EMSI_ICI0089{fooboar}{foo}{Unit test}{-Unpublished-}{-Unpublished-}{bar}{}{ANSI,24,80,0}{ZAP,ZMO,KER}{CHT,TAB,ASCII8}{HOT,MORE,FSED,NEWS,CLR}{Rust}{}29535C6F\r**EMSI_ACKA490\r**EMSI_ACKA490\r", std::str::from_utf8(&result).unwrap());
+    }
+
+
+    #[test]
+    fn test_auto_logon() {
+        let mut state = IEmsi::new();
+        let mut adr = Address::new();
+        adr.user_name = "foo".to_string();
+        adr.password = "bar".to_string();
+
+        let mut back_data = Vec::new();
+        for b in EMSI_IRQ {
+            if let Some(data) = state.advance_char( &adr, *b).unwrap() {
+                back_data = data;
+            }
+        }
+        let data = format!("EMSI_ICI0093{{foo}}{{}}{{.........}}{{-Unpublished-}}{{-Unpublished-}}{{bar}}{{}}{{ANSI,24,80,0}}{{ZAP,ZMO,KER}}{{CHT,TAB,ASCII8}}{{HOT,MORE,FSED,NEWS,CLR}}{{-Icy-Term-,{},iced}}{{}}", VERSION).as_bytes().to_vec();
+        assert_eq!(format!("**EMSI_ICI0093{{foo}}{{}}{{.........}}{{-Unpublished-}}{{-Unpublished-}}{{bar}}{{}}{{ANSI,24,80,0}}{{ZAP,ZMO,KER}}{{CHT,TAB,ASCII8}}{{HOT,MORE,FSED,NEWS,CLR}}{{-Icy-Term-,{},iced}}{{}}{}\r**EMSI_ACKA490\r**EMSI_ACKA490\r", VERSION, get_crc32string(&data)), String::from_utf8(back_data).unwrap());
     }
 }
 

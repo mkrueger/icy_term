@@ -120,7 +120,7 @@ impl AutoLogin {
         if self.logged_in && self.cur_expr_idx >= self.login_expr.len() {
             return Ok(());
         }
-        if adr.user_name.len()  == 0 || adr.password.len() == 0|| adr.auto_login.len() == 0 {
+        if adr.user_name.len()  == 0 || adr.password.len() == 0 {
             self.logged_in = true;
             return Ok(());
         }
@@ -141,9 +141,9 @@ impl AutoLogin {
                 b'\\' => {
                     self.cur_expr_idx += 1; // escape 
                     match self.login_expr[self.cur_expr_idx] {
-                        b'e' => { com.write(&[b'\x1B'])?; println!("send escape"); } , 
+                        b'e' => { com.write(&[b'\x1B'])?; } , 
                         b'n' => { com.write(&[b'\n'])?; } ,
-                        b'r' => { com.write(&[b'\r'])?; println!("send return");  } ,
+                        b'r' => { com.write(&[b'\r'])?; } ,
                         b't' => { com.write(&[b'\t'])?; } ,
                         ch => {
                             self.cur_expr_idx += 1; // escape 
