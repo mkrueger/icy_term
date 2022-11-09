@@ -43,13 +43,15 @@ impl Selection {
         let (top_x, top_y, _, _, char_size) = calc(buffer, &bounds);
         let start = self.anchor_start_pt;
         let end  = cursor_pos;
+        let last_line = buffer.get_last_visible_line() - 1;
+
         self.anchor = Position::from(
-            ((start.x - top_x) / char_size.width.floor()) as i32,
-            ((start.y - top_y) / char_size.height.floor()) as i32
+            min(buffer.get_buffer_width(), max(0, ((start.x - top_x) / char_size.width.floor()) as i32)),
+            min(last_line, max(0, ((start.y - top_y) / char_size.height.floor()) as i32))
         );
         self.lead = Position::from(
-            ((end.x - top_x) / char_size.width.floor()) as i32,
-            ((end.y - top_y) / char_size.height.floor()) as i32
+            min(buffer.get_buffer_width(), max(0, ((end.x - top_x) / char_size.width.floor()) as i32)),
+            min(last_line , max(0,((end.y - top_y) / char_size.height.floor()) as i32))
         );
         self.selection_start = Position::from(min(self.anchor.x, self.lead.x), min(self.anchor.y, self.lead.y));
         self.selection_end = Position::from(max(self.anchor.x, self.lead.x), max(self.anchor.y, self.lead.y));
@@ -74,8 +76,8 @@ impl Selection {
                     x: top_x + self.selection_start.x as f32 * char_size.width, 
                     y: top_y + (self.selection_start.y - top_line) as f32 * char_size.height }, 
                 iced::Size {
-                    width: (self.selection_end.x - self.selection_start.x + 1) as f32 * char_size.width,
-                    height: (self.selection_end.y - self.selection_start.y + 1) as f32 * char_size.height}
+                    width: (self.selection_end.x - self.selection_start.x) as f32 * char_size.width,
+                    height: (self.selection_end.y - self.selection_start.y) as f32 * char_size.height}
             );
             frame.fill(&line, fill_color);
             frame.stroke(&line, create_stroke());

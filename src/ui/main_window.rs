@@ -353,7 +353,18 @@ impl Application for MainWindow {
     }
 
     fn title(&self) -> String {
-        format!("iCY TERM {}", VERSION)
+        let str = if self.com.is_some() {
+            let d = SystemTime::now().duration_since(self.connection_time).unwrap();
+            let sec     = d.as_secs();
+            let minutes = sec / 60;
+            let hours   = minutes  / 60;
+            let cur = &self.addresses[self.cur_addr];
+            
+            format!("Connected {:02}:{:02}:{:02} to {}", hours, minutes % 60, sec % 60, if cur.system_name.len() > 0 { &cur.system_name } else { &cur.address })
+        } else { 
+            "Offline".to_string()
+        };
+        format!("iCY TERM {} - {}", VERSION, str)
     }
 
     fn new(_flags: ()) ->  (Self, Command<Message>) {
@@ -744,24 +755,13 @@ impl Application for MainWindow {
                         row(vec![
                             log_info,
                             vertical_rule(10).into(),
-                            text("Offline").into(),
-                            vertical_rule(10).into(),
                             font_pick_list.into(),
                             screen_mode_pick_list.into(),
                         ])
                     } else {
-                        let d = SystemTime::now().duration_since(self.connection_time).unwrap();
-                        let sec     = d.as_secs();
-                        let minutes = sec / 60;
-                        let hours   = minutes  / 60;
-                        let cur = &self.addresses[self.cur_addr];
 
                         row(vec![
                             log_info,
-                            vertical_rule(10).into(),
-                            text(if cur.system_name.len() > 0 { &cur.system_name } else { &cur.address }).into(),
-                            vertical_rule(10).into(),
-                            text(format!("Connected {:02}:{:02}:{:02}", hours, minutes % 60, sec % 60)).into(),
                             vertical_rule(10).into(),
                             font_pick_list.into(),
                             screen_mode_pick_list.into(),
