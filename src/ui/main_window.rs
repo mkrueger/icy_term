@@ -67,34 +67,36 @@ pub struct MainWindow {
     is_alt_pressed: bool
 }
 
-const CTRL_MOD:u32 = 0b1000_0000_0000_0000_0000;
+const CTRL_MOD:u32  = 0b1000_0000_0000_0000_0000;
+const SHIFT_MOD:u32 = 0b0100_0000_0000_0000_0000;
 
 static KEY_MAP: &[(u32, &[u8])] = &[
-    (KeyCode::Home as u32, "\x1b[1~".as_bytes()),
-    (KeyCode::Insert as u32, "\x1b[2~".as_bytes()),
+    (KeyCode::Home as u32, b"\x1b[H"),
+    (KeyCode::Insert as u32, b"\x1b[@"),
     (KeyCode::Backspace as u32, &[8]),
     (KeyCode::Enter as u32, &[b'\r']),
-//    (KeyCode::Delete as u32, "\x1b[3~".as_bytes()),
+    (KeyCode::Tab as u32 | SHIFT_MOD, b"\x1b[Z"),
     (KeyCode::Delete as u32, &[127]),
-    (KeyCode::End as u32, "\x1b[4~".as_bytes()),
-    (KeyCode::PageUp as u32, "\x1b[5~".as_bytes()),
-    (KeyCode::PageDown as u32, "\x1b[6~".as_bytes()),
-    (KeyCode::F1 as u32, "\x1b[11~".as_bytes()),
-    (KeyCode::F2 as u32, "\x1b[12~".as_bytes()),
-    (KeyCode::F3 as u32, "\x1b[13~".as_bytes()),
-    (KeyCode::F4 as u32, "\x1b[14~".as_bytes()),
-    (KeyCode::F5 as u32, "\x1b[15~".as_bytes()),
-    (KeyCode::F6 as u32, "\x1b[17~".as_bytes()),
-    (KeyCode::F7 as u32, "\x1b[18~".as_bytes()),
-    (KeyCode::F8 as u32, "\x1b[19~".as_bytes()),
-    (KeyCode::F9 as u32, "\x1b[20~".as_bytes()),
-    (KeyCode::F10 as u32, "\x1b[21~".as_bytes()),
-    (KeyCode::F11 as u32, "\x1b[23~".as_bytes()),
-    (KeyCode::F12 as u32, "\x1b[24~".as_bytes()),
-    (KeyCode::Up as u32, "\x1b[A".as_bytes()),
-    (KeyCode::Down as u32, "\x1b[B".as_bytes()),
-    (KeyCode::Right as u32, "\x1b[C".as_bytes()),
-    (KeyCode::Left as u32, "\x1b[D".as_bytes()),
+    (KeyCode::Insert as u32, b"\x1b[@"),
+    (KeyCode::End as u32, b"\x1b[K"),
+    (KeyCode::PageUp as u32, b"\x1b[V"),
+    (KeyCode::PageDown as u32, b"\x1b[U"),
+    (KeyCode::F1 as u32, b"\x1b[OP"),
+    (KeyCode::F2 as u32, b"\x1b[OQ"),
+    (KeyCode::F3 as u32, b"\x1b[OR"),
+    (KeyCode::F4 as u32, b"\x1b[OS"),
+    (KeyCode::F5 as u32, b"\x1b[OT"),
+    (KeyCode::F6 as u32, b"\x1b[17~"),
+    (KeyCode::F7 as u32, b"\x1b[18~"),
+    (KeyCode::F8 as u32, b"\x1b[19~"),
+    (KeyCode::F9 as u32, b"\x1b[20~"),
+    (KeyCode::F10 as u32, b"\x1b[21~"),
+    (KeyCode::F11 as u32, b"\x1b[23~"),
+    (KeyCode::F12 as u32, b"\x1b[24~"),
+    (KeyCode::Up as u32, b"\x1b[A"),
+    (KeyCode::Down as u32, b"\x1b[B"),
+    (KeyCode::Right as u32, b"\x1b[C"),
+    (KeyCode::Left as u32, b"\x1b[D"),
     
     (KeyCode::A as u32 | CTRL_MOD, &[1]),
     (KeyCode::B as u32 | CTRL_MOD, &[2]),
@@ -388,13 +390,13 @@ impl Application for MainWindow {
         };
 
        //  view.set_screen_mode(&ScreenMode::DOS(80, 50));
-        /* let txt = b"";
-        for b in txt {
-            if let Err(err) = view.buffer_view.buffer_parser.print_char(&mut view.buffer_view.buf, &mut view.buffer_view.caret, *b) {
-                eprintln!("{}", err);
-            }
-        }*/
-        
+       /*let txt = b"";
+       for b in txt {
+           if let Err(err) = view.buffer_view.buffer_parser.print_char(&mut view.buffer_view.buf, &mut view.buffer_view.caret, *b) {
+               eprintln!("{}", err);
+           }
+       }*/
+      
         let args: Vec<String> = env::args().collect();
         if let Some(arg) = args.get(1) {
             println!("{}", arg);
@@ -479,6 +481,9 @@ impl Application for MainWindow {
                         let mut code = code as u32;
                         if modifier.control() || modifier.command() {
                             code |= CTRL_MOD;
+                        }
+                        if modifier.shift() {
+                            code |= SHIFT_MOD;
                         }
                         let map = match self.buffer_view.petscii {
                             super::BufferInputMode::CP437 => KEY_MAP,

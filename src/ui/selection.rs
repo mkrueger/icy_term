@@ -70,7 +70,18 @@ impl Selection {
         let top_line = buffer.get_first_visible_line() - scroll_back_line;
         let fill_color = Color::from_rgba8(0x24, 0xCC, 0xDD, 0.05);
 
-        if self.block_selection || self.selection_start.y == self.selection_end.y {
+        if self.selection_start.y == self.selection_end.y {
+            let line = Path::rectangle(
+                Point { 
+                    x: top_x + self.selection_start.x as f32 * char_size.width, 
+                    y: top_y + (self.selection_start.y - top_line) as f32 * char_size.height }, 
+                iced::Size {
+                    width: (self.selection_end.x - self.selection_start.x) as f32 * char_size.width,
+                    height: char_size.height}
+            );
+            frame.fill(&line, fill_color);
+            frame.stroke(&line, create_stroke());
+        } else if self.block_selection {
             let line = Path::rectangle(
                 Point { 
                     x: top_x + self.selection_start.x as f32 * char_size.width, 

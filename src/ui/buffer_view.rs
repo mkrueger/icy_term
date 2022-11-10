@@ -68,7 +68,8 @@ impl BufferView {
     {
         self.selection = None;
         self.scroll_back_line = 0;
-  /* 
+  
+        /* 
         match c  {
             b'\\' => print!("\\\\"),
             b'\n' => print!("\\n"),
