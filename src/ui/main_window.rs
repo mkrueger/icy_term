@@ -685,6 +685,10 @@ impl Application for MainWindow {
             (Event::Keyboard(keyboard::Event::KeyPressed {key_code, modifiers, ..}), iced::event::Status::Ignored) => Some(Message::KeyPressed(key_code, modifiers)),
             (Event::Keyboard(keyboard::Event::KeyReleased {key_code, modifiers, ..}), iced::event::Status::Ignored) => Some(Message::KeyReleased(key_code, modifiers)),
             (Event::Mouse(mouse::Event::WheelScrolled {delta, ..}), iced::event::Status::Ignored) => Some(Message::WheelScrolled(delta)),
+            /*(Event::Window(ev), iced::event::Status::Ignored) => {
+                println!("{:?}",ev );
+                None
+            },*/
 
             _ => None,
         });
