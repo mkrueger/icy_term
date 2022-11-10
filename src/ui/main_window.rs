@@ -287,14 +287,14 @@ impl MainWindow
     {
         let translated_char = self.buffer_view.buffer_parser.from_unicode(ch);
         if let Some(com) = &mut self.com {
-            let state = com.write(&[translated_char]);
+            let state = com.write(&[translated_char as u8]);
             if let Err(err) = state {
                 eprintln!("{}", err);
                 self.print_log(format!("Error: {:?}", err));
                 self.com = None;
             }
         } else {
-            let r = self.buffer_view.print_char(None, translated_char);
+            let r = self.buffer_view.print_char(None, translated_char as u8);
             self.print_result(&r);
             self.buffer_view.cache.clear();
         }

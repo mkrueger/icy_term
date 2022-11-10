@@ -27,10 +27,10 @@ impl Selection {
         Self {
             anchor_start_pt: pos,
             block_selection: false,
-            selection_start: Position::new(),
-            selection_end: Position::new(),
-            anchor: Position::new(),
-            lead: Position::new(),
+            selection_start: Position::default(),
+            selection_end: Position::default(),
+            anchor: Position::default(),
+            lead: Position::default(),
         }
     }
     pub fn is_empty(&self) -> bool {
@@ -45,16 +45,16 @@ impl Selection {
         let end  = cursor_pos;
         let last_line = buffer.get_last_visible_line() - 1;
 
-        self.anchor = Position::from(
+        self.anchor = Position::new(
             min(buffer.get_buffer_width(), max(0, ((start.x - top_x) / char_size.width.floor()) as i32)),
             min(last_line, max(0, ((start.y - top_y) / char_size.height.floor()) as i32))
         );
-        self.lead = Position::from(
+        self.lead = Position::new(
             min(buffer.get_buffer_width(), max(0, ((end.x - top_x) / char_size.width.floor()) as i32)),
             min(last_line , max(0,((end.y - top_y) / char_size.height.floor()) as i32))
         );
-        self.selection_start = Position::from(min(self.anchor.x, self.lead.x), min(self.anchor.y, self.lead.y));
-        self.selection_end = Position::from(max(self.anchor.x, self.lead.x), max(self.anchor.y, self.lead.y));
+        self.selection_start = Position::new(min(self.anchor.x, self.lead.x), min(self.anchor.y, self.lead.y));
+        self.selection_end = Position::new(max(self.anchor.x, self.lead.x), max(self.anchor.y, self.lead.y));
     }
 
     pub fn draw(&self,buffer: &Buffer, scroll_back_line: i32, bounds: &Rectangle) -> Geometry {

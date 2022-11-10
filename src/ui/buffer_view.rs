@@ -103,8 +103,8 @@ impl BufferView {
         if selection.block_selection {
             for y in selection.selection_start.y..=selection.selection_end.y  {
                 for x in selection.selection_start.x..selection.selection_end.x {
-                    let ch = self.buf.get_char(Position::from(x, y)).unwrap();
-                    res.push(self.buffer_parser.to_unicode(ch.char_code));
+                    let ch = self.buf.get_char(Position::new(x, y)).unwrap();
+                    res.push(self.buffer_parser.to_unicode(ch.ch));
                 }
                 res.push('\n');
             }
@@ -117,25 +117,25 @@ impl BufferView {
             };
             if start.y != end.y {
                 for x in start.x..self.buf.get_line_length(start.y)  {
-                    let ch = self.buf.get_char(Position::from(x, start.y)).unwrap();
-                    res.push(self.buffer_parser.to_unicode(ch.char_code));
+                    let ch = self.buf.get_char(Position::new(x, start.y)).unwrap();
+                    res.push(self.buffer_parser.to_unicode(ch.ch));
                 }
                 res.push('\n');
                 for y in start.y + 1..end.y  {
                     for x in 0..self.buf.get_line_length(y) {
-                        let ch = self.buf.get_char(Position::from(x, y)).unwrap();
-                        res.push(self.buffer_parser.to_unicode(ch.char_code));
+                        let ch = self.buf.get_char(Position::new(x, y)).unwrap();
+                        res.push(self.buffer_parser.to_unicode(ch.ch));
                     }
                     res.push('\n');
                 }
                 for x in 0..end.x  {
-                    let ch = self.buf.get_char(Position::from(x, end.y)).unwrap();
-                    res.push(self.buffer_parser.to_unicode(ch.char_code));
+                    let ch = self.buf.get_char(Position::new(x, end.y)).unwrap();
+                    res.push(self.buffer_parser.to_unicode(ch.ch));
                 }
             } else {
                 for x in start.x..end.x  {
-                    let ch = self.buf.get_char(Position::from(x, start.y)).unwrap();
-                    res.push(self.buffer_parser.to_unicode(ch.char_code));
+                    let ch = self.buf.get_char(Position::new(x, start.y)).unwrap();
+                    res.push(self.buffer_parser.to_unicode(ch.ch));
                 }
             }
         }
@@ -280,10 +280,10 @@ impl<'a> canvas::Program<Message> for BufferView {
                                 top_y + (y * char_size.height as usize) as f32 + 0.5), 
                                 char_size
                             );
-                        if let Some(ch) = buffer.get_char(Position::from(x as i32, first_line - self.scroll_back_line + y as i32)) {
+                        if let Some(ch) = buffer.get_char(Position::new(x as i32, first_line - self.scroll_back_line + y as i32)) {
                             let (fg, bg) = 
-                                (buffer.palette.colors[ch.attribute.get_foreground() as usize],
-                                buffer.palette.colors[ch.attribute.get_background() as usize])
+                                (buffer.palette.colors[ch.attribute.get_foreground() as usize + if ch.attribute.is_bold() { 8 } else { 0 }],
+                                buffer.palette.colors[ch.attribute.get_background() as usize + if ch.attribute.is_blinking() { 8 } else { 0 }])
                             ;
                             let (r, g, b) = bg.get_rgb_f32();
 
@@ -293,14 +293,14 @@ impl<'a> canvas::Program<Message> for BufferView {
                             let (r, g, b) = fg.get_rgb_f32();
                             let color = iced::Color::new(r, g, b, 1.0);
                             for y in 0..font_dimensions.height {
-                                let line = buffer.get_font_scanline(ch.ext_font, ch.char_code as u8, y as usize);
+                                let line = buffer.get_font_scanline(ch.get_font_page() > 0, ch.ch, y as usize);
                                 for x in 0..font_dimensions.width {
                                     if (line & (128 >> x)) != 0 {
                                         frame.fill_rectangle(Point::new(rect.x + x as f32 * scale_x, rect.y + y as f32 * scale_y), iced::Size::new(scale_x, scale_y), color);
                                     }
                                 }
                             }
-                            if ch.attribute.get_is_underlined() {
+                            if ch.attribute.is_underlined() {
                                 frame.fill_rectangle(Point::new(rect.x, rect.y + rect.height - 1.0), iced::Size::new(rect.width, 1.0), color);
                             }
                         }
