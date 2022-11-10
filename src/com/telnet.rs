@@ -373,7 +373,7 @@ impl TelnetCom
                     if e.kind() == io::ErrorKind::WouldBlock {
                         break;
                     }
-                    return Err(io::Error::new(ErrorKind::ConnectionAborted, format!("{}", e)));
+                    return Err(io::Error::new(ErrorKind::ConnectionAborted, format!("Telnet error: {}", e)));
                 }
             };
         }

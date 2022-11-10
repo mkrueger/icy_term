@@ -136,6 +136,11 @@ impl Sz {
 
             if com.is_data_available()? {
                 let err = Header::read(com, &mut self.can_count);
+                if self.can_count >= 5 {
+                    transfer_state.write("Received cancel...".to_string());
+                    self.state = SendState::Idle;
+                    return Ok(());
+                }
                 if let Err(err) = err {
                     println!("{}", err);
                     if self.errors > 3 {
@@ -300,7 +305,6 @@ impl Sz {
                 let crc_byte = if self.cur_file_pos + self.package_len < self.data.len() { ZCRCG } else { ZCRCE };
                 p.extend_from_slice(&self.encode_subpacket(crc_byte, &self.data[self.cur_file_pos..end_pos]));
                 self.cur_file_pos = end_pos;
-
                 if end_pos >= self.data.len() {
                     p.extend_from_slice(&Header::from_number(self.get_header_type(), FrameType::ZEOF, end_pos as u32).build());
                     transfer_state.write("Done sending file date.".to_string());

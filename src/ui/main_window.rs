@@ -2,9 +2,8 @@ use std::{ env};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::net::{ToSocketAddrs};
 use clipboard::{ClipboardProvider, ClipboardContext};
-use iced::keyboard::{KeyCode};
 use iced::mouse::ScrollDelta;
-use iced::widget::{Canvas, column, button, text, Row};
+use iced::widget::{Canvas, column,  text, Row};
 use iced::{executor, subscription, Event, keyboard, mouse, Alignment};
 use iced::{
     Application, Command, Element, Length, 
@@ -23,11 +22,11 @@ use crate::address::{Address, start_read_book, READ_ADDRESSES, store_phone_book}
 use crate::com::{Com, TelnetCom};
 use crate::protocol::{ Protocol, FileDescriptor, TransferState};
 
-use super::{BufferView, Message, ANSI_KEY_MAP, C64_KEY_MAP, ATASCII_KEY_MAP, CTRL_MOD, SHIFT_MOD};
+use super::{BufferView, Message, ANSI_KEY_MAP, C64_KEY_MAP, ATASCII_KEY_MAP, CTRL_MOD, SHIFT_MOD, create_icon_button};
 use super::screen_modes::{ ScreenMode};
 
 enum MainWindowMode {
-    Default,
+    ShowTerminal,
     ShowPhonebook,
     SelectProtocol(bool),
     FileTransfer(bool),
@@ -177,7 +176,7 @@ impl MainWindow
     }
 
     fn initiate_file_transfer(&mut self, protocol_type: crate::protocol::ProtocolType, download: bool) {
-        self.mode = MainWindowMode::Default;
+        self.mode = MainWindowMode::ShowTerminal;
         if let Some(com) = self.com.as_mut() {
             if !download {
                 let files = FileDialog::new()
@@ -249,7 +248,7 @@ impl Application for MainWindow {
             buffer_view: BufferView::new(),
             com:None,
             trigger: true,
-            mode: MainWindowMode::Default,
+            mode: MainWindowMode::ShowPhonebook,
             addresses: start_read_book(),
             edit_bbs: Address::new(),
             cur_addr: 0,
@@ -312,7 +311,7 @@ impl Application for MainWindow {
         };
 
         match self.mode {
-            MainWindowMode::Default => {
+            MainWindowMode::ShowTerminal => {
                 match message {
                     Message::InitiateFileTransfer(download)=> {
                         self.mode = MainWindowMode::SelectProtocol(download);
@@ -327,13 +326,10 @@ impl Application for MainWindow {
                             self.auto_login.logged_in = true;
                         }
                     }
-                    Message::ShowPhonebook => {
-                        self.mode = MainWindowMode::ShowPhonebook;
-                    },
                     Message::Hangup => {
                         self.com = None;
                         self.print_log(format!("Disconnected."));
-
+                        self.mode = MainWindowMode::ShowPhonebook;
                     },
                     Message::Tick => { 
                         let state = self.update_state(); 
@@ -429,13 +425,6 @@ impl Application for MainWindow {
             MainWindowMode::ShowPhonebook => {
                 text_input::focus::<Message>(super::INPUT_ID.clone());
                 match message {
-                    Message::ShowPhonebook => {
-                        self.mode = MainWindowMode::ShowPhonebook
-                    },
-                    Message::Back => {
-                        self.mode = MainWindowMode::Default
-                    },
-
                     Message::EditBBS(i) => {
                         self.edit_bbs = if i == 0 { Address::new() } else { self.addresses[i].clone() };
                         self.mode = MainWindowMode::EditBBS(i)
@@ -454,7 +443,7 @@ impl Application for MainWindow {
             MainWindowMode::SelectProtocol(_) => {
                 match message {
                     Message::Back => {
-                        self.mode = MainWindowMode::Default
+                        self.mode = MainWindowMode::ShowTerminal
                     }
                     Message::SelectProtocol(protocol_type, download) => {
                         self.initiate_file_transfer(protocol_type, download);
@@ -476,7 +465,7 @@ impl Application for MainWindow {
                                     for f in protocol.get_received_files() {
                                         f.save_file_in_downloads(state.recieve_state.as_mut().unwrap()).expect("error saving file.");
                                     }
-                                    self.mode = MainWindowMode::Default;
+                                    self.mode = MainWindowMode::ShowTerminal;
                                     self.auto_file_transfer.reset();
                                 }
                             }
@@ -484,7 +473,7 @@ impl Application for MainWindow {
                     },
                     Message::Back => {
                         self.current_protocol = None;
-                        self.mode = MainWindowMode::Default;
+                        self.mode = MainWindowMode::ShowTerminal;
                         self.auto_file_transfer.reset();
                     }
                     Message::CancelTransfer => {
@@ -578,49 +567,13 @@ impl Application for MainWindow {
     fn view<'a>(&'a self) -> Element<'a, Message> {
         
         match self.mode {
-            MainWindowMode::Default => {
-                let c = Canvas::new(&self.buffer_view)
-                    .width(Length::Fill)
-                    .height(Length::Fill);
-
-               
-                
-                let mut title_row = Row::new()
-                     .push(button("Phonebook")
-                        .on_press(Message::ShowPhonebook));
-
-                if self.com.is_some()  {
-                    title_row = title_row.push(button("Upload")
-                    .on_press(Message::InitiateFileTransfer(false)));
-                    title_row = title_row.push(button("Download")
-                    .on_press(Message::InitiateFileTransfer(true)));
-
-                    if !self.auto_login.logged_in {
-                        title_row = title_row.push(button("Send login")
-                        .on_press(Message::SendLogin));
-    
-                    }
-
-                    title_row = title_row.push(button("Hangup")
-                    .on_press(Message::Hangup));
-
-                }
-
-                let log_info = if self.log_file.len() == 0  { text("")} else { text(&self.log_file[self.log_file.len() - 1])}
-                .size(16)
-                .width(Length::Fill);
-                title_row = title_row.push(log_info);
-
-                column(vec![
-                    title_row.align_items(Alignment::Center) .spacing(8).padding(8).into(),
-                    c.into()
-                ])
-                .into()
+            MainWindowMode::ShowTerminal => {
+                self.view_terminal_window()
             }
             MainWindowMode::ShowPhonebook => {   
                 super::view_phonebook(self)            
             }
-            MainWindowMode::SelectProtocol(download) => {   
+            MainWindowMode::SelectProtocol(download) => {
                 super::view_protocol_selector(download)
             }
             MainWindowMode::EditBBS(i) => {
@@ -637,10 +590,41 @@ impl Application for MainWindow {
     }
 }
 
+static UPLOAD_SVG: &[u8] = include_bytes!("../../resources/upload.svg");
+static DOWNLOAD_SVG: &[u8] = include_bytes!("../../resources/download.svg");
+static KEY_SVG: &[u8] = include_bytes!("../../resources/key.svg");
+static LOGOUT_SVG: &[u8] = include_bytes!("../../resources/logout.svg");
+
+impl MainWindow {
+    pub fn view_terminal_window(&self) -> Element<'_, Message> {
+        let c = Canvas::new(&self.buffer_view)
+            .width(Length::Fill)
+            .height(Length::Fill);
+        let mut title_row = Row::new();
+        if self.com.is_some()  {
+            title_row = title_row.push(create_icon_button(UPLOAD_SVG).on_press(Message::InitiateFileTransfer(false)));
+            title_row = title_row.push(create_icon_button(DOWNLOAD_SVG).on_press(Message::InitiateFileTransfer(true)));
+            if !self.auto_login.logged_in {
+                title_row = title_row.push(create_icon_button(KEY_SVG).on_press(Message::SendLogin));
+            }
+        }
+        title_row = title_row.push(create_icon_button(LOGOUT_SVG).on_press(Message::Hangup));
+        let log_info = if self.log_file.len() == 0  { text("")} else { text(&self.log_file[self.log_file.len() - 1])}
+        .size(16)
+        .width(Length::Fill);
+        title_row = title_row.push(log_info);
+        column(vec![
+            title_row.align_items(Alignment::Center) .spacing(8).padding(4).into(),
+            c.into()
+        ])
+        .into()
+    }
+}
+
 impl MainWindow {
     fn call_bbs(&mut self, i: usize) 
     {
-        self.mode = MainWindowMode::Default;
+        self.mode = MainWindowMode::ShowTerminal;
         let mut adr = self.addresses[i].address.clone();
         if !adr.contains(":") {
             adr.push_str(":23");

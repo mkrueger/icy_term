@@ -27,7 +27,6 @@ pub enum Message {
     SetSelection(Option<Selection>),
 
     // Phonebook
-    ShowPhonebook,
     QuickConnectChanged(String),
     CallBBS(usize),
 
