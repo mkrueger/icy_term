@@ -1,4 +1,4 @@
-use std::{fs::{self, File}, path::{PathBuf}, thread, fmt::Display, io::{self, Write, ErrorKind}};
+use std::{fs::{self, File}, path::{PathBuf}, thread, fmt::Display, io::{Write}, error::Error};
 use directories::ProjectDirs;
 use icy_engine::{BufferParser, AnsiParser, AvatarParser, PETSCIIParser, AtasciiParser};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config};
@@ -211,7 +211,7 @@ pub fn start_read_book() -> Vec<Address> {
     res
 }
 
-pub fn store_phone_book(addr: &Vec<Address>) -> io::Result<()> {
+pub fn store_phone_book(addr: &Vec<Address>) -> Result<(), Box<dyn Error>> {
     println!("1");
     if let Some(file_name) = Address::get_phonebook_file() {
         println!("2");
@@ -235,7 +235,7 @@ pub fn store_phone_book(addr: &Vec<Address>) -> io::Result<()> {
                 file.sync_all()?;
                 fs::rename(&tmp, file_name)?;
             }
-            Err(err) => return Err(io::Error::new(ErrorKind::InvalidData, err))
+            Err(err) => return Err(Box::new(err))
         }
     }
    Ok(())

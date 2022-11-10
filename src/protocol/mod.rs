@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::path::{ PathBuf};
 use std::time::{SystemTime, Duration};
 use std::{io, fs};
@@ -34,7 +35,7 @@ impl FileDescriptor {
         }
     }
 
-    pub fn from_paths(paths: &Vec<PathBuf>) -> io::Result<Vec<FileDescriptor>> {
+    pub fn from_paths(paths: &Vec<PathBuf>) -> Result<Vec<FileDescriptor>, Box<dyn Error>> {
         let mut res = Vec::new();
         for p in paths {
             let fd = FileDescriptor::create(p)?;
@@ -43,7 +44,7 @@ impl FileDescriptor {
         Ok(res)
     }
 
-    pub fn save_file_in_downloads(&self, transfer_state: &mut FileTransferState) -> io::Result<()> {
+    pub fn save_file_in_downloads(&self, transfer_state: &mut FileTransferState) -> Result<(), Box<dyn Error>> {
         if let Some(user_dirs) = UserDirs::new() { 
             let dir = user_dirs.download_dir().unwrap();
 

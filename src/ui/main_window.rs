@@ -1,4 +1,4 @@
-use std::{io, env};
+use std::{ env};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::net::{ToSocketAddrs};
 use clipboard::{ClipboardProvider, ClipboardContext};
@@ -23,7 +23,7 @@ use crate::address::{Address, start_read_book, READ_ADDRESSES, store_phone_book}
 use crate::com::{Com, TelnetCom};
 use crate::protocol::{ Protocol, FileDescriptor, TransferState};
 
-use super::{BufferView, Message};
+use super::{BufferView, Message, ANSI_KEY_MAP, C64_KEY_MAP, ATASCII_KEY_MAP, CTRL_MOD, SHIFT_MOD};
 use super::screen_modes::{ ScreenMode};
 
 enum MainWindowMode {
@@ -67,133 +67,9 @@ pub struct MainWindow {
     is_alt_pressed: bool
 }
 
-const CTRL_MOD:u32  = 0b1000_0000_0000_0000_0000;
-const SHIFT_MOD:u32 = 0b0100_0000_0000_0000_0000;
-
-static KEY_MAP: &[(u32, &[u8])] = &[
-    (KeyCode::Home as u32, b"\x1b[H"),
-    (KeyCode::Insert as u32, b"\x1b[@"),
-    (KeyCode::Backspace as u32, &[8]),
-    (KeyCode::Enter as u32, &[b'\r']),
-    (KeyCode::Tab as u32 | SHIFT_MOD, b"\x1b[Z"),
-    (KeyCode::Delete as u32, &[127]),
-    (KeyCode::Insert as u32, b"\x1b[@"),
-    (KeyCode::End as u32, b"\x1b[K"),
-    (KeyCode::PageUp as u32, b"\x1b[V"),
-    (KeyCode::PageDown as u32, b"\x1b[U"),
-    (KeyCode::F1 as u32, b"\x1b[OP"),
-    (KeyCode::F2 as u32, b"\x1b[OQ"),
-    (KeyCode::F3 as u32, b"\x1b[OR"),
-    (KeyCode::F4 as u32, b"\x1b[OS"),
-    (KeyCode::F5 as u32, b"\x1b[OT"),
-    (KeyCode::F6 as u32, b"\x1b[17~"),
-    (KeyCode::F7 as u32, b"\x1b[18~"),
-    (KeyCode::F8 as u32, b"\x1b[19~"),
-    (KeyCode::F9 as u32, b"\x1b[20~"),
-    (KeyCode::F10 as u32, b"\x1b[21~"),
-    (KeyCode::F11 as u32, b"\x1b[23~"),
-    (KeyCode::F12 as u32, b"\x1b[24~"),
-    (KeyCode::Up as u32, b"\x1b[A"),
-    (KeyCode::Down as u32, b"\x1b[B"),
-    (KeyCode::Right as u32, b"\x1b[C"),
-    (KeyCode::Left as u32, b"\x1b[D"),
-    
-    (KeyCode::A as u32 | CTRL_MOD, &[1]),
-    (KeyCode::B as u32 | CTRL_MOD, &[2]),
-    (KeyCode::C as u32 | CTRL_MOD, &[3]),
-    (KeyCode::D as u32 | CTRL_MOD, &[4]),
-    (KeyCode::E as u32 | CTRL_MOD, &[5]),
-    (KeyCode::F as u32 | CTRL_MOD, &[6]),
-    (KeyCode::G as u32 | CTRL_MOD, &[7]),
-    (KeyCode::H as u32 | CTRL_MOD, &[8]),
-    (KeyCode::I as u32 | CTRL_MOD, &[9]),
-    (KeyCode::J as u32 | CTRL_MOD, &[10]),
-    (KeyCode::K as u32 | CTRL_MOD, &[11]),
-    (KeyCode::L as u32 | CTRL_MOD, &[12]),
-    (KeyCode::M as u32 | CTRL_MOD, &[13]),
-    (KeyCode::N as u32 | CTRL_MOD, &[14]),
-    (KeyCode::O as u32 | CTRL_MOD, &[15]),
-    (KeyCode::P as u32 | CTRL_MOD, &[16]),
-    (KeyCode::Q as u32 | CTRL_MOD, &[17]),
-    (KeyCode::R as u32 | CTRL_MOD, &[18]),
-    (KeyCode::S as u32 | CTRL_MOD, &[19]),
-    (KeyCode::T as u32 | CTRL_MOD, &[20]),
-    (KeyCode::U as u32 | CTRL_MOD, &[21]),
-    (KeyCode::V as u32 | CTRL_MOD, &[22]),
-    (KeyCode::W as u32 | CTRL_MOD, &[23]),
-    (KeyCode::X as u32 | CTRL_MOD, &[24]),
-    (KeyCode::Y as u32 | CTRL_MOD, &[25]),
-    (KeyCode::Z as u32 | CTRL_MOD, &[26])
-];
-
-static C64_KEY_MAP: &[(u32, &[u8])] = &[
-    (KeyCode::Home as u32, &[0x13]),
-    (KeyCode::Enter as u32, &[b'\r']),
-    (KeyCode::Insert as u32, &[0x94]),
-    (KeyCode::Backspace as u32, &[0x14]),
-    (KeyCode::Delete as u32, &[0x14]),
-    (KeyCode::F1 as u32, &[0x85]),
-    (KeyCode::F2 as u32, &[0x86]),
-    (KeyCode::F3 as u32, &[0x87]),
-    (KeyCode::F4 as u32, &[0x88]),
-    (KeyCode::F5 as u32, &[0x89]),
-    (KeyCode::F6 as u32, &[0x8A]),
-    (KeyCode::F7 as u32, &[0x8B]),
-    (KeyCode::F8 as u32, &[0x8C]),
-
-    (KeyCode::Up as u32, &[0x91]),
-    (KeyCode::Down as u32, &[0x11]),
-    (KeyCode::Right as u32, &[0x1D]),
-    (KeyCode::Left as u32, &[0x9D])
-];
-
-
-static ATASCII_KEY_MAP: &[(u32, &[u8])] = &[
-
-    (KeyCode::Enter as u32, &[155]),
-
-    (KeyCode::Backspace as u32, &[0x1b, 0x7e]),
-    (KeyCode::End as u32, &[0x1b, 0x9b]),
-    (KeyCode::Up as u32, &[0x1b, 0x1c]),
-    (KeyCode::Down as u32, &[0x1b, 0x1d]),
-    (KeyCode::Right as u32, &[0x1b, 0x1f]),
-    (KeyCode::Left as u32, &[0x1b, 0x1e]),
-
-        
-    (KeyCode::A as u32 | CTRL_MOD, &[1]),
-    (KeyCode::B as u32 | CTRL_MOD, &[2]),
-    (KeyCode::C as u32 | CTRL_MOD, &[3]),
-    (KeyCode::D as u32 | CTRL_MOD, &[4]),
-    (KeyCode::E as u32 | CTRL_MOD, &[5]),
-    (KeyCode::F as u32 | CTRL_MOD, &[6]),
-    (KeyCode::G as u32 | CTRL_MOD, &[7]),
-    (KeyCode::H as u32 | CTRL_MOD, &[8]),
-    (KeyCode::I as u32 | CTRL_MOD, &[9]),
-    (KeyCode::J as u32 | CTRL_MOD, &[10]),
-    (KeyCode::K as u32 | CTRL_MOD, &[11]),
-    (KeyCode::L as u32 | CTRL_MOD, &[12]),
-    (KeyCode::M as u32 | CTRL_MOD, &[13]),
-    (KeyCode::N as u32 | CTRL_MOD, &[14]),
-    (KeyCode::O as u32 | CTRL_MOD, &[15]),
-    (KeyCode::P as u32 | CTRL_MOD, &[16]),
-    (KeyCode::Q as u32 | CTRL_MOD, &[17]),
-    (KeyCode::R as u32 | CTRL_MOD, &[18]),
-    (KeyCode::S as u32 | CTRL_MOD, &[19]),
-    (KeyCode::T as u32 | CTRL_MOD, &[20]),
-    (KeyCode::U as u32 | CTRL_MOD, &[21]),
-    (KeyCode::V as u32 | CTRL_MOD, &[22]),
-    (KeyCode::W as u32 | CTRL_MOD, &[23]),
-    (KeyCode::X as u32 | CTRL_MOD, &[24]),
-    (KeyCode::Y as u32 | CTRL_MOD, &[25]),
-    (KeyCode::Z as u32 | CTRL_MOD, &[26]),
-
-    (KeyCode::Period as u32 | CTRL_MOD, &[96]),
-    (KeyCode::Colon as u32 | CTRL_MOD, &[13]),
-];
-
 impl MainWindow
 {
-    pub fn update_state(&mut self) -> io::Result<()>
+    pub fn update_state(&mut self) -> Result<(), Box<dyn std::error::Error>>
     {
         match &mut self.com {
             None => Ok(()),
@@ -258,7 +134,7 @@ impl MainWindow
         self.log_file.push(str);
     }
 
-    pub fn print_result<T>(&mut self, result: &io::Result<T>)
+    pub fn print_result<'a, T>(&mut self, result: &Result<T, Box<dyn std::error::Error + 'a>>)
     {
         if let Err(error) = result {
             eprintln!("{}", error);
@@ -486,7 +362,7 @@ impl Application for MainWindow {
                             code |= SHIFT_MOD;
                         }
                         let map = match self.buffer_view.petscii {
-                            super::BufferInputMode::CP437 => KEY_MAP,
+                            super::BufferInputMode::CP437 => ANSI_KEY_MAP,
                             super::BufferInputMode::PETSCII => C64_KEY_MAP,
                             super::BufferInputMode::ATASCII => ATASCII_KEY_MAP,
                         }; 

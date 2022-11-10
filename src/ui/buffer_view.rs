@@ -1,5 +1,4 @@
 use std::cmp::{max, min};
-use std::io;
 use crate::com::Com;
 use clipboard::{ClipboardProvider, ClipboardContext};
 use iced::keyboard::KeyCode;
@@ -64,7 +63,7 @@ impl BufferView {
         self.caret.ff(&mut self.buf);
     }
 
-    pub fn print_char(&mut self, com: Option<&mut dyn Com>, c: u8) -> io::Result<()>
+    pub fn print_char(&mut self, com: Option<&mut dyn Com>, c: u8) -> Result<(), Box<dyn std::error::Error>>
     {
         self.selection = None;
         self.scroll_back_line = 0;
@@ -84,7 +83,7 @@ impl BufferView {
             }
         }*/
 
-        let result_opt = self.buffer_parser.print_char(&mut self.buf, &mut self.caret, c)?;
+        let result_opt = self.buffer_parser.print_char(&mut self.buf, &mut self.caret, unsafe { char::from_u32_unchecked(c as u32) } )?;
         if let Some(result) = result_opt {
             if let Some(com) = com {
                 com.write(result.as_bytes())?;
