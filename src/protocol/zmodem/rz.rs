@@ -149,7 +149,7 @@ impl Rz {
         Ok(())
     }
 
-    fn request_zpos(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
+    fn request_zpos(&mut self, com: &mut Box<dyn Com>) -> io::Result<usize>
     {
         Header::from_number(self.get_header_type(), FrameType::ZRPOS, 0).write(com)
     }

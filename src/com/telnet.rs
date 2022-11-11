@@ -1,14 +1,18 @@
+use std::{io::ErrorKind,  time::Duration, thread};
 #[allow(dead_code)]
-use std::{io::{ErrorKind, self, Read, Write}, time::Duration, net::{SocketAddr, TcpStream}, thread};
 use super::Com;
+use async_trait::async_trait;
+use tokio::{io::{self}, net::TcpStream, sync::oneshot, time::Timeout};
 
+#[derive(Debug)]
 pub struct TelnetCom
 {
-    tcp_stream: TcpStream,
+    tcp_stream: Option<TcpStream>,
     state: ParserState,
     buf: std::collections::VecDeque<u8>
 }
 
+#[derive(Debug)]
 enum ParserState {
     Data,
     Iac,
@@ -274,16 +278,14 @@ impl TelnetOption {
 
 impl TelnetCom 
 {
-    pub fn connect(addr: &SocketAddr, timeout: Duration) -> io::Result<Self> {
-        let tcp_stream = std::net::TcpStream::connect_timeout(addr, timeout)?;
-        tcp_stream.set_nonblocking(true)?;
-
-        Ok(Self { 
-            tcp_stream,
+    pub fn new() -> Self {
+        Self { 
+            tcp_stream: None,
             state: ParserState::Data,
             buf: std::collections::VecDeque::new()
-        })
+        }
     }
+   
 
     fn parse(&mut self, data: &[u8]) -> io::Result<()>
     {
@@ -299,7 +301,7 @@ impl TelnetCom
                 ParserState::Iac => {
                     match TelnetCmd::get(*b)? {
                         TelnetCmd::AYT => {
-                            self.tcp_stream.write_all(&TelnetCmd::NOP.to_bytes())?;
+                            self.tcp_stream.as_mut().unwrap().try_write(&TelnetCmd::NOP.to_bytes())?;
                             self.state = ParserState::Data;
                         }
                         TelnetCmd::SE |
@@ -330,10 +332,10 @@ impl TelnetCom
                 ParserState::Will => {
                     let opt = TelnetOption::get(*b)?;
                     if opt != TelnetOption::TransmitBinary {
-                        self.tcp_stream.write_all(&TelnetCmd::DONT.to_bytes_opt(opt))?;
+                        self.tcp_stream.as_mut().unwrap().try_write(&TelnetCmd::DONT.to_bytes_opt(opt))?;
                     } else {
                         eprintln!("unsupported will option {:?}", opt);
-                        self.tcp_stream.write_all(&TelnetCmd::DO.to_bytes_opt(TelnetOption::TransmitBinary))?;
+                        self.tcp_stream.as_mut().unwrap().try_write(&TelnetCmd::DO.to_bytes_opt(TelnetOption::TransmitBinary))?;
                     }
                     self.state = ParserState::Data;
                 },
@@ -345,10 +347,10 @@ impl TelnetCom
                 ParserState::Do => {
                     let opt = TelnetOption::get(*b)?;
                     if opt == TelnetOption::TransmitBinary {
-                        self.tcp_stream.write_all(&TelnetCmd::WILL.to_bytes_opt(TelnetOption::TransmitBinary))?;
+                        self.tcp_stream.as_mut().unwrap().try_write(&TelnetCmd::WILL.to_bytes_opt(TelnetOption::TransmitBinary))?;
                     } else {
                         eprintln!("unsupported do option {:?}", opt);
-                        self.tcp_stream.write_all(&TelnetCmd::WONT.to_bytes_opt(opt))?;
+                        self.tcp_stream.as_mut().unwrap().try_write(&TelnetCmd::WONT.to_bytes_opt(opt))?;
                     }
                     self.state = ParserState::Data;
                 },
@@ -365,7 +367,7 @@ impl TelnetCom
     fn fill_buffer(&mut self) -> io::Result<()> {
         let mut buf = [0;1024 * 256];
         loop {
-            match self.tcp_stream.read(&mut buf) {
+            match self.tcp_stream.as_mut().unwrap().try_read(&mut buf) {
                 Ok(size) => {
                     return self.parse(&buf[0..size]);
                 }
@@ -381,22 +383,37 @@ impl TelnetCom
     }
 
     fn fill_buffer_wait(&mut self, _timeout: Duration) -> io::Result<()> {
-        self.tcp_stream.set_nonblocking(false)?;
         self.fill_buffer()?;
         while self.buf.len() == 0 {
             self.fill_buffer()?;
             thread::sleep(Duration::from_millis(10));
         }
-        self.tcp_stream.set_nonblocking(true)?;
         Ok(())
     }
 }
 
+#[async_trait]
 impl Com for TelnetCom {
     fn get_name(&self) -> &'static str {
         "Telnet"
     }
+    async fn connect(&mut self, addr: String) -> Result<bool, String> {
 
+        let r = tokio::time::timeout(Duration::from_secs(5), TcpStream::connect(addr)).await;
+        match r {
+            Ok(tcp_stream) => {
+                match tcp_stream {
+                    Ok(stream) => { self.tcp_stream = Some(stream); Ok(true)}
+                    Err(err) => {
+                        Err(format!("{}", err))
+                    }
+                }
+            }
+            Err(err) => {
+                Err(format!("{}", err))
+            }
+        }
+    }
     fn read_char(&mut self, timeout: Duration) -> io::Result<u8> {
         if let Some(b) = self.buf.pop_front() {
             return Ok(b);
@@ -428,10 +445,11 @@ impl Com for TelnetCom {
     }
 
     fn disconnect(&mut self) -> io::Result<()> {
-        self.tcp_stream.shutdown(std::net::Shutdown::Both)
+       // self.tcp_stream.shutdown(std::net::Shutdown::Both)
+       Ok(())
     }
 
-    fn write(&mut self, buf: &[u8]) -> io::Result<()> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let mut data = Vec::with_capacity(buf.len());
         for b in buf {
             if *b == IAC {
@@ -440,6 +458,6 @@ impl Com for TelnetCom {
                 data.push(*b);
             }
         }
-        self.tcp_stream.write_all(&data)
+        self.tcp_stream.as_mut().unwrap().try_write(&data)
     }
 }

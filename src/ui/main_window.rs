@@ -1,6 +1,5 @@
 use std::{ env};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use std::net::{ToSocketAddrs};
 use clipboard::{ClipboardProvider, ClipboardContext};
 use iced::mouse::ScrollDelta;
 use iced::widget::{Canvas, column,  text, Row};
@@ -54,7 +53,6 @@ pub struct MainWindow {
     pub handled_char: bool,
     edit_bbs: Address,
     cur_addr: usize,
-    log_file: Vec<String>,
     options: Options,
     connection_time: SystemTime,
     font: Option<String>,
@@ -77,7 +75,6 @@ impl MainWindow
                 if let Some(adr) = self.addresses.get(self.cur_addr) {
                     if let Err(err) = self.auto_login.run_autologin(com, adr) {
                         eprintln!("{}", err);
-                        self.log_file.push(format!("{}", err));
                     }
                 }
                 let mut do_update = false;
@@ -86,7 +83,6 @@ impl MainWindow
                     if let Some(adr) = self.addresses.get(self.cur_addr) {
                         if let Err(err) = self.auto_login.try_login(com, adr, ch) {
                             eprintln!("{}", err);
-                            self.log_file.push(format!("{}", err));
                         }
                     }
 
@@ -127,19 +123,7 @@ impl MainWindow
 
         return DEFAULT_FONT_NAME.to_string();
     }
-    
-    pub fn print_log(&mut self, str: String)
-    {
-        self.log_file.push(str);
-    }
 
-    pub fn print_result<'a, T>(&mut self, result: &Result<T, Box<dyn std::error::Error + 'a>>)
-    {
-        if let Err(error) = result {
-            eprintln!("{}", error);
-            self.log_file.push(format!("{}", error));
-        }
-    }
 
     pub fn set_font(&mut self, font: &String)
     {
@@ -165,55 +149,63 @@ impl MainWindow
             let state = com.write(&[translated_char as u8]);
             if let Err(err) = state {
                 eprintln!("{}", err);
-                self.print_log(format!("Error: {:?}", err));
                 self.com = None;
             }
         } else {
-            let r = self.buffer_view.print_char(None, translated_char as u8);
-            self.print_result(&r);
+            log_result(&self.buffer_view.print_char(None, translated_char as u8));
             self.buffer_view.cache.clear();
         }
     }
 
+    pub fn println(&mut self, str: &str)
+    {
+        for c in str.chars() {
+            log_result(&self.buffer_view.print_char(None, c as u8));
+        }
+        log_result(&self.buffer_view.print_char(None, b'\r'));
+        log_result(&self.buffer_view.print_char(None, b'\n'));
+    }
+
     fn initiate_file_transfer(&mut self, protocol_type: crate::protocol::ProtocolType, download: bool) {
         self.mode = MainWindowMode::ShowTerminal;
-        if let Some(com) = self.com.as_mut() {
-            if !download {
-                let files = FileDialog::new()
-                    .pick_files();
-                if let Some(path) = files {
-                    let fd = FileDescriptor::from_paths(&path);
-                    if let Ok(files) =  fd {
-                        let mut protocol = protocol_type.create();
-                        match protocol.initiate_send(com, files) {
-                            Ok(state) => {
-                                self.mode = MainWindowMode::FileTransfer(download);
-                                self.current_protocol = Some((protocol, state));
+        match self.com.as_mut() {
+            Some(com) => {
+                if !download {
+                    let files = FileDialog::new()
+                        .pick_files();
+                    if let Some(path) = files {
+                        let fd = FileDescriptor::from_paths(&path);
+                        if let Ok(files) =  fd {
+                            let mut protocol = protocol_type.create();
+                            match protocol.initiate_send(com, files) {
+                                Ok(state) => {
+                                    self.mode = MainWindowMode::FileTransfer(download);
+                                    self.current_protocol = Some((protocol, state));
+                                }
+                                Err(error) => {
+                                    eprintln!("{}", error);
+                                }
                             }
-                            Err(error) => {
-                                eprintln!("{}", error);
-                                self.log_file.push(format!("{}", error));
-                            }
+                        } else {
+                            log_result(&fd);
                         }
-                    } else {
-                        self.print_result(&fd);
                     }
-                }
-            } else {
-                let mut protocol = protocol_type.create();
-                match protocol.initiate_recv(com) {
-                    Ok(state) => {
-                        self.mode = MainWindowMode::FileTransfer(download);
-                        self.current_protocol = Some((protocol, state));
-                    }
-                    Err(error) => {
-                        eprintln!("{}", error);
-                        self.log_file.push(format!("{}", error));
+                } else {
+                    let mut protocol = protocol_type.create();
+                    match protocol.initiate_recv(com) {
+                        Ok(state) => {
+                            self.mode = MainWindowMode::FileTransfer(download);
+                            self.current_protocol = Some((protocol, state));
+                        }
+                        Err(error) => {
+                            eprintln!("{}", error);
+                        }
                     }
                 }
             }
-        } else {
-            self.print_log("Communication error.".to_string());
+            None => {
+                eprintln!("Communication error.");
+            }
         }
     }
 }
@@ -253,7 +245,6 @@ impl Application for MainWindow {
             edit_bbs: Address::new(),
             cur_addr: 0,
             connection_time: SystemTime::now(),
-            log_file: Vec::new(),
             options: Options::new(),
             auto_login: AutoLogin::new(String::new()),
             auto_file_transfer: AutoFileTransfer::new(),
@@ -276,7 +267,8 @@ impl Application for MainWindow {
         if let Some(arg) = args.get(1) {
             println!("{}", arg);
             view.addresses[0].address = arg.clone();
-            view.call_bbs(0);
+            let cmd = view.call_bbs(0);
+            return (view, cmd);
         }
 
         (view, Command::none())
@@ -307,6 +299,22 @@ impl Application for MainWindow {
                     eprintln!("{}", err);
                 }
             }
+            Message::Connected(t) => {
+                match t {
+                    Ok(t) => {
+                        unsafe {
+                            self.com = com2.replace(None).unwrap();
+                        }
+                        self.buffer_view.clear();
+                        self.connection_time = SystemTime::now();
+                    },
+                    Err(err) => {
+                        eprintln!("{}", err);
+                        self.println(err.to_string().as_str());
+                        self.com = None;
+                    }
+                }
+            }
             _ => {}
         };
 
@@ -321,22 +329,18 @@ impl Application for MainWindow {
                             let adr = self.addresses.get(self.cur_addr).unwrap();
                             if let Err(err) = com.write([adr.user_name.as_bytes(), b"\r", adr.password.as_bytes(), b"\r"].concat().as_slice()) {
                                 eprintln!("Error sending login: {}", err);
-                                self.print_log(format!("Error sending login: {}", err));
                             }
                             self.auto_login.logged_in = true;
                         }
                     }
                     Message::Hangup => {
                         self.com = None;
-                        self.print_log(format!("Disconnected."));
                         self.mode = MainWindowMode::ShowPhonebook;
                     },
                     Message::Tick => { 
                         let state = self.update_state(); 
-
                         if let Err(err) = state {
                             eprintln!("{}", err);
-                            self.print_log(format!("Error: {:?}", err));
                         }
                     },
                     Message::CharacterReceived(ch) => {
@@ -370,7 +374,6 @@ impl Application for MainWindow {
                                     let state = com.write(m);
                                     if let Err(err) = state {
                                         eprintln!("{}", err);
-                                        self.print_log(format!("Error: {:?}", err));
                                         self.com = None;
                                     }
                                     break;
@@ -382,8 +385,8 @@ impl Application for MainWindow {
                                     self.handled_char = true;
                                     for ch in *m {
                                         let state = self.buffer_view.print_char(None, *ch);
-                                        if let Err(s) = state {
-                                            self.print_log(format!("Error: {:?}", s));
+                                        if let Err(err) = state {
+                                            eprintln!("{}", err);
                                         }
                                     }
                                     break;
@@ -431,7 +434,7 @@ impl Application for MainWindow {
                     }
                     
                     Message::CallBBS(i) => {
-                        self.call_bbs(i);
+                        return self.call_bbs(i);
                     },
 
                     Message::QuickConnectChanged(addr) => {
@@ -524,14 +527,14 @@ impl Application for MainWindow {
                         } else {
                             self.addresses[i] = self.edit_bbs.clone();
                         }
-                        self.print_result(&store_phone_book(&self.addresses));
+                        log_result(&store_phone_book(&self.addresses));
                         self.mode = MainWindowMode::ShowPhonebook;
                     }
                     Message::EditBbsDeleteEntry(i) => {
                         if i > 0 { 
                             self.addresses.remove(i);
                         }
-                        self.print_result(&store_phone_book(&self.addresses));
+                        log_result(&store_phone_book(&self.addresses));
                         self.mode = MainWindowMode::ShowPhonebook;
                     }
                     _ => {}
@@ -609,10 +612,7 @@ impl MainWindow {
             }
         }
         title_row = title_row.push(create_icon_button(LOGOUT_SVG).on_press(Message::Hangup));
-        let log_info = if self.log_file.len() == 0  { text("")} else { text(&self.log_file[self.log_file.len() - 1])}
-        .size(16)
-        .width(Length::Fill);
-        title_row = title_row.push(log_info);
+        
         column(vec![
             title_row.align_items(Alignment::Center) .spacing(8).padding(4).into(),
             c.into()
@@ -622,54 +622,55 @@ impl MainWindow {
 }
 
 impl MainWindow {
-    fn call_bbs(&mut self, i: usize) 
+    fn call_bbs(&mut self, i: usize) -> Command<Message>
     {
         self.mode = MainWindowMode::ShowTerminal;
         let mut adr = self.addresses[i].address.clone();
         if !adr.contains(":") {
             adr.push_str(":23");
         }
-        self.print_log(format!("Connect to {}…", adr));
-        let mut socket_addr = adr.to_socket_addrs();
-        match &mut socket_addr {
-            Ok(socket_addr) => {
-                if let Some(addr) = &socket_addr.next() {
-                    let t = TelnetCom::connect(addr, self.options.connect_timeout);
-                    match t {
-                        Ok(t) => {
-                            self.buffer_view.clear();
-                            self.com = Some(Box::new(t));
-                            self.cur_addr = i;
-                            self.connection_time = SystemTime::now();
-                            let adr = self.addresses[i].clone();
-                            self.auto_login = AutoLogin::new(adr.auto_login);
-                            self.auto_login.disabled = self.is_alt_pressed;
-                            self.buffer_view.buf.clear();
-                            if let Some(mode) = &adr.screen_mode {
-                                self.set_screen_mode(mode);
-                            } else {
-                                self.set_screen_mode(&ScreenMode::DOS(80, 25));
-                            }
-                            if let Some(font) = &adr.font_name {
-                                self.set_font(font);
-                            }
-                            self.buffer_view.buffer_parser = self.addresses[i].get_terminal_parser();
-                            self.print_log("Logged in".to_string());
 
-                        },
-                        Err(err) => {
-                            eprintln!("{}", err);
-                            self.print_log(format!("{}", err));
-                            self.com = None;
-                        }
-                    }
-                }
-            }
-            Err(error) => {
-                eprintln!("{}", error);
-                self.print_log(format!("Socket error: {:?}", error));
-            }
+        let call_adr = self.addresses[i].clone();
+        self.auto_login = AutoLogin::new(call_adr.auto_login);
+        self.auto_login.disabled = self.is_alt_pressed;
+        self.buffer_view.buf.clear();
+        self.cur_addr = i;
+        if let Some(mode) = &call_adr.screen_mode {
+            self.set_screen_mode(mode);
+        } else {
+            self.set_screen_mode(&ScreenMode::DOS(80, 25));
         }
+        if let Some(font) = &call_adr.font_name {
+            self.set_font(font);
+        }
+        self.buffer_view.buffer_parser = self.addresses[i].get_terminal_parser();
+        self.println(&format!("Connect to {}...", &call_adr.address));
+        let a = call_adr.address.clone();
+        unsafe { com2 = Some(Some(Box::new(TelnetCom::new())));} 
+        Command::perform(foo(a), Message::Connected)
+    }
+
+   
+}
+
+pub fn log_result<'a, T>(result: &Result<T, Box<dyn std::error::Error + 'a>>)
+{
+    if let Err(error) = result {
+        eprintln!("{}", error);
     }
 }
 
+static mut com2 : Option<Option<Box<dyn Com + 'static>>> = None;
+
+async fn foo(a: String) -> Result<bool, String> {
+
+    unsafe {
+        let mut c = com2.replace(None);
+        println!("Connect…");
+        c.as_mut().unwrap().as_mut().unwrap().connect(a).await?;
+        println!("success!!!");
+        com2 = c;
+    }
+    
+    Ok(true)
+}

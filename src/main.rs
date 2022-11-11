@@ -1,4 +1,6 @@
 mod ui;
+use std::error::Error;
+
 use iced::{Settings, Application};
 use ui::*;
 
@@ -14,7 +16,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub fn main() -> iced::Result {
     MainWindow::run(Settings {
         window: iced::window::Settings {
-            size: (880, 596),
+            size: (880, 590),
             transparent: true,
             ..Default::default()
         },
