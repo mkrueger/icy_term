@@ -71,7 +71,8 @@ impl ScreenMode {
                 buf.set_buffer_width(40);
                 buf.set_buffer_height(25);
                 *font = Some("C64 PETSCII unshifted".to_string());
-                buf.extended_font = Some(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
+                buf.extended_fonts.clear();
+                buf.extended_fonts.push(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
                 buffer_view.buffer_parser = Box::new(PETSCIIParser::new());
                 buffer_view.petscii = BufferInputMode::PETSCII;
                 buf.palette = Palette { colors: C64_DEFAULT_PALETTE.to_vec() };
@@ -80,7 +81,8 @@ impl ScreenMode {
                 buf.set_buffer_width(*col);
                 buf.set_buffer_height(25);
                 *font = Some("C64 PETSCII unshifted".to_string());
-                buf.extended_font = Some(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
+                buf.extended_fonts.clear();
+                buf.extended_fonts.push(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
                 buffer_view.buffer_parser = Box::new(PETSCIIParser::new());
                 buffer_view.petscii = BufferInputMode::PETSCII;
                 buf.palette = Palette { colors: C64_DEFAULT_PALETTE.to_vec() };

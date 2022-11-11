@@ -293,7 +293,7 @@ impl<'a> canvas::Program<Message> for BufferView {
                             let (r, g, b) = fg.get_rgb_f32();
                             let color = iced::Color::new(r, g, b, 1.0);
                             for y in 0..font_dimensions.height {
-                                let line = buffer.get_font_scanline(ch.get_font_page() > 0, ch.ch, y as usize);
+                                let line = buffer.get_font_scanline(ch.get_font_page(), ch.ch, y as usize);
                                 for x in 0..font_dimensions.width {
                                     if (line & (128 >> x)) != 0 {
                                         frame.fill_rectangle(Point::new(rect.x + x as f32 * scale_x, rect.y + y as f32 * scale_y), iced::Size::new(scale_x, scale_y), color);
@@ -323,8 +323,14 @@ impl<'a> canvas::Program<Message> for BufferView {
             let caret = canvas::Path::rectangle(p, caret_size);
             let mut frame = Frame::new(bounds.size());
 
-            let bg = buffer.palette.colors[self.caret.get_attribute().get_foreground() as usize];
-            let (r, g, b) = bg.get_rgb_f32();
+            let attr = if let Some(ch) = buffer.get_char(self.caret.get_position()) {
+                ch.attribute
+            } else {
+                self.caret.get_attribute()
+            };
+
+            let fg = buffer.palette.colors[attr.get_foreground() as usize];
+            let (r, g, b) = fg.get_rgb_f32();
 
             frame.fill(&caret, iced::Color::new(r, g, b, 1.0));
             result.push(frame.into_geometry());
