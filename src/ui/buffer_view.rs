@@ -67,16 +67,17 @@ impl BufferView {
     {
         self.selection = None;
         self.scroll_back_line = 0;
-      
-        /*
+      /* 
         match c  {
             b'\\' => print!("\\\\"),
             b'\n' => print!("\\n"),
             b'\r' => print!("\\r"),
             b'\"' => print!("\\\""),
             _ => {
-                if c < b' ' || c > b'\x7F' {
+                if c < b' ' || c == b'\x7F' {
                     print!("\\x{:02X}", c as u8);
+                } else if c > b'\x7F' {
+                    print!("\\u{{{:02X}}}", c as u8);
                 } else {
                     print!("{}", char::from_u32(c as u32).unwrap());
                 }

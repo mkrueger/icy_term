@@ -256,12 +256,13 @@ impl Application for MainWindow {
         };
 
        //  view.set_screen_mode(&ScreenMode::DOS(80, 50));
-       /*let txt = b"";
-       for b in txt {
-           if let Err(err) = view.buffer_view.buffer_parser.print_char(&mut view.buffer_view.buf, &mut view.buffer_view.caret, *b) {
+       /*let txt = "";
+       for b in txt.chars() {
+           if let Err(err) = view.buffer_view.buffer_parser.print_char(&mut view.buffer_view.buf, &mut view.buffer_view.caret, b) {
                eprintln!("{}", err);
            }
-       }*/
+       }
+       view.mode = MainWindowMode::ShowTerminal;*/
       
         let args: Vec<String> = env::args().collect();
         if let Some(arg) = args.get(1) {
