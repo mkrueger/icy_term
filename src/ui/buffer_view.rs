@@ -306,6 +306,26 @@ impl<'a> canvas::Program<Message> for BufferView {
                         }
                     }
                 }
+
+                for sixel in &buffer.layers[0].sixels {
+                    let px_size = iced::Size { width: scale_x, height: scale_y * sixel.aspect_ratio as f32 };
+
+                    let start_x = top_x + (sixel.position.x as usize * char_size.width as usize) as f32 + 0.5;
+                    let start_y = top_y + (sixel.position.y as usize * char_size.height as usize) as f32 + 0.5;
+
+                    for x in 0..sixel.picture.len() {
+                        let column = &sixel.picture[x];
+                        for y in 0..column.len() {
+                            if let Some(col) = column[y] {
+                                let pos  = Point::new(
+                                    start_x + (x as f32) * scale_x,  
+                                    start_y + (y as f32) * scale_y);
+                                let (r, g, b) = col.get_rgb();
+                                frame.fill_rectangle(pos, px_size, iced::Color::from_rgb8(r, g, b));
+                            }
+                        }
+                    }
+                }
         });
 
         let top_line = first_line - self.scroll_back_line;
