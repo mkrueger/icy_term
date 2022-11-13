@@ -21,7 +21,7 @@ use crate::address::{Address, start_read_book, READ_ADDRESSES, store_phone_book}
 use crate::com::{Com, TelnetCom};
 use crate::protocol::{ Protocol, FileDescriptor, TransferState};
 
-use super::{BufferView, Message, ANSI_KEY_MAP, C64_KEY_MAP, ATASCII_KEY_MAP, CTRL_MOD, SHIFT_MOD, create_icon_button};
+use super::{BufferView, Message, ANSI_KEY_MAP, C64_KEY_MAP, ATASCII_KEY_MAP, CTRL_MOD, SHIFT_MOD, create_icon_button, VT500_KEY_MAP};
 use super::screen_modes::{ ScreenMode};
 
 enum MainWindowMode {
@@ -256,13 +256,13 @@ impl Application for MainWindow {
         };
 
        //  view.set_screen_mode(&ScreenMode::DOS(80, 50));
-       /*let txt = "";
+       let txt = "\x1B[0;10maxvaxvaxvav";
        for b in txt.chars() {
            if let Err(err) = view.buffer_view.buffer_parser.print_char(&mut view.buffer_view.buf, &mut view.buffer_view.caret, b) {
                eprintln!("{}", err);
            }
        }
-       view.mode = MainWindowMode::ShowTerminal;*/
+       view.mode = MainWindowMode::ShowTerminal;
       
         let args: Vec<String> = env::args().collect();
         if let Some(arg) = args.get(1) {
@@ -362,10 +362,11 @@ impl Application for MainWindow {
                         if modifier.shift() {
                             code |= SHIFT_MOD;
                         }
-                        let map = match self.buffer_view.petscii {
+                        let map = match self.buffer_view.buffer_input_mode {
                             super::BufferInputMode::CP437 => ANSI_KEY_MAP,
                             super::BufferInputMode::PETSCII => C64_KEY_MAP,
                             super::BufferInputMode::ATASCII => ATASCII_KEY_MAP,
+                            super::BufferInputMode::VT500 => VT500_KEY_MAP
                         }; 
 
                         if let Some(com) = &mut self.com {

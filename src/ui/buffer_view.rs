@@ -15,7 +15,8 @@ use super::selection::Selection;
 pub enum BufferInputMode {
     CP437,
     PETSCII,
-    ATASCII
+    ATASCII,
+    VT500
 }
 
 pub struct BufferView {
@@ -26,7 +27,7 @@ pub struct BufferView {
     pub blink: bool,
     pub last_blink: u128,
     pub scale: f32,
-    pub petscii: BufferInputMode,
+    pub buffer_input_mode: BufferInputMode,
     pub scroll_back_line: i32,
 
     pub selection: Option<Selection>,
@@ -46,7 +47,7 @@ impl BufferView {
             blink: false,
             last_blink: 0,
             scale: 1.0,
-            petscii: BufferInputMode::CP437,
+            buffer_input_mode: BufferInputMode::CP437,
             scroll_back_line: 0,
             selection: None,
             button_pressed: false

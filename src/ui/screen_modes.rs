@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use icy_engine::{Palette, BitFont, PETSCIIParser, C64_DEFAULT_PALETTE, AvatarParser, AtasciiParser, ATARI_DEFAULT_PALETTE};
+use icy_engine::{Palette, BitFont, PETSCIIParser, C64_DEFAULT_PALETTE, AvatarParser, AtasciiParser, ATARI_DEFAULT_PALETTE, AnsiParser};
 use serde_derive::{Serialize, Deserialize};
 
 use super::{BufferView, BufferInputMode};
@@ -12,10 +12,11 @@ pub enum ScreenMode {
     C64,
     C128(i32),
     Atari,
-    AtariXep80
+    AtariXep80,
+    VT500
 }
 
-pub const DEFAULT_MODES: [ScreenMode; 20] = [
+pub const DEFAULT_MODES: [ScreenMode; 21] = [
     ScreenMode::DOS(80, 25),
     ScreenMode::DOS(80, 28),
     ScreenMode::DOS(80, 30),
@@ -36,6 +37,7 @@ pub const DEFAULT_MODES: [ScreenMode; 20] = [
     ScreenMode::C128(80),
     ScreenMode::Atari,
     ScreenMode::AtariXep80,
+    ScreenMode::VT500
 ];
 
 impl Display for ScreenMode {
@@ -46,6 +48,7 @@ impl Display for ScreenMode {
             ScreenMode::C128(col) =>  write!(f, "C128 ({} col)", col),
             ScreenMode::Atari => write!(f, "Atari"),
             ScreenMode::AtariXep80 => write!(f, "Atari XEP80"),
+            ScreenMode::VT500 => write!(f, "VT500"),
         }
     }
 }
@@ -64,7 +67,7 @@ impl ScreenMode {
                     *font = Some("IBM VGA".to_string());
                 }
                 buffer_view.buffer_parser = Box::new(AvatarParser::new(true));
-                buffer_view.petscii = BufferInputMode::CP437;
+                buffer_view.buffer_input_mode = BufferInputMode::CP437;
                 buf.palette = Palette::new();
             }
             ScreenMode::C64 => {
@@ -74,7 +77,7 @@ impl ScreenMode {
                 buf.extended_fonts.clear();
                 buf.extended_fonts.push(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
                 buffer_view.buffer_parser = Box::new(PETSCIIParser::new());
-                buffer_view.petscii = BufferInputMode::PETSCII;
+                buffer_view.buffer_input_mode = BufferInputMode::PETSCII;
                 buf.palette = Palette { colors: C64_DEFAULT_PALETTE.to_vec() };
             }
             ScreenMode::C128(col) => {
@@ -84,7 +87,7 @@ impl ScreenMode {
                 buf.extended_fonts.clear();
                 buf.extended_fonts.push(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
                 buffer_view.buffer_parser = Box::new(PETSCIIParser::new());
-                buffer_view.petscii = BufferInputMode::PETSCII;
+                buffer_view.buffer_input_mode = BufferInputMode::PETSCII;
                 buf.palette = Palette { colors: C64_DEFAULT_PALETTE.to_vec() };
             },
             ScreenMode::Atari =>  {
@@ -92,7 +95,7 @@ impl ScreenMode {
                 buf.set_buffer_height(24);
                 *font = Some("Atari ATASCII".to_string());
                 buffer_view.buffer_parser = Box::new(AtasciiParser::new());
-                buffer_view.petscii = BufferInputMode::ATASCII;
+                buffer_view.buffer_input_mode = BufferInputMode::ATASCII;
                 buf.palette = Palette { colors: ATARI_DEFAULT_PALETTE.to_vec() };
             },
             ScreenMode::AtariXep80 =>  {
@@ -100,9 +103,18 @@ impl ScreenMode {
                 buf.set_buffer_height(25);
                 *font = Some("Atari ATASCII".to_string());
                 buffer_view.buffer_parser = Box::new(AtasciiParser::new());
-                buffer_view.petscii = BufferInputMode::ATASCII;
+                buffer_view.buffer_input_mode = BufferInputMode::ATASCII;
                 buf.palette = Palette { colors: ATARI_DEFAULT_PALETTE.to_vec() };
             },
+            ScreenMode::VT500 => {
+                buf.set_buffer_width(80);
+                buf.set_buffer_height(25);
+                *font = Some("IBM VGA".to_string());
+                buffer_view.buffer_parser = Box::new(AnsiParser::new());
+                buffer_view.buffer_input_mode = BufferInputMode::VT500;
+                buf.palette = Palette::new();
+            }
+
         }
         buf.clear();
     }
