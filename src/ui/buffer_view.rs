@@ -23,9 +23,9 @@ pub enum BufferInputMode {
 
 pub struct BufferView {
     pub buf: Buffer,
-    pub cache: canvas::Cache,
+    cache: canvas::Cache,
     pub buffer_parser: Box<dyn BufferParser>,
-    pub sixel_cache: Vec<(SixelReadStatus, Option<image::Handle>, i32, Vec<u8>)>,
+    sixel_cache: Vec<(SixelReadStatus, Option<image::Handle>, i32, Vec<u8>)>,
     pub caret: Caret,
     pub blink: bool,
     pub last_blink: u128,
@@ -153,7 +153,6 @@ impl BufferView {
             };
 
             let mut i = old_line as usize * sixel.width() as usize * 4;
-            println!("{}..{}", old_line, current_line);
             for y in old_line..current_line {
                 for x in 0..sixel.width() {
                     let column = &sixel.picture[x as usize];
@@ -246,8 +245,12 @@ impl BufferView {
             eprintln!("{}", err);
         }
         self.selection = None;
+    }
+
+    pub fn redraw_view(&mut self) {
         self.cache.clear();
     }
+
 }
 
 

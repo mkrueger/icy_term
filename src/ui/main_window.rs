@@ -99,7 +99,7 @@ impl MainWindow
                     }
                 }
                 if do_update {
-                    self.buffer_view.cache.clear();
+                    self.buffer_view.redraw_view();
                 }
                 Ok(())
             }
@@ -130,7 +130,7 @@ impl MainWindow
         if font != &self.get_font_name() { 
             self.font = Some(font.clone());
             self.buffer_view.buf.font = BitFont::from_name(&self.get_font_name()).unwrap();
-            self.buffer_view.cache.clear();
+            self.buffer_view.redraw_view();
         }
     }
 
@@ -139,7 +139,7 @@ impl MainWindow
         self.screen_mode = Some(*mode);
         self.get_screen_mode().set_mode(&mut self.font, &mut self.buffer_view);
         self.buffer_view.buf.font = BitFont::from_name(&self.get_font_name()).unwrap();
-        self.buffer_view.cache.clear();
+        self.buffer_view.redraw_view();
     }
 
     pub fn output_char(&mut self, ch: char) 
@@ -153,7 +153,7 @@ impl MainWindow
             }
         } else {
             log_result(&self.buffer_view.print_char(None, translated_char as u8));
-            self.buffer_view.cache.clear();
+            self.buffer_view.redraw_view();
         }
     }
 
@@ -256,13 +256,13 @@ impl Application for MainWindow {
         };
 
        //  view.set_screen_mode(&ScreenMode::DOS(80, 50));
-       let txt = "";
+       /*let txt = "";
        for b in txt.chars() {
            if let Err(err) = view.buffer_view.buffer_parser.print_char(&mut view.buffer_view.buf, &mut view.buffer_view.caret, b) {
                eprintln!("{}", err);
            }
            view.buffer_view.update_sixels();
-       }
+       }*/
        view.mode = MainWindowMode::ShowTerminal;
 
         let args: Vec<String> = env::args().collect();
@@ -275,9 +275,9 @@ impl Application for MainWindow {
         (view, Command::none())
     }
 
+
     fn update(&mut self, message: Message) -> Command<Message> {
         self.trigger = !self.trigger;
-
         if unsafe { READ_ADDRESSES } {
             unsafe { READ_ADDRESSES = false; } 
             self.addresses = Address::read_phone_book();
@@ -400,7 +400,7 @@ impl Application for MainWindow {
                     Message::WheelScrolled(delta) => {
                         if let ScrollDelta::Lines { y, .. } = delta {
                             self.buffer_view.scroll(y as i32);
-                            self.buffer_view.cache.clear();
+                            self.buffer_view.redraw_view();
                         }
                     }
                    /*  Message::FontSelected(font) => {
