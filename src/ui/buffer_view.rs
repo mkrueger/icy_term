@@ -25,7 +25,7 @@ pub struct BufferView {
     pub buf: Buffer,
     cache: canvas::Cache,
     pub buffer_parser: Box<dyn BufferParser>,
-    sixel_cache: Vec<(SixelReadStatus, Option<image::Handle>, i32, Vec<u8>)>,
+    sixel_cache: Vec<(SixelReadStatus, Option<image::Handle>, i32, Option<Vec<u8>>)>,
     pub caret: Caret,
     pub blink: bool,
     pub last_blink: u128,
@@ -95,9 +95,8 @@ impl BufferView {
                 com.write(result.as_bytes())?;
             }
         }
-        if !self.update_sixels() {
-            self.cache.clear();
-        }
+        self.update_sixels();
+        self.cache.clear();
         Ok(())
     }
 
@@ -142,10 +141,16 @@ impl BufferView {
                 let (_, old, _, mut data) = self.sixel_cache.remove(i);
                 old_handle = old;
                 removed_index = i as i32;
-                if data.len() < data_len {
+                if let Some(ptr) = &mut data {
+                    if ptr.len() < data_len {
+                        ptr.resize(data_len, 0);
+                    }
+                    data.take().unwrap()
+                 } else { 
+                    let mut data = Vec::with_capacity(data_len);
                     data.resize(data_len, 0);
-                }
-                data
+                    data
+                 }
             } else {
                 let mut data = Vec::with_capacity(data_len);
                 data.resize(data_len, 0);
@@ -179,12 +184,12 @@ impl BufferView {
                 }
             }
             
-            let c = match sixel.read_status {
+            let (c, v) = match sixel.read_status {
                 SixelReadStatus::Finished |
                 SixelReadStatus::Error => {
-                     Some(image::Handle::from_pixels(sixel.width(), sixel.height(), v.clone()))
+                     (Some(image::Handle::from_pixels(sixel.width(), sixel.height(), v.clone())), None)
                 }
-                _ => old_handle,
+                _ => (old_handle, Some(v))
             };
             if removed_index < 0 {
                 self.sixel_cache.push((sixel.read_status, c, current_line, v));
@@ -416,11 +421,16 @@ impl<'a> canvas::Program<Message> for BufferView {
         let buffer = &self.buf;
         let (top_x, top_y, scale_x, scale_y, char_size) = calc(buffer, &bounds);
         for i in 0..self.sixel_cache.len() {
-            let (_, img, _, _) = &self.sixel_cache[i];
+            let (_, img, _, v) = &self.sixel_cache[i];
             let sixel = &buffer.layers[0].sixels[i];
             let start_x = top_x + (sixel.position.x as usize * char_size.width as usize) as f32 + 0.5;
             let start_y = top_y + (sixel.position.y as usize * char_size.height as usize) as f32 + 0.5;
             if let Some(img) = img {
+                result.push(Geometry::from_primitive(Primitive::Image { handle: img.clone(), bounds:Rectangle::new(Point::new(start_x, start_y), Size::new(sixel.width() as f32 * scale_x, sixel.height() as f32 * scale_y )) }));
+            } 
+
+            if let Some(v) = v {
+                let img = image::Handle::from_pixels(sixel.width(), sixel.height(), v.clone());
                 result.push(Geometry::from_primitive(Primitive::Image { handle: img.clone(), bounds:Rectangle::new(Point::new(start_x, start_y), Size::new(sixel.width() as f32 * scale_x, sixel.height() as f32 * scale_y )) }));
             }
         }
