@@ -6,8 +6,10 @@ use iced::widget::canvas::event::{self, Event};
 use iced::widget::canvas::{
     self, Cursor, Frame, Geometry,
 };
-use iced::{ Point, Rectangle, Theme, mouse, keyboard};
-use icy_engine::{Buffer, BufferParser, Caret, Position, AvatarParser};
+use iced::{ Point, Rectangle, Theme, mouse, keyboard, Size};
+use iced_graphics::Primitive;
+use iced_native::image;
+use icy_engine::{Buffer, BufferParser, Caret, Position, AvatarParser, SixelReadStatus};
 
 use super::Message;
 use super::selection::Selection;
@@ -23,6 +25,7 @@ pub struct BufferView {
     pub buf: Buffer,
     pub cache: canvas::Cache,
     pub buffer_parser: Box<dyn BufferParser>,
+    pub sixel_cache: Vec<(SixelReadStatus, Option<image::Handle>, i32, Vec<u8>)>,
     pub caret: Caret,
     pub blink: bool,
     pub last_blink: u128,
@@ -48,6 +51,7 @@ impl BufferView {
             last_blink: 0,
             scale: 1.0,
             buffer_input_mode: BufferInputMode::CP437,
+            sixel_cache: Vec::new(),
             scroll_back_line: 0,
             selection: None,
             button_pressed: false
@@ -91,8 +95,105 @@ impl BufferView {
                 com.write(result.as_bytes())?;
             }
         }
-        self.cache.clear();
+        if !self.update_sixels() {
+            self.cache.clear();
+        }
         Ok(())
+    }
+
+    pub fn update_sixels(&mut self) -> bool {
+        let buffer = &self.buf;
+        let l = buffer.layers[0].sixels.len();
+        if l == 0 {
+            self.sixel_cache.clear();
+        }
+        let mut res = false;
+        for i in 0..l {
+            let sixel = &buffer.layers[0].sixels[i];
+            if sixel.width() == 0 || sixel.height() == 0 {
+                continue;
+            }
+
+            let mut old_line = 0;
+            let current_line = match sixel.read_status {
+                SixelReadStatus::Position(_, y)  => y * 6,
+                SixelReadStatus::Error | 
+                SixelReadStatus::Finished => sixel.height() as i32,
+                _ => 0
+            };
+
+            let mut old_handle = None;
+
+            if let Some((s, _,ol, _)) = self.sixel_cache.get(i) {
+                old_line = *ol as i32;
+                 if let SixelReadStatus::Position(_, _) = sixel.read_status {
+                    if old_line  + 5 * 6 >= current_line  {
+                        continue;
+                    }
+                }
+                if *s == sixel.read_status {
+                    continue;
+                }
+            }
+            res = true;
+            let data_len = (sixel.height() * sixel.width() * 4) as usize;
+            let mut removed_index = -1;
+            let mut v = if self.sixel_cache.len() > i  {
+                let (_, old, _, mut data) = self.sixel_cache.remove(i);
+                old_handle = old;
+                removed_index = i as i32;
+                if data.len() < data_len {
+                    data.resize(data_len, 0);
+                }
+                data
+            } else {
+                let mut data = Vec::with_capacity(data_len);
+                data.resize(data_len, 0);
+                data
+            };
+
+            let mut i = old_line as usize * sixel.width() as usize * 4;
+            println!("{}..{}", old_line, current_line);
+            for y in old_line..current_line {
+                for x in 0..sixel.width() {
+                    let column = &sixel.picture[x as usize];
+                    let data = if let Some(col) = column.get(y as usize) {
+                        if let Some(col) = col {
+                            let (r, g, b) = col.get_rgb();
+                            [r, g, b, 0xFF]
+                        } else {
+                            // todo: bg color may differ here
+                            [0, 0, 0, 0xFF]
+                        }
+                    } else {
+                        [0, 0, 0, 0xFF]
+                    };
+                    if i >= v.len() { 
+                        v.extend_from_slice(&data);
+                    } else {
+                        v[i] = data[0];
+                        v[i + 1] = data[1];
+                        v[i + 2] = data[2];
+                        v[i + 3] = data[3];
+                    }
+                    i += 4;
+                }
+            }
+            
+            let c = match sixel.read_status {
+                SixelReadStatus::Finished |
+                SixelReadStatus::Error => {
+                     Some(image::Handle::from_pixels(sixel.width(), sixel.height(), v.clone()))
+                }
+                _ => old_handle,
+            };
+            if removed_index < 0 {
+                self.sixel_cache.push((sixel.read_status, c, current_line, v));
+            } else {
+                self.sixel_cache.insert(removed_index as usize, (sixel.read_status, c, current_line, v));
+            }
+        }
+        res
     }
 
     pub fn copy_to_clipboard(&mut self) {
@@ -253,8 +354,6 @@ impl<'a> canvas::Program<Message> for BufferView {
         }
     }
 
-
-
     fn draw(
         &self,
         state: &Self::State,
@@ -307,33 +406,24 @@ impl<'a> canvas::Program<Message> for BufferView {
                         }
                     }
                 }
-
-                for sixel in &buffer.layers[0].sixels {
-                    let px_size = iced::Size { width: scale_x, height: scale_y * sixel.aspect_ratio as f32 };
-
-                    let start_x = top_x + (sixel.position.x as usize * char_size.width as usize) as f32 + 0.5;
-                    let start_y = top_y + (sixel.position.y as usize * char_size.height as usize) as f32 + 0.5;
-
-                    for x in 0..sixel.picture.len() {
-                        let column = &sixel.picture[x];
-                        for y in 0..column.len() {
-                            if let Some(col) = column[y] {
-                                let pos  = Point::new(
-                                    start_x + (x as f32) * scale_x,  
-                                    start_y + (y as f32) * scale_y);
-                                let (r, g, b) = col.get_rgb();
-                                frame.fill_rectangle(pos, px_size, iced::Color::from_rgb8(r, g, b));
-                            }
-                        }
-                    }
-                }
         });
+
+        let mut result = Vec::new();
+        result.push(content);
+        let buffer = &self.buf;
+        let (top_x, top_y, scale_x, scale_y, char_size) = calc(buffer, &bounds);
+        for i in 0..self.sixel_cache.len() {
+            let (_, img, _, _) = &self.sixel_cache[i];
+            let sixel = &buffer.layers[0].sixels[i];
+            let start_x = top_x + (sixel.position.x as usize * char_size.width as usize) as f32 + 0.5;
+            let start_y = top_y + (sixel.position.y as usize * char_size.height as usize) as f32 + 0.5;
+            if let Some(img) = img {
+                result.push(Geometry::from_primitive(Primitive::Image { handle: img.clone(), bounds:Rectangle::new(Point::new(start_x, start_y), Size::new(sixel.width() as f32 * scale_x, sixel.height() as f32 * scale_y )) }));
+            }
+        }
 
         let top_line = first_line - self.scroll_back_line;
         
-        let mut result = Vec::new();
-        result.push(content);
-
         if self.caret.is_visible && !self.blink && (top_line..(top_line + self.buf.get_buffer_height())).contains(&self.caret.get_position().y) {
             let buffer = &self.buf;
             let (top_x, top_y, _, _, char_size) = calc(buffer, &bounds);
@@ -352,7 +442,6 @@ impl<'a> canvas::Program<Message> for BufferView {
 
             let fg = buffer.palette.colors[attr.get_foreground() as usize];
             let (r, g, b) = fg.get_rgb_f32();
-
             frame.fill(&caret, iced::Color::new(r, g, b, 1.0));
             result.push(frame.into_geometry());
         }
@@ -364,7 +453,6 @@ impl<'a> canvas::Program<Message> for BufferView {
         } else if let Some(selection) = &self.selection {
             result.push(selection.draw(&self.buf, self.scroll_back_line, &bounds));
         }
-
         result
     }
 

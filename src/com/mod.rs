@@ -1,4 +1,4 @@
-use std::{time::Duration, io::{self}, error::Error};
+use std::{time::Duration, io::{self}};
 
 #[cfg(test)]
 pub mod test_com;

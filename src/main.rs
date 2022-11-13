@@ -1,6 +1,4 @@
 mod ui;
-use std::error::Error;
-
 use iced::{Settings, Application};
 use ui::*;
 

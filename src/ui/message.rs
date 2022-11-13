@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use iced::{keyboard::{KeyCode, Modifiers}, mouse::ScrollDelta};
 
 use crate::{protocol::ProtocolType, address::{Terminal, ConnectionType}};

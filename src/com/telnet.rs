@@ -2,7 +2,7 @@ use std::{io::ErrorKind,  time::Duration, thread};
 #[allow(dead_code)]
 use super::Com;
 use async_trait::async_trait;
-use tokio::{io::{self}, net::TcpStream, sync::oneshot, time::Timeout};
+use tokio::{io::{self}, net::TcpStream};
 
 #[derive(Debug)]
 pub struct TelnetCom

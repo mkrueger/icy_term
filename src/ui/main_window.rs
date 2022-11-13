@@ -256,14 +256,15 @@ impl Application for MainWindow {
         };
 
        //  view.set_screen_mode(&ScreenMode::DOS(80, 50));
-       let txt = "\x1B[0;10maxvaxvaxvav";
+       let txt = "";
        for b in txt.chars() {
            if let Err(err) = view.buffer_view.buffer_parser.print_char(&mut view.buffer_view.buf, &mut view.buffer_view.caret, b) {
                eprintln!("{}", err);
            }
+           view.buffer_view.update_sixels();
        }
        view.mode = MainWindowMode::ShowTerminal;
-      
+
         let args: Vec<String> = env::args().collect();
         if let Some(arg) = args.get(1) {
             println!("{}", arg);
@@ -271,7 +272,6 @@ impl Application for MainWindow {
             let cmd = view.call_bbs(0);
             return (view, cmd);
         }
-
         (view, Command::none())
     }
 
@@ -302,9 +302,9 @@ impl Application for MainWindow {
             }
             Message::Connected(t) => {
                 match t {
-                    Ok(t) => {
+                    Ok(_addr) => {
                         unsafe {
-                            self.com = com2.replace(None).unwrap();
+                            self.com = COM2.replace(None).unwrap();
                         }
                         self.buffer_view.clear();
                         self.connection_time = SystemTime::now();
@@ -602,9 +602,10 @@ static LOGOUT_SVG: &[u8] = include_bytes!("../../resources/logout.svg");
 
 impl MainWindow {
     pub fn view_terminal_window(&self) -> Element<'_, Message> {
-        let c = Canvas::new(&self.buffer_view)
+       let c = Canvas::new(&self.buffer_view)
             .width(Length::Fill)
             .height(Length::Fill);
+
         let mut title_row = Row::new();
         if self.com.is_some()  {
             title_row = title_row.push(create_icon_button(UPLOAD_SVG).on_press(Message::InitiateFileTransfer(false)));
@@ -614,7 +615,6 @@ impl MainWindow {
             }
         }
         title_row = title_row.push(create_icon_button(LOGOUT_SVG).on_press(Message::Hangup));
-        
         column(vec![
             title_row.align_items(Alignment::Center) .spacing(8).padding(4).into(),
             c.into()
@@ -648,7 +648,7 @@ impl MainWindow {
         self.buffer_view.buffer_parser = self.addresses[i].get_terminal_parser();
         self.println(&format!("Connect to {}...", &call_adr.address));
         let a = call_adr.address.clone();
-        unsafe { com2 = Some(Some(Box::new(TelnetCom::new())));} 
+        unsafe { COM2 = Some(Some(Box::new(TelnetCom::new())));} 
         Command::perform(foo(a), Message::Connected)
     }
 
@@ -662,16 +662,16 @@ pub fn log_result<'a, T>(result: &Result<T, Box<dyn std::error::Error + 'a>>)
     }
 }
 
-static mut com2 : Option<Option<Box<dyn Com + 'static>>> = None;
+static mut COM2 : Option<Option<Box<dyn Com + 'static>>> = None;
 
 async fn foo(a: String) -> Result<bool, String> {
 
     unsafe {
-        let mut c = com2.replace(None);
+        let mut c = COM2.replace(None);
         println!("Connect…");
         c.as_mut().unwrap().as_mut().unwrap().connect(a).await?;
         println!("success!!!");
-        com2 = c;
+        COM2 = c;
     }
     
     Ok(true)

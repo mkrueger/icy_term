@@ -24,7 +24,7 @@ impl Com for TestCom {
     {
         "Test_Com"
     }
-    async fn connect(&mut self, addr: String) -> Result<bool, String> {
+    async fn connect(&mut self, _addr: String) -> Result<bool, String> {
         Ok(true)
     }
     fn read_char(&mut self, _timeout: Duration) -> io::Result<u8>
@@ -53,7 +53,7 @@ impl Com for TestCom {
         panic!("should not happen!");
     }
 
-    fn read_exact(&mut self, _duration: Duration, bytes: usize) -> io::Result<Vec<u8>>
+    fn read_exact(&mut self, _duration: Duration, _bytes: usize) -> io::Result<Vec<u8>>
     {
         if self.name == "receiver" {
             indent_receiver();
