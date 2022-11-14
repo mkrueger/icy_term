@@ -1,27 +1,30 @@
-#[allow(dead_code)]
-use std::{io::{ErrorKind, self, Read, Write}, time::Duration, net::{SocketAddr, TcpStream}, thread};
 use super::Com;
+#[allow(dead_code)]
+use std::{
+    io::{self, ErrorKind, Read, Write},
+    net::{SocketAddr, TcpStream},
+    thread,
+    time::Duration,
+};
 
-pub struct RawCom
-{
+pub struct RawCom {
     tcp_stream: TcpStream,
-    buf: std::collections::VecDeque<u8>
+    buf: std::collections::VecDeque<u8>,
 }
 
-impl RawCom 
-{
+impl RawCom {
     pub fn connect(addr: &SocketAddr, timeout: Duration) -> io::Result<Self> {
         let tcp_stream = std::net::TcpStream::connect_timeout(addr, timeout)?;
         tcp_stream.set_nonblocking(true)?;
 
-        Ok(Self { 
+        Ok(Self {
             tcp_stream,
-            buf: std::collections::VecDeque::new()
+            buf: std::collections::VecDeque::new(),
         })
     }
 
     fn fill_buffer(&mut self) -> io::Result<()> {
-        let mut buf = [0;1024 * 8];
+        let mut buf = [0; 1024 * 8];
         loop {
             match self.tcp_stream.read(&mut buf) {
                 Ok(size) => {
@@ -32,7 +35,10 @@ impl RawCom
                     if e.kind() == io::ErrorKind::WouldBlock {
                         break;
                     }
-                    return Err(io::Error::new(ErrorKind::ConnectionAborted, format!("{}", e)));
+                    return Err(io::Error::new(
+                        ErrorKind::ConnectionAborted,
+                        format!("{}", e),
+                    ));
                 }
             };
         }
@@ -66,7 +72,7 @@ impl Com for RawCom {
         }
         return Err(io::Error::new(ErrorKind::TimedOut, "timed out"));
     }
-    
+
     fn read_char_nonblocking(&mut self) -> io::Result<u8> {
         if let Some(b) = self.buf.pop_front() {
             return Ok(b);
@@ -80,9 +86,9 @@ impl Com for RawCom {
         }
         Ok(self.buf.drain(0..bytes).collect())
     }
-    
+
     fn is_data_available(&mut self) -> io::Result<bool> {
-        self.fill_buffer()?; 
+        self.fill_buffer()?;
         Ok(self.buf.len() > 0)
     }
 

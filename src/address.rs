@@ -1,22 +1,26 @@
-use std::{fs::{self, File}, path::{PathBuf}, thread, fmt::Display, io::{Write}, error::Error};
+use crate::ui::screen_modes::ScreenMode;
 use directories::ProjectDirs;
-use icy_engine::{BufferParser, AnsiParser, AvatarParser, PETSCIIParser, AtasciiParser};
-use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config};
-use std::path::Path;
-use crate::ui::{screen_modes::ScreenMode};
+use icy_engine::{AnsiParser, AtasciiParser, AvatarParser, BufferParser, PETSCIIParser};
+use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use serde_derive::{Deserialize, Serialize};
+use std::path::Path;
+use std::{
+    error::Error,
+    fmt::Display,
+    fs::{self, File},
+    io::Write,
+    path::PathBuf,
+    thread,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Terminal {
     Ansi,
-    Avatar
+    Avatar,
 }
 
 impl Terminal {
-    pub const ALL: [Terminal;2] = [
-        Terminal::Ansi,
-        Terminal::Avatar
-    ];
+    pub const ALL: [Terminal; 2] = [Terminal::Ansi, Terminal::Avatar];
 }
 
 impl Display for Terminal {
@@ -28,7 +32,7 @@ impl Display for Terminal {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ConnectionType {
     Telnet,
-    Raw
+    Raw,
 }
 
 impl Display for ConnectionType {
@@ -38,15 +42,12 @@ impl Display for ConnectionType {
 }
 
 impl ConnectionType {
-    pub const ALL: [ConnectionType;2] = [
-        ConnectionType::Telnet, 
-        ConnectionType::Raw
-    ];
+    pub const ALL: [ConnectionType; 2] = [ConnectionType::Telnet, ConnectionType::Raw];
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AddressBook {
-    pub addresses: Vec<Address>
+    pub addresses: Vec<Address>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -132,17 +133,16 @@ impl Address {
             auto_login: String::new(),
             address: String::new(),
             connection_type: ConnectionType::Telnet,
-            ice_mode: true
+            ice_mode: true,
         }
     }
 
     pub fn get_terminal_parser(&self) -> Box<dyn BufferParser> {
-
         match self.screen_mode {
-            Some(ScreenMode::C64)|  Some(ScreenMode::C128(_)) => {
+            Some(ScreenMode::C64) | Some(ScreenMode::C128(_)) => {
                 return Box::new(PETSCIIParser::new());
             }
-            Some(ScreenMode::Atari)|  Some(ScreenMode::AtariXep80) => {
+            Some(ScreenMode::Atari) | Some(ScreenMode::AtariXep80) => {
                 return Box::new(AtasciiParser::new());
             }
             _ => {}
@@ -155,14 +155,15 @@ impl Address {
     }
 
     pub fn get_phonebook_file() -> Option<PathBuf> {
-        if let Some(proj_dirs) = ProjectDirs::from("com", "GitHub",  "icy_term") {
-            if !proj_dirs.config_dir().exists()
-            {
-                fs::create_dir_all(proj_dirs.config_dir()).expect(&format!("Can't create configuration directory {:?}", proj_dirs.config_dir()));
+        if let Some(proj_dirs) = ProjectDirs::from("com", "GitHub", "icy_term") {
+            if !proj_dirs.config_dir().exists() {
+                fs::create_dir_all(proj_dirs.config_dir()).expect(&format!(
+                    "Can't create configuration directory {:?}",
+                    proj_dirs.config_dir()
+                ));
             }
             let phonebook = proj_dirs.config_dir().join("phonebook.toml");
-            if !phonebook.exists()
-            {
+            if !phonebook.exists() {
                 fs::write(phonebook, &TEMPLATE).expect("Can't create phonebook");
                 return None;
             }
@@ -182,7 +183,11 @@ impl Address {
                     return res;
                 }
                 Err(err) => {
-                    println!("Can't read phonebook from file {}: {:?}.", phonebook.display(), err);
+                    println!(
+                        "Can't read phonebook from file {}: {:?}.",
+                        phonebook.display(),
+                        err
+                    );
                     return res;
                 }
             }
@@ -197,13 +202,11 @@ pub fn start_read_book() -> Vec<Address> {
     let res = Address::read_phone_book();
 
     if let Some(phonebook) = Address::get_phonebook_file() {
-        let p  = phonebook.clone();
-        thread::spawn(move || {
-            loop {
-                if let Some(path) = p.parent() {
-                    if let Err(_) = watch(path) {
-                        return;
-                    }
+        let p = phonebook.clone();
+        thread::spawn(move || loop {
+            if let Some(path) = p.parent() {
+                if let Err(_) = watch(path) {
+                    return;
                 }
             }
         });
@@ -219,15 +222,13 @@ pub fn store_phone_book(addr: &Vec<Address>) -> Result<(), Box<dyn Error>> {
         for i in 1..addr.len() {
             addresses.push(addr[i].clone());
         }
-        let phonebook = AddressBook {
-            addresses
-        }; 
-        
+        let phonebook = AddressBook { addresses };
+
         match toml::to_string_pretty(&phonebook) {
             Ok(str) => {
                 println!("store {}", str);
                 let mut tmp = file_name.clone();
-                if !tmp.set_extension("tmp") { 
+                if !tmp.set_extension("tmp") {
                     return Ok(());
                 }
                 let mut file = File::create(&tmp)?;
@@ -235,10 +236,10 @@ pub fn store_phone_book(addr: &Vec<Address>) -> Result<(), Box<dyn Error>> {
                 file.sync_all()?;
                 fs::rename(&tmp, file_name)?;
             }
-            Err(err) => return Err(Box::new(err))
+            Err(err) => return Err(Box::new(err)),
         }
     }
-   Ok(())
+    Ok(())
 }
 
 fn watch<P: AsRef<Path>>(path: P) -> notify::Result<()> {
@@ -254,7 +255,9 @@ fn watch<P: AsRef<Path>>(path: P) -> notify::Result<()> {
 
     for res in rx {
         match res {
-            Ok(_) => unsafe { READ_ADDRESSES = true; },
+            Ok(_) => unsafe {
+                READ_ADDRESSES = true;
+            },
             Err(e) => println!("watch error: {:?}", e),
         }
     }

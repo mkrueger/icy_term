@@ -1,6 +1,12 @@
-use iced::{keyboard::{KeyCode, Modifiers}, mouse::ScrollDelta};
+use iced::{
+    keyboard::{KeyCode, Modifiers},
+    mouse::ScrollDelta,
+};
 
-use crate::{protocol::ProtocolType, address::{Terminal, ConnectionType}};
+use crate::{
+    address::{ConnectionType, Terminal},
+    protocol::ProtocolType,
+};
 
 use super::{screen_modes::ScreenMode, selection::Selection};
 
@@ -24,14 +30,14 @@ pub enum Message {
     SelectProtocol(ProtocolType, bool),
     OpenURL(String),
     CancelTransfer,
-    
+
     SetSelection(Option<Selection>),
 
     // Phonebook
     QuickConnectChanged(String),
     CallBBS(usize),
 
-    // Edit BBS 
+    // Edit BBS
     EditBBS(usize),
     EditBbsSystemNameChanged(String),
     EditBbsAddressChanged(String),
@@ -43,5 +49,5 @@ pub enum Message {
     EditBbsAutoLoginChanged(String),
     EditBbsSaveChanges(usize),
     EditBbsDeleteEntry(usize),
-    EditBbsConnectionType(ConnectionType)
+    EditBbsConnectionType(ConnectionType),
 }

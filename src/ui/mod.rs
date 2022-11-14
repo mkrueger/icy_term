@@ -31,7 +31,7 @@ pub use keymaps::*;
 
 // pub mod simulate;
 
-pub fn create_icon_button(icon_data: &'static [u8]) -> iced::widget::Button<'_, Message>  {
+pub fn create_icon_button(icon_data: &'static [u8]) -> iced::widget::Button<'_, Message> {
     let icon_size = 32;
 
     let icon = iced::widget::svg(iced::widget::svg::Handle::from_memory(icon_data))

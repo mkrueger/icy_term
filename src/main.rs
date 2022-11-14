@@ -1,14 +1,14 @@
 mod ui;
-use iced::{Settings, Application};
+use iced::{Application, Settings};
 use ui::*;
 
-mod com;
 mod address;
+mod com;
 
+mod auto_file_transfer;
+mod auto_login;
 mod iemsi;
 mod protocol;
-mod auto_login;
-mod auto_file_transfer;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub fn main() -> iced::Result {
@@ -19,7 +19,7 @@ pub fn main() -> iced::Result {
             ..Default::default()
         },
         antialiasing: true,
-        
+
         ..Settings::default()
     })
 }

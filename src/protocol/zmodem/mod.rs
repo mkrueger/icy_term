@@ -1,15 +1,18 @@
-// 
+//
 // ZModem protocol specification http://cristal.inria.fr/~doligez/zmodem/zmodem.txt
 
 pub mod constants;
-use std::{io::{self, ErrorKind}, time::Duration};
+use std::{
+    io::{self, ErrorKind},
+    time::Duration,
+};
 
 pub use constants::*;
 mod header;
 pub use header::*;
 
 mod sz;
-use icy_engine::{ get_crc32, update_crc32};
+use icy_engine::{get_crc32, update_crc32};
 use sz::*;
 
 mod rz;
@@ -17,13 +20,13 @@ use rz::*;
 
 mod tests;
 
-use crate::{com::Com};
-use super::{Protocol, TransferState, FileTransferState};
+use super::{FileTransferState, Protocol, TransferState};
+use crate::com::Com;
 
 pub struct Zmodem {
     block_length: usize,
     sz: Sz,
-    rz: Rz
+    rz: Rz,
 }
 
 impl Zmodem {
@@ -31,13 +34,16 @@ impl Zmodem {
         Self {
             block_length,
             sz: Sz::new(block_length),
-            rz: Rz::new(block_length)
+            rz: Rz::new(block_length),
         }
     }
 
-    fn get_name(&self) -> &str
-    {
-        if self.block_length == 1024 { "Zmodem" } else { "ZedZap (Zmodem 8k)" }
+    fn get_name(&self) -> &str {
+        if self.block_length == 1024 {
+            "Zmodem"
+        } else {
+            "ZedZap (Zmodem 8k)"
+        }
     }
 
     pub fn cancel(com: &mut Box<dyn Com>) -> io::Result<()> {
@@ -45,8 +51,7 @@ impl Zmodem {
         Ok(())
     }
 
-    pub fn encode_subpacket_crc16(zcrc_byte: u8, data:&[u8]) -> Vec<u8>
-    {
+    pub fn encode_subpacket_crc16(zcrc_byte: u8, data: &[u8]) -> Vec<u8> {
         let mut v = Vec::new();
         let crc = icy_engine::get_crc16_buggy(data, zcrc_byte);
         append_zdle_encoded(&mut v, data);
@@ -55,8 +60,7 @@ impl Zmodem {
         v
     }
 
-    pub fn encode_subpacket_crc32(zcrc_byte: u8, data:&[u8]) -> Vec<u8>
-    {
+    pub fn encode_subpacket_crc32(zcrc_byte: u8, data: &[u8]) -> Vec<u8> {
         let mut v = Vec::new();
         let mut crc = get_crc32(data);
         crc = !update_crc32(!crc, zcrc_byte);
@@ -68,10 +72,7 @@ impl Zmodem {
     }
 }
 
-
-
-pub fn append_zdle_encoded(v: &mut Vec<u8>, data: &[u8])
-{
+pub fn append_zdle_encoded(v: &mut Vec<u8>, data: &[u8]) {
     let mut last = 0u8;
     for b in data {
         match *b {
@@ -88,7 +89,7 @@ pub fn append_zdle_encoded(v: &mut Vec<u8>, data: &[u8])
                 } else {
                     v.push(0x0D);
                 }
-            },
+            }
             0x8D => {
                 if last == 0x40 || last == 0xc0 {
                     v.extend_from_slice(&[ZDLE, ESC_0X8D]);
@@ -103,13 +104,12 @@ pub fn append_zdle_encoded(v: &mut Vec<u8>, data: &[u8])
     }
 }
 
-
 pub fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> io::Result<Vec<u8>> {
     let mut data = Vec::new();
     loop {
         let c = com.read_char(Duration::from_secs(5))?;
         match c {
-            ZDLE  => {
+            ZDLE => {
                 let c2 = com.read_char(Duration::from_secs(5))?;
                 match c2 {
                     ZDLEE => data.push(ZDLE),
@@ -123,10 +123,13 @@ pub fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> io::Result<Vec<
                     ESC_0X8D => data.push(0x8D),
                     ZRUB0 => data.push(0x7F),
                     ZRUB1 => data.push(0xFF),
-                    
+
                     _ => {
                         Header::empty(HeaderType::Bin32, FrameType::ZNAK).write(com)?;
-                        return Err(io::Error::new(ErrorKind::InvalidInput, format!("don't understand subpacket {}/x{:X}", c2, c2))); 
+                        return Err(io::Error::new(
+                            ErrorKind::InvalidInput,
+                            format!("don't understand subpacket {}/x{:X}", c2, c2),
+                        ));
                     }
                 }
             }
@@ -134,7 +137,7 @@ pub fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> io::Result<Vec<
                 println!("ignored byte");
             }
             _ => {
-                 data.push(c);
+                data.push(c);
             }
         }
         if data.len() >= length {
@@ -143,16 +146,14 @@ pub fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> io::Result<Vec<
     }
 }
 
-fn get_hex(n: u8) -> u8
-{
+fn get_hex(n: u8) -> u8 {
     if n < 10 {
         return b'0' + n as u8;
     }
     return b'a' + (n - 10) as u8;
 }
 
-fn from_hex(n: u8) -> io::Result<u8>
-{
+fn from_hex(n: u8) -> io::Result<u8> {
     if b'0' <= n && n <= b'9' {
         return Ok(n - b'0');
     }
@@ -162,7 +163,10 @@ fn from_hex(n: u8) -> io::Result<u8>
     if b'a' <= n && n <= b'f' {
         return Ok(10 + n - b'a');
     }
-    return Err(io::Error::new(io::ErrorKind::InvalidData, "Hex number expected"));
+    return Err(io::Error::new(
+        io::ErrorKind::InvalidData,
+        "Hex number expected",
+    ));
 }
 
 impl Protocol for Zmodem {
@@ -186,7 +190,11 @@ impl Protocol for Zmodem {
         Ok(())
     }
 
-    fn initiate_send(&mut self, com: &mut Box<dyn Com>, files: Vec<super::FileDescriptor>) -> std::io::Result<TransferState> {
+    fn initiate_send(
+        &mut self,
+        com: &mut Box<dyn Com>,
+        files: Vec<super::FileDescriptor>,
+    ) -> std::io::Result<TransferState> {
         let mut state = TransferState::new();
         state.send_state = Some(FileTransferState::new());
         state.protocol_name = self.get_name().to_string();
@@ -208,8 +216,7 @@ impl Protocol for Zmodem {
         c
     }
 
-    fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
-    {
+    fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
         com.write(&ABORT_SEQ)?;
         Ok(())
     }

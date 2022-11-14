@@ -1,7 +1,7 @@
 use std::error::Error;
-use std::path::{ PathBuf};
-use std::time::{SystemTime, Duration};
-use std::{io, fs};
+use std::path::PathBuf;
+use std::time::{Duration, SystemTime};
+use std::{fs, io};
 
 pub mod xymodem;
 use directories::UserDirs;
@@ -20,7 +20,7 @@ pub struct FileDescriptor {
     pub size: usize,
     pub date: u64,
     path: PathBuf,
-    data: Option<Vec<u8>>
+    data: Option<Vec<u8>>,
 }
 
 impl FileDescriptor {
@@ -31,7 +31,7 @@ impl FileDescriptor {
             size: 0,
             date: 0,
             path: PathBuf::new(),
-            data: None
+            data: None,
         }
     }
 
@@ -44,13 +44,15 @@ impl FileDescriptor {
         Ok(res)
     }
 
-    pub fn save_file_in_downloads(&self, transfer_state: &mut FileTransferState) -> Result<(), Box<dyn Error>> {
-        if let Some(user_dirs) = UserDirs::new() { 
+    pub fn save_file_in_downloads(
+        &self,
+        transfer_state: &mut FileTransferState,
+    ) -> Result<(), Box<dyn Error>> {
+        if let Some(user_dirs) = UserDirs::new() {
             let dir = user_dirs.download_dir().unwrap();
 
             if self.file_name.is_empty() {
-                let new_name = FileDialog::new()
-                .save_file();
+                let new_name = FileDialog::new().save_file();
                 if let Some(path) = new_name {
                     let out_file = dir.join(path);
                     transfer_state.write(format!("Storing file as '{:?}'…", out_file));
@@ -69,19 +71,22 @@ impl FileDescriptor {
         }
         Ok(())
     }
-    
+
     pub fn create(path: &PathBuf) -> io::Result<Self> {
         let data = fs::metadata(path)?;
         let size = data.len() as usize;
-        let date = data.modified()?.duration_since(SystemTime::UNIX_EPOCH).unwrap();
-        
+        let date = data
+            .modified()?
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap();
+
         Ok(Self {
             path_name: path.to_str().unwrap().to_string(),
             file_name: path.file_name().unwrap().to_str().unwrap().to_string(),
             path: path.clone(),
             size,
             date: date.as_secs(),
-            data: None
+            data: None,
         })
     }
 
@@ -93,12 +98,11 @@ impl FileDescriptor {
             path: PathBuf::new(),
             size: data.len(),
             date: 0,
-            data: Some(data)
+            data: Some(data),
         }
     }
 
-    pub fn get_data(&self) -> io::Result<Vec<u8>>
-    {
+    pub fn get_data(&self) -> io::Result<Vec<u8>> {
         if let Some(data) = &self.data {
             Ok(data.clone())
         } else {
@@ -121,7 +125,7 @@ pub struct FileTransferState {
     bytes_transferred_timed: usize,
     pub bps: u64,
 
-    pub output_log: Vec<String>
+    pub output_log: Vec<String>,
 }
 
 impl FileTransferState {
@@ -136,23 +140,24 @@ impl FileTransferState {
             time: SystemTime::now(),
             output_log: Vec::new(),
             bytes_transferred_timed: 0,
-            bps: 0
+            bps: 0,
         }
     }
 
-    pub fn update_bps(&mut self) 
-    {
-        let bytes = self.bytes_transfered.saturating_sub(self.bytes_transferred_timed);
+    pub fn update_bps(&mut self) {
+        let bytes = self
+            .bytes_transfered
+            .saturating_sub(self.bytes_transferred_timed);
         let length = SystemTime::now().duration_since(self.time).unwrap();
-    
+
         if length > Duration::from_secs(10) {
             self.bytes_transferred_timed = self.bytes_transfered;
         }
-    
+
         let length = length.as_secs() as usize;
 
         if length > 0 {
-            self.bps = self.bps / 2 +  (bytes / length) as u64;
+            self.bps = self.bps / 2 + (bytes / length) as u64;
         }
 
         let length = SystemTime::now().duration_since(self.time).unwrap();
@@ -162,13 +167,14 @@ impl FileTransferState {
         }
     }
 
-    pub fn get_bps(&self) -> u64 { self.bps }
-    
+    pub fn get_bps(&self) -> u64 {
+        self.bps
+    }
+
     pub fn write(&mut self, txt: String) {
         self.output_log.push(txt);
     }
 }
-
 
 #[derive(Clone)]
 pub struct TransferState {
@@ -188,15 +194,18 @@ impl TransferState {
             is_finished: false,
             start_time: SystemTime::now(),
             send_state: None,
-            recieve_state: None
+            recieve_state: None,
         }
     }
 }
 
-pub trait Protocol
-{
+pub trait Protocol {
     fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()>;
-    fn initiate_send(&mut self, com: &mut Box<dyn Com>, files: Vec<FileDescriptor>) -> io::Result<TransferState>;
+    fn initiate_send(
+        &mut self,
+        com: &mut Box<dyn Com>,
+        files: Vec<FileDescriptor>,
+    ) -> io::Result<TransferState>;
     fn initiate_recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<TransferState>;
     fn get_received_files(&mut self) -> Vec<FileDescriptor>;
     fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>;

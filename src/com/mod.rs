@@ -1,4 +1,7 @@
-use std::{time::Duration, io::{self}};
+use std::{
+    io::{self},
+    time::Duration,
+};
 
 #[cfg(test)]
 pub mod test_com;
@@ -16,7 +19,7 @@ pub trait Com: Sync + Send {
     fn read_char(&mut self, duration: Duration) -> io::Result<u8>;
     fn read_char_nonblocking(&mut self) -> io::Result<u8>;
     fn read_exact(&mut self, duration: Duration, bytes: usize) -> io::Result<Vec<u8>>;
-    
+
     fn is_data_available(&mut self) -> io::Result<bool>;
 
     fn write(&mut self, buf: &[u8]) -> io::Result<usize>;

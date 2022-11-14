@@ -1,8 +1,21 @@
-use std::{time::Duration, io::{self, ErrorKind}};
 use icy_engine::get_crc16;
+use std::{
+    io::{self, ErrorKind},
+    time::Duration,
+};
 
-use crate::{protocol::{FileDescriptor, TransferState, xymodem::constants::{SOH, STX, EXT_BLOCK_LENGTH, EOT, CPMEOF, NAK, ACK}, str_from_null_terminated_utf8_unchecked}, com::Com};
-use super::{Checksum, get_checksum,  constants::{CAN, DEFAULT_BLOCK_LENGTH}, XYModemConfiguration};
+use super::{
+    constants::{CAN, DEFAULT_BLOCK_LENGTH},
+    get_checksum, Checksum, XYModemConfiguration,
+};
+use crate::{
+    com::Com,
+    protocol::{
+        str_from_null_terminated_utf8_unchecked,
+        xymodem::constants::{ACK, CPMEOF, EOT, EXT_BLOCK_LENGTH, NAK, SOH, STX},
+        FileDescriptor, TransferState,
+    },
+};
 
 #[derive(Debug)]
 pub enum RecvState {
@@ -11,7 +24,7 @@ pub enum RecvState {
     StartReceive(usize),
     ReadYModemHeader(usize),
     ReadBlock(usize, usize),
-    ReadBlockStart(u8, usize)
+    ReadBlockStart(u8, usize),
 }
 
 /// specification: http://pauillac.inria.fr/~doligez/zmodem/ymodem.txt
@@ -27,7 +40,7 @@ pub struct Ry {
     data: Vec<u8>,
 
     errors: usize,
-    recv_state: RecvState
+    recv_state: RecvState,
 }
 
 impl Ry {
@@ -42,16 +55,19 @@ impl Ry {
             files: Vec::new(),
             data: Vec::new(),
             errors: 0,
-            bytes_send: 0
+            bytes_send: 0,
         }
     }
 
-    pub fn is_finished(&self) -> bool { 
-        if let RecvState::None = self.recv_state { true } else { false }
+    pub fn is_finished(&self) -> bool {
+        if let RecvState::None = self.recv_state {
+            true
+        } else {
+            false
+        }
     }
 
-    pub fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()>
-    {
+    pub fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()> {
         if let Some(transfer_state) = &mut state.recieve_state {
             if self.files.len() > 0 {
                 let cur_file = self.files.len() - 1;
@@ -66,7 +82,7 @@ impl Ry {
 
             // println!("\t\t\t\t\t\t{:?}", self.recv_state);
             match self.recv_state {
-                RecvState::None => {},
+                RecvState::None => {}
 
                 RecvState::StartReceive(retries) => {
                     if com.is_data_available()? {
@@ -85,24 +101,32 @@ impl Ry {
                         } else {
                             if retries < 3 {
                                 self.await_data(com)?;
-                            } else if retries == 4  {
+                            } else if retries == 4 {
                                 com.write(&[NAK])?;
                             } else {
                                 self.cancel(com)?;
-                                return Err(io::Error::new(ErrorKind::ConnectionAborted, "too many retries starting the communication"));
+                                return Err(io::Error::new(
+                                    ErrorKind::ConnectionAborted,
+                                    "too many retries starting the communication",
+                                ));
                             }
                             self.errors += 1;
                             self.recv_state = RecvState::StartReceive(retries + 1);
                         }
                     }
-                },
+                }
 
                 RecvState::ReadYModemHeader(retries) => {
                     let len = 128; // constant header length
 
                     if com.is_data_available()? {
                         state.current_state = "Get header...";
-                        let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode { 2 } else { 1 };
+                        let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode
+                        {
+                            2
+                        } else {
+                            1
+                        };
 
                         let block = com.read_exact(self.recv_timeout, 2 + len + chksum_size)?;
 
@@ -128,9 +152,12 @@ impl Ry {
                             return Ok(());
                         }
 
-                        let mut fd =  FileDescriptor::new();
+                        let mut fd = FileDescriptor::new();
                         fd.file_name = str_from_null_terminated_utf8_unchecked(&block).to_string();
-                        let num = str_from_null_terminated_utf8_unchecked(&block[(fd.file_name.len() + 1)..]).to_string();
+                        let num = str_from_null_terminated_utf8_unchecked(
+                            &block[(fd.file_name.len() + 1)..],
+                        )
+                        .to_string();
                         if let Ok(file_size) = usize::from_str_radix(&num, 10) {
                             fd.size = file_size;
                         }
@@ -143,7 +170,7 @@ impl Ry {
                         }
                         self.recv_state = RecvState::ReadBlockStart(0, 0);
                     }
-                },
+                }
 
                 RecvState::ReadBlockStart(step, retries) => {
                     if com.is_data_available()? {
@@ -178,7 +205,10 @@ impl Ry {
                                     com.write(&[NAK])?;
                                 } else {
                                     self.cancel(com)?;
-                                    return Err(io::Error::new(ErrorKind::ConnectionAborted, "too many retries")); 
+                                    return Err(io::Error::new(
+                                        ErrorKind::ConnectionAborted,
+                                        "too many retries",
+                                    ));
                                 }
                                 self.errors += 1;
                                 self.recv_state = RecvState::ReadBlockStart(0, retries + 1);
@@ -197,12 +227,17 @@ impl Ry {
                             self.recv_state = RecvState::StartReceive(retries);
                         }
                     }
-                },
+                }
 
                 RecvState::ReadBlock(len, retries) => {
                     if com.is_data_available()? {
                         state.current_state = "Receiving data...";
-                        let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode { 2 } else { 1 };
+                        let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode
+                        {
+                            2
+                        } else {
+                            1
+                        };
                         let block = com.read_exact(self.recv_timeout, 2 + len + chksum_size)?;
                         if block[0] != block[1] ^ 0xFF {
                             com.write(&[NAK])?;
@@ -210,14 +245,19 @@ impl Ry {
                             self.errors += 1;
                             let start = com.read_char(self.recv_timeout)?;
                             if start == SOH {
-                                self.recv_state = RecvState::ReadBlock(DEFAULT_BLOCK_LENGTH, retries + 1);
+                                self.recv_state =
+                                    RecvState::ReadBlock(DEFAULT_BLOCK_LENGTH, retries + 1);
                             } else if start == STX {
-                                self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
+                                self.recv_state =
+                                    RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
                             } else {
                                 self.cancel(com)?;
-                                return Err(io::Error::new(ErrorKind::ConnectionAborted, "too many retries")); 
+                                return Err(io::Error::new(
+                                    ErrorKind::ConnectionAborted,
+                                    "too many retries",
+                                ));
                             }
-                            
+
                             self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
                             return Ok(());
                         }
@@ -237,18 +277,16 @@ impl Ry {
                     }
                 }
             }
-        
         }
         Ok(())
     }
 
-    pub fn cancel(&self, com: &mut Box<dyn Com>)-> io::Result<()> {
+    pub fn cancel(&self, com: &mut Box<dyn Com>) -> io::Result<()> {
         com.write(&[CAN, CAN])?;
         Ok(())
     }
 
-    pub fn recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
-    {
+    pub fn recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
         self.await_data(com)?;
         self.data = Vec::new();
         self.recv_state = RecvState::StartReceive(0);
@@ -265,8 +303,7 @@ impl Ry {
         }
     }
 
-    fn check_crc(&self, block: &[u8]) -> bool
-    {
+    fn check_crc(&self, block: &[u8]) -> bool {
         if block.len() < 3 {
             return false;
         }
@@ -283,4 +320,3 @@ impl Ry {
         }
     }
 }
-

@@ -1,16 +1,19 @@
 #![allow(dead_code)]
 
 // IEMSI autologin implementation http://ftsc.org/docs/fsc-0056.001
-use std::{fmt, io::{self, ErrorKind}};
+use std::{
+    fmt,
+    io::{self, ErrorKind},
+};
 
-use icy_engine::{get_crc32, get_crc16, update_crc32};
+use icy_engine::{get_crc16, get_crc32, update_crc32};
 
-use crate::{VERSION, com::Com, address::Address};
+use crate::{address::Address, com::Com, VERSION};
 
 /// EMSI Inquiry is transmitted by the calling system to identify it as
 /// EMSI capable. If an EMSI_REQ sequence is received in response, it is
 /// safe to assume the answering system to be EMSI capable.
-pub const EMSI_INQ: &[u8;15] = b"**EMSI_INQC816\r";
+pub const EMSI_INQ: &[u8; 15] = b"**EMSI_INQC816\r";
 
 /// EMSI Request is transmitted by the answering system in response to an
 /// EMSI Inquiry sequence. It should also be transmitted prior to or
@@ -18,7 +21,7 @@ pub const EMSI_INQ: &[u8;15] = b"**EMSI_INQC816\r";
 /// transmitting its program name and/or banner. If the calling system
 /// receives an EMSI Request sequence, it can safely assume that the
 /// answering system is EMSI capable.
-pub const EMSI_REQ: &[u8;15] = b"**EMSI_REQA77E\r";
+pub const EMSI_REQ: &[u8; 15] = b"**EMSI_REQA77E\r";
 
 /// EMSI Client is used by terminal emulation software to force a mailer
 /// front-end to bypass any unnecessary mail session negotiation and
@@ -26,7 +29,7 @@ pub const EMSI_REQ: &[u8;15] = b"**EMSI_REQA77E\r";
 /// not be issued by any software attempting to establish a mail session
 /// between two systems and must only be acted upon by an answering
 /// system.
-pub const EMSI_CLI: &[u8;15] = b"**EMSI_CLIFA8C\r";
+pub const EMSI_CLI: &[u8; 15] = b"**EMSI_CLIFA8C\r";
 
 /// EMSI Heartbeat is used to prevent unnecessary timeouts from occurring
 /// while attempting to handshake. It is most commonly used when the
@@ -34,39 +37,39 @@ pub const EMSI_CLI: &[u8;15] = b"**EMSI_CLIFA8C\r";
 /// quite normal that any of the timers of the calling system (which at
 /// this stage is waiting for an EMSI_DAT packet) expires while the
 /// answering system is processing the recently received EMSI_DAT packet.
-pub const EMSI_HBT: &[u8;15] = b"**EMSI_HBTEAEE\r";
+pub const EMSI_HBT: &[u8; 15] = b"**EMSI_HBTEAEE\r";
 
 /// EMSI ACK is transmitted by either system as a positive
 /// acknowledgement of the valid receipt of a EMSI_DAT packet. This should
 /// only be used as a response to EMSI_DAT and not any other packet.
 /// Redundant EMSI_ACK sequences should be ignored.
-pub const EMSI_ACK: &[u8;15] = b"**EMSI_ACKA490\r";
-pub const EMSI_2ACK: &[u8;30] = b"**EMSI_ACKA490\r**EMSI_ACKA490\r";
+pub const EMSI_ACK: &[u8; 15] = b"**EMSI_ACKA490\r";
+pub const EMSI_2ACK: &[u8; 30] = b"**EMSI_ACKA490\r**EMSI_ACKA490\r";
 
 /// EMSI NAK is transmitted by either system as a negative
 /// acknowledgement of the valid receipt of a EMSI_DAT packet. This
 /// should only be used as a response to EMSI_DAT and not any other
 /// packet. Redundant EMSI_NAK packets should be ignored.
-pub const EMSI_NAK: &[u8;15] = b"**EMSI_NAKEEC3\r";
+pub const EMSI_NAK: &[u8; 15] = b"**EMSI_NAKEEC3\r";
 
 /// Similar to EMSI_REQ which is used by mailer software to negotiate a
 /// mail session. IRQ identifies the Server as being capable of
 /// negotiating an IEMSI session. When the Client detects an IRQ sequence
 /// in its inbound data stream, it attempts to negotiate an IEMSI
 /// session.
-pub const EMSI_IRQ: &[u8;15] = b"**EMSI_IRQ8E08\r";
+pub const EMSI_IRQ: &[u8; 15] = b"**EMSI_IRQ8E08\r";
 
 /// The IIR (Interactive Interrupt Request) sequence is used by either
 /// Client or Server to abort the current negotiation. This could be
 /// during the initial IEMSI handshake or during other interactions
 /// between the Client and the Server.
-pub const EMSI_IIR: &[u8;15] = b"**EMSI_IIR61E2\r";
+pub const EMSI_IIR: &[u8; 15] = b"**EMSI_IIR61E2\r";
 
 /// The CHT sequence is used by the Server to instruct the Client
 /// software to enter its full-screen conversation mode function (CHAT).
 /// Whether or not the Client software supports this is indicated in the
 /// ICI packet.
-/// 
+///
 /// If the Server transmits this sequence to the Client, it must wait for
 /// an EMSI_ACK prior to engaging its conversation mode. If no EMSI_ACK
 /// sequence is received with ten seconds, it is safe to assume that the
@@ -75,19 +78,19 @@ pub const EMSI_IIR: &[u8;15] = b"**EMSI_IIR61E2\r";
 /// EMSI_CHT sequence. Once the on-line conversation function has been
 /// sucessfully activated, the Server must not echo any received
 /// characters back to the Client.
-pub const EMSI_CHT: &[u8;15] = b"**EMSI_CHTF5D4\r";
+pub const EMSI_CHT: &[u8; 15] = b"**EMSI_CHTF5D4\r";
 
 /// The TCH sequence is used by the Server to instruct the Client
 /// software to terminate its full-screen conversation mode function
 /// (CHAT).
-/// 
+///
 /// If the Server transmits this sequence to the Client, it must wait for
 /// an EMSI_ACK prior to leaving its conversation mode. If no EMSI_ACK
 /// sequence is received with ten seconds, a second EMSI_TCH sequence
 /// should be issued before the Server resumes operation. If, however, an
 /// EMSI_NAK sequence is received from the Client, the Server must
 /// re-transmit the EMSI_TCH sequence.
-pub const EMSI_TCH: &[u8;15] = b"**EMSI_TCH3C60\r";
+pub const EMSI_TCH: &[u8; 15] = b"**EMSI_TCH3C60\r";
 
 pub struct EmsiDAT {
     pub system_address_list: String,
@@ -98,7 +101,7 @@ pub struct EmsiDAT {
     pub mailer_name: String,
     pub mailer_version: String,
     pub mailer_serial_number: String,
-    pub extra_field: Vec<String>
+    pub extra_field: Vec<String>,
 }
 
 impl std::fmt::Display for EmsiDAT {
@@ -109,8 +112,7 @@ impl std::fmt::Display for EmsiDAT {
 }
 
 impl EmsiDAT {
-    pub fn new() -> Self
-    {
+    pub fn new() -> Self {
         EmsiDAT {
             system_address_list: String::new(),
             password: String::new(),
@@ -124,19 +126,20 @@ impl EmsiDAT {
         }
     }
 
-    pub fn encode(&self) -> Vec<u8>
-    {
-        let data = format!("{{EMSI}}{{{}}}{{{}}}{{{}}}{{{}}}{{{}}}{{{}}}{{{}}}{{{}}}", 
-            self.system_address_list, 
+    pub fn encode(&self) -> Vec<u8> {
+        let data = format!(
+            "{{EMSI}}{{{}}}{{{}}}{{{}}}{{{}}}{{{}}}{{{}}}{{{}}}{{{}}}",
+            self.system_address_list,
             self.password,
             self.link_codes,
             self.compatibility_codes,
             self.mailer_product_code,
             self.mailer_name,
             self.mailer_version,
-            self.mailer_serial_number);
+            self.mailer_serial_number
+        );
 
-        // todo: etxra fields - are they even used ? 
+        // todo: etxra fields - are they even used ?
 
         let block = format!("EMSI_DAT{:04X}{}", data.len(), data);
         let mut result = Vec::new();
@@ -154,7 +157,6 @@ impl EmsiDAT {
 /// parameters, Client options, and Client capabilities.
 /// Note that the information in the EMSI_ICI packet may not exceed 2,048 bytes.
 pub struct EmsiICI {
-
     ///  The name of the user (Client). This must be treated case insensitively by the Server.
     pub name: String,
 
@@ -186,9 +188,9 @@ pub struct EmsiICI {
     /// protocol, the number of rows of the user's CRT, the number of columns
     /// of the user's CRT, and the number of ASCII NUL (00H) characters the
     /// user's software requires to be transmitted between each line of text.
-    /// 
+    ///
     /// The following terminal emulation protocols are defined:
-    /// 
+    ///
     ///  AVT0    AVATAR/0+. Used in conjunction with ANSI. If AVT0 is
     ///          specified by the Client, support for ANSI X3.64 emulation
     ///          should be assumed to be present.
@@ -197,18 +199,18 @@ pub struct EmsiICI {
     ///  VT100   DEC VT100
     ///  TTY     No terminal emulation, also referred to as RAW mode.
     pub crtdef: String,
-    
+
     /// The file transfer protocol option specifies the preferred method of
     /// transferring files between the Client and the Server in either
     /// direction. The Client presents all transfer protocols it is capable
     /// of supporting and the Server chooses the most appropriate protocol.
-    /// 
+    ///
     ///     DZA*    DirectZAP (Zmodem variant)
     ///     ZAP     ZedZap (Zmodem variant)
     ///     ZMO     Zmodem w/1,024 byte data packets
     ///     SLK     SEAlink
     ///     KER     Kermit
-    /// 
+    ///
     /// (*) DirectZAP is a variant of ZedZap. The difference is that the
     /// transmitter only escapes CAN (18H). It is not recommended to use the
     /// DirectZAP protocol when the Client and the Server are connected via a
@@ -229,7 +231,7 @@ pub struct EmsiICI {
     /// initial IEMSI negotiation has been successfully completed. If more
     /// than one capability is listed, each capability is separated by a
     /// comma.
-    /// 
+    ///
     /// The following request codes are defined:
     ///     NEWS    Show bulletins, announcements, etc.
     ///     MAIL    Check for new mail.
@@ -252,7 +254,7 @@ pub struct EmsiICI {
     /// Used for character translation between the Server and the Client.
     /// This field has not been completely defined yet and should always be
     /// transmitted as {} (empty).
-    pub xlattabl: String
+    pub xlattabl: String,
 }
 
 impl std::fmt::Display for EmsiICI {
@@ -263,10 +265,9 @@ impl std::fmt::Display for EmsiICI {
 }
 
 impl EmsiICI {
-    const MAX_SIZE:usize = 2048;
+    const MAX_SIZE: usize = 2048;
 
-    pub fn new() -> Self
-    {
+    pub fn new() -> Self {
         EmsiICI {
             name: String::new(),
             alias: String::new(),
@@ -280,15 +281,14 @@ impl EmsiICI {
             capabilities: "CHT,TAB,ASCII8".to_string(),
             requests: "HOT,MORE,FSED,NEWS,CLR".to_string(),
             software: format!("-Icy-Term-,{},iced", VERSION),
-            xlattabl: String::new()
+            xlattabl: String::new(),
         }
     }
 
-    pub fn encode(&self) -> io::Result<Vec<u8>>
-    {
+    pub fn encode(&self) -> io::Result<Vec<u8>> {
         // **EMSI_ICI<len><data><crc32><CR>
         let data = encode_emsi(&[
-            &self.name, 
+            &self.name,
             &self.alias,
             &self.location,
             &self.data_telephone,
@@ -300,11 +300,14 @@ impl EmsiICI {
             &self.capabilities,
             &self.requests,
             &self.software,
-            &self.xlattabl
+            &self.xlattabl,
         ])?;
 
         if data.len() > EmsiICI::MAX_SIZE {
-            return Err(io::Error::new(ErrorKind::OutOfMemory, "maximum size exceeded"));
+            return Err(io::Error::new(
+                ErrorKind::OutOfMemory,
+                "maximum size exceeded",
+            ));
         }
         let mut result = Vec::new();
         result.extend_from_slice(b"**EMSI_ICI");
@@ -318,20 +321,17 @@ impl EmsiICI {
     }
 }
 
-pub fn get_crc32string(block: &[u8]) -> String
-{
+pub fn get_crc32string(block: &[u8]) -> String {
     let crc = get_crc32(block);
     format!("{:08X}", !crc)
 }
 
-pub fn get_crc16string(block: &[u8]) -> String
-{
+pub fn get_crc16string(block: &[u8]) -> String {
     let crc = get_crc16(block);
     format!("{:04X}", crc)
 }
 
-pub fn get_length_string(len: usize) -> String
-{
+pub fn get_length_string(len: usize) -> String {
     format!("{:04X}", len)
 }
 
@@ -360,7 +360,7 @@ pub struct EmsiISI {
     pub wait: String,
     /// The capabilities of the Server software. No Server software
     /// capabilities have currently been defined.
-    pub capabilities: String
+    pub capabilities: String,
 }
 
 /// The ISM packet is used to transfer ASCII images from the Server to
@@ -368,8 +368,7 @@ pub struct EmsiISI {
 /// the Server needs to display a previously displayed image.
 /// This will be further described in future revisions of this document.
 /// SPOILER: There will me no future revisions :)
-pub fn _encode_ism(data: &[u8]) -> Vec<u8>
-{
+pub fn _encode_ism(data: &[u8]) -> Vec<u8> {
     let mut block = Vec::new();
     block.extend_from_slice(format!("EMSI_ISM{:X}", data.len()).as_bytes());
     block.extend_from_slice(data);
@@ -401,36 +400,35 @@ pub struct IEmsi {
     isi_data: Vec<u8>,
 
     pub aborted: bool,
-    logged_in: bool
+    logged_in: bool,
 }
 
 // **EMSI_ISI<len><data><crc32><CR>
-const ISI_START: &[u8;8] = b"EMSI_ISI";
+const ISI_START: &[u8; 8] = b"EMSI_ISI";
 
 impl IEmsi {
     pub fn new() -> Self {
         Self {
-            irq_requested:false,
-            nak_requested:false,
+            irq_requested: false,
+            nak_requested: false,
             isi: None,
-            retries:0,
-            stars_read:0,
-            irq_seq:0,
-            nak_seq:0,
+            retries: 0,
+            stars_read: 0,
+            irq_seq: 0,
+            nak_seq: 0,
 
-            isi_seq:0,
-            isi_len:0,
-            isi_crc:0,
-            isi_check_crc:0,
+            isi_seq: 0,
+            isi_len: 0,
+            isi_crc: 0,
+            isi_check_crc: 0,
             got_invavid_isi: false,
-            isi_data:Vec::new(),
+            isi_data: Vec::new(),
             aborted: false,
-            logged_in: false
+            logged_in: false,
         }
     }
-   
-    pub fn parse_char(&mut self, ch: u8) -> io::Result<()>
-    {
+
+    pub fn parse_char(&mut self, ch: u8) -> io::Result<()> {
         if self.stars_read >= 2 {
             if self.isi_seq > 7 {
                 match self.isi_seq {
@@ -439,16 +437,18 @@ impl IEmsi {
                         self.isi_len = self.isi_len * 16 + get_value(ch);
                         self.isi_seq += 1;
                         return Ok(());
-                    },
+                    }
                     12.. => {
-                        if self.isi_seq < self.isi_len + 12 { // Read data
+                        if self.isi_seq < self.isi_len + 12 {
+                            // Read data
                             self.isi_check_crc = update_crc32(self.isi_check_crc, ch);
                             self.isi_data.push(ch);
-                        } else if self.isi_seq < self.isi_len + 12 + 8 { // Read CRC
+                        } else if self.isi_seq < self.isi_len + 12 + 8 {
+                            // Read CRC
                             self.isi_crc = self.isi_crc * 16 + get_value(ch);
-                        }
-                        else if self.isi_seq >= self.isi_len + 12 + 8 { // end - should be marked with b'\r'
-                            if ch == b'\r' { 
+                        } else if self.isi_seq >= self.isi_len + 12 + 8 {
+                            // end - should be marked with b'\r'
+                            if ch == b'\r' {
                                 if self.isi_crc == self.isi_check_crc as usize {
                                     let group = parse_emsi_blocks(&self.isi_data)?;
                                     if group.len() != 8 {
@@ -475,15 +475,14 @@ impl IEmsi {
                         }
                         self.isi_seq += 1;
                         return Ok(());
-                    },
+                    }
                     _ => {}
                 }
                 return Ok(());
             }
             let mut got_seq = false;
 
-            if ch == ISI_START[self.isi_seq] 
-            {
+            if ch == ISI_START[self.isi_seq] {
                 self.isi_check_crc = update_crc32(self.isi_check_crc, ch);
                 self.isi_seq += 1;
                 self.isi_len = 0;
@@ -491,27 +490,25 @@ impl IEmsi {
             } else {
                 self.isi_seq = 0;
             }
-            
-            if ch == EMSI_NAK[2 + self.nak_seq] 
-            {
+
+            if ch == EMSI_NAK[2 + self.nak_seq] {
                 self.nak_seq += 1;
                 if self.nak_seq + 2 >= EMSI_IRQ.len() {
                     self.nak_requested = true;
                     self.stars_read = 0;
-                    self.reset_sequences();        
+                    self.reset_sequences();
                 }
                 got_seq = true;
             } else {
                 self.nak_seq = 0;
             }
-            
-            if ch == EMSI_IRQ[2 + self.irq_seq] 
-            {
+
+            if ch == EMSI_IRQ[2 + self.irq_seq] {
                 self.irq_seq += 1;
                 if self.irq_seq + 2 >= EMSI_NAK.len() {
                     self.irq_requested = true;
                     self.stars_read = 0;
-                    self.reset_sequences();        
+                    self.reset_sequences();
                 }
                 got_seq = true;
             } else {
@@ -535,10 +532,8 @@ impl IEmsi {
 
         Ok(())
     }
-    
 
-    pub fn try_login(&mut self, com: &mut Box<dyn Com>, adr: &Address, ch: u8) -> io::Result<bool>
-    {
+    pub fn try_login(&mut self, com: &mut Box<dyn Com>, adr: &Address, ch: u8) -> io::Result<bool> {
         if self.aborted {
             return Ok(false);
         }
@@ -560,14 +555,17 @@ impl IEmsi {
             data.name = adr.user_name.clone();
             data.password = adr.password.clone();
             return Ok(Some(data.encode()?));
-        } else if let Some(isi) = &self.isi  {
+        } else if let Some(isi) = &self.isi {
             // self.log_file.push("Receiving valid IEMSI server info…".to_string());
             // self.log_file.push(format!("Name:{} Location:{} Operator:{} Notice:{} System:{}", isi.name, isi.location, isi.operator, isi.notice, isi.id));
-            println!("Name:{} Location:{} Operator:{} Notice:{} System:{}", isi.name, isi.location, isi.operator, isi.notice, isi.id);
+            println!(
+                "Name:{} Location:{} Operator:{} Notice:{} System:{}",
+                isi.name, isi.location, isi.operator, isi.notice, isi.id
+            );
             self.aborted = true;
             self.logged_in = true;
             return Ok(Some(EMSI_2ACK.to_vec()));
-        } else if self.got_invavid_isi  {
+        } else if self.got_invavid_isi {
             self.got_invavid_isi = false;
             // self.log_file.push("Got invalid IEMSI server info…".to_string());
             self.aborted = true;
@@ -575,14 +573,14 @@ impl IEmsi {
             return Ok(Some(EMSI_2ACK.to_vec()));
         } else if self.nak_requested {
             self.nak_requested = false;
-            if self.retries < 2  {
+            if self.retries < 2 {
                 // self.log_file.push("IEMSI retry…".to_string());
                 let mut data = EmsiICI::new();
                 data.name = adr.user_name.clone();
                 data.password = adr.password.clone();
                 self.retries += 1;
                 return Ok(Some(data.encode()?));
-            } else  {
+            } else {
                 // self.log_file.push("IEMSI aborted…".to_string());
                 self.aborted = true;
                 return Ok(Some(EMSI_IIR.to_vec()));
@@ -601,19 +599,17 @@ impl IEmsi {
     }
 }
 
-fn get_value(ch: u8) -> usize
-{
+fn get_value(ch: u8) -> usize {
     let res = match ch {
         b'0'..=b'9' => ch - b'0',
         b'a'..=b'f' => 10 + ch - b'a',
         b'A'..=b'F' => 10 + ch - b'A',
-        _ => 0
+        _ => 0,
     };
     res as usize
 }
 
-fn parse_emsi_blocks(data: &[u8]) -> io::Result<Vec<String>>
-{
+fn parse_emsi_blocks(data: &[u8]) -> io::Result<Vec<String>> {
     let mut res = Vec::new();
     let mut i = 0;
     let mut str = String::new();
@@ -625,7 +621,7 @@ fn parse_emsi_blocks(data: &[u8]) -> io::Result<Vec<String>>
                 str.push('}');
                 i += 2;
                 continue;
-            } 
+            }
             i += 1;
             res.push(str.clone());
             str.clear();
@@ -653,7 +649,10 @@ fn parse_emsi_blocks(data: &[u8]) -> io::Result<Vec<String>>
                 i += 3;
                 continue;
             }
-            return Err(io::Error::new(ErrorKind::InvalidData, "Escape char in emsi string invalid."));
+            return Err(io::Error::new(
+                ErrorKind::InvalidData,
+                "Escape char in emsi string invalid.",
+            ));
         }
 
         str.push(char::from_u32(data[i] as u32).unwrap());
@@ -662,17 +661,14 @@ fn parse_emsi_blocks(data: &[u8]) -> io::Result<Vec<String>>
     Ok(res)
 }
 
-
-fn get_hex(n: u32) -> u8
-{
+fn get_hex(n: u32) -> u8 {
     if n < 10 {
         return b'0' + n as u8;
     }
     return b'A' + (n - 10) as u8;
 }
 
-fn encode_emsi(data: &[&str]) -> io::Result<Vec<u8>>
-{
+fn encode_emsi(data: &[&str]) -> io::Result<Vec<u8>> {
     let mut res = Vec::new();
     for i in 0..data.len() {
         let d = data[i];
@@ -688,7 +684,10 @@ fn encode_emsi(data: &[&str]) -> io::Result<Vec<u8>>
             }
             let val = ch as u32;
             if val > 255 {
-                return Err(io::Error::new(ErrorKind::InvalidData, "Unicode chars not supported"));
+                return Err(io::Error::new(
+                    ErrorKind::InvalidData,
+                    "Unicode chars not supported",
+                ));
             }
             // control codes.
             if val < 32 || val == 127 {
@@ -739,7 +738,7 @@ mod tests {
     #[test]
     fn test_iemsi_isi() {
         let mut state = IEmsi::new();
-        let data = b"<garbage>**EMSI_ISI0080{RemoteAccess,2.62.1,1161}{bbs}{Canada, eh!}{sysop}{63555308}{Copyright 1989-2000 Bruce F. Morse, All Rights Reserved}{\\01}{ZAP}4675DB04\r<garbage>"; 
+        let data = b"<garbage>**EMSI_ISI0080{RemoteAccess,2.62.1,1161}{bbs}{Canada, eh!}{sysop}{63555308}{Copyright 1989-2000 Bruce F. Morse, All Rights Reserved}{\\01}{ZAP}4675DB04\r<garbage>";
         for b in data {
             state.parse_char(*b).ok();
         }
@@ -750,7 +749,10 @@ mod tests {
         assert_eq!("Canada, eh!", isi.location);
         assert_eq!("sysop", isi.operator);
         assert_eq!("63555308", isi.localtime);
-        assert_eq!("Copyright 1989-2000 Bruce F. Morse, All Rights Reserved", isi.notice);
+        assert_eq!(
+            "Copyright 1989-2000 Bruce F. Morse, All Rights Reserved",
+            isi.notice
+        );
         assert_eq!("\x01", isi.wait);
         assert_eq!("ZAP", isi.capabilities);
     }
@@ -791,8 +793,7 @@ mod tests {
 
     #[test]
     fn test_emsi_ici_encoding() {
-        let ici = 
-        EmsiICI {
+        let ici = EmsiICI {
             name: "fooboar".to_string(),
             alias: "foo".to_string(),
             location: "Unit test".to_string(),
@@ -805,12 +806,11 @@ mod tests {
             capabilities: "CHT,TAB,ASCII8".to_string(),
             requests: "HOT,MORE,FSED,NEWS,CLR".to_string(),
             software: "Rust".to_string(),
-            xlattabl: String::new()
+            xlattabl: String::new(),
         };
         let result = ici.encode().unwrap();
         assert_eq!("**EMSI_ICI0089{fooboar}{foo}{Unit test}{-Unpublished-}{-Unpublished-}{bar}{}{ANSI,24,80,0}{ZAP,ZMO,KER}{CHT,TAB,ASCII8}{HOT,MORE,FSED,NEWS,CLR}{Rust}{}29535C6F\r**EMSI_ACKA490\r**EMSI_ACKA490\r", std::str::from_utf8(&result).unwrap());
     }
-
 
     #[test]
     fn test_auto_logon() {
@@ -821,7 +821,7 @@ mod tests {
 
         let mut back_data = Vec::new();
         for b in EMSI_IRQ {
-            if let Some(data) = state.advance_char( &adr, *b).unwrap() {
+            if let Some(data) = state.advance_char(&adr, *b).unwrap() {
                 back_data = data;
             }
         }
@@ -829,4 +829,3 @@ mod tests {
         assert_eq!(format!("**EMSI_ICI0093{{foo}}{{}}{{.........}}{{-Unpublished-}}{{-Unpublished-}}{{bar}}{{}}{{ANSI,24,80,0}}{{ZAP,ZMO,KER}}{{CHT,TAB,ASCII8}}{{HOT,MORE,FSED,NEWS,CLR}}{{-Icy-Term-,{},iced}}{{}}{}\r**EMSI_ACKA490\r**EMSI_ACKA490\r", VERSION, get_crc32string(&data)), String::from_utf8(back_data).unwrap());
     }
 }
-

@@ -1,14 +1,14 @@
-use std::{io::{self}};
 use crate::com::Com;
+use std::io::{self};
 
-mod sy;
-mod ry;
 mod constants;
+mod ry;
+mod sy;
 mod tests;
 
 use self::constants::{CAN, DEFAULT_BLOCK_LENGTH, EXT_BLOCK_LENGTH};
 
-use super::{FileDescriptor, TransferState, FileTransferState};
+use super::{FileDescriptor, FileTransferState, TransferState};
 #[derive(Debug, Clone, Copy)]
 pub enum Checksum {
     Default,
@@ -21,7 +21,7 @@ pub enum XYModemVariant {
     XModem1k,
     XModem1kG,
     YModem,
-    YModemG
+    YModemG,
 }
 
 /// specification: http://pauillac.inria.fr/~doligez/zmodem/ymodem.txt
@@ -29,7 +29,7 @@ pub struct XYmodem {
     config: XYModemConfiguration,
 
     ry: Option<ry::Ry>,
-    sy: Option<sy::Sy>
+    sy: Option<sy::Sy>,
 }
 
 impl XYmodem {
@@ -37,10 +37,9 @@ impl XYmodem {
         XYmodem {
             config: XYModemConfiguration::new(variant),
             ry: None,
-            sy: None
+            sy: None,
         }
     }
-
 }
 
 impl super::Protocol for XYmodem {
@@ -54,48 +53,52 @@ impl super::Protocol for XYmodem {
         }
         Ok(())
     }
-    
-    fn initiate_send(&mut self, com: &mut Box<dyn Com>, files: Vec<FileDescriptor>) -> io::Result<TransferState>
-    {
+
+    fn initiate_send(
+        &mut self,
+        com: &mut Box<dyn Com>,
+        files: Vec<FileDescriptor>,
+    ) -> io::Result<TransferState> {
         if !self.config.is_ymodem() && files.len() != 1 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "Only 1 file can be send with x-modem."))
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Only 1 file can be send with x-modem.",
+            ));
         }
 
-       let mut sy = sy::Sy::new(self.config);
-       // read data for x-modem transfer
-       if !self.config.is_ymodem() {
-           sy.data = files[0].get_data()?;
-       }
+        let mut sy = sy::Sy::new(self.config);
+        // read data for x-modem transfer
+        if !self.config.is_ymodem() {
+            sy.data = files[0].get_data()?;
+        }
 
-       sy.send(com, files)?;
-       self.sy = Some(sy);
-       let mut state = TransferState::new();
-       state.send_state = Some(FileTransferState::new());
-       state.protocol_name = self.config.get_protocol_name().to_string();
-       Ok(state)
+        sy.send(com, files)?;
+        self.sy = Some(sy);
+        let mut state = TransferState::new();
+        state.send_state = Some(FileTransferState::new());
+        state.protocol_name = self.config.get_protocol_name().to_string();
+        Ok(state)
     }
 
-    fn initiate_recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<TransferState>
-    {
-       let mut ry = ry::Ry::new(self.config);
-       ry.recv(com)?;
-       self.ry = Some(ry);
-        
-       let mut state = TransferState::new();
-       state.recieve_state = Some(FileTransferState::new());
-       state.protocol_name = self.config.get_protocol_name().to_string();
+    fn initiate_recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<TransferState> {
+        let mut ry = ry::Ry::new(self.config);
+        ry.recv(com)?;
+        self.ry = Some(ry);
 
-       // Add ghost file with no name when receiving with x-modem because this protocol
-       // doesn't transfer any file information. User needs to set a file name after download.
-       if !self.config.is_ymodem() {
+        let mut state = TransferState::new();
+        state.recieve_state = Some(FileTransferState::new());
+        state.protocol_name = self.config.get_protocol_name().to_string();
+
+        // Add ghost file with no name when receiving with x-modem because this protocol
+        // doesn't transfer any file information. User needs to set a file name after download.
+        if !self.config.is_ymodem() {
             self.ry.as_mut().unwrap().files.push(FileDescriptor::new());
-       }
-    
-       Ok(state)
+        }
+
+        Ok(state)
     }
 
-    fn get_received_files(&mut self) -> Vec<FileDescriptor>
-    {
+    fn get_received_files(&mut self) -> Vec<FileDescriptor> {
         if let Some(ry) = &mut self.ry {
             let c = ry.files.clone();
             ry.files = Vec::new();
@@ -105,8 +108,7 @@ impl super::Protocol for XYmodem {
         }
     }
 
-    fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>
-    {
+    fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
         com.write(&[CAN, CAN])?;
         com.write(&[CAN, CAN])?;
         com.write(&[CAN, CAN])?;
@@ -114,7 +116,6 @@ impl super::Protocol for XYmodem {
     }
 }
 
-    
 fn get_checksum(block: &[u8]) -> u8 {
     block.iter().fold(0, |x, &y| x.wrapping_add(y))
 }
@@ -128,44 +129,49 @@ pub struct XYModemConfiguration {
 
 impl XYModemConfiguration {
     fn new(variant: XYModemVariant) -> Self {
-        let (block_length, checksum_mode) =
-        match variant {
+        let (block_length, checksum_mode) = match variant {
             XYModemVariant::XModem => (DEFAULT_BLOCK_LENGTH, Checksum::Default),
-            XYModemVariant::XModem1k |
-            XYModemVariant::XModem1kG |
-            XYModemVariant::YModem |
-            XYModemVariant::YModemG => (EXT_BLOCK_LENGTH, Checksum::CRC16),
+            XYModemVariant::XModem1k
+            | XYModemVariant::XModem1kG
+            | XYModemVariant::YModem
+            | XYModemVariant::YModemG => (EXT_BLOCK_LENGTH, Checksum::CRC16),
         };
 
         Self {
             variant,
             block_length,
-            checksum_mode
+            checksum_mode,
         }
     }
 
-    fn get_protocol_name(&self) -> &str
-    {
+    fn get_protocol_name(&self) -> &str {
         match self.variant {
             XYModemVariant::XModem => "Xmodem",
             XYModemVariant::XModem1k => "Xmodem 1k",
             XYModemVariant::XModem1kG => "Xmodem 1k-G",
             XYModemVariant::YModem => "Ymodem",
-            XYModemVariant::YModemG =>  "Ymodem-G",
+            XYModemVariant::YModemG => "Ymodem-G",
         }
     }
 
     fn get_check_and_size(&self) -> String {
-        let checksum = if let Checksum::Default = self.checksum_mode {  "Checksum" } else { "Crc"};
-        let block = if self.block_length == DEFAULT_BLOCK_LENGTH { "128" } else { "1k" };
+        let checksum = if let Checksum::Default = self.checksum_mode {
+            "Checksum"
+        } else {
+            "Crc"
+        };
+        let block = if self.block_length == DEFAULT_BLOCK_LENGTH {
+            "128"
+        } else {
+            "1k"
+        };
         format!("{}/{}", checksum, block)
     }
-
 
     fn is_ymodem(&self) -> bool {
         match self.variant {
             XYModemVariant::YModem | XYModemVariant::YModemG => true,
-            _ => false
+            _ => false,
         }
     }
 

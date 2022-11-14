@@ -1,17 +1,21 @@
-use crate::{ protocol::{ProtocolType}};
+use crate::protocol::ProtocolType;
 
 pub struct PatternRecognizer {
     pattern: Vec<u8>,
     cur_idx: usize,
-    ignore_case: bool
+    ignore_case: bool,
 }
 
 impl PatternRecognizer {
     pub fn from(data: &[u8], ignore_case: bool) -> Self {
         Self {
-            pattern: if ignore_case { data.iter().map(|c| to_upper(*c)).collect() } else { data.to_vec()},
+            pattern: if ignore_case {
+                data.iter().map(|c| to_upper(*c)).collect()
+            } else {
+                data.to_vec()
+            },
             cur_idx: 0,
-            ignore_case
+            ignore_case,
         }
     }
 
@@ -19,9 +23,9 @@ impl PatternRecognizer {
         self.cur_idx = 0;
     }
 
-    pub fn push_ch(&mut self, ch: u8) ->bool {
+    pub fn push_ch(&mut self, ch: u8) -> bool {
         let p = self.pattern[self.cur_idx];
-        if p == ch || self.ignore_case && ch >= b'a' && ch <= b'z' && ch  + (b'a' - b'A') == p {
+        if p == ch || self.ignore_case && ch >= b'a' && ch <= b'z' && ch + (b'a' - b'A') == p {
             self.cur_idx += 1;
             if self.cur_idx >= self.pattern.len() {
                 self.cur_idx = 0;
@@ -46,7 +50,6 @@ pub struct AutoFileTransfer {
 }
 
 impl AutoFileTransfer {
-
     pub fn new() -> Self {
         Self {
             zmodem_dl: PatternRecognizer::from(b"**\x18B00000000000000", true),

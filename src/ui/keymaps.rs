@@ -1,7 +1,7 @@
 use iced::keyboard::KeyCode;
 
-pub const CTRL_MOD:u32  = 0b1000_0000_0000_0000_0000;
-pub const SHIFT_MOD:u32 = 0b0100_0000_0000_0000_0000;
+pub const CTRL_MOD: u32 = 0b1000_0000_0000_0000_0000;
+pub const SHIFT_MOD: u32 = 0b0100_0000_0000_0000_0000;
 
 pub static ANSI_KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::Home as u32, b"\x1b[H"),
@@ -31,7 +31,6 @@ pub static ANSI_KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::Down as u32, b"\x1b[B"),
     (KeyCode::Right as u32, b"\x1b[C"),
     (KeyCode::Left as u32, b"\x1b[D"),
-    
     (KeyCode::A as u32 | CTRL_MOD, &[1]),
     (KeyCode::B as u32 | CTRL_MOD, &[2]),
     (KeyCode::C as u32 | CTRL_MOD, &[3]),
@@ -58,14 +57,12 @@ pub static ANSI_KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::X as u32 | CTRL_MOD, &[24]),
     (KeyCode::Y as u32 | CTRL_MOD, &[25]),
     (KeyCode::Z as u32 | CTRL_MOD, &[26]),
-
     (KeyCode::Key2 as u32 | CTRL_MOD, &[0]),
     (KeyCode::Key3 as u32 | CTRL_MOD, &[0x1B]),
     (KeyCode::Key4 as u32 | CTRL_MOD, &[0x1C]),
     (KeyCode::Key5 as u32 | CTRL_MOD, &[0x1D]),
     (KeyCode::Key6 as u32 | CTRL_MOD, &[0x1E]),
     (KeyCode::Key7 as u32 | CTRL_MOD, &[0x1F]),
-
 ];
 
 pub static C64_KEY_MAP: &[(u32, &[u8])] = &[
@@ -82,25 +79,20 @@ pub static C64_KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::F6 as u32, &[0x8A]),
     (KeyCode::F7 as u32, &[0x8B]),
     (KeyCode::F8 as u32, &[0x8C]),
-
     (KeyCode::Up as u32, &[0x91]),
     (KeyCode::Down as u32, &[0x11]),
     (KeyCode::Right as u32, &[0x1D]),
-    (KeyCode::Left as u32, &[0x9D])
+    (KeyCode::Left as u32, &[0x9D]),
 ];
 
 pub static ATASCII_KEY_MAP: &[(u32, &[u8])] = &[
-
     (KeyCode::Enter as u32, &[155]),
-
     (KeyCode::Backspace as u32, &[0x1b, 0x7e]),
     (KeyCode::End as u32, &[0x1b, 0x9b]),
     (KeyCode::Up as u32, &[0x1b, 0x1c]),
     (KeyCode::Down as u32, &[0x1b, 0x1d]),
     (KeyCode::Right as u32, &[0x1b, 0x1f]),
     (KeyCode::Left as u32, &[0x1b, 0x1e]),
-
-        
     (KeyCode::A as u32 | CTRL_MOD, &[1]),
     (KeyCode::B as u32 | CTRL_MOD, &[2]),
     (KeyCode::C as u32 | CTRL_MOD, &[3]),
@@ -127,7 +119,6 @@ pub static ATASCII_KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::X as u32 | CTRL_MOD, &[24]),
     (KeyCode::Y as u32 | CTRL_MOD, &[25]),
     (KeyCode::Z as u32 | CTRL_MOD, &[26]),
-
     (KeyCode::Period as u32 | CTRL_MOD, &[96]),
     (KeyCode::Colon as u32 | CTRL_MOD, &[13]),
 ];
@@ -159,7 +150,6 @@ pub static VT500_KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::Down as u32, b"\x1b[B"),
     (KeyCode::Right as u32, b"\x1b[C"),
     (KeyCode::Left as u32, b"\x1b[D"),
-    
     (KeyCode::A as u32 | CTRL_MOD, &[1]),
     (KeyCode::B as u32 | CTRL_MOD, &[2]),
     (KeyCode::C as u32 | CTRL_MOD, &[3]),
@@ -186,12 +176,10 @@ pub static VT500_KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::X as u32 | CTRL_MOD, &[24]),
     (KeyCode::Y as u32 | CTRL_MOD, &[25]),
     (KeyCode::Z as u32 | CTRL_MOD, &[26]),
-
     (KeyCode::Key2 as u32 | CTRL_MOD, &[0]),
     (KeyCode::Key3 as u32 | CTRL_MOD, &[0x1B]),
     (KeyCode::Key4 as u32 | CTRL_MOD, &[0x1C]),
     (KeyCode::Key5 as u32 | CTRL_MOD, &[0x1D]),
     (KeyCode::Key6 as u32 | CTRL_MOD, &[0x1E]),
     (KeyCode::Key7 as u32 | CTRL_MOD, &[0x1F]),
-
 ];
