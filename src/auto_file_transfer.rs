@@ -19,11 +19,9 @@ impl PatternRecognizer {
         self.cur_idx = 0;
     }
 
-    pub fn push_ch(&mut self, mut ch: u8) ->bool {
-        if self.ignore_case {
-            ch = to_upper(ch);
-        }
-        if self.pattern[self.cur_idx] == ch {
+    pub fn push_ch(&mut self, ch: u8) ->bool {
+        let p = self.pattern[self.cur_idx];
+        if p == ch || self.ignore_case && ch >= b'a' && ch <= b'z' && ch  + (b'a' - b'A') == p {
             self.cur_idx += 1;
             if self.cur_idx >= self.pattern.len() {
                 self.cur_idx = 0;

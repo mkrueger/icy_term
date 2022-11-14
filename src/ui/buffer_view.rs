@@ -21,11 +21,26 @@ pub enum BufferInputMode {
     VT500
 }
 
+struct SixelCacheEntry {
+    pub status: SixelReadStatus,
+    pub old_line: i32,
+    pub image_opt: Option<image::Handle>,
+    pub data_opt: Option<Vec<u8>>,
+
+    pub pos: Position,
+    pub size: icy_engine::Size<i32>
+}
+
+impl SixelCacheEntry {
+    pub fn rect(&self) -> icy_engine::Rectangle {
+        icy_engine::Rectangle { start: self.pos, size: self.size }
+    }
+}
 pub struct BufferView {
     pub buf: Buffer,
     cache: canvas::Cache,
     pub buffer_parser: Box<dyn BufferParser>,
-    sixel_cache: Vec<(SixelReadStatus, Option<image::Handle>, i32, Option<Vec<u8>>)>,
+    sixel_cache: Vec<SixelCacheEntry>,
     pub caret: Caret,
     pub blink: bool,
     pub last_blink: u128,
@@ -36,6 +51,7 @@ pub struct BufferView {
     pub selection: Option<Selection>,
     pub button_pressed: bool
 }
+
 
 impl BufferView {
     pub fn new() -> Self {
@@ -95,8 +111,9 @@ impl BufferView {
                 com.write(result.as_bytes())?;
             }
         }
-        self.update_sixels();
-        self.cache.clear();
+        if !self.update_sixels() {
+            self.cache.clear();
+        }
         Ok(())
     }
 
@@ -106,10 +123,14 @@ impl BufferView {
         if l == 0 {
             self.sixel_cache.clear();
         }
+
         let mut res = false;
-        for i in 0..l {
+        let mut i = 0;
+        while i < l {
             let sixel = &buffer.layers[0].sixels[i];
+
             if sixel.width() == 0 || sixel.height() == 0 {
+                i += 1;
                 continue;
             }
 
@@ -123,14 +144,16 @@ impl BufferView {
 
             let mut old_handle = None;
 
-            if let Some((s, _,ol, _)) = self.sixel_cache.get(i) {
-                old_line = *ol as i32;
+            if let Some(entry) = self.sixel_cache.get(i) {
+                old_line = entry.old_line;
                  if let SixelReadStatus::Position(_, _) = sixel.read_status {
                     if old_line  + 5 * 6 >= current_line  {
+                        i += 1;
                         continue;
                     }
                 }
-                if *s == sixel.read_status {
+                if entry.status == sixel.read_status {
+                    i += 1;
                     continue;
                 }
             }
@@ -138,14 +161,14 @@ impl BufferView {
             let data_len = (sixel.height() * sixel.width() * 4) as usize;
             let mut removed_index = -1;
             let mut v = if self.sixel_cache.len() > i  {
-                let (_, old, _, mut data) = self.sixel_cache.remove(i);
-                old_handle = old;
+                let mut entry = self.sixel_cache.remove(i);
+               // old_handle = entry.image_opt;
                 removed_index = i as i32;
-                if let Some(ptr) = &mut data {
+                if let Some(ptr) = &mut entry.data_opt {
                     if ptr.len() < data_len {
                         ptr.resize(data_len, 0);
                     }
-                    data.take().unwrap()
+                    entry.data_opt.take().unwrap()
                  } else { 
                     let mut data = Vec::with_capacity(data_len);
                     data.resize(data_len, 0);
@@ -158,6 +181,7 @@ impl BufferView {
             };
 
             let mut i = old_line as usize * sixel.width() as usize * 4;
+
             for y in old_line..current_line {
                 for x in 0..sixel.width() {
                     let column = &sixel.picture[x as usize];
@@ -183,21 +207,59 @@ impl BufferView {
                     i += 4;
                 }
             }
-            
-            let (c, v) = match sixel.read_status {
+            let (handle_opt, data_opt, clear) = match sixel.read_status {
                 SixelReadStatus::Finished |
                 SixelReadStatus::Error => {
-                     (Some(image::Handle::from_pixels(sixel.width(), sixel.height(), v.clone())), None)
+                    (Some(image::Handle::from_pixels(sixel.width(), sixel.height(), v.clone())), None, true)
                 }
-                _ => (old_handle, Some(v))
+                _ => (old_handle, Some(v), false)
             };
+
+            let new_entry = SixelCacheEntry {
+                status: sixel.read_status, 
+                old_line: current_line, 
+                image_opt: handle_opt, 
+                data_opt,
+                pos: sixel.position,
+                size: icy_engine::Size { width: sixel.width() as i32, height: sixel.height() as i32}
+            };
+
             if removed_index < 0 {
-                self.sixel_cache.push((sixel.read_status, c, current_line, v));
+                self.sixel_cache.push(new_entry);
+                if clear {
+                    self.clear_invisible_sixel_cache(self.sixel_cache.len() - 1);
+                    break;
+                } 
             } else {
-                self.sixel_cache.insert(removed_index as usize, (sixel.read_status, c, current_line, v));
+                self.sixel_cache.insert(removed_index as usize, new_entry);
+                if clear {
+                    self.clear_invisible_sixel_cache(removed_index as usize);
+                    break;
+                } 
             }
+
+            i += 1;
         }
         res
+    }
+
+    pub fn clear_invisible_sixel_cache(&mut self, j: usize) {
+        // remove cache entries that are removed by the engine
+        if j > 0 {
+            let cur_rect = self.sixel_cache[j].rect();
+            let mut i = j - 1;
+            loop {
+                let other_rect = self.sixel_cache[i].rect();
+                if cur_rect.contains(other_rect) {
+                    self.sixel_cache.remove(i);
+                    self.buf.layers[0].sixels.remove(i);
+                }
+                if i == 0 {
+                    break;
+                }
+                i -= 1;
+            }
+        }
     }
 
     pub fn copy_to_clipboard(&mut self) {
@@ -296,7 +358,6 @@ impl<'a> canvas::Program<Message> for BufferView {
                     return (event::Status::Captured, Some(Message::AltKeyPressed(state.is_alt_pressed)));
                 }
                 return (event::Status::Ignored, None);
-
             },
             Event::Keyboard(keyboard::Event::KeyPressed {key_code, ..}) => {
                 if key_code == KeyCode::RAlt || key_code == KeyCode::LAlt {
@@ -307,7 +368,6 @@ impl<'a> canvas::Program<Message> for BufferView {
                     return (event::Status::Captured, Some(Message::AltKeyPressed(state.is_alt_pressed)));
                 }
                 return (event::Status::Ignored, None);
-
             },
 
             Event::Mouse(mouse_event) => {
@@ -327,7 +387,7 @@ impl<'a> canvas::Program<Message> for BufferView {
                                 return (event::Status::Captured, None);
                             },
                             mouse::Button::Right => Some(Message::Copy),
-                            mouse::Button::Middle => { println!("paste!"); Some(Message::Paste)},
+                            mouse::Button::Middle => { Some(Message::Paste)},
                             _ => None,
                         }
                     }
@@ -370,7 +430,6 @@ impl<'a> canvas::Program<Message> for BufferView {
         _cursor: Cursor,
     ) -> Vec<Geometry> {
         let first_line = max(0, self.buf.layers[0].lines.len() as i32 - self.buf.get_buffer_height());
-
         let content =
             self.cache.draw(bounds.size(), |frame: &mut Frame| {
                 let background = canvas::Path::rectangle(Point::ORIGIN, frame.size());
@@ -421,17 +480,16 @@ impl<'a> canvas::Program<Message> for BufferView {
         let buffer = &self.buf;
         let (top_x, top_y, scale_x, scale_y, char_size) = calc(buffer, &bounds);
         for i in 0..self.sixel_cache.len() {
-            let (_, img, _, v) = &self.sixel_cache[i];
-            let sixel = &buffer.layers[0].sixels[i];
-            let start_x = top_x + (sixel.position.x as usize * char_size.width as usize) as f32 + 0.5;
-            let start_y = top_y + (sixel.position.y as usize * char_size.height as usize) as f32 + 0.5;
-            if let Some(img) = img {
-                result.push(Geometry::from_primitive(Primitive::Image { handle: img.clone(), bounds:Rectangle::new(Point::new(start_x, start_y), Size::new(sixel.width() as f32 * scale_x, sixel.height() as f32 * scale_y )) }));
+            let entry = &self.sixel_cache[i];
+            let start_x = top_x + (entry.pos.x as usize * char_size.width as usize) as f32 + 0.5;
+            let start_y = top_y + (entry.pos.y as usize * char_size.height as usize) as f32 + 0.5;
+            if let Some(img) = &entry.image_opt {
+                result.push(Geometry::from_primitive(Primitive::Image { handle: img.clone(), bounds:Rectangle::new(Point::new(start_x, start_y), Size::new(entry.size.width as f32 * scale_x, entry.size.height as f32 * scale_y )) }));
             } 
 
-            if let Some(v) = v {
-                let img = image::Handle::from_pixels(sixel.width(), sixel.height(), v.clone());
-                result.push(Geometry::from_primitive(Primitive::Image { handle: img.clone(), bounds:Rectangle::new(Point::new(start_x, start_y), Size::new(sixel.width() as f32 * scale_x, sixel.height() as f32 * scale_y )) }));
+            if let Some(data) = &entry.data_opt {
+                let img = image::Handle::from_pixels(entry.size.width as u32, entry.size.height as u32, data.clone());
+                result.push(Geometry::from_primitive(Primitive::Image { handle: img.clone(), bounds:Rectangle::new(Point::new(start_x, start_y), Size::new(entry.size.width as f32 * scale_x, entry.size.height as f32 * scale_y )) }));
             }
         }
 

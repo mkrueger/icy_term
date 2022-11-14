@@ -24,7 +24,7 @@ use crate::protocol::{ Protocol, FileDescriptor, TransferState};
 use super::{BufferView, Message, ANSI_KEY_MAP, C64_KEY_MAP, ATASCII_KEY_MAP, CTRL_MOD, SHIFT_MOD, create_icon_button, VT500_KEY_MAP};
 use super::screen_modes::{ ScreenMode};
 
-enum MainWindowMode {
+pub enum MainWindowMode {
     ShowTerminal,
     ShowPhonebook,
     SelectProtocol(bool),
@@ -48,7 +48,7 @@ pub struct MainWindow {
     pub buffer_view: BufferView,
     com: Option<Box<dyn Com>>,
     trigger: bool,
-    mode: MainWindowMode,
+    pub mode: MainWindowMode,
     pub addresses: Vec<Address>,
     pub handled_char: bool,
     edit_bbs: Address,
@@ -78,14 +78,16 @@ impl MainWindow
                     }
                 }
                 let mut do_update = false;
-                while com.is_data_available()? {
+                let mut i = 0; 
+                 // needed an upper limit for sixels - could really be much data in there
+                while com.is_data_available()? && i < 2048 {
+                    i = i + 1;
                     let ch = com.read_char_nonblocking()?;
                     if let Some(adr) = self.addresses.get(self.cur_addr) {
                         if let Err(err) = self.auto_login.try_login(com, adr, ch) {
                             eprintln!("{}", err);
                         }
                     }
-
 
                     self.buffer_view.print_char(Some(com.as_mut()), ch)?;
                     do_update = true;
@@ -254,27 +256,15 @@ impl Application for MainWindow {
             handled_char: false,
             is_alt_pressed: false
         };
-
-       //  view.set_screen_mode(&ScreenMode::DOS(80, 50));
-       /*let txt = "";
-       for b in txt.chars() {
-           if let Err(err) = view.buffer_view.buffer_parser.print_char(&mut view.buffer_view.buf, &mut view.buffer_view.caret, b) {
-               eprintln!("{}", err);
-           }
-           view.buffer_view.update_sixels();
-       }*/
-       view.mode = MainWindowMode::ShowTerminal;
-
+       
         let args: Vec<String> = env::args().collect();
         if let Some(arg) = args.get(1) {
-            println!("{}", arg);
             view.addresses[0].address = arg.clone();
             let cmd = view.call_bbs(0);
             return (view, cmd);
         }
         (view, Command::none())
     }
-
 
     fn update(&mut self, message: Message) -> Command<Message> {
         self.trigger = !self.trigger;
@@ -293,7 +283,7 @@ impl Application for MainWindow {
             self.buffer_view.blink = !self.buffer_view.blink;
             self.buffer_view.last_blink = in_ms;
         }
-        
+        // unsafe { super::simulate::run_sim(self); }
         match &message {
             Message::OpenURL(url) => {
                 if let Err(err) = open::that(url) {
