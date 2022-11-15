@@ -1,4 +1,5 @@
 use crate::com::Com;
+use crate::protocol;
 use clipboard::{ClipboardContext, ClipboardProvider};
 use iced::keyboard::KeyCode;
 use iced::widget::canvas::event::{self, Event};
@@ -17,6 +18,7 @@ pub enum BufferInputMode {
     PETSCII,
     ATASCII,
     VT500,
+    VIEWDATA
 }
 
 struct SixelCacheEntry {
@@ -40,6 +42,7 @@ impl SixelCacheEntry {
 pub struct BufferView {
     pub buf: Buffer,
     cache: canvas::Cache,
+    blink_cache: canvas::Cache,
     pub buffer_parser: Box<dyn BufferParser>,
     sixel_cache: Vec<SixelCacheEntry>,
     pub caret: Caret,
@@ -62,6 +65,7 @@ impl BufferView {
             buf,
             caret: Caret::new(),
             cache: canvas::Cache::default(),
+            blink_cache: canvas::Cache::default(),
             buffer_parser: Box::new(AvatarParser::new(true)),
             blink: false,
             last_blink: 0,
@@ -95,8 +99,8 @@ impl BufferView {
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.selection = None;
         self.scroll_back_line = 0;
-        /*
-        match c  {
+        
+       /*match c  {
             b'\\' => print!("\\\\"),
             b'\n' => print!("\\n"),
             b'\r' => print!("\\r"),
@@ -123,7 +127,7 @@ impl BufferView {
             }
         }
         if !self.update_sixels() {
-            self.cache.clear();
+            self.redraw_view();
         }
         Ok(())
     }
@@ -330,6 +334,7 @@ impl BufferView {
 
     pub fn redraw_view(&mut self) {
         self.cache.clear();
+        self.blink_cache.clear();
     }
 }
 
@@ -476,15 +481,29 @@ impl<'a> canvas::Program<Message> for BufferView {
             let buffer = &self.buf;
             let font_dimensions = buffer.get_font_dimensions();
             let (top_x, top_y, scale_x, scale_y, char_size) = calc(buffer, &bounds);
+            let mut y = 0;
+            while y < self.buf.get_buffer_height() as usize {
 
-            for y in 0..self.buf.get_buffer_height() as usize {
+                let mut is_double_height = false;
+                for x in 0..self.buf.get_buffer_width() as usize {
+                    if let Some(ch) = buffer.get_char(Position::new(
+                        x as i32,
+                        first_line - self.scroll_back_line + y as i32,
+                    )) {
+                        if ch.attribute.is_double_height() {
+                            is_double_height = true;
+                            break
+                        }
+                    }
+                }
+
                 for x in 0..self.buf.get_buffer_width() as usize {
                     let rect = Rectangle::new(
                         Point::new(
                             top_x + (x * char_size.width as usize) as f32 + 0.5,
                             top_y + (y * char_size.height as usize) as f32 + 0.5,
                         ),
-                        char_size,
+                        Size { width: char_size.width, height: if is_double_height { 2.0 * char_size.height} else { char_size.height } }
                     );
                     if let Some(ch) = buffer.get_char(Position::new(
                         x as i32,
@@ -493,8 +512,8 @@ impl<'a> canvas::Program<Message> for BufferView {
                         let (fg, bg) = (
                             buffer.palette.colors[ch.attribute.get_foreground() as usize
                                 + if ch.attribute.is_bold() { 8 } else { 0 }],
-                            buffer.palette.colors[ch.attribute.get_background() as usize
-                                + if ch.attribute.is_blinking() { 8 } else { 0 }],
+                                buffer.palette.colors[ch.attribute.get_background() as usize
+                                + if ch.attribute.is_blinking() && buffer.terminal_state.use_ice_colors() { 8 } else { 0 }],
                         );
                         let (r, g, b) = bg.get_rgb_f32();
 
@@ -503,19 +522,34 @@ impl<'a> canvas::Program<Message> for BufferView {
 
                         let (r, g, b) = fg.get_rgb_f32();
                         let color = iced::Color::new(r, g, b, 1.0);
-                        for y in 0..font_dimensions.height {
-                            let line =
-                                buffer.get_font_scanline(ch.get_font_page(), ch.ch, y as usize);
-                            for x in 0..font_dimensions.width {
-                                if (line & (128 >> x)) != 0 {
-                                    frame.fill_rectangle(
-                                        Point::new(
-                                            rect.x + x as f32 * scale_x,
-                                            rect.y + y as f32 * scale_y,
-                                        ),
-                                        iced::Size::new(scale_x, scale_y),
-                                        color,
-                                    );
+
+                        if !ch.attribute.is_concealed() {
+                            if let Some(glyph) = buffer.get_glyph(&ch) {
+                                for y in 0..font_dimensions.height {
+                                    let scan_line = glyph.data[y as usize];
+                                    for x in 0..font_dimensions.width {
+                                        if scan_line & (128 >> x) != 0 {
+                                            if ch.attribute.is_double_height() {
+                                                frame.fill_rectangle(
+                                                    Point::new(
+                                                        rect.x + x as f32 * scale_x,
+                                                        rect.y + y as f32 * scale_y * 2.0,
+                                                    ),
+                                                    iced::Size::new(scale_x, scale_y * 2.0),
+                                                    color,
+                                                );
+                                            } else {
+                                                frame.fill_rectangle(
+                                                    Point::new(
+                                                        rect.x + x as f32 * scale_x,
+                                                        rect.y + y as f32 * scale_y,
+                                                    ),
+                                                    iced::Size::new(scale_x, scale_y),
+                                                    color,
+                                                );
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -528,11 +562,72 @@ impl<'a> canvas::Program<Message> for BufferView {
                         }
                     }
                 }
+            
+                if is_double_height {
+                    y += 2;
+                } else {
+                    y += 1;
+                }
+            }
+        });
+
+        let blink_cache = self.blink_cache.draw(bounds.size(), |frame: &mut Frame| {
+            let buffer = &self.buf;
+            let (top_x, top_y, _, _, char_size) = calc(buffer, &bounds);
+
+            let mut y = 0;
+            while y < self.buf.get_buffer_height() as usize {
+
+                let mut is_double_height = false;
+                for x in 0..self.buf.get_buffer_width() as usize {
+                    if let Some(ch) = buffer.get_char(Position::new(
+                        x as i32,
+                        first_line - self.scroll_back_line + y as i32,
+                    )) {
+                        if ch.attribute.is_double_height() {
+                            is_double_height = true;
+                            break
+                        }
+                    }
+                }
+
+                for x in 0..self.buf.get_buffer_width() as usize {
+                    if let Some(ch) = buffer.get_char(Position::new(
+                        x as i32,
+                        first_line - self.scroll_back_line + y as i32,
+                    )) {
+                        
+                       if ch.attribute.is_blinking() && !buffer.terminal_state.use_ice_colors(){
+                            let rect = Rectangle::new(
+                                Point::new(
+                                    top_x + (x * char_size.width as usize) as f32 + 0.5,
+                                    top_y + (y * char_size.height as usize) as f32 + 0.5,
+                                ),
+                                char_size,
+                            );
+
+                            let bg = buffer.palette.colors[ch.attribute.get_background() as usize];
+                            let (r, g, b) = bg.get_rgb_f32();
+                            let color = iced::Color::new(r, g, b, 1.0);
+                            frame.fill_rectangle(rect.position(), rect.size(), color);
+                        }
+                    }
+                }
+            
+                if is_double_height {
+                    y += 2;
+                } else {
+                    y += 1;
+                }
             }
         });
 
         let mut result = Vec::new();
         result.push(content);
+
+        if self.blink {
+            result.push(blink_cache);
+        } 
         let buffer = &self.buf;
         let (top_x, top_y, scale_x, scale_y, char_size) = calc(buffer, &bounds);
         for i in 0..self.sixel_cache.len() {

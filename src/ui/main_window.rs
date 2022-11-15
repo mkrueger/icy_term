@@ -19,7 +19,7 @@ use crate::VERSION;
 use super::screen_modes::ScreenMode;
 use super::{
     create_icon_button, BufferView, Message, ANSI_KEY_MAP, ATASCII_KEY_MAP, C64_KEY_MAP, CTRL_MOD,
-    SHIFT_MOD, VT500_KEY_MAP,
+    SHIFT_MOD, VT500_KEY_MAP, VIDEOTERM_KEY_MAP,
 };
 
 pub enum MainWindowMode {
@@ -263,6 +263,8 @@ impl Application for MainWindow {
             handled_char: false,
             is_alt_pressed: false,
         };
+        
+        // view.set_screen_mode(&ScreenMode::Viewdata);
 
         let args: Vec<String> = env::args().collect();
         if let Some(arg) = args.get(1) {
@@ -292,7 +294,9 @@ impl Application for MainWindow {
             self.buffer_view.blink = !self.buffer_view.blink;
             self.buffer_view.last_blink = in_ms;
         }
+        
         // unsafe { super::simulate::run_sim(self); }
+        
         match &message {
             Message::OpenURL(url) => {
                 if let Err(err) = open::that(url) {
@@ -373,6 +377,9 @@ impl Application for MainWindow {
                             super::BufferInputMode::PETSCII => C64_KEY_MAP,
                             super::BufferInputMode::ATASCII => ATASCII_KEY_MAP,
                             super::BufferInputMode::VT500 => VT500_KEY_MAP,
+                            super::BufferInputMode::VIEWDATA => VIDEOTERM_KEY_MAP,
+
+                            
                         };
 
                         if let Some(com) = &mut self.com {

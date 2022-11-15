@@ -1,6 +1,6 @@
 use crate::ui::screen_modes::ScreenMode;
 use directories::ProjectDirs;
-use icy_engine::{AnsiParser, AtasciiParser, AvatarParser, BufferParser, PETSCIIParser};
+use icy_engine::{AnsiParser, AtasciiParser, AvatarParser, BufferParser, PETSCIIParser, ViewdataParser};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use serde_derive::{Deserialize, Serialize};
 use std::path::Path;
@@ -145,6 +145,9 @@ impl Address {
             Some(ScreenMode::Atari) | Some(ScreenMode::AtariXep80) => {
                 return Box::new(AtasciiParser::new());
             }
+            Some(ScreenMode::Viewdata) => {
+                return Box::new(ViewdataParser::new());
+            }
             _ => {}
         }
 
@@ -215,9 +218,7 @@ pub fn start_read_book() -> Vec<Address> {
 }
 
 pub fn store_phone_book(addr: &Vec<Address>) -> Result<(), Box<dyn Error>> {
-    println!("1");
     if let Some(file_name) = Address::get_phonebook_file() {
-        println!("2");
         let mut addresses = Vec::new();
         for i in 1..addr.len() {
             addresses.push(addr[i].clone());
@@ -226,7 +227,6 @@ pub fn store_phone_book(addr: &Vec<Address>) -> Result<(), Box<dyn Error>> {
 
         match toml::to_string_pretty(&phonebook) {
             Ok(str) => {
-                println!("store {}", str);
                 let mut tmp = file_name.clone();
                 if !tmp.set_extension("tmp") {
                     return Ok(());

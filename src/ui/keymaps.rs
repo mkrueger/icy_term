@@ -183,3 +183,18 @@ pub static VT500_KEY_MAP: &[(u32, &[u8])] = &[
     (KeyCode::Key6 as u32 | CTRL_MOD, &[0x1E]),
     (KeyCode::Key7 as u32 | CTRL_MOD, &[0x1F]),
 ];
+
+pub static VIDEOTERM_KEY_MAP: &[(u32, &[u8])] = &[
+    (KeyCode::Home as u32, &[0x13]),
+    (KeyCode::Enter as u32, &[b'\r']),
+    (KeyCode::Insert as u32, &[0x94]),
+    (KeyCode::Backspace as u32, &[0x14]),
+    (KeyCode::Delete as u32, &[0x14]),
+    (KeyCode::F1 as u32, &[b'*']),
+    (KeyCode::F2 as u32, &[0b101_1111]),// #
+
+    (KeyCode::Up as u32, &[0x91]),
+    (KeyCode::Down as u32, &[0x11]),
+    (KeyCode::Right as u32, &[0x1D]),
+    (KeyCode::Left as u32, &[0x9D]),
+];

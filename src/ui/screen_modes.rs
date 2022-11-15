@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use icy_engine::{
     AnsiParser, AtasciiParser, AvatarParser, BitFont, PETSCIIParser, Palette,
-    ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE,
+    ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, VIEWDATA_PALETTE, ViewdataParser,
 };
 use serde_derive::{Deserialize, Serialize};
 
@@ -17,9 +17,10 @@ pub enum ScreenMode {
     Atari,
     AtariXep80,
     VT500,
+    Viewdata
 }
 
-pub const DEFAULT_MODES: [ScreenMode; 21] = [
+pub const DEFAULT_MODES: [ScreenMode; 22] = [
     ScreenMode::DOS(80, 25),
     ScreenMode::DOS(80, 28),
     ScreenMode::DOS(80, 30),
@@ -41,6 +42,7 @@ pub const DEFAULT_MODES: [ScreenMode; 21] = [
     ScreenMode::Atari,
     ScreenMode::AtariXep80,
     ScreenMode::VT500,
+    ScreenMode::Viewdata,
 ];
 
 impl Display for ScreenMode {
@@ -52,6 +54,7 @@ impl Display for ScreenMode {
             ScreenMode::Atari => write!(f, "Atari"),
             ScreenMode::AtariXep80 => write!(f, "Atari XEP80"),
             ScreenMode::VT500 => write!(f, "VT500"),
+            ScreenMode::Viewdata => write!(f, "Viewdata"),
         }
     }
 }
@@ -125,6 +128,16 @@ impl ScreenMode {
                 buffer_view.buffer_parser = Box::new(AnsiParser::new());
                 buffer_view.buffer_input_mode = BufferInputMode::VT500;
                 buf.palette = Palette::new();
+            }
+            ScreenMode::Viewdata => {
+                buf.set_buffer_width(40);
+                buf.set_buffer_height(24);
+                *font = Some("Viewdata".to_string());
+                buffer_view.buffer_parser = Box::new(ViewdataParser::new());
+                buffer_view.buffer_input_mode = BufferInputMode::VIEWDATA;
+                buf.palette = Palette {
+                    colors: VIEWDATA_PALETTE.to_vec(),
+                };
             }
         }
         buf.clear();
