@@ -15,6 +15,7 @@ Features supported so far:
   - [x] Petscii
   - [x] Built in fonts, many DOS fonts, C64, Amiga & Atari font supported.
   - [x] ATASCII 
+  - [x] Viewdata 
 - File transfer protocols 
   - [x] Xmodem, 1k & 1k-G (implemented but needs testing)
   - [x] Ymodem batch & Ymodem-G (implemented but needs testing)
@@ -42,6 +43,10 @@ Petscii screenshot:
 Atascii screenshot:
 
 ![Petscii](assets/atascii_bbs.png?raw=true "Atascii")
+
+Viewdata screenshot:
+
+![Viewdata](assets/viewdata_bbs.png?raw=true "Viewdata")
 
 # History
 
