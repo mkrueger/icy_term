@@ -6,6 +6,8 @@ use std::{
 
 use async_trait::async_trait;
 
+use crate::address::Address;
+
 use super::Com;
 
 #[derive(Debug)]
@@ -24,9 +26,11 @@ impl Com for TestCom {
     fn get_name(&self) -> &'static str {
         "Test_Com"
     }
-    async fn connect(&mut self, _addr: String) -> Result<bool, String> {
+
+    async fn connect(&mut self, _addr: &Address, _timeout: Duration) -> Result<bool, String> {
         Ok(true)
     }
+
     fn read_char(&mut self, _timeout: Duration) -> io::Result<u8> {
         if self.name == "receiver" {
             indent_receiver();

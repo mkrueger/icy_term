@@ -12,7 +12,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::address::{start_read_book, store_phone_book, Address, READ_ADDRESSES};
 use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
-use crate::com::{Com, TelnetCom};
+use crate::com::{Com, TelnetCom, RawCom};
 use crate::protocol::{FileDescriptor, Protocol, TransferState};
 use crate::VERSION;
 
@@ -668,7 +668,7 @@ impl MainWindow {
         }
 
         let call_adr = self.addresses[i].clone();
-        self.auto_login = AutoLogin::new(call_adr.auto_login);
+        self.auto_login = AutoLogin::new(call_adr.auto_login.clone());
         self.auto_login.disabled = self.is_alt_pressed;
         self.buffer_view.buf.clear();
         self.cur_addr = i;
@@ -682,11 +682,16 @@ impl MainWindow {
         }
         self.buffer_view.buffer_parser = self.addresses[i].get_terminal_parser();
         self.println(&format!("Connect to {}...", &call_adr.address));
-        let a = call_adr.address.clone();
         unsafe {
-            COM2 = Some(Some(Box::new(TelnetCom::new())));
+            let com:Box<dyn Com> = match call_adr.connection_type {
+                crate::address::ConnectionType::Telnet => Box::new(TelnetCom::new()),
+                crate::address::ConnectionType::Raw => Box::new(RawCom::new()),
+            };
+            COM2 = Some(Some(com));
+
+            
         }
-        Command::perform(foo(a), Message::Connected)
+        Command::perform(foo(call_adr, self.options.connect_timeout), Message::Connected)
     }
 }
 
@@ -698,11 +703,11 @@ pub fn log_result<'a, T>(result: &Result<T, Box<dyn std::error::Error + 'a>>) {
 
 static mut COM2: Option<Option<Box<dyn Com + 'static>>> = None;
 
-async fn foo(a: String) -> Result<bool, String> {
+async fn foo(addr: Address, timeout: Duration) -> Result<bool, String> {
     unsafe {
         let mut c = COM2.replace(None);
         println!("Connect…");
-        c.as_mut().unwrap().as_mut().unwrap().connect(a).await?;
+        c.as_mut().unwrap().as_mut().unwrap().connect(&addr, timeout).await?;
         println!("success!!!");
         COM2 = c;
     }

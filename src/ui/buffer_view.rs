@@ -1,5 +1,4 @@
 use crate::com::Com;
-use crate::protocol;
 use clipboard::{ClipboardContext, ClipboardProvider};
 use iced::keyboard::KeyCode;
 use iced::widget::canvas::event::{self, Event};

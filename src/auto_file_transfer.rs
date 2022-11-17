@@ -79,7 +79,7 @@ impl AutoFileTransfer {
 }
 
 #[cfg(test)]
-mod Tests {
+mod tests {
     use crate::auto_file_transfer::PatternRecognizer;
 
     #[test]

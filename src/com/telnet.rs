@@ -1,3 +1,5 @@
+use crate::address::Address;
+
 #[allow(dead_code)]
 use super::Com;
 use async_trait::async_trait;
@@ -424,8 +426,8 @@ impl Com for TelnetCom {
         "Telnet"
     }
 
-    async fn connect(&mut self, addr: String) -> Result<bool, String> {
-        let r = tokio::time::timeout(Duration::from_secs(5), TcpStream::connect(addr)).await;
+    async fn connect(&mut self, addr: &Address, timeout: Duration) -> Result<bool, String> {
+        let r = tokio::time::timeout(timeout, TcpStream::connect(&addr.address)).await;
         match r {
             Ok(tcp_stream) => match tcp_stream {
                 Ok(stream) => {

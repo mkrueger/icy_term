@@ -15,6 +15,8 @@ pub use telnet::*;
 pub mod raw;
 pub use raw::*;
 
+use crate::address::Address;
+
 #[async_trait]
 pub trait Com: Sync + Send {
     fn get_name(&self) -> &'static str;
@@ -27,7 +29,7 @@ pub trait Com: Sync + Send {
 
     fn write(&mut self, buf: &[u8]) -> io::Result<usize>;
 
-    async fn connect(&mut self, addr: String) -> Result<bool, String>;
+    async fn connect(&mut self, addr: &Address, timeout: Duration) -> Result<bool, String>;
 
     fn disconnect(&mut self) -> io::Result<()>;
 }
