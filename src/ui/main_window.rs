@@ -21,7 +21,7 @@ use crate::VERSION;
 use super::screen_modes::ScreenMode;
 use super::{
     create_icon_button, BufferView, Message, ANSI_KEY_MAP, ATASCII_KEY_MAP, C64_KEY_MAP, CTRL_MOD,
-    SHIFT_MOD, VT500_KEY_MAP, VIDEOTERM_KEY_MAP,
+    SHIFT_MOD, VT500_KEY_MAP, VIDEOTERM_KEY_MAP, HoverList,
 };
 
 pub enum MainWindowMode {
@@ -46,6 +46,7 @@ impl Options {
 
 pub struct MainWindow {
     pub buffer_view: BufferView,
+    pub address_list: HoverList,
     com: Option<Box<dyn Com>>,
     trigger: bool,
     pub mode: MainWindowMode,
@@ -250,6 +251,7 @@ impl Application for MainWindow {
     fn new(_flags: ()) -> (Self, Command<Message>) {
         let mut view = MainWindow {
             buffer_view: BufferView::new(),
+            address_list: HoverList::new(),
             com: None,
             trigger: true,
             mode: MainWindowMode::ShowPhonebook,
@@ -272,7 +274,7 @@ impl Application for MainWindow {
             let cmd = view.call_bbs(0);
             return (view, cmd);
         }
-        (view, Command::none())
+        (view, text_input::focus::<Message>(super::INPUT_ID.clone()))
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
@@ -348,6 +350,7 @@ impl Application for MainWindow {
                     Message::Hangup => {
                         self.com = None;
                         self.mode = MainWindowMode::ShowPhonebook;
+                        return text_input::focus::<Message>(super::INPUT_ID.clone());
                     }
                     Message::Tick => {
                         let state = self.update_state();
@@ -441,7 +444,6 @@ impl Application for MainWindow {
                 }
             }
             MainWindowMode::ShowPhonebook => {
-                text_input::focus::<Message>(super::INPUT_ID.clone());
                 match message {
                     Message::EditBBS(i) => {
                         self.edit_bbs = if i == 0 {
@@ -522,7 +524,6 @@ impl Application for MainWindow {
             }
 
             MainWindowMode::EditBBS(_) => {
-                text_input::focus::<Message>(super::INPUT_ID.clone());
                 match message {
                     Message::Back => {
                         self.mode = MainWindowMode::ShowPhonebook;

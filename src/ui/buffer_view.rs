@@ -4,7 +4,6 @@ use iced::keyboard::KeyCode;
 use iced::widget::canvas::event::{self, Event};
 use iced::widget::canvas::{self, Cursor, Frame, Geometry};
 use iced::{keyboard, mouse, Point, Rectangle, Size, Theme};
-use iced_graphics::Primitive;
 use iced_native::image;
 use icy_engine::{AvatarParser, Buffer, BufferParser, Caret, Position, SixelReadStatus};
 use std::cmp::{max, min};

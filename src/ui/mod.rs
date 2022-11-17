@@ -8,6 +8,9 @@ pub use main_window::*;
 pub mod buffer_view;
 pub use buffer_view::*;
 
+pub mod hover_list;
+pub use hover_list::*;
+
 pub mod screen_modes;
 pub use screen_modes::*;
 
