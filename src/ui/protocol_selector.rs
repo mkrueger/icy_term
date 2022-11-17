@@ -22,12 +22,11 @@ fn create_button_row<'a>(msg: Message, title: &'static str, descr: &'static str)
 pub fn view_protocol_selector<'a>(download: bool) -> Element<'a, Message> {
     
     let header = Row::new()
-    .push(button("Cancel").on_press(Message::Back))
     .padding(4)
             .spacing(8);
     Column::new() 
     .push(header)
-    .push(text(format!("Select {} protocol", if download { "download" } else { "upload" } )).size(40))
+ //   .push(text(format!("Select {} protocol", if download { "download" } else { "upload" } )).size(40))
     .push(
         Column::new()
         .push(create_button_row(Message::SelectProtocol(ProtocolType::ZModem, download), "Zmodem", "The standard protocol"))

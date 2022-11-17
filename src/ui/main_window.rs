@@ -1,9 +1,11 @@
 use clipboard::{ClipboardContext, ClipboardProvider};
 use iced::mouse::ScrollDelta;
-use iced::widget::text_input;
+use iced::widget::{text_input, Text};
 use iced::widget::{column, text, Canvas, Row};
 use iced::{executor, keyboard, mouse, subscription, Alignment, Event};
 use iced::{Application, Command, Element, Length, Subscription, Theme};
+use iced_aw::style::CardStyles;
+use iced_aw::{Modal, Card};
 use icy_engine::{BitFont, DEFAULT_FONT_NAME};
 use rfd::FileDialog;
 use std::env;
@@ -13,7 +15,7 @@ use crate::address::{start_read_book, store_phone_book, Address, READ_ADDRESSES}
 use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
 use crate::com::{Com, TelnetCom, RawCom};
-use crate::protocol::{FileDescriptor, Protocol, TransferState};
+use crate::protocol::{FileDescriptor, Protocol, TransferState, TransferInformation};
 use crate::VERSION;
 
 use super::screen_modes::ScreenMode;
@@ -264,8 +266,6 @@ impl Application for MainWindow {
             handled_char: false,
             is_alt_pressed: false,
         };
-        
-
         let args: Vec<String> = env::args().collect();
         if let Some(arg) = args.get(1) {
             view.addresses[0].address = arg.clone();
@@ -500,23 +500,22 @@ impl Application for MainWindow {
                     Message::CancelTransfer => {
                         if let Some(com) = &mut self.com {
                             if let Some((protocol, state)) = &mut self.current_protocol {
-                                if let Some(s) = &mut state.send_state {
-                                    s.write("Send cancel.".to_string());
-                                }
-                                if let Some(s) = &mut state.recieve_state {
-                                    s.write("Send cancel.".to_string());
-                                }
-
-                                if let Err(err) = protocol.cancel(com) {
-                                    if let Some(s) = &mut state.send_state {
-                                        s.write(format!("Error while cancel {:?}", err));
-                                    }
-                                    if let Some(s) = &mut state.recieve_state {
-                                        s.write(format!("Error while cancel {:?}", err));
+                                if !state.is_finished {
+                                    if let Err(err) = protocol.cancel(com) {
+                                        if let Some(s) = &mut state.send_state {
+                                            s.write(format!("Error while cancel {:?}", err));
+                                        }
+                                        if let Some(s) = &mut state.recieve_state {
+                                            s.write(format!("Error while cancel {:?}", err));
+                                        }
                                     }
                                 }
                             }
                         }
+
+                        self.current_protocol = None;
+                        self.mode = MainWindowMode::ShowTerminal;
+                        self.auto_file_transfer.reset();
                     }
                     _ => {}
                 }
@@ -609,11 +608,37 @@ impl Application for MainWindow {
         match self.mode {
             MainWindowMode::ShowTerminal => self.view_terminal_window(),
             MainWindowMode::ShowPhonebook => super::view_phonebook(self),
-            MainWindowMode::SelectProtocol(download) => super::view_protocol_selector(download),
+
+            MainWindowMode::SelectProtocol(download) => {
+                Modal::new(true, self.view_terminal_window(), move || {
+                    Card::new(
+                        text(format!("Select {} protocol", if download { "download" } else { "upload" } )),
+                        super::view_protocol_selector(download), //Text::new("Zombie ipsum reversus ab viral inferno, nam rick grimes malum cerebro. De carne lumbering animata corpora quaeritis. Summus brains sit​​, morbo vel maleficia? De apocalypsi gorger omero undead survivor dictum mauris. Hi mindless mortuis soulless creaturas, imo evil stalking monstra adventus resi dentevil vultus comedat cerebella viventium. Qui animated corpse, cricket bat max brucks terribilem incessu zomby. The voodoo sacerdos flesh eater, suscitat mortuos comedere carnem virus. Zonbi tattered for solum oculi eorum defunctis go lum cerebro. Nescio brains an Undead zombies. Sicut malus putrid voodoo horror. Nigh tofth eliv ingdead.")
+                        ).max_width(400)
+                        .style(CardStyles::Dark)
+                        .on_close(Message::Back)
+                        .into()
+                    })
+                    .on_esc(Message::Back)
+                    .into()
+                },
+
             MainWindowMode::EditBBS(i) => super::view_edit_bbs(self, &self.edit_bbs, i),
+
             MainWindowMode::FileTransfer(download) => {
                 if let Some((_, state)) = &self.current_protocol {
-                    super::view_file_transfer(state, download)
+                    Modal::new(true, self.view_terminal_window(), move || {
+                        Card::new(
+                            text(if download { "Download" } else { "Upload" } ),
+                                super::view_file_transfer(&state, download), //Text::new("Zombie ipsum reversus ab viral inferno, nam rick grimes malum cerebro. De carne lumbering animata corpora quaeritis. Summus brains sit​​, morbo vel maleficia? De apocalypsi gorger omero undead survivor dictum mauris. Hi mindless mortuis soulless creaturas, imo evil stalking monstra adventus resi dentevil vultus comedat cerebella viventium. Qui animated corpse, cricket bat max brucks terribilem incessu zomby. The voodoo sacerdos flesh eater, suscitat mortuos comedere carnem virus. Zonbi tattered for solum oculi eorum defunctis go lum cerebro. Nescio brains an Undead zombies. Sicut malus putrid voodoo horror. Nigh tofth eliv ingdead.")
+                            ).max_width(600)
+                            .height(Length::Units(500))
+                            .style(CardStyles::Dark)
+                            .on_close(Message::CancelTransfer)
+                            .into()
+                        })
+                        .on_esc(Message::CancelTransfer)
+                        .into()
                 } else {
                     text("invalid").into()
                 }

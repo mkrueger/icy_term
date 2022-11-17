@@ -96,18 +96,12 @@ pub fn view_phonebook<'a>(main_window: &MainWindow) -> Element<'a, Message> {
     .into()
 }
 
-const ICONS: Font = Font::External {
-    name: "Icons",
-    bytes: include_bytes!("../../fonts/icons.ttf"),
-};
-
 fn edit_icon() -> Text<'static> {
     icon('\u{F303}')
 }
 
 fn icon(unicode: char) -> Text<'static> {
     text(unicode.to_string())
-        .font(ICONS)
         .width(Length::Units(20))
         .horizontal_alignment(alignment::Horizontal::Center)
         .size(20)

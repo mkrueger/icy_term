@@ -634,7 +634,7 @@ impl<'a> canvas::Program<Message> for BufferView {
             let start_x = top_x + (entry.pos.x as usize * char_size.width as usize) as f32 + 0.5;
             let start_y = top_y + (entry.pos.y as usize * char_size.height as usize) as f32 + 0.5;
             if let Some(img) = &entry.image_opt {
-                result.push(Geometry::from_primitive(Primitive::Image {
+               /*  result.push(Geometry::from_primitive(Primitive::Image {
                     handle: img.clone(),
                     bounds: Rectangle::new(
                         Point::new(start_x, start_y),
@@ -643,11 +643,11 @@ impl<'a> canvas::Program<Message> for BufferView {
                             entry.size.height as f32 * scale_y,
                         ),
                     ),
-                }));
+                }));*/
             }
 
             if let Some(data) = &entry.data_opt {
-                let img = image::Handle::from_pixels(
+                /*let img = image::Handle::from_pixels(
                     entry.size.width as u32,
                     entry.size.height as u32,
                     data.clone(),
@@ -661,7 +661,7 @@ impl<'a> canvas::Program<Message> for BufferView {
                             entry.size.height as f32 * scale_y,
                         ),
                     ),
-                }));
+                }));*/
             }
         }
 

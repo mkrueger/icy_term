@@ -8,7 +8,7 @@ use icy_engine::{get_crc32, update_crc32};
 use crate::{
     com::Com,
     protocol::{
-        str_from_null_terminated_utf8_unchecked, FileDescriptor, FileTransferState, FrameType,
+        str_from_null_terminated_utf8_unchecked, FileDescriptor, TransferInformation, FrameType,
         Header, HeaderType, TransferState, Zmodem, ZCRCE, ZCRCG, ZCRCW,
     },
 };
@@ -167,7 +167,7 @@ impl Rz {
     fn read_header(
         &mut self,
         com: &mut Box<dyn Com>,
-        transfer_state: &mut FileTransferState,
+        transfer_state: &mut TransferInformation,
     ) -> io::Result<bool> {
         while com.is_data_available()? {
             let result = Header::read(com, &mut self.can_count);

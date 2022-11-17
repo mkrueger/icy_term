@@ -8,7 +8,7 @@ mod tests;
 
 use self::constants::{CAN, DEFAULT_BLOCK_LENGTH, EXT_BLOCK_LENGTH};
 
-use super::{FileDescriptor, FileTransferState, TransferState};
+use super::{FileDescriptor, TransferInformation, TransferState};
 #[derive(Debug, Clone, Copy)]
 pub enum Checksum {
     Default,
@@ -75,7 +75,7 @@ impl super::Protocol for XYmodem {
         sy.send(com, files)?;
         self.sy = Some(sy);
         let mut state = TransferState::new();
-        state.send_state = Some(FileTransferState::new());
+        state.send_state = Some(TransferInformation::new());
         state.protocol_name = self.config.get_protocol_name().to_string();
         Ok(state)
     }
@@ -86,7 +86,7 @@ impl super::Protocol for XYmodem {
         self.ry = Some(ry);
 
         let mut state = TransferState::new();
-        state.recieve_state = Some(FileTransferState::new());
+        state.recieve_state = Some(TransferInformation::new());
         state.protocol_name = self.config.get_protocol_name().to_string();
 
         // Add ghost file with no name when receiving with x-modem because this protocol

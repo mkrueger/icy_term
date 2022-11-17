@@ -46,7 +46,7 @@ impl FileDescriptor {
 
     pub fn save_file_in_downloads(
         &self,
-        transfer_state: &mut FileTransferState,
+        transfer_state: &mut TransferInformation,
     ) -> Result<(), Box<dyn Error>> {
         if let Some(user_dirs) = UserDirs::new() {
             let dir = user_dirs.download_dir().unwrap();
@@ -113,7 +113,7 @@ impl FileDescriptor {
 }
 
 #[derive(Clone)]
-pub struct FileTransferState {
+pub struct TransferInformation {
     pub file_name: String,
     pub file_size: usize,
     pub bytes_transfered: usize,
@@ -128,7 +128,7 @@ pub struct FileTransferState {
     pub output_log: Vec<String>,
 }
 
-impl FileTransferState {
+impl TransferInformation {
     pub fn new() -> Self {
         Self {
             file_name: String::new(),
@@ -182,8 +182,8 @@ pub struct TransferState {
     pub is_finished: bool,
     pub protocol_name: String,
     pub start_time: SystemTime,
-    pub send_state: Option<FileTransferState>,
-    pub recieve_state: Option<FileTransferState>,
+    pub send_state: Option<TransferInformation>,
+    pub recieve_state: Option<TransferInformation>,
 }
 
 impl TransferState {

@@ -20,7 +20,7 @@ use rz::*;
 
 mod tests;
 
-use super::{FileTransferState, Protocol, TransferState};
+use super::{TransferInformation, Protocol, TransferState};
 use crate::com::Com;
 
 pub struct Zmodem {
@@ -196,7 +196,7 @@ impl Protocol for Zmodem {
         files: Vec<super::FileDescriptor>,
     ) -> std::io::Result<TransferState> {
         let mut state = TransferState::new();
-        state.send_state = Some(FileTransferState::new());
+        state.send_state = Some(TransferInformation::new());
         state.protocol_name = self.get_name().to_string();
         self.sz.send(com, files)?;
         Ok(state)
@@ -204,7 +204,7 @@ impl Protocol for Zmodem {
 
     fn initiate_recv(&mut self, com: &mut Box<dyn Com>) -> std::io::Result<TransferState> {
         let mut state = TransferState::new();
-        state.recieve_state = Some(FileTransferState::new());
+        state.recieve_state = Some(TransferInformation::new());
         state.protocol_name = self.get_name().to_string();
         self.rz.recv(com)?;
         Ok(state)

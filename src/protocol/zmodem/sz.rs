@@ -366,7 +366,7 @@ impl Sz {
     fn send_zfile(
         &mut self,
         com: &mut Box<dyn Com>,
-        transfer_state: &mut crate::protocol::FileTransferState,
+        transfer_state: &mut crate::protocol::TransferInformation,
     ) -> Result<(), io::Error> {
         if self.cur_file < 0 {
             return Ok(());

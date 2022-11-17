@@ -12,10 +12,15 @@ resources = []
 copyright = "Copyright (c) Mike Krüger 2022. All rights reserved."
 
 [dependencies]
-iced = { path = "../iced", features = ["canvas", "image", "svg", "tokio", "debug"] }
-iced_native = { path = "../iced/native" }
-iced_futures = { path = "../iced/futures", features = ["tokio"] }
-iced_graphics = { path = "../iced/graphics" }
+iced = {version="0.5.2", features = ["canvas", "image", "svg", "tokio", "debug"] }
+iced_native = "0.6.1"
+iced_graphics = "0.4.0"
+iced_futures = "0.5.1"
+iced_aw = { path = "../iced_aw", features = ["colors", "card", "modal", "floating_element", "tab_bar"] }
+# iced = { path = "../iced", features = ["canvas", "image", "svg", "tokio", "debug"] }
+#iced_native = { path = "../iced/native" }
+#iced_futures = { path = "../iced/futures", features = ["tokio"] }
+#iced_graphics = { path = "../iced/graphics" }
 
 icy_engine = { path = "../icy_engine" }
 tokio = { version = "1.21.2", features = ["full"] }

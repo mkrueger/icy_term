@@ -39,7 +39,7 @@ pub fn view_file_transfer<'a>(state: &TransferState, download: bool) -> Element<
                 .output_log
                 .iter()
                 .rev()
-                .take(5)
+                .take(1)
                 .rev()
                 .map(|txt| row![text(txt)].align_items(Alignment::Center).into())
                 .collect(),
@@ -48,17 +48,6 @@ pub fn view_file_transfer<'a>(state: &TransferState, download: bool) -> Element<
 
         if state.is_finished {
             return column![
-                row![
-                    button("Back").on_press(Message::Back),
-                    button("Send Cancel").on_press(Message::CancelTransfer)
-                ]
-                .padding(4)
-                .spacing(8),
-                text(if download { "Download" } else { "Upload" })
-                    .width(Length::Fill)
-                    .size(50)
-                    .style(Color::from([0.7, 0.7, 0.7]))
-                    .horizontal_alignment(alignment::Horizontal::Center),
                 text("Completed")
                     .width(Length::Fill)
                     .size(30)
@@ -72,17 +61,6 @@ pub fn view_file_transfer<'a>(state: &TransferState, download: bool) -> Element<
         }
 
         column![
-            row![
-                button("Back").on_press(Message::Back),
-                button("Send Cancel").on_press(Message::CancelTransfer)
-            ]
-            .padding(4)
-            .spacing(8),
-            text(if download { "Download" } else { "Upload" })
-                .width(Length::Fill)
-                .size(50)
-                .style(Color::from([0.7, 0.7, 0.7]))
-                .horizontal_alignment(alignment::Horizontal::Center),
             row![
                 column![
                     row![
@@ -175,14 +153,7 @@ pub fn view_file_transfer<'a>(state: &TransferState, download: bool) -> Element<
             ]
             .padding(4)
             .spacing(8),
-            row![
-                text("Log:").style(Color::from([0.5, 0.5, 0.5])),
-                // horizontal_rule(2),
-            ]
-            .padding(4)
-            .spacing(8),
-            log,
-            horizontal_rule(2)
+            log
         ]
         .spacing(5)
         .padding(10)
@@ -190,7 +161,6 @@ pub fn view_file_transfer<'a>(state: &TransferState, download: bool) -> Element<
     } else {
         column![
             text("error"),
-            button("Cancel").on_press(Message::CancelTransfer)
         ]
         .spacing(8)
         .padding(10)
