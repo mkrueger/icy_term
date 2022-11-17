@@ -1,4 +1,4 @@
-VER=$(cat Cargo.toml | grep "version"  | awk -F"\"" '{print $2}' | xargs)
+VER=$(cat Cargo.toml | grep "version"  | awk -F"\"" '{print $2}' | head -n 1)
 
 rm IcyTerm-Installer-*.dmg
 for ARCH in aarch64-apple-darwin x86_64-apple-darwin

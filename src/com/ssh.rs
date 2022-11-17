@@ -67,7 +67,7 @@ impl Com for SSHCom {
         "OpenSSL"
     }
 
-    async fn connect(&mut self, addr: &Address) -> Result<bool, String> {
+    async fn connect(&mut self, addr: &Address, timeout: Duration) -> Result<bool, String> {
 
         let config = russh::client::Config::default();
         let config = Arc::new(config);
