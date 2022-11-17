@@ -135,6 +135,7 @@ impl MainWindow {
         self.get_screen_mode()
             .set_mode(&mut self.font, &mut self.buffer_view);
         self.buffer_view.buf.font = BitFont::from_name(&self.get_font_name()).unwrap();
+        println!("set font {}", self.buffer_view.buf.font.name);
         self.buffer_view.redraw_view();
     }
 

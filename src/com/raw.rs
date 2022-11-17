@@ -1,10 +1,10 @@
 use super::Com;
 #[allow(dead_code)]
-use std::{
-    io::{self, ErrorKind, Read, Write},
-    net::{SocketAddr, TcpStream},
-    thread,
-    time::Duration,
+use async_trait::async_trait;
+use std::{io::ErrorKind, thread, time::Duration};
+use tokio::{
+    io::{self, AsyncReadExt},
+    net::TcpStream,
 };
 
 pub struct RawCom {
@@ -13,23 +13,13 @@ pub struct RawCom {
 }
 
 impl RawCom {
-    pub fn connect(addr: &SocketAddr, timeout: Duration) -> io::Result<Self> {
-        let tcp_stream = std::net::TcpStream::connect_timeout(addr, timeout)?;
-        tcp_stream.set_nonblocking(true)?;
-
-        Ok(Self {
-            tcp_stream,
-            buf: std::collections::VecDeque::new(),
-        })
-    }
-
     fn fill_buffer(&mut self) -> io::Result<()> {
-        let mut buf = [0; 1024 * 8];
+        let mut buf = [0; 1024 * 256];
         loop {
-            match self.tcp_stream.read(&mut buf) {
+            match self.tcp_stream.try_read(&mut buf) {
                 Ok(size) => {
-                    self.buf.extend_from_slice(&buf[0..size]);
-                    break;
+                    self.buf.extend(&buf[0..size]);
+                    return Ok(());
                 }
                 Err(ref e) => {
                     if e.kind() == io::ErrorKind::WouldBlock {
@@ -37,7 +27,7 @@ impl RawCom {
                     }
                     return Err(io::Error::new(
                         ErrorKind::ConnectionAborted,
-                        format!("{}", e),
+                        format!("Telnet error: {}", e),
                     ));
                 }
             };
@@ -46,20 +36,32 @@ impl RawCom {
     }
 
     fn fill_buffer_wait(&mut self, _timeout: Duration) -> io::Result<()> {
-        self.tcp_stream.set_nonblocking(false)?;
         self.fill_buffer()?;
         while self.buf.len() == 0 {
             self.fill_buffer()?;
             thread::sleep(Duration::from_millis(10));
         }
-        self.tcp_stream.set_nonblocking(true)?;
         Ok(())
     }
 }
 
+#[async_trait]
 impl Com for RawCom {
     fn get_name(&self) -> &'static str {
         "Raw"
+    }
+    async fn connect(&mut self, addr: String) -> Result<bool, String> {
+        let r = tokio::time::timeout(Duration::from_secs(5), TcpStream::connect(addr)).await;
+        match r {
+            Ok(tcp_stream) => match tcp_stream {
+                Ok(stream) => {
+                    self.tcp_stream = stream;
+                    Ok(true)
+                }
+                Err(err) => Err(format!("{}", err)),
+            },
+            Err(err) => Err(format!("{}", err)),
+        }
     }
 
     fn read_char(&mut self, timeout: Duration) -> io::Result<u8> {
@@ -93,10 +95,10 @@ impl Com for RawCom {
     }
 
     fn disconnect(&mut self) -> io::Result<()> {
-        self.tcp_stream.shutdown(std::net::Shutdown::Both)
+        Ok(())
     }
-
-    fn write(&mut self, buf: &[u8]) -> io::Result<()> {
-        self.tcp_stream.write_all(&buf)
+   
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.tcp_stream.try_write(&buf)
     }
 }

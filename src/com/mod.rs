@@ -12,6 +12,9 @@ pub use test_com::*;
 pub mod telnet;
 pub use telnet::*;
 
+pub mod raw;
+pub use raw::*;
+
 #[async_trait]
 pub trait Com: Sync + Send {
     fn get_name(&self) -> &'static str;

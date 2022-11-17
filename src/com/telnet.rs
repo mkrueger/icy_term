@@ -423,6 +423,7 @@ impl Com for TelnetCom {
     fn get_name(&self) -> &'static str {
         "Telnet"
     }
+
     async fn connect(&mut self, addr: String) -> Result<bool, String> {
         let r = tokio::time::timeout(Duration::from_secs(5), TcpStream::connect(addr)).await;
         match r {
