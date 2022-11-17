@@ -264,7 +264,6 @@ impl Application for MainWindow {
             is_alt_pressed: false,
         };
         
-        // view.set_screen_mode(&ScreenMode::Viewdata);
 
         let args: Vec<String> = env::args().collect();
         if let Some(arg) = args.get(1) {
@@ -294,7 +293,8 @@ impl Application for MainWindow {
             self.buffer_view.blink = !self.buffer_view.blink;
             self.buffer_view.last_blink = in_ms;
         }
-        
+       
+        // view.set_screen_mode(&ScreenMode::Viewdata);
         // unsafe { super::simulate::run_sim(self); }
         
         match &message {

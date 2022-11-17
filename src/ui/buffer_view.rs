@@ -100,7 +100,7 @@ impl BufferView {
         self.selection = None;
         self.scroll_back_line = 0;
         
-       /*match c  {
+        /*match c  {
             b'\\' => print!("\\\\"),
             b'\n' => print!("\\n"),
             b'\r' => print!("\\r"),
@@ -603,7 +603,7 @@ impl<'a> canvas::Program<Message> for BufferView {
                                     top_x + (x * char_size.width as usize) as f32 + 0.5,
                                     top_y + (y * char_size.height as usize) as f32 + 0.5,
                                 ),
-                                char_size,
+                                Size { width: char_size.width, height: if is_double_height { 2.0 * char_size.height} else { char_size.height } }
                             );
 
                             let bg = buffer.palette.colors[ch.attribute.get_background() as usize];
