@@ -627,7 +627,7 @@ impl<'a> canvas::Program<Message> for BufferView {
             result.push(blink_cache);
         } 
         let buffer = &self.buf;
-        let (top_x, top_y, scale_x, scale_y, char_size) = calc(buffer, &bounds);
+        let (top_x, top_y, _, _, char_size) = calc(buffer, &bounds);
         for i in 0..self.sixel_cache.len() {
             let entry = &self.sixel_cache[i];
             let start_x = top_x + (entry.pos.x as usize * char_size.width as usize) as f32 + 0.5;

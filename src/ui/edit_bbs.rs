@@ -1,25 +1,27 @@
 use super::main_window::MainWindow;
 use super::screen_modes::*;
 use super::Message;
-use crate::address::{Address, Terminal};
-use iced::widget::{button, column, pick_list, row, text, text_input};
+use crate::address::{ Terminal};
+use iced::widget::{ column, pick_list, row, text, text_input};
 use iced::{alignment, Element, Length};
 
-pub fn view_edit_bbs<'a>(
-    _main_window: &MainWindow,
-    adr: &Address,
-    i: usize,
-) -> Element<'a, Message> {
+pub fn view_edit_bbs<'a>(main_window: &MainWindow) -> Element<'a, Message> {
     let text_width = 140;
     let padding = 10;
+
+    if main_window.selected_address < 0 {
+        return text("No selection").into();
+    }
+    let adr = &main_window.addresses[main_window.selected_address as usize];
+
     column![
-        row![
+    /*     row![
             button("Cancel").on_press(Message::Back),
             button("Save").on_press(Message::EditBbsSaveChanges(i)),
             button("Delete").on_press(Message::EditBbsDeleteEntry(i)),
         ]
         .padding(padding)
-        .spacing(8),
+        .spacing(8),*/
         row![
             text("System name")
                 .horizontal_alignment(alignment::Horizontal::Right)

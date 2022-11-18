@@ -1,20 +1,19 @@
 use super::Message;
 use crate::protocol::ProtocolType;
-use iced::widget::{button, column, horizontal_space, row, text, Row, Column};
+use iced::widget::{button, horizontal_space, text, Row, Column};
 use iced::{Element, Length};
 
-const button_width: u16 = 120;
-const space: u16 = 8;
-const left: u16 = 20;
-
+const BUTTON_WIDTH: u16 = 120;
+const SPACE: u16 = 8;
+const LEFT: u16 = 20;
 
 fn create_button_row<'a>(msg: Message, title: &'static str, descr: &'static str)  -> Element<'a, Message>  {
     Row::new()
-        .push(horizontal_space(Length::Units(left)))
+        .push(horizontal_space(Length::Units(LEFT)))
         .push(button(title)
             .on_press(msg)
-            .width(Length::Units(button_width)))
-        .push(horizontal_space(Length::Units(space)))
+            .width(Length::Units(BUTTON_WIDTH)))
+        .push(horizontal_space(Length::Units(SPACE)))
         .push(text(descr))
         .into()
 }

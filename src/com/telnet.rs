@@ -311,32 +311,36 @@ impl TelnetCom {
                         self.buf.push_back(*b);
                     }
                 }
-                ParserState::Iac => match TelnetCmd::get(*b)? {
-                    TelnetCmd::AYT => {
+                ParserState::Iac => match TelnetCmd::get(*b) {
+                    Ok(TelnetCmd::AYT) => {
                         self.tcp_stream
                             .as_mut()
                             .unwrap()
                             .try_write(&TelnetCmd::NOP.to_bytes())?;
                         self.state = ParserState::Data;
                     }
-                    TelnetCmd::SE | TelnetCmd::NOP | TelnetCmd::GA => {
+                    Ok(TelnetCmd::SE) | Ok(TelnetCmd::NOP) | Ok(TelnetCmd::GA) => {
                         self.state = ParserState::Data;
                     }
-                    TelnetCmd::IAC => {
+                    Ok(TelnetCmd::IAC) => {
                         self.buf.push_back(0xFF);
                         self.state = ParserState::Data;
                     }
-                    TelnetCmd::WILL => {
+                    Ok(TelnetCmd::WILL) => {
                         self.state = ParserState::Will;
                     }
-                    TelnetCmd::WONT => {
+                    Ok(TelnetCmd::WONT) => {
                         self.state = ParserState::Wont;
                     }
-                    TelnetCmd::DO => {
+                    Ok(TelnetCmd::DO) => {
                         self.state = ParserState::Do;
                     }
-                    TelnetCmd::DONT => {
+                    Ok(TelnetCmd::DONT) => {
                         self.state = ParserState::Dont;
+                    }
+                    Err(err) => {
+                        eprintln!("{}", err);
+                        self.state = ParserState::Data;
                     }
                     cmd => {
                         eprintln!("unsupported IAC: {:?}", cmd);

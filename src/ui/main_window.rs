@@ -1,8 +1,8 @@
 use clipboard::{ClipboardContext, ClipboardProvider};
 use iced::mouse::ScrollDelta;
-use iced::widget::{text_input, Text};
+use iced::widget::{text_input};
 use iced::widget::{column, text, Canvas, Row};
-use iced::{executor, keyboard, mouse, subscription, Alignment, Event};
+use iced::{executor, keyboard, mouse, subscription, Alignment, Event, Color};
 use iced::{Application, Command, Element, Length, Subscription, Theme};
 use iced_aw::style::CardStyles;
 use iced_aw::{Modal, Card};
@@ -11,11 +11,11 @@ use rfd::FileDialog;
 use std::env;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::address::{start_read_book, store_phone_book, Address, READ_ADDRESSES};
+use crate::address::{start_read_book, Address, READ_ADDRESSES};
 use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
 use crate::com::{Com, TelnetCom, RawCom};
-use crate::protocol::{FileDescriptor, Protocol, TransferState, TransferInformation};
+use crate::protocol::{FileDescriptor, Protocol, TransferState};
 use crate::VERSION;
 
 use super::screen_modes::ScreenMode;
@@ -28,8 +28,7 @@ pub enum MainWindowMode {
     ShowTerminal,
     ShowPhonebook,
     SelectProtocol(bool),
-    FileTransfer(bool),
-    EditBBS(usize),
+    FileTransfer(bool)
 }
 
 struct Options {
@@ -60,6 +59,7 @@ pub struct MainWindow {
     screen_mode: Option<ScreenMode>,
     auto_login: AutoLogin,
     auto_file_transfer: AutoFileTransfer,
+    pub selected_address: i32,
     // protocols
     current_protocol: Option<(Box<dyn Protocol>, TransferState)>,
     is_alt_pressed: bool,
@@ -138,7 +138,6 @@ impl MainWindow {
         self.get_screen_mode()
             .set_mode(&mut self.font, &mut self.buffer_view);
         self.buffer_view.buf.font = BitFont::from_name(&self.get_font_name()).unwrap();
-        println!("set font {}", self.buffer_view.buf.font.name);
         self.buffer_view.redraw_view();
     }
 
@@ -162,6 +161,15 @@ impl MainWindow {
         }
         log_result(&self.buffer_view.print_char(None, b'\r'));
         log_result(&self.buffer_view.print_char(None, b'\n'));
+    }
+
+    fn update_address_list(&mut self)
+    {
+        self.address_list.clear();
+        for addr in &self.addresses {
+            self.address_list.add(Box::new(addr.clone()));
+        }
+        self.address_list.update();
     }
 
     fn initiate_file_transfer(
@@ -267,6 +275,7 @@ impl Application for MainWindow {
             current_protocol: None,
             handled_char: false,
             is_alt_pressed: false,
+            selected_address: -1
         };
         let args: Vec<String> = env::args().collect();
         if let Some(arg) = args.get(1) {
@@ -274,8 +283,11 @@ impl Application for MainWindow {
             let cmd = view.call_bbs(0);
             return (view, cmd);
         }
+
+        view.update_address_list();
         (view, text_input::focus::<Message>(super::INPUT_ID.clone()))
     }
+
 
     fn update(&mut self, message: Message) -> Command<Message> {
         self.trigger = !self.trigger;
@@ -284,6 +296,7 @@ impl Application for MainWindow {
                 READ_ADDRESSES = false;
             }
             self.addresses = Address::read_phone_book();
+            self.update_address_list();
         }
 
         let start = SystemTime::now();
@@ -320,6 +333,68 @@ impl Application for MainWindow {
                     self.com = None;
                 }
             },
+    
+            Message::ListAction(msg) => match msg {
+                super::HoverListMessage::UpdateList => self.address_list.update(),
+                super::HoverListMessage::Selected(i) => { 
+                    self.selected_address = *i;
+                    self.address_list.update();
+                },
+                super::HoverListMessage::CallBBS(i) => { 
+                    self.selected_address = *i;
+                    self.address_list.update();
+                    return self.call_bbs(*i as usize);
+                },
+            }
+            Message::CreateNewBBS => {
+                self.addresses.push(Address::new());
+                self.update_address_list();
+                self.selected_address = self.addresses.len() as i32 - 1;
+            }   
+            
+            /*
+            MainWindowMode::EditBBS(_) => {
+                match message {
+                    Message::Back => {
+                        self.mode = MainWindowMode::ShowPhonebook;
+                    }
+
+                    Message::EditBbsSystemNameChanged(str) => self.edit_bbs.system_name = str,
+                    Message::EditBbsAddressChanged(str) => self.edit_bbs.address = str,
+                    Message::EditBbsUserNameChanged(str) => self.edit_bbs.user_name = str,
+                    Message::EditBbsPasswordChanged(str) => self.edit_bbs.password = str,
+                    Message::EditBbsCommentChanged(str) => self.edit_bbs.comment = str,
+                    Message::EditBbsTerminalTypeSelected(terminal) => {
+                        self.edit_bbs.terminal_type = terminal
+                    }
+                    Message::EditBbsScreenModeSelected(screen_mode) => {
+                        self.edit_bbs.screen_mode = Some(screen_mode)
+                    }
+                    Message::EditBbsAutoLoginChanged(str) => self.edit_bbs.auto_login = str,
+                    Message::EditBbsConnectionType(connection_type) => {
+                        self.edit_bbs.connection_type = connection_type
+                    }
+                    Message::EditBbsSaveChanges(i) => {
+                        if i == 0 {
+                            self.addresses.push(self.edit_bbs.clone());
+                        } else {
+                            self.addresses[i] = self.edit_bbs.clone();
+                        }
+                        log_result(&store_phone_book(&self.addresses));
+                        self.mode = MainWindowMode::ShowPhonebook;
+                    }
+                    Message::EditBbsDeleteEntry(i) => {
+                        if i > 0 {
+                            self.addresses.remove(i);
+                        }
+                        log_result(&store_phone_book(&self.addresses));
+                        self.mode = MainWindowMode::ShowPhonebook;
+                    }
+                    _ => {}
+                }
+            }
+        }
+            */
             _ => {}
         };
 
@@ -445,18 +520,6 @@ impl Application for MainWindow {
             }
             MainWindowMode::ShowPhonebook => {
                 match message {
-                    Message::EditBBS(i) => {
-                        self.edit_bbs = if i == 0 {
-                            Address::new()
-                        } else {
-                            self.addresses[i].clone()
-                        };
-                        self.mode = MainWindowMode::EditBBS(i)
-                    }
-
-                    Message::CallBBS(i) => {
-                        return self.call_bbs(i);
-                    }
 
                     Message::QuickConnectChanged(addr) => self.addresses[0].address = addr,
                     _ => {}
@@ -522,48 +585,8 @@ impl Application for MainWindow {
                     _ => {}
                 }
             }
-
-            MainWindowMode::EditBBS(_) => {
-                match message {
-                    Message::Back => {
-                        self.mode = MainWindowMode::ShowPhonebook;
-                    }
-
-                    Message::EditBbsSystemNameChanged(str) => self.edit_bbs.system_name = str,
-                    Message::EditBbsAddressChanged(str) => self.edit_bbs.address = str,
-                    Message::EditBbsUserNameChanged(str) => self.edit_bbs.user_name = str,
-                    Message::EditBbsPasswordChanged(str) => self.edit_bbs.password = str,
-                    Message::EditBbsCommentChanged(str) => self.edit_bbs.comment = str,
-                    Message::EditBbsTerminalTypeSelected(terminal) => {
-                        self.edit_bbs.terminal_type = terminal
-                    }
-                    Message::EditBbsScreenModeSelected(screen_mode) => {
-                        self.edit_bbs.screen_mode = Some(screen_mode)
-                    }
-                    Message::EditBbsAutoLoginChanged(str) => self.edit_bbs.auto_login = str,
-                    Message::EditBbsConnectionType(connection_type) => {
-                        self.edit_bbs.connection_type = connection_type
-                    }
-                    Message::EditBbsSaveChanges(i) => {
-                        if i == 0 {
-                            self.addresses.push(self.edit_bbs.clone());
-                        } else {
-                            self.addresses[i] = self.edit_bbs.clone();
-                        }
-                        log_result(&store_phone_book(&self.addresses));
-                        self.mode = MainWindowMode::ShowPhonebook;
-                    }
-                    Message::EditBbsDeleteEntry(i) => {
-                        if i > 0 {
-                            self.addresses.remove(i);
-                        }
-                        log_result(&store_phone_book(&self.addresses));
-                        self.mode = MainWindowMode::ShowPhonebook;
-                    }
-                    _ => {}
-                }
-            }
         }
+            
         Command::none()
     }
 
@@ -624,8 +647,6 @@ impl Application for MainWindow {
                     .into()
                 },
 
-            MainWindowMode::EditBBS(i) => super::view_edit_bbs(self, &self.edit_bbs, i),
-
             MainWindowMode::FileTransfer(download) => {
                 if let Some((_, state)) = &self.current_protocol {
                     Modal::new(true, self.view_terminal_window(), move || {
@@ -648,11 +669,6 @@ impl Application for MainWindow {
     }
 }
 
-static UPLOAD_SVG: &[u8] = include_bytes!("../../resources/upload.svg");
-static DOWNLOAD_SVG: &[u8] = include_bytes!("../../resources/download.svg");
-static KEY_SVG: &[u8] = include_bytes!("../../resources/key.svg");
-static LOGOUT_SVG: &[u8] = include_bytes!("../../resources/logout.svg");
-
 impl MainWindow {
     pub fn view_terminal_window(&self) -> Element<'_, Message> {
         let c = Canvas::new(&self.buffer_view)
@@ -662,17 +678,17 @@ impl MainWindow {
         let mut title_row = Row::new();
         if self.com.is_some() {
             title_row = title_row.push(
-                create_icon_button(UPLOAD_SVG).on_press(Message::InitiateFileTransfer(false)),
+                create_icon_button("\u{F148}").on_press(Message::InitiateFileTransfer(false)),
             );
             title_row = title_row.push(
-                create_icon_button(DOWNLOAD_SVG).on_press(Message::InitiateFileTransfer(true)),
+                create_icon_button("\u{F128}").on_press(Message::InitiateFileTransfer(true)),
             );
             if !self.auto_login.logged_in {
                 title_row =
-                    title_row.push(create_icon_button(KEY_SVG).on_press(Message::SendLogin));
+                    title_row.push(create_icon_button("\u{F588}").on_press(Message::SendLogin));
             }
         }
-        title_row = title_row.push(create_icon_button(LOGOUT_SVG).on_press(Message::Hangup));
+        title_row = title_row.push(create_icon_button("\u{F54A}").on_press(Message::Hangup));
         column(vec![
             title_row
                 .align_items(Alignment::Center)

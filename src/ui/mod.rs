@@ -1,5 +1,5 @@
 pub mod message;
-use iced::Length;
+use iced::{Length, widget::text};
 pub use message::*;
 
 pub mod main_window;
@@ -34,14 +34,12 @@ pub use keymaps::*;
 
 // pub mod simulate;
 
-pub fn create_icon_button(icon_data: &'static [u8]) -> iced::widget::Button<'_, Message> {
-    let icon_size = 32;
+pub fn create_icon_button(icon: &'static str) -> iced::widget::Button<'_, Message> {
+    let icon_size = 24;
 
-    let icon = iced::widget::svg(iced::widget::svg::Handle::from_memory(icon_data))
-        .width(Length::Units(icon_size))
-        .height(Length::Units(icon_size));
+    let mut t = text(icon).font(iced_aw::ICON_FONT).size(icon_size);
 
-    iced::widget::button(icon)
-        .padding(0)
+    iced::widget::button(t)
+        .padding(4)
         .on_press(Message::InitiateFileTransfer(false))
 }

@@ -3,7 +3,7 @@ use std::cmp::max;
 use std::time::{Duration, SystemTime};
 
 use gabi::BytesConfig;
-use iced::widget::{button, column, horizontal_rule, horizontal_space, progress_bar, row, text};
+use iced::widget::{ column, horizontal_rule, horizontal_space, progress_bar, row, text};
 
 use super::Message;
 use crate::protocol::TransferState;

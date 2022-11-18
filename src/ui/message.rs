@@ -8,7 +8,7 @@ use crate::{
     protocol::ProtocolType,
 };
 
-use super::{screen_modes::ScreenMode, selection::Selection};
+use super::{screen_modes::ScreenMode, selection::Selection, HoverListMessage};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -30,15 +30,16 @@ pub enum Message {
     SelectProtocol(ProtocolType, bool),
     OpenURL(String),
     CancelTransfer,
-
+    
     SetSelection(Option<Selection>),
+
+    ListAction(HoverListMessage),
+    CreateNewBBS,
 
     // Phonebook
     QuickConnectChanged(String),
-    CallBBS(usize),
 
     // Edit BBS
-    EditBBS(usize),
     EditBbsSystemNameChanged(String),
     EditBbsAddressChanged(String),
     EditBbsUserNameChanged(String),
