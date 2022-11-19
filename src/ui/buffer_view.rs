@@ -11,6 +11,7 @@ use std::cmp::{max, min};
 use super::selection::Selection;
 use super::Message;
 
+#[derive(Clone, Copy)]
 pub enum BufferInputMode {
     CP437,
     PETSCII,
@@ -626,14 +627,14 @@ impl<'a> canvas::Program<Message> for BufferView {
         if self.blink {
             result.push(blink_cache);
         } 
-        let buffer = &self.buf;
+       /*  let buffer = &self.buf;
         let (top_x, top_y, _, _, char_size) = calc(buffer, &bounds);
-        for i in 0..self.sixel_cache.len() {
+         for i in 0..self.sixel_cache.len() {
             let entry = &self.sixel_cache[i];
             let start_x = top_x + (entry.pos.x as usize * char_size.width as usize) as f32 + 0.5;
             let start_y = top_y + (entry.pos.y as usize * char_size.height as usize) as f32 + 0.5;
             if let Some(img) = &entry.image_opt {
-               /*  result.push(Geometry::from_primitive(Primitive::Image {
+                result.push(Geometry::from_primitive(Primitive::Image {
                     handle: img.clone(),
                     bounds: Rectangle::new(
                         Point::new(start_x, start_y),
@@ -642,11 +643,11 @@ impl<'a> canvas::Program<Message> for BufferView {
                             entry.size.height as f32 * scale_y,
                         ),
                     ),
-                }));*/
+                }));
             }
 
             if let Some(data) = &entry.data_opt {
-                /*let img = image::Handle::from_pixels(
+                let img = image::Handle::from_pixels(
                     entry.size.width as u32,
                     entry.size.height as u32,
                     data.clone(),
@@ -660,9 +661,9 @@ impl<'a> canvas::Program<Message> for BufferView {
                             entry.size.height as f32 * scale_y,
                         ),
                     ),
-                }));*/
+                }));
             }
-        }
+        }*/
 
         let top_line = first_line - self.scroll_back_line;
 

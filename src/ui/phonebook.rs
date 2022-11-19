@@ -2,11 +2,11 @@ use super::main_window::MainWindow;
 use super::{create_icon_button, view_edit_bbs, HoverListMessage, Message};
 use iced::widget::button::Appearance;
 use iced::widget::{
-    button, horizontal_space, text_input, vertical_rule, Button, Canvas, Column, Container, Row,
+    button, horizontal_space, text_input, vertical_rule, Button, Canvas, Column, Row,
     Text,
 };
 use iced::{theme, Alignment, Element, Length, Theme};
-use iced_aw::{FloatingElement, Icon};
+use iced_aw::{ Icon};
 use lazy_static::lazy_static;
 
 lazy_static! {

@@ -3,7 +3,7 @@ use iced::keyboard::KeyCode;
 use iced::mouse::ScrollDelta;
 use iced::widget::{text_input, self, Column, button, horizontal_space};
 use iced::widget::{column, text, Canvas, Row};
-use iced::{executor, keyboard, mouse, subscription, Alignment, Event, Color};
+use iced::{executor, keyboard, mouse, subscription, Alignment, Event};
 use iced::{Application, Command, Element, Length, Subscription, Theme};
 use iced_aw::style::CardStyles;
 use iced_aw::{Modal, Card};
@@ -22,7 +22,7 @@ use crate::VERSION;
 use super::screen_modes::ScreenMode;
 use super::{
     create_icon_button, BufferView, Message, ANSI_KEY_MAP, ATASCII_KEY_MAP, C64_KEY_MAP, CTRL_MOD,
-    SHIFT_MOD, VT500_KEY_MAP, VIDEOTERM_KEY_MAP, HoverList,
+    SHIFT_MOD, VT500_KEY_MAP, VIDEOTERM_KEY_MAP, HoverList, BufferInputMode,
 };
 
 #[derive(PartialEq, Eq)]
@@ -232,6 +232,8 @@ impl MainWindow {
         }
         log_result(&store_phone_book(&self.addresses));
     }
+
+    
 }
 
 impl Application for MainWindow {
@@ -377,7 +379,7 @@ impl Application for MainWindow {
             Message::EditBbsScreenModeSelected(screen_mode) => {
                 self.current_edit_bbs().screen_mode = Some(*screen_mode); log_result(&store_phone_book(&self.addresses));
             }
-            Message::EditBbsAutoLoginChanged(str) => self.current_edit_bbs().auto_login = str.clone(),
+            Message::EditBbsAutoLoginChanged(str) => { self.current_edit_bbs().auto_login = str.clone(); log_result(&store_phone_book(&self.addresses)); },
             Message::EditBbsConnectionType(connection_type) => {
                 self.current_edit_bbs().connection_type = *connection_type; log_result(&store_phone_book(&self.addresses));
             }
@@ -397,7 +399,6 @@ impl Application for MainWindow {
           
             _ => {}
         };
-
         match self.mode {
             MainWindowMode::ShowTerminal => {
                 match message {
@@ -407,16 +408,20 @@ impl Application for MainWindow {
                     Message::SendLogin => {
                         if let Some(com) = &mut self.com {
                             let adr = self.addresses.get(self.cur_addr).unwrap();
-                            if let Err(err) = com.write(
-                                [
-                                    adr.user_name.as_bytes(),
-                                    b"\r",
-                                    adr.password.as_bytes(),
-                                    b"\r",
-                                ]
-                                .concat()
-                                .as_slice(),
-                            ) {
+                            let mut cr = [self.buffer_view.buffer_parser.from_unicode('\r') as u8].to_vec();
+                            for (k, v) in self.buffer_view.buffer_input_mode.cur_map() {
+                                if *k == KeyCode::Enter as u32 {
+                                    cr = v.to_vec();
+                                    break;
+                                }
+                            }
+                            let mut data = Vec::new();
+                            data.extend_from_slice(adr.user_name.as_bytes());
+                            data.extend(&cr);
+                            data.extend_from_slice(adr.password.as_bytes());
+                            data.extend(cr);
+                    
+                            if let Err(err) = com.write(&data) {
                                 eprintln!("Error sending login: {}", err);
                             }
                             self.auto_login.logged_in = true;
@@ -451,15 +456,8 @@ impl Application for MainWindow {
                         if modifier.shift() {
                             code |= SHIFT_MOD;
                         }
-                        let map = match self.buffer_view.buffer_input_mode {
-                            super::BufferInputMode::CP437 => ANSI_KEY_MAP,
-                            super::BufferInputMode::PETSCII => C64_KEY_MAP,
-                            super::BufferInputMode::ATASCII => ATASCII_KEY_MAP,
-                            super::BufferInputMode::VT500 => VT500_KEY_MAP,
-                            super::BufferInputMode::VIEWDATA => VIDEOTERM_KEY_MAP,
-
-                            
-                        };
+                        let input_mode = self.buffer_view.buffer_input_mode;
+                        let map = input_mode.cur_map();
 
                         if let Some(com) = &mut self.com {
                             for (k, m) in map {
@@ -792,4 +790,16 @@ async fn foo(addr: Address, timeout: Duration) -> Result<bool, String> {
     }
 
     Ok(true)
+}
+
+impl BufferInputMode {
+    pub fn cur_map<'a>(&self) -> &'a [(u32, &[u8])] {
+        match self {
+            super::BufferInputMode::CP437 => ANSI_KEY_MAP,
+            super::BufferInputMode::PETSCII => C64_KEY_MAP,
+            super::BufferInputMode::ATASCII => ATASCII_KEY_MAP,
+            super::BufferInputMode::VT500 => VT500_KEY_MAP,
+            super::BufferInputMode::VIEWDATA => VIDEOTERM_KEY_MAP,
+        }
+    }
 }

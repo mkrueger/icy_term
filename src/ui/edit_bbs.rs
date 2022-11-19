@@ -6,9 +6,9 @@ use iced::Alignment;
 use iced::widget::Column;
 use iced::widget::Row;
 use iced::widget::horizontal_space;
-use iced::widget::{pick_list, row, text, text_input};
+use iced::widget::{pick_list, text, text_input};
 use iced::{alignment, Element, Length};
-const text_width:u16 = 140;
+const TEXT_WIDTH:u16 = 140;
 
 pub fn view_edit_bbs<'a>(main_window: &MainWindow) -> Element<'a, Message> {
 
@@ -74,7 +74,7 @@ fn create_row<'a, Message, Renderer>(title: &'static str) -> iced_native::widget
         r.push(
             text(title)
             .horizontal_alignment(alignment::Horizontal::Right)
-            .width(Length::Units(text_width))
+            .width(Length::Units(TEXT_WIDTH))
         )
     } else {
         r

@@ -1,4 +1,4 @@
-use iced::widget::canvas::{self, Cursor, Frame, Geometry, Text, Event, event, Path};
+use iced::widget::canvas::{self, Cursor, Frame, Geometry, Text, Event, event};
 use iced::{ mouse, Point, Rectangle, Size, Theme, Color, Vector};
 
 use crate::address::Address;
@@ -23,7 +23,7 @@ pub struct HoverList {
 }
 
 impl HoverListCell for Text {
-    fn draw_cell(&self, frame: &mut Frame, cell_rect: Rectangle, state: CellState) {
+    fn draw_cell(&self, frame: &mut Frame, cell_rect: Rectangle, _state: CellState) {
         let mut t = self.clone();
         t.position = cell_rect.position();
         frame.fill_text(t);
@@ -146,7 +146,7 @@ impl<'a> canvas::Program<HoverListMessage> for HoverList {
         match event {
             Event::Mouse(mouse_event) => {
                 match mouse_event {
-                    mouse::Event::ButtonPressed(b) =>  {
+                    mouse::Event::ButtonPressed(_) =>  {
                         if let Some(pos) = cursor.position() {
                             state.hovered_item = hovered_item;
                             if pos.x < 30.0 && hovered_item > 0 {

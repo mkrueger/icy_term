@@ -37,6 +37,7 @@ impl AutoLogin {
     }
 
     pub fn run_command(&mut self, com: &mut Box<dyn Com>, adr: &Address) -> io::Result<bool> {
+
         match self.login_expr[self.cur_expr_idx + 1] {
             b'D' => {
                 // Delay for x seconds. !D4= Delay for 4 seconds
@@ -47,15 +48,14 @@ impl AutoLogin {
             b'E' => {
                 // wait until data came in
                 match self.first_char_recv {
-                    Some(t) => {
-                        if SystemTime::now().duration_since(t).unwrap().as_millis() < 500 {
+                    Some(_) => {
+                        if SystemTime::now().duration_since(self.last_char_recv).unwrap().as_millis() < 500 {
                             return Ok(true);
                         }
-                        self.first_char_recv = None;
-                        self.cur_expr_idx += 2;
                     }
-                    _ => {}
+                    _ => return Ok(true)
                 }
+                self.cur_expr_idx += 2;
                 return Ok(true);
             }
             b'W' => {
@@ -141,8 +141,7 @@ impl AutoLogin {
             return Ok(());
         }
 
-        self.last_char_recv = SystemTime::now();
-        if self.last_char_recv < self.continue_time {
+        if SystemTime::now() < self.continue_time {
             return Ok(());
         }
         if self.cur_expr_idx < self.login_expr.len() {
@@ -151,32 +150,41 @@ impl AutoLogin {
                     self.run_command(com, adr)?;
                 }
                 b'\\' => {
-                    self.cur_expr_idx += 1; // escape
-                    match self.login_expr[self.cur_expr_idx] {
-                        b'e' => {
-                            com.write(&[b'\x1B'])?;
+                    while self.cur_expr_idx < self.login_expr.len() && self.login_expr[self.cur_expr_idx] == b'\\' {
+                        self.cur_expr_idx += 1; // escape
+                        match self.login_expr[self.cur_expr_idx] {
+                            b'e' => {
+                                println!("send esc!");
+                                com.write(&[b'\x1B'])?;
+                            }
+                            b'n' => {
+                                println!("send lf!");
+                                com.write(&[b'\n'])?;
+                            }
+                            b'r' => {
+                                println!("send cr!");
+                                com.write(&[b'\r'])?;
+                            }
+                            b't' => {
+                                println!("send tab!");
+                                com.write(&[b'\t'])?;
+                            }
+                            ch => {
+                                println!("send char {}!", ch);
+                                self.cur_expr_idx += 1; // escape
+                                return Err(io::Error::new(
+                                    ErrorKind::InvalidData,
+                                    format!(
+                                        "invalid escape sequence in autologin string: {:?}",
+                                        char::from_u32(ch as u32)
+                                    ),
+                                ));
+                            }
                         }
-                        b'n' => {
-                            com.write(&[b'\n'])?;
-                        }
-                        b'r' => {
-                            com.write(&[b'\r'])?;
-                        }
-                        b't' => {
-                            com.write(&[b'\t'])?;
-                        }
-                        ch => {
-                            self.cur_expr_idx += 1; // escape
-                            return Err(io::Error::new(
-                                ErrorKind::InvalidData,
-                                format!(
-                                    "invalid escape sequence in autologin string: {:?}",
-                                    char::from_u32(ch as u32)
-                                ),
-                            ));
-                        }
+                        self.cur_expr_idx += 1; // escape
                     }
-                    self.cur_expr_idx += 1; // escape
+                    self.last_char_recv = SystemTime::now();
+
                 }
                 ch => {
                     com.write(&[ch])?;
