@@ -375,8 +375,8 @@ impl Application for MainWindow {
             Message::GeneratePassword => {
                 let mut rng = rand::thread_rng();                
                 let mut pw = String::new();
-                for _ in 0..14 {
-                    pw.push(unsafe{char::from_u32_unchecked(rng.gen_range(b'A'..b'z') as u32) });
+                for _ in 0..16 {
+                    pw.push(unsafe{char::from_u32_unchecked(rng.gen_range(b'0'..b'z') as u32) });
                 }
                 self.current_edit_bbs().password = pw;
                 log_result(&store_phone_book(&self.addresses)); 
