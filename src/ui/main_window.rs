@@ -16,7 +16,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::address::{start_read_book, Address, READ_ADDRESSES, store_phone_book};
 use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
-use crate::com::{Com, TelnetCom, RawCom};
+use crate::com::{Com, TelnetCom, RawCom, SSHCom};
 use crate::protocol::{FileDescriptor, Protocol, TransferState};
 use crate::VERSION;
 
@@ -773,6 +773,7 @@ impl MainWindow {
             let com:Box<dyn Com> = match call_adr.connection_type {
                 crate::address::ConnectionType::Telnet => Box::new(TelnetCom::new()),
                 crate::address::ConnectionType::Raw => Box::new(RawCom::new()),
+                crate::address::ConnectionType::SSH => Box::new(SSHCom::new()),
             };
             COM2 = Some(Some(com));
 

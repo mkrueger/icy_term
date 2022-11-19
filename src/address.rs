@@ -33,6 +33,7 @@ impl Display for Terminal {
 pub enum ConnectionType {
     Telnet,
     Raw,
+    SSH
 }
 
 impl Display for ConnectionType {

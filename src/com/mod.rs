@@ -15,6 +15,8 @@ pub use telnet::*;
 pub mod raw;
 pub use raw::*;
 
+pub mod ssh;
+pub use ssh::*;
 
 use crate::address::Address;
 
