@@ -54,9 +54,9 @@ pub fn view_phonebook<'a>(main_window: &'a MainWindow) -> Element<'a, Message> {
                     .width(Length::Shrink)
                     .height(Length::Shrink)
                     .font(iced_aw::ICON_FONT)
-                    .size(18),
+                    .size(24),
             )
-            .on_press(Message::EditBbsDeleteEntry)
+            .on_press(Message::AskDeleteEntry)
             .padding(5)
             .style(theme::Button::Custom(Box::new(CircleButtonStyle::new(
                 theme::Button::Primary,
@@ -68,7 +68,7 @@ pub fn view_phonebook<'a>(main_window: &'a MainWindow) -> Element<'a, Message> {
                     .width(Length::Shrink)
                     .height(Length::Shrink)
                     .font(iced_aw::ICON_FONT)
-                    .size(18),
+                    .size(24),
             )
             .on_press(Message::CreateNewBBS)
             .padding(5)

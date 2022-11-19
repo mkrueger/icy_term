@@ -1,7 +1,7 @@
 use clipboard::{ClipboardContext, ClipboardProvider};
 use iced::keyboard::KeyCode;
 use iced::mouse::ScrollDelta;
-use iced::widget::{text_input, self};
+use iced::widget::{text_input, self, Column, button, horizontal_space};
 use iced::widget::{column, text, Canvas, Row};
 use iced::{executor, keyboard, mouse, subscription, Alignment, Event, Color};
 use iced::{Application, Command, Element, Length, Subscription, Theme};
@@ -30,7 +30,8 @@ pub enum MainWindowMode {
     ShowTerminal,
     ShowPhonebook,
     SelectProtocol(bool),
-    FileTransfer(bool)
+    FileTransfer(bool),
+    AskDeleteEntry
 }
 
 struct Options {
@@ -222,6 +223,15 @@ impl MainWindow {
     {
         &mut self.addresses[self.address_list.selected_item as usize]
     }
+
+    fn delete_selected_address(&mut self)
+    {
+        if self.address_list.selected_item > 0 {
+            self.addresses.remove(self.address_list.selected_item as usize);
+            self.address_list.selected_item -= 1;
+        }
+        log_result(&store_phone_book(&self.addresses));
+    }
 }
 
 impl Application for MainWindow {
@@ -371,12 +381,18 @@ impl Application for MainWindow {
             Message::EditBbsConnectionType(connection_type) => {
                 self.current_edit_bbs().connection_type = *connection_type; log_result(&store_phone_book(&self.addresses));
             }
-            Message::EditBbsDeleteEntry => {
+            Message::AskDeleteEntry => { 
                 if self.address_list.selected_item > 0 {
-                    self.addresses.remove(self.address_list.selected_item as usize);
-                    self.address_list.selected_item -= 1;
+                    if self.addresses[self.address_list.selected_item as usize].system_name.len() == 0 {
+                        self.delete_selected_address();
+                    } else {
+                        self.mode = MainWindowMode::AskDeleteEntry
+                    }
                 }
-                log_result(&store_phone_book(&self.addresses));
+            }
+            Message::EditBbsDeleteEntry => {
+                self.delete_selected_address();
+                self.mode = MainWindowMode::ShowPhonebook;
             }
           
             _ => {}
@@ -577,6 +593,14 @@ impl Application for MainWindow {
                     _ => {}
                 }
             }
+            MainWindowMode::AskDeleteEntry => {
+                match message {
+                    Message::Back => {
+                        self.mode = MainWindowMode::ShowPhonebook;
+                    }
+                    _ => {}
+                }
+            }
         }
             
         Command::none()
@@ -639,7 +663,27 @@ impl Application for MainWindow {
                     .on_esc(Message::Back)
                     .into()
                 },
+            MainWindowMode::AskDeleteEntry => {
+                Modal::new(true, super::view_phonebook(self), move || {
+                    Card::new(
+                        text("Delete entry"),
+                        Column::new()
+                            .push(text(format!("Are you sure you want to delete {}?", self.addresses[self.address_list.selected_item as usize].system_name)))
+                            .push(
+                                Row::new()
+                                .push(horizontal_space(Length::Fill))
+                                .push(button("Yes").on_press(Message::EditBbsDeleteEntry))
+                                .push(button("No").on_press(Message::Back)).spacing(8)
+                        ), //Text::new("Zombie ipsum reversus ab viral inferno, nam rick grimes malum cerebro. De carne lumbering animata corpora quaeritis. Summus brains sit​​, morbo vel maleficia? De apocalypsi gorger omero undead survivor dictum mauris. Hi mindless mortuis soulless creaturas, imo evil stalking monstra adventus resi dentevil vultus comedat cerebella viventium. Qui animated corpse, cricket bat max brucks terribilem incessu zomby. The voodoo sacerdos flesh eater, suscitat mortuos comedere carnem virus. Zonbi tattered for solum oculi eorum defunctis go lum cerebro. Nescio brains an Undead zombies. Sicut malus putrid voodoo horror. Nigh tofth eliv ingdead.")
+                        ).max_width(400)
+                        .style(CardStyles::Dark)
+                        .on_close(Message::Back)
+                        .into()
+                    })
+                    .on_esc(Message::Back)
+                    .into()
 
+            }
             MainWindowMode::FileTransfer(download) => {
                 if let Some((_, state)) = &self.current_protocol {
                     Modal::new(true, self.view_terminal_window(), move || {

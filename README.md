@@ -27,8 +27,8 @@ Features supported so far:
   - [x] Scrollback buffer (scrollwheel)
   - [ ] Exporting buffer to disk
   - [ ] IEMSI/Autologin editor (you need to edit it as text for the moment)
-  - [ ] Better rendering engine (maybe switching the UI lib)
-  - [ ] Copy & Paste
+  - [ ] Better rendering engine (maybe switching the UI to OpenGL)
+  - [x] Copy & Paste
 
 # Screenshots
 
