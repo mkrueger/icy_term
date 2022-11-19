@@ -16,7 +16,7 @@ iced = {version="0.5.2", features = ["canvas", "image", "svg", "tokio", "debug"]
 iced_native = "0.6.1"
 iced_graphics = "0.4.0"
 iced_futures = "0.5.1"
-iced_aw = { path = "../iced_aw", features = ["colors", "card", "modal", "floating_element", "tab_bar"] }
+iced_aw = { path = "../iced_aw", features = ["colors", "card", "modal", "tab_bar"] }
 # iced = { path = "../iced", features = ["canvas", "image", "svg", "tokio", "debug"] }
 #iced_native = { path = "../iced/native" }
 #iced_futures = { path = "../iced/futures", features = ["tokio"] }

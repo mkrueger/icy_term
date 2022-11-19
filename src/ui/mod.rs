@@ -1,5 +1,5 @@
 pub mod message;
-use iced::{Length, widget::text};
+use iced::{widget::text};
 pub use message::*;
 
 pub mod main_window;
@@ -37,7 +37,7 @@ pub use keymaps::*;
 pub fn create_icon_button(icon: &'static str) -> iced::widget::Button<'_, Message> {
     let icon_size = 24;
 
-    let mut t = text(icon).font(iced_aw::ICON_FONT).size(icon_size);
+    let t = text(icon).font(iced_aw::ICON_FONT).size(icon_size);
 
     iced::widget::button(t)
         .padding(4)

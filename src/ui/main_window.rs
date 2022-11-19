@@ -1,6 +1,7 @@
 use clipboard::{ClipboardContext, ClipboardProvider};
+use iced::keyboard::KeyCode;
 use iced::mouse::ScrollDelta;
-use iced::widget::{text_input};
+use iced::widget::{text_input, self};
 use iced::widget::{column, text, Canvas, Row};
 use iced::{executor, keyboard, mouse, subscription, Alignment, Event, Color};
 use iced::{Application, Command, Element, Length, Subscription, Theme};
@@ -11,7 +12,7 @@ use rfd::FileDialog;
 use std::env;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::address::{start_read_book, Address, READ_ADDRESSES};
+use crate::address::{start_read_book, Address, READ_ADDRESSES, store_phone_book};
 use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
 use crate::com::{Com, TelnetCom, RawCom};
@@ -24,6 +25,7 @@ use super::{
     SHIFT_MOD, VT500_KEY_MAP, VIDEOTERM_KEY_MAP, HoverList,
 };
 
+#[derive(PartialEq, Eq)]
 pub enum MainWindowMode {
     ShowTerminal,
     ShowPhonebook,
@@ -51,7 +53,6 @@ pub struct MainWindow {
     pub mode: MainWindowMode,
     pub addresses: Vec<Address>,
     pub handled_char: bool,
-    edit_bbs: Address,
     cur_addr: usize,
     options: Options,
     connection_time: SystemTime,
@@ -59,7 +60,6 @@ pub struct MainWindow {
     screen_mode: Option<ScreenMode>,
     auto_login: AutoLogin,
     auto_file_transfer: AutoFileTransfer,
-    pub selected_address: i32,
     // protocols
     current_protocol: Option<(Box<dyn Protocol>, TransferState)>,
     is_alt_pressed: bool,
@@ -217,6 +217,11 @@ impl MainWindow {
             }
         }
     }
+
+    fn current_edit_bbs(&mut self) ->&mut Address
+    {
+        &mut self.addresses[self.address_list.selected_item as usize]
+    }
 }
 
 impl Application for MainWindow {
@@ -264,7 +269,6 @@ impl Application for MainWindow {
             trigger: true,
             mode: MainWindowMode::ShowPhonebook,
             addresses: start_read_book(),
-            edit_bbs: Address::new(),
             cur_addr: 0,
             connection_time: SystemTime::now(),
             options: Options::new(),
@@ -274,8 +278,7 @@ impl Application for MainWindow {
             screen_mode: None,
             current_protocol: None,
             handled_char: false,
-            is_alt_pressed: false,
-            selected_address: -1
+            is_alt_pressed: false
         };
         let args: Vec<String> = env::args().collect();
         if let Some(arg) = args.get(1) {
@@ -283,6 +286,7 @@ impl Application for MainWindow {
             let cmd = view.call_bbs(0);
             return (view, cmd);
         }
+        view.address_list.selected_item = 1;
 
         view.update_address_list();
         (view, text_input::focus::<Message>(super::INPUT_ID.clone()))
@@ -337,64 +341,44 @@ impl Application for MainWindow {
             Message::ListAction(msg) => match msg {
                 super::HoverListMessage::UpdateList => self.address_list.update(),
                 super::HoverListMessage::Selected(i) => { 
-                    self.selected_address = *i;
+                    self.address_list.selected_item = *i;
                     self.address_list.update();
                 },
                 super::HoverListMessage::CallBBS(i) => { 
-                    self.selected_address = *i;
+                    self.address_list.selected_item = *i;
                     self.address_list.update();
                     return self.call_bbs(*i as usize);
                 },
             }
             Message::CreateNewBBS => {
                 self.addresses.push(Address::new());
+                self.address_list.selected_item = self.addresses.len() as i32 - 1;
                 self.update_address_list();
-                self.selected_address = self.addresses.len() as i32 - 1;
-            }   
-            
-            /*
-            MainWindowMode::EditBBS(_) => {
-                match message {
-                    Message::Back => {
-                        self.mode = MainWindowMode::ShowPhonebook;
-                    }
-
-                    Message::EditBbsSystemNameChanged(str) => self.edit_bbs.system_name = str,
-                    Message::EditBbsAddressChanged(str) => self.edit_bbs.address = str,
-                    Message::EditBbsUserNameChanged(str) => self.edit_bbs.user_name = str,
-                    Message::EditBbsPasswordChanged(str) => self.edit_bbs.password = str,
-                    Message::EditBbsCommentChanged(str) => self.edit_bbs.comment = str,
-                    Message::EditBbsTerminalTypeSelected(terminal) => {
-                        self.edit_bbs.terminal_type = terminal
-                    }
-                    Message::EditBbsScreenModeSelected(screen_mode) => {
-                        self.edit_bbs.screen_mode = Some(screen_mode)
-                    }
-                    Message::EditBbsAutoLoginChanged(str) => self.edit_bbs.auto_login = str,
-                    Message::EditBbsConnectionType(connection_type) => {
-                        self.edit_bbs.connection_type = connection_type
-                    }
-                    Message::EditBbsSaveChanges(i) => {
-                        if i == 0 {
-                            self.addresses.push(self.edit_bbs.clone());
-                        } else {
-                            self.addresses[i] = self.edit_bbs.clone();
-                        }
-                        log_result(&store_phone_book(&self.addresses));
-                        self.mode = MainWindowMode::ShowPhonebook;
-                    }
-                    Message::EditBbsDeleteEntry(i) => {
-                        if i > 0 {
-                            self.addresses.remove(i);
-                        }
-                        log_result(&store_phone_book(&self.addresses));
-                        self.mode = MainWindowMode::ShowPhonebook;
-                    }
-                    _ => {}
-                }
             }
-        }
-            */
+
+            Message::EditBbsSystemNameChanged(str) => { self.current_edit_bbs().system_name = str.clone(); log_result(&store_phone_book(&self.addresses)); }, 
+            Message::EditBbsAddressChanged(str) => { self.current_edit_bbs().address = str.clone(); log_result(&store_phone_book(&self.addresses)); }, 
+            Message::EditBbsUserNameChanged(str) => { self.current_edit_bbs().user_name = str.clone(); log_result(&store_phone_book(&self.addresses)); }, 
+            Message::EditBbsPasswordChanged(str) => { self.current_edit_bbs().password = str.clone(); log_result(&store_phone_book(&self.addresses)); }, 
+            Message::EditBbsCommentChanged(str) => { self.current_edit_bbs().comment = str.clone(); log_result(&store_phone_book(&self.addresses)); }, 
+            Message::EditBbsTerminalTypeSelected(terminal) => {
+                self.current_edit_bbs().terminal_type = *terminal; log_result(&store_phone_book(&self.addresses));
+            }
+            Message::EditBbsScreenModeSelected(screen_mode) => {
+                self.current_edit_bbs().screen_mode = Some(*screen_mode); log_result(&store_phone_book(&self.addresses));
+            }
+            Message::EditBbsAutoLoginChanged(str) => self.current_edit_bbs().auto_login = str.clone(),
+            Message::EditBbsConnectionType(connection_type) => {
+                self.current_edit_bbs().connection_type = *connection_type; log_result(&store_phone_book(&self.addresses));
+            }
+            Message::EditBbsDeleteEntry => {
+                if self.address_list.selected_item > 0 {
+                    self.addresses.remove(self.address_list.selected_item as usize);
+                    self.address_list.selected_item -= 1;
+                }
+                log_result(&store_phone_book(&self.addresses));
+            }
+          
             _ => {}
         };
 
@@ -520,7 +504,15 @@ impl Application for MainWindow {
             }
             MainWindowMode::ShowPhonebook => {
                 match message {
-
+                    Message::KeyPressed(code, modifier) => {
+                        if code == KeyCode::Tab {
+                            if modifier.shift()  {
+                                return widget::focus_previous();
+                            } else {
+                                return widget::focus_next();
+                            }
+                        }
+                    }
                     Message::QuickConnectChanged(addr) => self.addresses[0].address = addr,
                     _ => {}
                 }
@@ -605,6 +597,7 @@ impl Application for MainWindow {
                 iced::event::Status::Ignored,
             ) => Some(Message::KeyPressed(key_code, modifiers)),
             (
+                
                 Event::Keyboard(keyboard::Event::KeyReleased {
                     key_code,
                     modifiers,

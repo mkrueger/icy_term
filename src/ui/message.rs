@@ -48,7 +48,6 @@ pub enum Message {
     EditBbsTerminalTypeSelected(Terminal),
     EditBbsScreenModeSelected(ScreenMode),
     EditBbsAutoLoginChanged(String),
-    EditBbsSaveChanges(usize),
-    EditBbsDeleteEntry(usize),
+    EditBbsDeleteEntry,
     EditBbsConnectionType(ConnectionType),
 }

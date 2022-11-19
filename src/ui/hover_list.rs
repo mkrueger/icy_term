@@ -18,6 +18,7 @@ pub trait HoverListCell {
 pub struct HoverList {
     cache: canvas::Cache,
     cells: Vec<Box<dyn HoverListCell>>,
+    pub selected_item: i32,
     pub spacing: f32
 }
 
@@ -78,7 +79,8 @@ impl HoverList {
         Self {
             cache: Default::default(),
             cells: Vec::new(),
-            spacing: 4.0
+            spacing: 4.0,
+            selected_item: -1
         }
     }
 
@@ -103,7 +105,6 @@ impl HoverList {
 #[derive(Default)]
 pub struct DrawInfoState {
     hovered_item: i32,
-    selected_item: i32
 }
 
 #[derive(Debug, Clone)]
@@ -123,7 +124,6 @@ impl<'a> canvas::Program<HoverListMessage> for HoverList {
         bounds: Rectangle,
         cursor: Cursor,
     ) -> (event::Status, Option<HoverListMessage>) {
-
         let mut hovered_item = -1;
         if let Some(pos) = cursor.position() {
             if !bounds.contains(pos) {
@@ -147,12 +147,13 @@ impl<'a> canvas::Program<HoverListMessage> for HoverList {
             Event::Mouse(mouse_event) => {
                 match mouse_event {
                     mouse::Event::ButtonPressed(b) =>  {
-                        state.hovered_item = hovered_item;
-                        state.selected_item = hovered_item;
                         if let Some(pos) = cursor.position() {
+                            state.hovered_item = hovered_item;
                             if pos.x < 30.0 && hovered_item > 0 {
                                 return (event::Status::Captured, Some(HoverListMessage::CallBBS(hovered_item)));
                             }
+                        } else {
+                            return (event::Status::Ignored, None);
                         }
                         return (event::Status::Captured, Some(HoverListMessage::Selected(hovered_item)));
                     }
@@ -189,9 +190,9 @@ impl<'a> canvas::Program<HoverListMessage> for HoverList {
                 let mut cell_state = CellState::Unselected;
                 let back_p = Point::new(bounds.x + 25.0, p.y);
 
-                if i as i32 == state.selected_item {
+                if i as i32 == self.selected_item {
                     frame.fill_rectangle(back_p, Size::new(bounds.width - 20.0, size.height), Color::from_rgb8(0, 0x88, 0xE4));
-                    if  state.selected_item == state.hovered_item {
+                    if  self.selected_item == state.hovered_item {
                         cell_state = CellState::Hovered(true);
                     } else {
                         cell_state = CellState::Selected;
