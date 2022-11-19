@@ -8,8 +8,9 @@ use iced::{Application, Command, Element, Length, Subscription, Theme};
 use iced_aw::style::CardStyles;
 use iced_aw::{Modal, Card};
 use icy_engine::{BitFont, DEFAULT_FONT_NAME};
+use rand::Rng;
 use rfd::FileDialog;
-use std::env;
+use std::{env};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::address::{start_read_book, Address, READ_ADDRESSES, store_phone_book};
@@ -370,7 +371,16 @@ impl Application for MainWindow {
 
             Message::EditBbsSystemNameChanged(str) => { self.current_edit_bbs().system_name = str.clone(); log_result(&store_phone_book(&self.addresses)); }, 
             Message::EditBbsAddressChanged(str) => { self.current_edit_bbs().address = str.clone(); log_result(&store_phone_book(&self.addresses)); }, 
-            Message::EditBbsUserNameChanged(str) => { self.current_edit_bbs().user_name = str.clone(); log_result(&store_phone_book(&self.addresses)); }, 
+            Message::EditBbsUserNameChanged(str) => { self.current_edit_bbs().user_name = str.clone(); log_result(&store_phone_book(&self.addresses)); },
+            Message::GeneratePassword => {
+                let mut rng = rand::thread_rng();                
+                let mut pw = String::new();
+                for _ in 0..14 {
+                    pw.push(unsafe{char::from_u32_unchecked(rng.gen_range(b'A'..b'z') as u32) });
+                }
+                self.current_edit_bbs().password = pw;
+                log_result(&store_phone_book(&self.addresses)); 
+            }, 
             Message::EditBbsPasswordChanged(str) => { self.current_edit_bbs().password = str.clone(); log_result(&store_phone_book(&self.addresses)); }, 
             Message::EditBbsCommentChanged(str) => { self.current_edit_bbs().comment = str.clone(); log_result(&store_phone_book(&self.addresses)); }, 
             Message::EditBbsTerminalTypeSelected(terminal) => {

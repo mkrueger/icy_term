@@ -50,5 +50,6 @@ pub enum Message {
     EditBbsAutoLoginChanged(String),
     AskDeleteEntry,
     EditBbsDeleteEntry,
+    GeneratePassword,
     EditBbsConnectionType(ConnectionType),
 }

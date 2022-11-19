@@ -5,6 +5,7 @@ use crate::address::{ Terminal};
 use iced::Alignment;
 use iced::widget::Column;
 use iced::widget::Row;
+use iced::widget::button;
 use iced::widget::horizontal_space;
 use iced::widget::{pick_list, text, text_input};
 use iced::{alignment, Element, Length};
@@ -38,6 +39,14 @@ pub fn view_edit_bbs<'a>(main_window: &MainWindow) -> Element<'a, Message> {
         );
     }
 
+    let mut pw_row = create_row("Password")
+    .push(text_input("", &adr.password, Message::EditBbsPasswordChanged));
+
+    //if adr.password.len() == 0 
+    {
+        pw_row = pw_row.push(button("Generate").on_press(Message::GeneratePassword))
+    }
+
     Column::new()
         .push(create_row("Name").push(text_input("", &adr.system_name, Message::EditBbsSystemNameChanged)))
         .push(
@@ -52,7 +61,10 @@ pub fn view_edit_bbs<'a>(main_window: &MainWindow) -> Element<'a, Message> {
         )
         .push(horizontal_space(Length::Units(8)))
         .push(create_row("User").push(text_input("", &adr.user_name, Message::EditBbsUserNameChanged)))
-        .push(create_row("Password").push(text_input("", &adr.password, Message::EditBbsPasswordChanged)))
+        .push(
+            pw_row
+        )
+
         .push(horizontal_space(Length::Units(8)))
         .push(screen_mode_row)
     .push(create_row("Autologin String").push(text_input("", &adr.auto_login, Message::EditBbsAutoLoginChanged)))
