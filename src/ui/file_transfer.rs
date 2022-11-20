@@ -20,7 +20,7 @@ pub fn view_file_transfer<'a>(state: &TransferState, download: bool) -> Element<
         let current_state = state.current_state.to_string();
 
         let bps = transfer_state.get_bps();
-        let bytes_left = transfer_state.file_size - transfer_state.bytes_transfered;
+        let bytes_left = transfer_state.file_size.saturating_sub(transfer_state.bytes_transfered);
         let time_left = Duration::from_secs(bytes_left as u64 / max(1, bps));
 
         let bb = BytesConfig::default();
@@ -127,10 +127,8 @@ pub fn view_file_transfer<'a>(state: &TransferState, download: bool) -> Element<
                 ]
             ],
             row![
-                text("Current file name:").style(Color::from([0.5, 0.5, 0.5])),
+                text("File:").style(Color::from([0.5, 0.5, 0.5])),
                 text(file_name),
-                text("size:").style(Color::from([0.5, 0.5, 0.5])),
-                text(bb.bytes(file_size as u64)),
             ]
             .padding(4)
             .spacing(8),
