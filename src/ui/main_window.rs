@@ -130,7 +130,8 @@ impl MainWindow {
     pub fn set_font(&mut self, font: &String) {
         if font != &self.get_font_name() {
             self.font = Some(font.clone());
-            self.buffer_view.buf.font = BitFont::from_name(&self.get_font_name()).unwrap();
+            self.buffer_view.buf.font_table.clear();
+            self.buffer_view.buf.font_table.push(BitFont::from_name(&self.get_font_name()).unwrap());
             self.buffer_view.redraw_view();
         }
     }
@@ -138,9 +139,8 @@ impl MainWindow {
     pub fn set_screen_mode(&mut self, mode: &ScreenMode) {
         self.screen_mode = Some(*mode);
         self.get_screen_mode()
-            .set_mode(&mut self.font, &mut self.buffer_view);
-        self.buffer_view.buf.font = BitFont::from_name(&self.get_font_name()).unwrap();
-        self.buffer_view.redraw_view();
+            .set_mode(&mut self.buffer_view);
+            self.buffer_view.redraw_view();
     }
 
     pub fn output_char(&mut self, ch: char) {

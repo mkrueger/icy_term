@@ -60,17 +60,16 @@ impl Display for ScreenMode {
 }
 
 impl ScreenMode {
-    pub fn set_mode(&self, font: &mut Option<String>, buffer_view: &mut BufferView) {
+    pub fn set_mode(&self, buffer_view: &mut BufferView) {
         let buf = &mut buffer_view.buf;
         match self {
             ScreenMode::DOS(w, h) => {
                 buf.set_buffer_width(*w);
                 buf.set_buffer_height(*h);
-                if *h >= 50 {
-                    *font = Some("IBM VGA50".to_string());
-                } else {
-                    *font = Some("IBM VGA".to_string());
-                }
+           
+                buf.font_table.clear();
+                buf.font_table.push(BitFont::from_name(if *h >= 50 { "IBM VGA50" } else { "IBM VGA"} ).unwrap());
+
                 buffer_view.buffer_parser = Box::new(AvatarParser::new(true));
                 buffer_view.buffer_input_mode = BufferInputMode::CP437;
                 buf.palette = Palette::new();
@@ -78,10 +77,9 @@ impl ScreenMode {
             ScreenMode::C64 => {
                 buf.set_buffer_width(40);
                 buf.set_buffer_height(25);
-                *font = Some("C64 PETSCII unshifted".to_string());
-                buf.extended_fonts.clear();
-                buf.extended_fonts
-                    .push(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
+                buf.font_table.clear();
+                buf.font_table.push(BitFont::from_name("C64 PETSCII unshifted").unwrap());
+                buf.font_table.push(BitFont::from_name("C64 PETSCII shifted").unwrap());
                 buffer_view.buffer_parser = Box::new(PETSCIIParser::new());
                 buffer_view.buffer_input_mode = BufferInputMode::PETSCII;
                 buf.palette = Palette {
@@ -91,10 +89,9 @@ impl ScreenMode {
             ScreenMode::C128(col) => {
                 buf.set_buffer_width(*col);
                 buf.set_buffer_height(25);
-                *font = Some("C64 PETSCII unshifted".to_string());
-                buf.extended_fonts.clear();
-                buf.extended_fonts
-                    .push(BitFont::from_name(&"C64 PETSCII shifted").unwrap());
+                buf.font_table.clear();
+                buf.font_table.push(BitFont::from_name("C64 PETSCII unshifted").unwrap());
+                buf.font_table.push(BitFont::from_name("C64 PETSCII shifted").unwrap());
                 buffer_view.buffer_parser = Box::new(PETSCIIParser::new());
                 buffer_view.buffer_input_mode = BufferInputMode::PETSCII;
                 buf.palette = Palette {
@@ -104,7 +101,9 @@ impl ScreenMode {
             ScreenMode::Atari => {
                 buf.set_buffer_width(40);
                 buf.set_buffer_height(24);
-                *font = Some("Atari ATASCII".to_string());
+                buf.font_table.clear();
+                buf.font_table.push(BitFont::from_name("Atari ATASCII").unwrap());
+
                 buffer_view.buffer_parser = Box::new(AtasciiParser::new());
                 buffer_view.buffer_input_mode = BufferInputMode::ATASCII;
                 buf.palette = Palette {
@@ -114,7 +113,8 @@ impl ScreenMode {
             ScreenMode::AtariXep80 => {
                 buf.set_buffer_width(80);
                 buf.set_buffer_height(25);
-                *font = Some("Atari ATASCII".to_string());
+                buf.font_table.clear();
+                buf.font_table.push(BitFont::from_name("Atari ATASCII").unwrap());
                 buffer_view.buffer_parser = Box::new(AtasciiParser::new());
                 buffer_view.buffer_input_mode = BufferInputMode::ATASCII;
                 buf.palette = Palette {
@@ -124,7 +124,8 @@ impl ScreenMode {
             ScreenMode::VT500 => {
                 buf.set_buffer_width(80);
                 buf.set_buffer_height(25);
-                *font = Some("IBM VGA".to_string());
+                buf.font_table.clear();
+                buf.font_table.push(BitFont::from_name("IBM VGA").unwrap());
                 buffer_view.buffer_parser = Box::new(AnsiParser::new());
                 buffer_view.buffer_input_mode = BufferInputMode::VT500;
                 buf.palette = Palette::new();
@@ -132,7 +133,8 @@ impl ScreenMode {
             ScreenMode::Viewdata => {
                 buf.set_buffer_width(40);
                 buf.set_buffer_height(24);
-                *font = Some("Viewdata".to_string());
+                buf.font_table.clear();
+                buf.font_table.push(BitFont::from_name("Viewdata").unwrap());
                 buffer_view.buffer_parser = Box::new(ViewdataParser::new());
                 buffer_view.buffer_input_mode = BufferInputMode::VIEWDATA;
                 buf.palette = Palette {
