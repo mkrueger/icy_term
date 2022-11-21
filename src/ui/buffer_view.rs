@@ -98,7 +98,7 @@ impl BufferView {
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.selection = None;
         self.scroll_back_line = 0;
-        /* 
+        
         match c  {
             b'\\' => print!("\\\\"),
             b'\n' => print!("\\n"),
@@ -113,7 +113,7 @@ impl BufferView {
                     print!("{}", char::from_u32(c as u32).unwrap());
                 }
             }
-        }*/
+        }
 
         let result_opt = self
             .buffer_parser
