@@ -7,7 +7,6 @@ Features supported so far:
 - Connection
   - [x] Telnet
   - [ ] SSH
-  - [ ] Rlogin
   - [x] Raw
 - Terminal encoding support
   - [x] Ansi
