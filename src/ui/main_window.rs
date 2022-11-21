@@ -300,7 +300,7 @@ impl Application for MainWindow {
             return (view, cmd);
         }
         view.address_list.selected_item = 1;
-
+        // view.set_screen_mode(&ScreenMode::Viewdata);
         view.update_address_list();
         (view, text_input::focus::<Message>(super::INPUT_ID.clone()))
     }
@@ -326,9 +326,8 @@ impl Application for MainWindow {
             self.buffer_view.blink = !self.buffer_view.blink;
             self.buffer_view.last_blink = in_ms;
         }
-       
-        // view.set_screen_mode(&ScreenMode::Viewdata);
-        // unsafe { super::simulate::run_sim(self); }
+        
+        //unsafe { super::simulate::run_sim(self); }
         
         match &message {
             Message::OpenURL(url) => {

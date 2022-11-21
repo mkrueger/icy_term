@@ -19,4 +19,5 @@ pub unsafe fn run_sim(window: &mut MainWindow) {
 }
 
 static mut CUR_OFFSET: usize = 0;
-pub static TXT: &[u8; 0] = b"";
+pub static TXT: &[u8; 7] = b"\x1BTk\x1BV\x1B\\";
+

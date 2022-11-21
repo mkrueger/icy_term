@@ -99,7 +99,7 @@ impl BufferView {
         self.selection = None;
         self.scroll_back_line = 0;
         
-        match c  {
+        /*match c  {
             b'\\' => print!("\\\\"),
             b'\n' => print!("\\n"),
             b'\r' => print!("\\r"),
@@ -113,7 +113,7 @@ impl BufferView {
                     print!("{}", char::from_u32(c as u32).unwrap());
                 }
             }
-        }
+        }*/
 
         let result_opt = self
             .buffer_parser
