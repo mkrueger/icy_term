@@ -62,7 +62,7 @@ impl BufferView {
         buf.is_terminal_buffer = true;
         Self {
             buf,
-            caret: Caret::new(),
+            caret: Caret::default(),
             cache: canvas::Cache::default(),
             blink_cache: canvas::Cache::default(),
             buffer_parser: Box::new(AvatarParser::new(true)),
