@@ -32,7 +32,7 @@ pub use selection::*;
 pub mod keymaps;
 pub use keymaps::*;
 
-// pub mod simulate;
+pub mod simulate;
 
 pub fn create_icon_button(icon: &'static str) -> iced::widget::Button<'_, Message> {
     let icon_size = 24;

@@ -327,7 +327,7 @@ impl Application for MainWindow {
             self.buffer_view.last_blink = in_ms;
         }
         
-        //unsafe { super::simulate::run_sim(self); }
+       // unsafe { super::simulate::run_sim(self); }
         
         match &message {
             Message::OpenURL(url) => {

@@ -22,6 +22,10 @@ iced_aw = { git = "https://github.com/iced-rs/iced_aw", features = ["colors", "c
 #iced_futures = { path = "../iced/futures", features = ["tokio"] }
 #iced_graphics = { path = "../iced/graphics" }
 
+#sound
+cpal = { git = "https://github.com/RustAudio/cpal.git" }
+anyhow = "1.0"
+
 icy_engine = { path = "../icy_engine" }
 tokio = { version = "1.21.2", features = ["full"] }
 

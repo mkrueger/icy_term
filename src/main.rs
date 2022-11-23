@@ -9,7 +9,7 @@ mod auto_file_transfer;
 mod auto_login;
 mod iemsi;
 mod protocol;
-
+mod sound;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub fn main() -> iced::Result {
 

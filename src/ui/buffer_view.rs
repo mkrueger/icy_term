@@ -1,4 +1,5 @@
 use crate::com::Com;
+use crate::sound::play_music;
 use clipboard::{ClipboardContext, ClipboardProvider};
 use iced::keyboard::KeyCode;
 use iced::widget::canvas::event::{self, Event};
@@ -98,8 +99,8 @@ impl BufferView {
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.selection = None;
         self.scroll_back_line = 0;
-        
-        /*match c  {
+        /* 
+        match c  {
             b'\\' => print!("\\\\"),
             b'\n' => print!("\\n"),
             b'\r' => print!("\\r"),
@@ -115,15 +116,19 @@ impl BufferView {
             }
         }*/
 
-        let result_opt = self
+        let result = self
             .buffer_parser
             .print_char(&mut self.buf, &mut self.caret, unsafe {
                 char::from_u32_unchecked(c as u32)
             })?;
-        if let Some(result) = result_opt {
-            if let Some(com) = com {
-                com.write(result.as_bytes())?;
-            }
+        match result {
+            icy_engine::CallbackAction::None => {},
+            icy_engine::CallbackAction::SendString(result) => {
+                if let Some(com) = com {
+                    com.write(result.as_bytes())?;
+                }
+            },
+            icy_engine::CallbackAction::PlayMusic(music) => play_music(music)
         }
         if !self.update_sixels() {
             self.redraw_view();
