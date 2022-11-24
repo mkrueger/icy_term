@@ -1,6 +1,6 @@
 use crate::ui::screen_modes::ScreenMode;
 use directories::ProjectDirs;
-use icy_engine::{AnsiParser, AtasciiParser, AvatarParser, BufferParser, PETSCIIParser, ViewdataParser};
+use icy_engine::{AnsiParser, AtasciiParser, AvatarParser, BufferParser, PETSCIIParser, ViewdataParser, AnsiMusicOption};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use serde_derive::{Deserialize, Serialize};
 use std::path::Path;
@@ -65,6 +65,7 @@ pub struct Address {
 
     pub ice_mode: bool,
 
+    pub ansi_music: String,
     pub font_name: Option<String>,
     pub screen_mode: Option<ScreenMode>,
 }
@@ -134,6 +135,7 @@ impl Address {
             auto_login: String::new(),
             address: String::new(),
             connection_type: ConnectionType::Telnet,
+            ansi_music: String::new(),
             ice_mode: true,
         }
     }
@@ -154,7 +156,11 @@ impl Address {
 
         match self.terminal_type {
             Terminal::Avatar => Box::new(AvatarParser::new(true)),
-            _ => Box::new(AnsiParser::new()),
+            _ => {
+                let mut parser = AnsiParser::new();
+                parser.ansi_music = self.ansi_music.clone().into();
+                Box::new(parser)
+            },
         }
     }
 

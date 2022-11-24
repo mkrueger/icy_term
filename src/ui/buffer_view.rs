@@ -99,6 +99,7 @@ impl BufferView {
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.selection = None;
         self.scroll_back_line = 0;
+        
         /* 
         match c  {
             b'\\' => print!("\\\\"),
