@@ -65,7 +65,9 @@ pub struct Address {
 
     pub ice_mode: bool,
 
+    #[serde(default)]
     pub ansi_music: String,
+
     pub font_name: Option<String>,
     pub screen_mode: Option<ScreenMode>,
 }
