@@ -12,15 +12,10 @@ resources = []
 copyright = "Copyright (c) Mike Krüger 2022. All rights reserved."
 
 [dependencies]
-iced = {version="0.5.2", features = ["canvas", "image", "svg", "tokio", "debug"] }
-iced_native = "0.6.1"
-iced_graphics = "0.4.0"
-iced_futures = "0.5.1"
-iced_aw = { git = "https://github.com/iced-rs/iced_aw", features = ["colors", "card", "modal", "tab_bar"] }
-# iced = { path = "../iced", features = ["canvas", "image", "svg", "tokio", "debug"] }
-#iced_native = { path = "../iced/native" }
-#iced_futures = { path = "../iced/futures", features = ["tokio"] }
-#iced_graphics = { path = "../iced/graphics" }
+eframe = "0.19.0"
+egui_extras = "0.19.0"
+egui_glow = "0.19.0"
+glow = "0.11.2"
 
 #sound
 cpal = { git = "https://github.com/RustAudio/cpal.git" }

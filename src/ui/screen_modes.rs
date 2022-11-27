@@ -6,7 +6,7 @@ use icy_engine::{
 };
 use serde_derive::{Deserialize, Serialize};
 
-use super::{BufferInputMode, BufferView};
+//use super::{BufferInputMode, BufferView};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "name", content = "par")]
@@ -58,7 +58,7 @@ impl Display for ScreenMode {
         }
     }
 }
-
+/* 
 impl ScreenMode {
     pub fn set_mode(&self, buffer_view: &mut BufferView) {
         let buf = &mut buffer_view.buf;
@@ -145,3 +145,4 @@ impl ScreenMode {
         buf.clear();
     }
 }
+*/

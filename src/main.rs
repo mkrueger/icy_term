@@ -1,5 +1,5 @@
 mod ui;
-use iced::{Application, Settings};
+use eframe::egui;
 use ui::{*};
 
 mod address;
@@ -11,16 +11,17 @@ mod iemsi;
 mod protocol;
 mod sound;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-pub fn main() -> iced::Result {
 
-    MainWindow::run(Settings {
-        window: iced::window::Settings {
-            size: (880, 590),
-            transparent: true,
-            ..Default::default()
-        },
-        antialiasing: true,
-
-        ..Settings::default()
-    })
+fn main() {
+    let options = eframe::NativeOptions {
+        initial_window_size: Some(egui::vec2(1200.0, 1000.0)),
+        multisampling: 8,
+        renderer: eframe::Renderer::Glow,
+        ..Default::default()
+    };
+    eframe::run_native(
+        "eView",
+        options,
+        Box::new(|cc| Box::new(MainWindow::new(cc))),
+    );
 }

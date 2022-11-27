@@ -1,19 +1,17 @@
-pub mod message;
-use iced::{widget::text};
-pub use message::*;
-
 pub mod main_window;
 pub use main_window::*;
 
 pub mod buffer_view;
 pub use buffer_view::*;
 
+/* 
 pub mod hover_list;
 pub use hover_list::*;
-
+*/
 pub mod screen_modes;
 pub use screen_modes::*;
 
+/* 
 pub mod phonebook;
 pub use phonebook::*;
 
@@ -31,15 +29,5 @@ pub use selection::*;
 
 pub mod keymaps;
 pub use keymaps::*;
-
+*/
 // pub mod simulate;
-
-pub fn create_icon_button(icon: &'static str) -> iced::widget::Button<'_, Message> {
-    let icon_size = 24;
-
-    let t = text(icon).font(iced_aw::ICON_FONT).size(icon_size);
-
-    iced::widget::button(t)
-        .padding(4)
-        .on_press(Message::InitiateFileTransfer(false))
-}
