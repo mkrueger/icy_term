@@ -13,7 +13,7 @@ const TEXT_WIDTH:u16 = 140;
 
 pub fn view_edit_bbs<'a>(main_window: &MainWindow) -> Element<'a, Message> {
 
-    if main_window.address_list.selected_item < 0 {
+    if main_window.address_list.selected_item < 0 || main_window.address_list.selected_item >= main_window.addresses.len() {
         return 
         Column::new()
         .push(text("No selection"))

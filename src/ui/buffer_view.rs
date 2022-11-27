@@ -488,7 +488,6 @@ impl<'a> canvas::Program<Message> for BufferView {
             let (top_x, top_y, scale_x, scale_y, char_size) = calc(buffer, &bounds);
             let mut y = 0;
             while y < self.buf.get_buffer_height() as usize {
-
                 let mut is_double_height = false;
                 for x in 0..self.buf.get_buffer_width() as usize {
                     if let Some(ch) = buffer.get_char(Position::new(
