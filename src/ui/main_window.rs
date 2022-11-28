@@ -1,7 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(unsafe_code)]
 
-use std::{sync::Arc, env};
+use std::{sync::Arc, env, cmp::max};
 use egui::mutex::Mutex;
 use icy_engine::{DEFAULT_FONT_NAME, BufferParser, AvatarParser};
 use std::time::{Duration, SystemTime};
@@ -14,7 +14,7 @@ use crate::auto_login::AutoLogin;
 use crate::com::{Com};
 use crate::protocol::{Protocol, TransferState};
 
-use super::BufferView;
+use super::{BufferView, screen_modes::ScreenMode};
 
 #[derive(PartialEq, Eq)]
 pub enum MainWindowMode {
@@ -50,7 +50,7 @@ pub struct MainWindow {
     options: Options,
     connection_time: SystemTime,
     font: Option<String>,
-   // screen_mode: Option<ScreenMode>,
+    screen_mode: ScreenMode,
     auto_login: AutoLogin,
     auto_file_transfer: AutoFileTransfer,
     // protocols
@@ -80,7 +80,7 @@ impl MainWindow {
             auto_login: AutoLogin::new(String::new()),
             auto_file_transfer: AutoFileTransfer::new(),
             font: Some(DEFAULT_FONT_NAME.to_string()),
-            //screen_mode: None,
+            screen_mode: ScreenMode::DOS(80, 25),
             current_protocol: None,
             handled_char: false,
             is_alt_pressed: false,
@@ -119,12 +119,16 @@ impl MainWindow {
                 }
             }
         }*/
+        
+        let result = self.buffer_view.lock().print_char(&mut self.buffer_parser, unsafe { char::from_u32_unchecked(c as u32) })?;
 /* 
-        let result = self
+        self
             .buffer_parser
-            .print_char(&mut self.buf, &mut self.caret, unsafe {
+            .print_char(&mut self.buffer_view.lock().buf, &mut self.buffer_view.lock().caret, unsafe {
                 char::from_u32_unchecked(c as u32)
             })?;
+
+            */
         match result {
             icy_engine::CallbackAction::None => {},
             icy_engine::CallbackAction::SendString(result) => {
@@ -132,11 +136,11 @@ impl MainWindow {
                     com.write(result.as_bytes())?;
                 }
             },
-            icy_engine::CallbackAction::PlayMusic(music) => play_music(music)
+            icy_engine::CallbackAction::PlayMusic(music) => { /* play_music(music)*/ }
         }
         //if !self.update_sixels() {
-            self.redraw_view();
-        //}*/
+//            self.redraw_view();
+        //}
         Ok(())
     }
 }
@@ -159,25 +163,70 @@ impl eframe::App for MainWindow {
 }
 
 impl MainWindow {
+
+    pub fn output_char(&mut self, ch: char) {
+        let translated_char = self.buffer_parser.from_unicode(ch);
+        if let Some(com) = &mut self.com {
+            let state = com.write(&[translated_char as u8]);
+            if let Err(err) = state {
+                eprintln!("{}", err);
+                self.com = None;
+            }
+        } else {
+            self.print_char(None, translated_char as u8);
+        }
+    }
+
     fn custom_painting(&mut self, ui: &mut egui::Ui) {
         let size = ui.available_size();
 
         egui::ScrollArea::vertical().show(ui, |ui| {
             let buffer_view = self.buffer_view.clone();
 
-            let h = buffer_view.lock().buf.get_real_buffer_height() as f32;
+            let h = buffer_view.lock().buf.get_real_buffer_height();
+            let h = max(h, buffer_view.lock().buf.get_buffer_height());
+    
+            let (rect, reponse) = ui.allocate_at_least(Vec2::new(size.x, h as f32 * 16.), egui::Sense::drag());
 
-            let (rect, response) = ui.allocate_at_least(Vec2::new(size.x, h * 16.), egui::Sense::drag());
-
-            
             let used_rect = ui.ctx().used_rect();
             let callback = egui::PaintCallback {
                 rect: rect,
                 callback: std::sync::Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
+                    buffer_view.lock().update_buffer(painter.gl());
                     buffer_view.lock().paint(painter.gl(), rect, size);
                 })),
             };
             ui.painter().add(callback);
         });
+
+        let events = ui.input().events.clone(); // avoid dead-lock by cloning. TODO(emilk): optimize
+        for e in &events {
+            match e {
+                egui::Event::Copy => {},
+                egui::Event::Cut => {},
+                egui::Event::Paste(_) => {},
+                egui::Event::Text(text) => {
+                    for c in text.chars() {
+                        self.output_char(c);
+                    }
+                },
+                egui::Event::Key { key, pressed, modifiers } => {
+                    let im = self.screen_mode.get_input_mode();
+                    let key_map = im.cur_map();
+                    let key = *key as u32;
+                    for (k, m) in key_map {
+                        if *k == key {
+                            self.handled_char = true;
+                            for c in *m {
+                                self.output_char(unsafe { char::from_u32_unchecked(*c as u32)});
+                            }
+                            break;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
     }
 }

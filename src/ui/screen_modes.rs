@@ -6,6 +6,8 @@ use icy_engine::{
 };
 use serde_derive::{Deserialize, Serialize};
 
+use super::BufferInputMode;
+
 //use super::{BufferInputMode, BufferView};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -58,8 +60,29 @@ impl Display for ScreenMode {
         }
     }
 }
-/* 
+
 impl ScreenMode {
+
+    pub fn get_input_mode(&self) -> BufferInputMode {
+        match self {
+            ScreenMode::DOS(_, _) => {
+                BufferInputMode::CP437
+            }
+            ScreenMode::C64 | ScreenMode::C128(_) => {
+                BufferInputMode::PETSCII
+            }
+            ScreenMode::Atari | ScreenMode::AtariXep80 => {
+                BufferInputMode::ATASCII
+            }
+            ScreenMode::VT500 => {
+                BufferInputMode::VT500
+            }
+            ScreenMode::Viewdata => {
+                BufferInputMode::VIEWDATA
+            }
+        }
+    }
+    /* 
     pub fn set_mode(&self, buffer_view: &mut BufferView) {
         let buf = &mut buffer_view.buf;
         match self {
@@ -143,6 +166,5 @@ impl ScreenMode {
             }
         }
         buf.clear();
-    }
+    }*/
 }
-*/

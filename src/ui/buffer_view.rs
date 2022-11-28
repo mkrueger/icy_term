@@ -1,7 +1,7 @@
 use crate::com::Com;
 use crate::sound::play_music;
 use clipboard::{ClipboardContext, ClipboardProvider};
-use icy_engine::{AvatarParser, Buffer, BufferParser, Caret, Position, SixelReadStatus};
+use icy_engine::{AvatarParser, Buffer, BufferParser, Caret, Position, SixelReadStatus, CallbackAction, EngineResult};
 use std::cmp::{max, min};
 use eframe::epaint::{ Rect, Vec2};
 use glow::NativeTexture;
@@ -13,6 +13,18 @@ pub enum BufferInputMode {
     ATASCII,
     VT500,
     VIEWDATA
+}
+
+impl BufferInputMode {
+    pub fn cur_map<'a>(&self) -> &'a [(u32, &[u8])] {
+        match self {
+            super::BufferInputMode::CP437 => super::ANSI_KEY_MAP,
+            super::BufferInputMode::PETSCII => super::C64_KEY_MAP,
+            super::BufferInputMode::ATASCII => super::ATASCII_KEY_MAP,
+            super::BufferInputMode::VT500 => super::VT500_KEY_MAP,
+            super::BufferInputMode::VIEWDATA => super::VIDEOTERM_KEY_MAP,
+        }
+    }
 }
 
 struct SixelCacheEntry {
@@ -47,6 +59,7 @@ pub struct BufferView {
     program: glow::Program,
     vertex_array: glow::VertexArray,
     
+    redraw_view: bool,
     font_texture: NativeTexture,
     buffer_texture: NativeTexture,
     palette_texture: NativeTexture
@@ -270,7 +283,6 @@ void main() {
             let font_texture = gl.create_texture().unwrap();
             gl.active_texture(glow::TEXTURE0);
             gl.bind_texture(glow::TEXTURE_2D_ARRAY, Some(font_texture));
-
             gl.tex_image_3d(glow::TEXTURE_2D_ARRAY, 0, glow::RGB as i32, line_width as i32 / 4, height as i32, 1, 0, glow::RGBA, glow::UNSIGNED_BYTE, Some(&font_data));
             gl.tex_parameter_i32(glow::TEXTURE_2D_ARRAY, glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32);
             gl.tex_parameter_i32(glow::TEXTURE_2D_ARRAY, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
@@ -286,7 +298,7 @@ void main() {
             buffer_input_mode: BufferInputMode::CP437,
             sixel_cache: Vec::new(),
             button_pressed: false,
-
+            redraw_view: false,
             program,
             vertex_array,
             font_texture,
@@ -498,14 +510,49 @@ void main() {
     }
 
     pub fn redraw_view(&mut self) {
+        self.redraw_view = true;
     }
 
+    pub fn print_char(&mut self, parser: &mut Box<dyn BufferParser>, c: char) -> EngineResult<CallbackAction> {
+        self.redraw_view();
+        parser.print_char(&mut self.buf, &mut self.caret, c)
+    }
 
     pub fn destroy(&self, gl: &glow::Context) {
         use glow::HasContext as _;
         unsafe {
             gl.delete_program(self.program);
             gl.delete_vertex_array(self.vertex_array);
+        }
+    }
+
+
+    pub fn update_buffer(&mut self, gl: &glow::Context)
+    {
+        if !self.redraw_view  { return; }
+        self.redraw_view = false;
+        let buf = &self.buf;
+        let mut buffer_data = Vec::with_capacity(buf.get_buffer_width() as usize * 4 * buf.get_real_buffer_height() as usize);
+        let colors = buf.palette.colors.len() as u32 - 1;
+
+        for y in 0..buf.get_real_buffer_height() {
+            for x in 0..buf.get_buffer_width() {
+                let ch = buf.get_char_xy(x, y).unwrap_or_default();
+                buffer_data.push(ch.ch as u8);
+                if ch.attribute.is_bold() {
+                    buffer_data.push(conv_color(ch.attribute.get_foreground() + 8, colors));
+                } else {
+                    buffer_data.push(conv_color(ch.attribute.get_foreground(), colors));
+                }
+                buffer_data.push(conv_color(ch.attribute.get_background(), colors));
+                buffer_data.push(ch.get_font_page() as u8);
+            }
+        }
+        use glow::HasContext as _;
+        unsafe {
+            gl.active_texture(glow::TEXTURE0 + 4);
+            gl.bind_texture(glow::TEXTURE_2D, Some(self.buffer_texture));
+            gl.tex_image_2d(glow::TEXTURE_2D, 0, glow::RGB as i32, buf.get_buffer_width(), buf.get_real_buffer_height(),  0, glow::RGBA, glow::UNSIGNED_BYTE, Some(&buffer_data));
         }
     }
 
@@ -534,7 +581,7 @@ void main() {
             gl.uniform_2_f32 (
                 gl.get_uniform_location(self.program, "u_buffer_size").as_ref(),
                 self.buf.get_buffer_width() as f32,
-                self.buf.get_real_buffer_height() as f32
+                self.buf.get_buffer_height() as f32
             );
 
             gl.uniform_1_i32(gl.get_uniform_location(self.program, "u_fonts").as_ref(), 0);
