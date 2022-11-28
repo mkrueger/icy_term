@@ -6,7 +6,7 @@ use egui::mutex::Mutex;
 use icy_engine::{DEFAULT_FONT_NAME, BufferParser, AvatarParser};
 use std::time::{Duration, SystemTime};
 
-use eframe::{egui::{self}, epaint::Vec2};
+use eframe::{egui::{self}, epaint::{Vec2, Rect}};
 
 use crate::address::{Address};
 use crate::auto_file_transfer::AutoFileTransfer;
@@ -148,10 +148,12 @@ impl MainWindow {
 
 impl eframe::App for MainWindow {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            egui::Frame::canvas(ui.style()).show(ui, |ui| {
-                self.custom_painting(ui);
-            });
+        let frame_no_margins = egui::containers::Frame::none().inner_margin(egui::style::Margin::same(0.0));
+
+        egui::CentralPanel::default()
+        .frame(frame_no_margins)
+        .show(ctx, |ui| {
+            self.custom_painting(ui);
         });
     }
 
@@ -182,13 +184,28 @@ impl MainWindow {
 
         egui::ScrollArea::vertical().show(ui, |ui| {
             let buffer_view = self.buffer_view.clone();
+            let buf_w = buffer_view.lock().buf.get_buffer_width();
+            let buf_h = buffer_view.lock().buf.get_buffer_height();
+            let h = max(buf_h, buffer_view.lock().buf.get_real_buffer_height());
+            let (rect, _) = ui.allocate_at_least(size, egui::Sense::drag());
 
-            let h = buffer_view.lock().buf.get_real_buffer_height();
-            let h = max(h, buffer_view.lock().buf.get_buffer_height());
-    
-            let (rect, reponse) = ui.allocate_at_least(Vec2::new(size.x, h as f32 * 16.), egui::Sense::drag());
+            let font_dimensions = buffer_view.lock().buf.get_font_dimensions();
 
-            let used_rect = ui.ctx().used_rect();
+            let mut scale_x = rect.width() / font_dimensions.width as f32 / buf_w as f32;
+            let mut scale_y = rect.height() / font_dimensions.height as f32 / buf_h as f32;
+        
+            if scale_x < scale_y {
+                scale_y = scale_x;
+            } else {
+                scale_x = scale_y;
+            }
+
+            let rect_w = scale_x * buf_w as f32 * font_dimensions.width as f32;
+            let rect_h = scale_y * buf_h as f32 * font_dimensions.height as f32;
+
+            let rect = Rect::from_min_size(rect.left_top() + Vec2::new((rect.width() - rect_w) / 2., (rect.height() - rect_h) / 2.) , Vec2::new(rect_w, rect_h));
+            
+
             let callback = egui::PaintCallback {
                 rect: rect,
                 callback: std::sync::Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {

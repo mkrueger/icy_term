@@ -202,7 +202,8 @@ void main() {
             let mut buffer_data = Vec::with_capacity(buf.get_buffer_width() as usize * 4 * buf.get_real_buffer_height() as usize);
             let colors = buf.palette.colors.len() as u32 - 1;
 
-            for y in 0..buf.get_real_buffer_height() {
+            let h = max(buf.get_real_buffer_height(), buf.get_buffer_height());
+            for y in 0..h {
                 for x in 0..buf.get_buffer_width() {
                     let ch = buf.get_char_xy(x, y).unwrap_or_default();
                     buffer_data.push(ch.ch as u8);
@@ -534,8 +535,8 @@ void main() {
         let buf = &self.buf;
         let mut buffer_data = Vec::with_capacity(buf.get_buffer_width() as usize * 4 * buf.get_real_buffer_height() as usize);
         let colors = buf.palette.colors.len() as u32 - 1;
-
-        for y in 0..buf.get_real_buffer_height() {
+        let h = max(buf.get_real_buffer_height(), buf.get_buffer_height());
+        for y in 0..h {
             for x in 0..buf.get_buffer_width() {
                 let ch = buf.get_char_xy(x, y).unwrap_or_default();
                 buffer_data.push(ch.ch as u8);
@@ -577,11 +578,12 @@ void main() {
                 rect.left(),
                 rect.top() - 20.
             );
+            let h = max(self.buf.get_real_buffer_height(), self.buf.get_buffer_height());
 
             gl.uniform_2_f32 (
                 gl.get_uniform_location(self.program, "u_buffer_size").as_ref(),
                 self.buf.get_buffer_width() as f32,
-                self.buf.get_buffer_height() as f32
+                h as f32
             );
 
             gl.uniform_1_i32(gl.get_uniform_location(self.program, "u_fonts").as_ref(), 0);
