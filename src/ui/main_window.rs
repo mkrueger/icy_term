@@ -4,6 +4,7 @@
 use std::{sync::Arc, env};
 use egui::mutex::Mutex;
 use icy_engine::{DEFAULT_FONT_NAME, BufferParser, AvatarParser};
+use poll_promise::Promise;
 use rfd::FileDialog;
 use tokio::{runtime::{Runtime, self}, task::JoinHandle};
 use std::time::{Duration, SystemTime};
@@ -58,7 +59,8 @@ pub struct MainWindow {
     // protocols
     current_protocol: Option<(Box<dyn Protocol>, TransferState)>,
     is_alt_pressed: bool,
-    call_bbs_handle: Option<JoinHandle<Result<bool, String>>>
+
+    open_connection_promise: Option<Promise<Box<dyn Com>>>,
 }
 
 impl MainWindow {
@@ -89,7 +91,7 @@ impl MainWindow {
             handled_char: false,
             is_alt_pressed: false,
             buffer_parser: Box::new(AvatarParser::new(true)),
-            call_bbs_handle: None
+            open_connection_promise: None
         };
         let args: Vec<String> = env::args().collect();
         if let Some(arg) = args.get(1) {
@@ -218,18 +220,17 @@ impl MainWindow {
         }
         self.buffer_parser = self.addresses[i].get_terminal_parser();
         self.println(&format!("Connect to {}...", &call_adr.address));
-        unsafe {
-            let com:Box<dyn Com> = match call_adr.connection_type {
+      
+        let timeout  = self.options.connect_timeout;
+        let ct  = call_adr.connection_type;
+        self.open_connection_promise = Some(Promise::spawn_async(async move {
+            let mut com: Box<dyn Com> = match ct {
                 crate::address::ConnectionType::Telnet => Box::new(TelnetCom::new()),
                 crate::address::ConnectionType::Raw => Box::new(RawCom::new()),
                 crate::address::ConnectionType::SSH => Box::new(SSHCom::new()),
             };
-            COM2 = Some(Some(com));
-        }
-
-        let time_out  = self.options.connect_timeout;
-        self.call_bbs_handle = Some(self.rt.spawn(async move {
-            foo(call_adr, time_out).await
+            com.connect(&call_adr, timeout).await;
+            com
         }));
     }
 
@@ -269,11 +270,7 @@ impl MainWindow {
                     if let Some((protocol_type, download)) =
                         self.auto_file_transfer.try_transfer(ch)
                     {
-                        //                        if !download {
-                        //                            self.mode = MainWindowMode::SelectProtocol(download);
-                        //                        } else {
                         self.initiate_file_transfer(protocol_type, download);
-                        //                        }
                         return Ok(());
                     }
                 }
@@ -317,17 +314,15 @@ impl MainWindow {
 
 impl eframe::App for MainWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        if let Some(handle) = &self.call_bbs_handle {
-            if handle.is_finished() {
-                unsafe {
-                    self.com = COM2.replace(None).unwrap();
+        if self.open_connection_promise.is_some() {
+            if self.open_connection_promise.as_ref().unwrap().ready().is_some() {
+                if let Ok(handle) = self.open_connection_promise.take().unwrap().try_take() {
+                    self.com = Some(handle);
+                    self.open_connection_promise  = None;
                 }
-                self.buffer_view.lock().buf.clear();
-                self.connection_time = SystemTime::now();
-
-                self.call_bbs_handle = None;
             }
         }
+
         self.update_state();
 
         match self.mode {
@@ -352,16 +347,4 @@ impl eframe::App for MainWindow {
             self.buffer_view.lock().destroy(gl);
         }
     }
-}
-
-static mut COM2: Option<Option<Box<dyn Com + 'static>>> = None;
-
-async fn foo(addr: Address, timeout: Duration) -> Result<bool, String> {
-    unsafe {
-        let mut c = COM2.replace(None);
-        c.as_mut().unwrap().as_mut().unwrap().connect(&addr, timeout).await?;
-        COM2 = c;
-    }
-
-    Ok(true)
 }
