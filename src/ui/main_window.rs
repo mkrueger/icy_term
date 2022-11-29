@@ -53,6 +53,7 @@ pub struct MainWindow {
 
     rx: mpsc::Receiver<SendData>,
     pub tx: mpsc::Sender<SendData>,
+    pub is_connected: bool,
     
     trigger: bool,
     pub mode: MainWindowMode,
@@ -68,7 +69,6 @@ pub struct MainWindow {
     // protocols
     current_protocol: Option<(Box<dyn Protocol>, TransferState)>,
     is_alt_pressed: bool,
-
     open_connection_promise: Option<Promise<Box<dyn Com>>>,
 }
 
@@ -93,6 +93,7 @@ impl MainWindow {
             cur_addr: 0,
             connection_time: SystemTime::now(),
             options: Options::new(),
+            is_connected: false,
             auto_login: AutoLogin::new(String::new()),
             auto_file_transfer: AutoFileTransfer::new(),
             font: Some(DEFAULT_FONT_NAME.to_string()),
@@ -294,7 +295,9 @@ impl MainWindow {
 
     pub fn hangup(&mut self) {
         self.tx.try_send(SendData::Disconnect);
+        self.open_connection_promise = None;
         self.mode = MainWindowMode::ShowPhonebook;
+        self.is_connected = false;
     }
 
     pub fn send_login(&mut self) {
@@ -315,10 +318,39 @@ impl MainWindow {
         self.tx.try_send(SendData::Data(data));
         self.auto_login.logged_in = true;
     }
+
+    fn update_title(&self, frame: &mut eframe::Frame) {
+        let str = if self.is_connected {
+            let d = SystemTime::now()
+                .duration_since(self.connection_time)
+                .unwrap();
+            let sec = d.as_secs();
+            let minutes = sec / 60;
+            let hours = minutes / 60;
+            let cur = &self.addresses[self.cur_addr];
+
+            format!(
+                "Connected {:02}:{:02}:{:02} to {}",
+                hours,
+                minutes % 60,
+                sec % 60,
+                if cur.system_name.len() > 0 {
+                    &cur.system_name
+                } else {
+                    &cur.address
+                }
+            )
+        } else {
+            "Offline".to_string()
+        };
+        frame.set_window_title(format!("iCY TERM {} - {}", crate::VERSION, str).as_str());
+    }
 }
 
 impl eframe::App for MainWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        self.update_title(frame);
+
         if self.open_connection_promise.is_some() {
             if self.open_connection_promise.as_ref().unwrap().ready().is_some() {
                 if let Ok(handle) = self.open_connection_promise.take().unwrap().try_take() {
@@ -329,6 +361,8 @@ impl eframe::App for MainWindow {
                     let (tx2, mut rx2) = mpsc::channel::<SendData>(32);
                     self.rx = rx;
                     self.tx = tx2.clone();
+                    self.connection_time = SystemTime::now();
+                    self.is_connected = true;
 
                     let mut handle = handle;
                     tokio::spawn(async move {

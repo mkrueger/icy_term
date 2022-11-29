@@ -21,7 +21,7 @@ async fn main() {
         ..Default::default()
     };
     eframe::run_native(
-        "eView",
+        format!("iCY TERM {} - Offline", VERSION).as_str(),
         options,
         Box::new(|cc| Box::new(MainWindow::new(cc))),
     );
