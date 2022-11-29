@@ -129,11 +129,11 @@ impl MainWindow {
 
     pub fn output_char(&mut self, ch: char) {
         let translated_char = self.buffer_parser.from_unicode(ch);
-//        if self.open_connection_promise.is_some() {
+        if self.is_connected {
             self.tx.try_send(SendData::Char(translated_char));
-/*         } else {
+        } else {
             self.print_char(translated_char as u8);
-        }*/
+        }
     }
 
     pub fn print_char(
@@ -253,7 +253,10 @@ impl MainWindow {
     }
 
     pub fn update_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        unsafe { super::simulate::run_sim(self); }
+//        unsafe { super::simulate::run_sim(self); }
+
+        if !self.is_connected { return Ok(()); }
+
         if let Ok(data) = self.rx.try_recv() {
             match data {
                 SendData::Data(vec) => {
@@ -278,6 +281,9 @@ impl MainWindow {
                             return Ok(());
                         }
                     }
+                }
+                SendData::Disconnect => {
+                    self.is_connected = false;
                 }
                 _ => {} // never happens
             }
@@ -320,30 +326,37 @@ impl MainWindow {
     }
 
     fn update_title(&self, frame: &mut eframe::Frame) {
-        let str = if self.is_connected {
-            let d = SystemTime::now()
-                .duration_since(self.connection_time)
-                .unwrap();
-            let sec = d.as_secs();
-            let minutes = sec / 60;
-            let hours = minutes / 60;
-            let cur = &self.addresses[self.cur_addr];
+        match self.mode {
+            MainWindowMode::ShowPhonebook => {
+                frame.set_window_title(&crate::DEFAULT_TITLE);
+            }
+            _ => {
+                let str = if self.is_connected {
+                    let d = SystemTime::now()
+                        .duration_since(self.connection_time)
+                        .unwrap();
+                    let sec = d.as_secs();
+                    let minutes = sec / 60;
+                    let hours = minutes / 60;
+                    let cur = &self.addresses[self.cur_addr];
 
-            format!(
-                "Connected {:02}:{:02}:{:02} to {}",
-                hours,
-                minutes % 60,
-                sec % 60,
-                if cur.system_name.len() > 0 {
-                    &cur.system_name
+                    format!(
+                        "Connected {:02}:{:02}:{:02} to {}",
+                        hours,
+                        minutes % 60,
+                        sec % 60,
+                        if cur.system_name.len() > 0 {
+                            &cur.system_name
+                        } else {
+                            &cur.address
+                        }
+                    )
                 } else {
-                    &cur.address
-                }
-            )
-        } else {
-            "Offline".to_string()
-        };
-        frame.set_window_title(format!("iCY TERM {} - {}", crate::VERSION, str).as_str());
+                    "Offline".to_string()
+                };
+                frame.set_window_title(format!("iCY TERM {} - {}", crate::VERSION, str).as_str());
+            }
+        }
     }
 }
 
@@ -380,8 +393,18 @@ impl eframe::App for MainWindow {
                                 result = rx2.recv() => {
                                     let msg = result.unwrap();
                                     match msg {
-                                        SendData::Char(c) => { handle.write(&[c as u8]).unwrap(); },
-                                        SendData::Data(buf) => { handle.write(&buf).unwrap(); },
+                                        SendData::Char(c) => { 
+                                            if let Err(err) = handle.write(&[c as u8]) {
+                                                eprintln!("{}", err);
+                                                done = true;
+                                            }
+                                        },
+                                        SendData::Data(buf) => { 
+                                            if let Err(err) = handle.write(&buf) {
+                                                eprintln!("{}", err);
+                                                done = true;
+                                            }
+                                        },
                                         SendData::Disconnect => {
                                             done = true;
                                         }
@@ -389,6 +412,7 @@ impl eframe::App for MainWindow {
                                 }
                             }
                         }
+                        tx.send(SendData::Disconnect).await
                     });
                 }
             }

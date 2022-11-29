@@ -1,6 +1,7 @@
 mod ui;
 use eframe::egui;
 use ui::{*};
+use lazy_static::*;
 
 mod address;
 mod com;
@@ -12,8 +13,13 @@ mod protocol;
 mod sound;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+lazy_static! {
+    static ref DEFAULT_TITLE: String = format!("iCY TERM {}", crate::VERSION);
+}
+
 #[tokio::main]
 async fn main() {
+    
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1200.0, 1000.0)),
         multisampling: 8,
@@ -21,7 +27,7 @@ async fn main() {
         ..Default::default()
     };
     eframe::run_native(
-        format!("iCY TERM {} - Offline", VERSION).as_str(),
+        &DEFAULT_TITLE,
         options,
         Box::new(|cc| Box::new(MainWindow::new(cc))),
     );
