@@ -41,19 +41,18 @@ impl Options {
 }
 
 #[derive(Debug)]
-enum SendData {
+pub enum SendData {
     Char(char),
     Data(Vec<u8>),
     Disconnect
 }
 
 pub struct MainWindow {
-    pub com: Option<Box<dyn Com>>,
     pub buffer_view: Arc<Mutex<BufferView>>,
     pub buffer_parser: Box<dyn BufferParser>,
 
     rx: mpsc::Receiver<SendData>,
-    tx: mpsc::Sender<SendData>,
+    pub tx: mpsc::Sender<SendData>,
     
     trigger: bool,
     pub mode: MainWindowMode,
@@ -88,7 +87,6 @@ impl MainWindow {
             rx,
             buffer_view: Arc::new(Mutex::new(view)),
             //address_list: HoverList::new(),
-            com: None,
             trigger: true,
             mode: MainWindowMode::ShowPhonebook,
             addresses: start_read_book(),
@@ -175,7 +173,7 @@ impl MainWindow {
 
     pub(crate) fn initiate_file_transfer(&mut self, protocol_type: crate::protocol::ProtocolType, download: bool) {
         self.mode = MainWindowMode::ShowTerminal;
-        match self.com.as_mut() {
+       /*  match self.com.as_mut() {
             Some(com) => {
                 if !download {
                     let files = FileDialog::new().pick_files();
@@ -212,9 +210,9 @@ impl MainWindow {
             None => {
                 eprintln!("Communication error.");
             }
-        }
+        }*/
     }
-
+        
     pub fn set_screen_mode(&mut self, mode: ScreenMode) {
         self.screen_mode = mode;
         mode.set_mode(self);
@@ -259,11 +257,11 @@ impl MainWindow {
             match data {
                 SendData::Data(vec) => {
                     for ch in vec { 
-                        /*if let Some(adr) = self.addresses.get(self.cur_addr) {
-                            if let Err(err) = self.auto_login.try_login(com, adr, ch) {
+                        if let Some(adr) = self.addresses.get(self.cur_addr) {
+                            if let Err(err) = self.auto_login.try_login(&mut self.tx, adr, ch) {
                                 eprintln!("{}", err);
                             }
-                        }*/
+                        }
                         let result = self.buffer_view.lock().print_char(&mut self.buffer_parser, unsafe { char::from_u32_unchecked(ch as u32) })?;
                         match result {
                             icy_engine::CallbackAction::None => {},
@@ -283,61 +281,39 @@ impl MainWindow {
                 _ => {} // never happens
             }
         }
-/*
-        match &mut self.com {
-            None => Ok(()),
-            Some(com) => {
-                self.auto_login.disabled |= self.is_alt_pressed;
-                if let Some(adr) = self.addresses.get(self.cur_addr) {
-                    if let Err(err) = self.auto_login.run_autologin(com, adr) {
-                        eprintln!("{}", err);
-                    }
-                }
-                let mut do_update = false;
-                let mut i = 0;
-                // needed an upper limit for sixels - could really be much data in there
-                while com.is_data_available()? && i < 2048 {
-                    i = i + 1;
-                    
-                }
-                if do_update {
-                    self.buffer_view.lock().redraw_view();
-                    println!("do update!")
-                }
-                Ok(())
-            }
-        }*/
 
+        self.auto_login.disabled |= self.is_alt_pressed;
+        if let Some(adr) = self.addresses.get(self.cur_addr) {
+            if let Err(err) = self.auto_login.run_autologin(&mut self.tx, adr) {
+                eprintln!("{}", err);
+            }
+        }
+        
         Ok(())
     }
 
     pub fn hangup(&mut self) {
-        self.com = None;
         self.tx.try_send(SendData::Disconnect);
         self.mode = MainWindowMode::ShowPhonebook;
     }
 
     pub fn send_login(&mut self) {
-        if let Some(com) = &mut self.com {
-            let adr = self.addresses.get(self.cur_addr).unwrap();
-            let mut cr = [self.buffer_parser.from_unicode('\r') as u8].to_vec();
-            for (k, v) in self.screen_mode.get_input_mode().cur_map() {
-                if *k == Key::Enter as u32 {
-                    cr = v.to_vec();
-                    break;
-                }
+        let adr = self.addresses.get(self.cur_addr).unwrap();
+        let mut cr = [self.buffer_parser.from_unicode('\r') as u8].to_vec();
+        for (k, v) in self.screen_mode.get_input_mode().cur_map() {
+            if *k == Key::Enter as u32 {
+                cr = v.to_vec();
+                break;
             }
-            let mut data = Vec::new();
-            data.extend_from_slice(adr.user_name.as_bytes());
-            data.extend(&cr);
-            data.extend_from_slice(adr.password.as_bytes());
-            data.extend(cr);
-    
-            if let Err(err) = com.write(&data) {
-                eprintln!("Error sending login: {}", err);
-            }
-            self.auto_login.logged_in = true;
         }
+        let mut data = Vec::new();
+        data.extend_from_slice(adr.user_name.as_bytes());
+        data.extend(&cr);
+        data.extend_from_slice(adr.password.as_bytes());
+        data.extend(cr);
+
+        self.tx.try_send(SendData::Data(data));
+        self.auto_login.logged_in = true;
     }
 }
 
@@ -369,7 +345,6 @@ impl eframe::App for MainWindow {
                                 }
                                 result = rx2.recv() => {
                                     let msg = result.unwrap();
-                                    println!("got key!!! {:?}", msg);
                                     match msg {
                                         SendData::Char(c) => { handle.write(&[c as u8]).unwrap(); },
                                         SendData::Data(buf) => { handle.write(&buf).unwrap(); },

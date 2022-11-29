@@ -7,8 +7,9 @@ use std::{
 };
 
 use icy_engine::{get_crc16, get_crc32, update_crc32};
+use tokio::sync::mpsc::Sender;
 
-use crate::{address::Address, com::Com, VERSION};
+use crate::{address::Address, com::Com, VERSION, ui::main_window::{MainWindow, SendData}};
 
 /// EMSI Inquiry is transmitted by the calling system to identify it as
 /// EMSI capable. If an EMSI_REQ sequence is received in response, it is
@@ -533,12 +534,12 @@ impl IEmsi {
         Ok(())
     }
 
-    pub fn try_login(&mut self, com: &mut Box<dyn Com>, adr: &Address, ch: u8) -> io::Result<bool> {
+    pub fn try_login(&mut self, tx: &mut Sender<SendData>, adr: &Address, ch: u8) -> io::Result<bool> {
         if self.aborted {
             return Ok(false);
         }
         if let Some(data) = self.advance_char(adr, ch)? {
-            com.write(&data)?;
+            tx.try_send(SendData::Data(data));
         }
         Ok(self.logged_in)
     }
