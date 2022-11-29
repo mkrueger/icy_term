@@ -1,19 +1,28 @@
+use eframe::egui;
+
 use super::main_window::MainWindow;
-use super::{create_icon_button, view_edit_bbs, HoverListMessage, Message};
-use iced::widget::button::Appearance;
-use iced::widget::{
-    button, horizontal_space, text_input, vertical_rule, Button, Canvas, Column, Row,
-    Text,
-};
-use iced::{theme, Alignment, Element, Length, Theme};
-use iced_aw::{ Icon};
-use lazy_static::lazy_static;
 
-lazy_static! {
-    pub static ref INPUT_ID: text_input::Id = text_input::Id::unique();
-}
+pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    egui::TopBottomPanel::top("button_bar").show(ctx, |ui| {
+        ui.horizontal(|ui| {
+            if ui.button("Connect").clicked() {
+                window.call_bbs(0);
+            }
+            ui.text_edit_singleline(&mut window.addresses[0].address);
+        });
+    });
 
-pub fn view_phonebook<'a>(main_window: &'a MainWindow) -> Element<'a, Message> {
+    
+    egui::CentralPanel::default()
+    .show(ctx, |ui| {
+        for i in 1..window.addresses.len() {
+            let addr = &window.addresses[i];
+            if ui.button(addr.system_name.clone()).clicked() {
+                window.call_bbs(i);
+            }
+        }
+    });
+    /* 
     let list_header = Column::new()
         .push(
             Row::new()
@@ -96,26 +105,5 @@ pub fn view_phonebook<'a>(main_window: &'a MainWindow) -> Element<'a, Message> {
         )
         .padding(8)
         .spacing(8)
-        .into()
-}
-
-struct CircleButtonStyle {
-    theme: theme::Button,
-}
-
-impl CircleButtonStyle {
-    pub fn new(theme: theme::Button) -> Self {
-        Self { theme }
-    }
-}
-
-impl button::StyleSheet for CircleButtonStyle {
-    type Style = Theme;
-
-    fn active(&self, style: &Self::Style) -> Appearance {
-        let mut appearance = style.active(&self.theme);
-        appearance.border_radius = 200.0;
-
-        appearance
-    }
+        .into()*/
 }

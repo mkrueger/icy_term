@@ -1,40 +1,53 @@
-use super::Message;
+use eframe::egui::{self, Ui};
+use egui_extras::{Size, TableBuilder, TableBody};
+
 use crate::protocol::ProtocolType;
-use iced::widget::{button, horizontal_space, text, Row, Column};
-use iced::{Element, Length};
+
+use super::main_window::{MainWindow, MainWindowMode};
 
 const BUTTON_WIDTH: u16 = 120;
 const SPACE: u16 = 8;
 const LEFT: u16 = 20;
 
-fn create_button_row<'a>(msg: Message, title: &'static str, descr: &'static str)  -> Element<'a, Message>  {
-    Row::new()
-        .push(horizontal_space(Length::Units(LEFT)))
-        .push(button(title)
-            .on_press(msg)
-            .width(Length::Units(BUTTON_WIDTH)))
-        .push(horizontal_space(Length::Units(SPACE)))
-        .push(text(descr))
-        .into()
+fn create_button_row(window: &mut MainWindow, body: &mut TableBody, protocol: ProtocolType, download: bool, title: &'static str, descr: &'static str) {
+    body.row(18., |mut row| {
+        row.col(|ui| {
+            if ui.button(title).clicked() {
+                window.initiate_file_transfer(protocol, download);
+            }
+        });
+        row.col(|ui| {
+            ui.label(descr);
+        });
+    });
 }
 
-pub fn view_protocol_selector<'a>(download: bool) -> Element<'a, Message> {
-    
-    let header = Row::new()
-    .padding(4)
-            .spacing(8);
-    Column::new() 
-    .push(header)
- //   .push(text(format!("Select {} protocol", if download { "download" } else { "upload" } )).size(40))
-    .push(
-        Column::new()
-        .push(create_button_row(Message::SelectProtocol(ProtocolType::ZModem, download), "Zmodem", "The standard protocol"))
-        .push(create_button_row(Message::SelectProtocol(ProtocolType::ZedZap, download), "ZedZap", "8k Zmodem"))
-        .push(create_button_row(Message::SelectProtocol(ProtocolType::XModem, download), "Xmodem", "Outdated protocol"))
-        .push(create_button_row(Message::SelectProtocol(ProtocolType::XModem1k, download), "Xmodem 1k", "Rarely used anymore"))
-        .push(create_button_row(Message::SelectProtocol(ProtocolType::XModem1kG, download), "Xmodem 1k-G", "Does that even exist?"))
-        .push(create_button_row(Message::SelectProtocol(ProtocolType::YModem, download), "Ymodem", "Ok but Zmodem is better"))
-        .push(create_button_row(Message::SelectProtocol(ProtocolType::YModemG, download), "Ymodem-G", "A fast Ymodem variant"))
-        .spacing(8))
-    .into()
+pub fn view_protocol_selector(window: &mut MainWindow, ctx: &egui::Context, frame: &mut eframe::Frame, download: bool) {
+    let mut open = true;
+    egui::Window::new(format!("Select {} protocol", if download { "download" } else { "upload" } ))
+    .open(&mut open)
+    .collapsible(false)
+    .resizable(false)
+    .show(ctx, |ui| {
+        let mut table = TableBuilder::new(ui)
+            .striped(true)
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            .column(Size::initial(100.0).at_least(100.0))
+            .column(Size::remainder().at_least(60.0))
+            .resizable(false);
+        table
+            .body(|mut body| {
+                create_button_row(window, &mut body, ProtocolType::ZModem, download, "Zmodem", "The standard protocol");
+                create_button_row(window, &mut body, ProtocolType::ZedZap, download, "ZedZap", "8k Zmodem");
+                create_button_row(window, &mut body, ProtocolType::XModem, download, "Xmodem", "Outdated protocol");
+                create_button_row(window, &mut body, ProtocolType::XModem1k, download, "Xmodem 1k", "Rarely used anymore");
+                create_button_row(window, &mut body, ProtocolType::XModem1kG, download, "Xmodem 1k-G", "Does that even exist?");
+                create_button_row(window, &mut body, ProtocolType::YModem, download, "Ymodem", "Ok but Zmodem is better");
+                create_button_row(window, &mut body, ProtocolType::YModemG, download, "Ymodem-G", "A fast Ymodem variant");
+            });
+    });
+
+    if !open {
+        window.mode = MainWindowMode::ShowTerminal;
+    }
 }

@@ -1,10 +1,13 @@
 use crate::com::Com;
 use crate::sound::play_music;
 use clipboard::{ClipboardContext, ClipboardProvider};
-use icy_engine::{AvatarParser, Buffer, BufferParser, Caret, Position, SixelReadStatus, CallbackAction, EngineResult};
-use std::cmp::{max, min};
-use eframe::epaint::{ Rect, Vec2};
+use eframe::epaint::{Rect, Vec2};
 use glow::NativeTexture;
+use icy_engine::{
+    AvatarParser, Buffer, BufferParser, CallbackAction, Caret, EngineResult, Position,
+    SixelReadStatus,
+};
+use std::cmp::{max, min};
 
 #[derive(Clone, Copy)]
 pub enum BufferInputMode {
@@ -12,7 +15,7 @@ pub enum BufferInputMode {
     PETSCII,
     ATASCII,
     VT500,
-    VIEWDATA
+    VIEWDATA,
 }
 
 impl BufferInputMode {
@@ -53,16 +56,17 @@ pub struct BufferView {
     pub last_blink: u128,
     pub scale: f32,
     pub buffer_input_mode: BufferInputMode,
+    pub scroll_back_line: i32,
 
     pub button_pressed: bool,
 
     program: glow::Program,
     vertex_array: glow::VertexArray,
-    
+
     redraw_view: bool,
     font_texture: NativeTexture,
     buffer_texture: NativeTexture,
-    palette_texture: NativeTexture
+    palette_texture: NativeTexture,
 }
 
 impl BufferView {
@@ -84,17 +88,16 @@ impl BufferView {
 
             let mut shader = "precision highp float;\n".to_string();
 
-            shader.push_str(r#"
+            shader.push_str(
+                r#"
             uniform sampler2DArray u_fonts;
             uniform sampler2D u_palette;
             uniform sampler2D u_buffer;
                         
             uniform vec2        u_resolution;
             uniform vec2        u_position;
-            uniform vec2        u_buffer_size;
+            uniform vec2        u_terminal_size;
 
-            uniform vec2        u_viewport_size;
-            
             out     vec4        fragColor;
             
             vec4 get_char(vec2 p, float c, float page) {
@@ -121,17 +124,16 @@ impl BufferView {
             }
             
             void main (void) {
-                vec2 view_coord = gl_FragCoord.xy / u_viewport_size;
+                vec2 view_coord = gl_FragCoord.xy / u_resolution;
                 view_coord = vec2(view_coord.s, 1.0 - view_coord.t);
-                view_coord -= u_position / u_viewport_size;
+                view_coord -= u_position / u_resolution;
 
-                vec2 sz = u_buffer_size;
+                vec2 sz = u_terminal_size;
                 vec2 fb_pos = (view_coord * sz);
 
-                float z  = u_resolution.y / u_viewport_size.y;
-                vec4 ch = texture(u_buffer, vec2(view_coord.x, view_coord.y / z));
+                vec4 ch = texture(u_buffer, vec2(view_coord.x, view_coord.y));
                 
-                fb_pos = fract(vec2(fb_pos.x, fb_pos.y / z));
+                fb_pos = fract(vec2(fb_pos.x, fb_pos.y));
                 
                 vec4 char_data = get_char(fb_pos, ch.x * 255, 0);
 
@@ -140,10 +142,11 @@ impl BufferView {
                 } else {
                     fragColor = get_palette_color(ch.z);
                 }
-            }"#);
+            }"#,
+            );
 
             let (vertex_shader_source, fragment_shader_source) = (
-r#"
+                r#"
 const float low  =  -1.0;
 const float high = 1.0;
 
@@ -198,7 +201,7 @@ void main() {
             let vertex_array = gl
                 .create_vertex_array()
                 .expect("Cannot create vertex array");
-            
+
             let mut buffer_data = Vec::with_capacity(buf.get_buffer_width() as usize * 4 * buf.get_real_buffer_height() as usize);
             let colors = buf.palette.colors.len() as u32 - 1;
 
@@ -235,16 +238,42 @@ void main() {
             }
             let palette_texture = gl.create_texture().unwrap();
             gl.bind_texture(glow::TEXTURE_2D, Some(palette_texture));
-            gl.tex_image_2d(glow::TEXTURE_2D, 0, glow::RGB as i32, buf.palette.colors.len() as i32, 1, 0, glow::RGBA, glow::UNSIGNED_BYTE, Some(&palette_data));
-            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32);
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGB as i32,
+                buf.palette.colors.len() as i32,
+                1,
+                0,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                Some(&palette_data),
+            );
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_MIN_FILTER,
+                glow::NEAREST as i32,
+            );
 
-            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
-            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);
-            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_MAG_FILTER,
+                glow::NEAREST as i32,
+            );
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_S,
+                glow::CLAMP_TO_EDGE as i32,
+            );
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_T,
+                glow::CLAMP_TO_EDGE as i32,
+            );
 
             let w = buf.font_table[0].size.width as usize;
             let h = buf.font_table[0].size.height as usize;
-            
+
             let mut font_data = Vec::new();
             let chars_in_line = 16;
             let line_width = w * chars_in_line * 4;
@@ -253,7 +282,9 @@ void main() {
             font_data.resize(line_width * height, 0);
 
             for ch in 0..256usize {
-                let glyph = buf.font_table[0].get_glyph(char::from_u32_unchecked(ch as u32)).unwrap();
+                let glyph = buf.font_table[0]
+                    .get_glyph(char::from_u32_unchecked(ch as u32))
+                    .unwrap();
 
                 let x = ch % chars_in_line;
                 let y = ch / chars_in_line;
@@ -261,7 +292,7 @@ void main() {
                 let offset = x * w * 4 + y * h * line_width;
                 for y in 0..h {
                     let scan_line = glyph.data[y];
-                    let mut po  = offset + y * line_width;
+                    let mut po = offset + y * line_width;
 
                     for x in 0..w {
                         if scan_line & (128 >> x) != 0 {
@@ -280,166 +311,193 @@ void main() {
                     }
                 }
             }
-            
+
             let font_texture = gl.create_texture().unwrap();
             gl.active_texture(glow::TEXTURE0);
             gl.bind_texture(glow::TEXTURE_2D_ARRAY, Some(font_texture));
-            gl.tex_image_3d(glow::TEXTURE_2D_ARRAY, 0, glow::RGB as i32, line_width as i32 / 4, height as i32, 1, 0, glow::RGBA, glow::UNSIGNED_BYTE, Some(&font_data));
-            gl.tex_parameter_i32(glow::TEXTURE_2D_ARRAY, glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32);
-            gl.tex_parameter_i32(glow::TEXTURE_2D_ARRAY, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
-            gl.tex_parameter_i32(glow::TEXTURE_2D_ARRAY, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);
-            gl.tex_parameter_i32(glow::TEXTURE_2D_ARRAY, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
-            
-        Self {
-            buf,
-            caret: Caret::default(),
-            blink: false,
-            last_blink: 0,
-            scale: 1.0,
-            buffer_input_mode: BufferInputMode::CP437,
-            sixel_cache: Vec::new(),
-            button_pressed: false,
-            redraw_view: false,
-            program,
-            vertex_array,
-            font_texture,
-            buffer_texture,
-            palette_texture
+            gl.tex_image_3d(
+                glow::TEXTURE_2D_ARRAY,
+                0,
+                glow::RGB as i32,
+                line_width as i32 / 4,
+                height as i32,
+                1,
+                0,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                Some(&font_data),
+            );
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D_ARRAY,
+                glow::TEXTURE_MIN_FILTER,
+                glow::NEAREST as i32,
+            );
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D_ARRAY,
+                glow::TEXTURE_MAG_FILTER,
+                glow::NEAREST as i32,
+            );
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D_ARRAY,
+                glow::TEXTURE_WRAP_S,
+                glow::CLAMP_TO_EDGE as i32,
+            );
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D_ARRAY,
+                glow::TEXTURE_WRAP_T,
+                glow::CLAMP_TO_EDGE as i32,
+            );
+
+            Self {
+                buf,
+                caret: Caret::default(),
+                blink: false,
+                last_blink: 0,
+                scale: 1.0,
+                buffer_input_mode: BufferInputMode::CP437,
+                sixel_cache: Vec::new(),
+                button_pressed: false,
+                redraw_view: true,
+                scroll_back_line: 0,
+                program,
+                vertex_array,
+                font_texture,
+                buffer_texture,
+                palette_texture,
+            }
         }
     }
-}
 
     pub fn clear(&mut self) {
         self.caret.ff(&mut self.buf);
     }
 
-   
-/* 
-    pub fn update_sixels(&mut self) -> bool {
-        let buffer = &self.buf;
-        let l = buffer.layers[0].sixels.len();
-        if l == 0 {
-            self.sixel_cache.clear();
-        }
-
-        let mut res = false;
-        let mut i = 0;
-        while i < l {
-            let sixel = &buffer.layers[0].sixels[i];
-
-            if sixel.width() == 0 || sixel.height() == 0 {
-                i += 1;
-                continue;
+    /*
+        pub fn update_sixels(&mut self) -> bool {
+            let buffer = &self.buf;
+            let l = buffer.layers[0].sixels.len();
+            if l == 0 {
+                self.sixel_cache.clear();
             }
 
-            let mut old_line = 0;
-            let current_line = match sixel.read_status {
-                SixelReadStatus::Position(_, y) => y * 6,
-                SixelReadStatus::Error | SixelReadStatus::Finished => sixel.height() as i32,
-                _ => 0,
-            };
+            let mut res = false;
+            let mut i = 0;
+            while i < l {
+                let sixel = &buffer.layers[0].sixels[i];
 
-            if let Some(entry) = self.sixel_cache.get(i) {
-                old_line = entry.old_line;
-                if let SixelReadStatus::Position(_, _) = sixel.read_status {
-                    if old_line + 5 * 6 >= current_line {
+                if sixel.width() == 0 || sixel.height() == 0 {
+                    i += 1;
+                    continue;
+                }
+
+                let mut old_line = 0;
+                let current_line = match sixel.read_status {
+                    SixelReadStatus::Position(_, y) => y * 6,
+                    SixelReadStatus::Error | SixelReadStatus::Finished => sixel.height() as i32,
+                    _ => 0,
+                };
+
+                if let Some(entry) = self.sixel_cache.get(i) {
+                    old_line = entry.old_line;
+                    if let SixelReadStatus::Position(_, _) = sixel.read_status {
+                        if old_line + 5 * 6 >= current_line {
+                            i += 1;
+                            continue;
+                        }
+                    }
+                    if entry.status == sixel.read_status {
                         i += 1;
                         continue;
                     }
                 }
-                if entry.status == sixel.read_status {
-                    i += 1;
-                    continue;
-                }
-            }
-            res = true;
-            let data_len = (sixel.height() * sixel.width() * 4) as usize;
-            let mut removed_index = -1;
-            let mut v = if self.sixel_cache.len() > i {
-                let mut entry = self.sixel_cache.remove(i);
-                // old_handle = entry.image_opt;
-                removed_index = i as i32;
-                if let Some(ptr) = &mut entry.data_opt {
-                    if ptr.len() < data_len {
-                        ptr.resize(data_len, 0);
+                res = true;
+                let data_len = (sixel.height() * sixel.width() * 4) as usize;
+                let mut removed_index = -1;
+                let mut v = if self.sixel_cache.len() > i {
+                    let mut entry = self.sixel_cache.remove(i);
+                    // old_handle = entry.image_opt;
+                    removed_index = i as i32;
+                    if let Some(ptr) = &mut entry.data_opt {
+                        if ptr.len() < data_len {
+                            ptr.resize(data_len, 0);
+                        }
+                        entry.data_opt.take().unwrap()
+                    } else {
+                        let mut data = Vec::with_capacity(data_len);
+                        data.resize(data_len, 0);
+                        data
                     }
-                    entry.data_opt.take().unwrap()
                 } else {
                     let mut data = Vec::with_capacity(data_len);
                     data.resize(data_len, 0);
                     data
-                }
-            } else {
-                let mut data = Vec::with_capacity(data_len);
-                data.resize(data_len, 0);
-                data
-            };
+                };
 
-            let mut i = old_line as usize * sixel.width() as usize * 4;
+                let mut i = old_line as usize * sixel.width() as usize * 4;
 
-            for y in old_line..current_line {
-                for x in 0..sixel.width() {
-                    let column = &sixel.picture[x as usize];
-                    let data = if let Some(col) = column.get(y as usize) {
-                        if let Some(col) = col {
-                            let (r, g, b) = col.get_rgb();
-                            [r, g, b, 0xFF]
+                for y in old_line..current_line {
+                    for x in 0..sixel.width() {
+                        let column = &sixel.picture[x as usize];
+                        let data = if let Some(col) = column.get(y as usize) {
+                            if let Some(col) = col {
+                                let (r, g, b) = col.get_rgb();
+                                [r, g, b, 0xFF]
+                            } else {
+                                // todo: bg color may differ here
+                                [0, 0, 0, 0xFF]
+                            }
                         } else {
-                            // todo: bg color may differ here
                             [0, 0, 0, 0xFF]
+                        };
+                        if i >= v.len() {
+                            v.extend_from_slice(&data);
+                        } else {
+                            v[i] = data[0];
+                            v[i + 1] = data[1];
+                            v[i + 2] = data[2];
+                            v[i + 3] = data[3];
                         }
-                    } else {
-                        [0, 0, 0, 0xFF]
-                    };
-                    if i >= v.len() {
-                        v.extend_from_slice(&data);
-                    } else {
-                        v[i] = data[0];
-                        v[i + 1] = data[1];
-                        v[i + 2] = data[2];
-                        v[i + 3] = data[3];
+                        i += 4;
                     }
-                    i += 4;
                 }
+                let (handle_opt, data_opt, clear) = match sixel.read_status {
+                    SixelReadStatus::Finished | SixelReadStatus::Error => (
+                        None,
+                        None,
+                        true,
+                    ),
+                    _ => (None, Some(v), false),
+                };
+
+                let new_entry = SixelCacheEntry {
+                    status: sixel.read_status,
+                    old_line: current_line,
+                    data_opt,
+                    pos: sixel.position,
+                    size: icy_engine::Size {
+                        width: sixel.width() as i32,
+                        height: sixel.height() as i32,
+                    },
+                };
+
+                if removed_index < 0 {
+                    self.sixel_cache.push(new_entry);
+                    if clear {
+                        self.clear_invisible_sixel_cache(self.sixel_cache.len() - 1);
+                        break;
+                    }
+                } else {
+                    self.sixel_cache.insert(removed_index as usize, new_entry);
+                    if clear {
+                        self.clear_invisible_sixel_cache(removed_index as usize);
+                        break;
+                    }
+                }
+
             }
-            let (handle_opt, data_opt, clear) = match sixel.read_status {
-                SixelReadStatus::Finished | SixelReadStatus::Error => (
-                    None,
-                    None,
-                    true,
-                ),
-                _ => (None, Some(v), false),
-            };
-
-            let new_entry = SixelCacheEntry {
-                status: sixel.read_status,
-                old_line: current_line,
-                data_opt,
-                pos: sixel.position,
-                size: icy_engine::Size {
-                    width: sixel.width() as i32,
-                    height: sixel.height() as i32,
-                },
-            };
-
-            if removed_index < 0 {
-                self.sixel_cache.push(new_entry);
-                if clear {
-                    self.clear_invisible_sixel_cache(self.sixel_cache.len() - 1);
-                    break;
-                }
-            } else {
-                self.sixel_cache.insert(removed_index as usize, new_entry);
-                if clear {
-                    self.clear_invisible_sixel_cache(removed_index as usize);
-                    break;
-                }
-            }
-
+            res
         }
-        res
-    }
-*/
+    */
     pub fn clear_invisible_sixel_cache(&mut self, j: usize) {
         // remove cache entries that are removed by the engine
         if j > 0 {
@@ -460,7 +518,7 @@ void main() {
     }
 
     pub fn copy_to_clipboard(&mut self) {
-     /*  let Some(selection) = &self.selection else {
+        /*  let Some(selection) = &self.selection else {
             return;
         };
 
@@ -507,14 +565,18 @@ void main() {
         if let Err(err) = ctx.set_contents(res) {
             eprintln!("{}", err);
         }
-        self.selection = None; */ 
+        self.selection = None; */
     }
 
     pub fn redraw_view(&mut self) {
         self.redraw_view = true;
     }
 
-    pub fn print_char(&mut self, parser: &mut Box<dyn BufferParser>, c: char) -> EngineResult<CallbackAction> {
+    pub fn print_char(
+        &mut self,
+        parser: &mut Box<dyn BufferParser>,
+        c: char,
+    ) -> EngineResult<CallbackAction> {
         self.redraw_view();
         parser.print_char(&mut self.buf, &mut self.caret, c)
     }
@@ -527,68 +589,50 @@ void main() {
         }
     }
 
-
-    pub fn update_buffer(&mut self, gl: &glow::Context)
-    {
-        if !self.redraw_view  { return; }
-        self.redraw_view = false;
-        let buf = &self.buf;
-        let mut buffer_data = Vec::with_capacity(buf.get_buffer_width() as usize * 4 * buf.get_real_buffer_height() as usize);
-        let colors = buf.palette.colors.len() as u32 - 1;
-        let h = max(buf.get_real_buffer_height(), buf.get_buffer_height());
-        for y in 0..h {
-            for x in 0..buf.get_buffer_width() {
-                let ch = buf.get_char_xy(x, y).unwrap_or_default();
-                buffer_data.push(ch.ch as u8);
-                if ch.attribute.is_bold() {
-                    buffer_data.push(conv_color(ch.attribute.get_foreground() + 8, colors));
-                } else {
-                    buffer_data.push(conv_color(ch.attribute.get_foreground(), colors));
-                }
-                buffer_data.push(conv_color(ch.attribute.get_background(), colors));
-                buffer_data.push(ch.get_font_page() as u8);
-            }
+    pub fn update_buffer(&mut self, gl: &glow::Context) {
+        if !self.redraw_view {
+            return;
         }
-        use glow::HasContext as _;
+        self.redraw_view = false;
         unsafe {
+            use glow::HasContext as _;
             gl.active_texture(glow::TEXTURE0 + 4);
-            gl.bind_texture(glow::TEXTURE_2D, Some(self.buffer_texture));
-            gl.tex_image_2d(glow::TEXTURE_2D, 0, glow::RGB as i32, buf.get_buffer_width(), buf.get_real_buffer_height(),  0, glow::RGBA, glow::UNSIGNED_BYTE, Some(&buffer_data));
+            create_buffer_texture(gl, &self.buf, self.scroll_back_line, self.buffer_texture);
         }
     }
-
-    pub fn paint(&self, gl: &glow::Context, rect: Rect, available_size: Vec2) {
+    pub fn paint(&self, gl: &glow::Context, rect: Rect) {
         use glow::HasContext as _;
         unsafe {
             gl.use_program(Some(self.program));
             gl.uniform_2_f32(
-                gl.get_uniform_location(self.program, "u_resolution").as_ref(),
+                gl.get_uniform_location(self.program, "u_resolution")
+                    .as_ref(),
                 rect.width(),
-                rect.height()
-            );
-
-            gl.uniform_2_f32(
-                gl.get_uniform_location(self.program, "u_viewport_size").as_ref(),
-                available_size.x,
-                available_size.y
+                rect.height(),
             );
 
             gl.uniform_2_f32(
                 gl.get_uniform_location(self.program, "u_position").as_ref(),
                 rect.left(),
-                rect.top() - 20.
+                -rect.top() + 25.,
             );
-            let h = max(self.buf.get_real_buffer_height(), self.buf.get_buffer_height());
 
-            gl.uniform_2_f32 (
-                gl.get_uniform_location(self.program, "u_buffer_size").as_ref(),
+            gl.uniform_2_f32(
+                gl.get_uniform_location(self.program, "u_terminal_size")
+                    .as_ref(),
                 self.buf.get_buffer_width() as f32,
-                h as f32
+                self.buf.get_buffer_height() as f32,
             );
 
             gl.uniform_1_i32(gl.get_uniform_location(self.program, "u_fonts").as_ref(), 0);
-            gl.uniform_1_i32(gl.get_uniform_location(self.program, "u_palette").as_ref(), 2);
-            gl.uniform_1_i32(gl.get_uniform_location(self.program, "u_buffer").as_ref(), 4);
+            gl.uniform_1_i32(
+                gl.get_uniform_location(self.program, "u_palette").as_ref(),
+                2,
+            );
+            gl.uniform_1_i32(
+                gl.get_uniform_location(self.program, "u_buffer").as_ref(),
+                4,
+            );
 
             gl.active_texture(glow::TEXTURE0);
             gl.bind_texture(glow::TEXTURE_2D, Some(self.font_texture));
@@ -596,15 +640,72 @@ void main() {
             gl.bind_texture(glow::TEXTURE_2D, Some(self.palette_texture));
             gl.active_texture(glow::TEXTURE0 + 4);
             gl.bind_texture(glow::TEXTURE_2D, Some(self.buffer_texture));
-   
-           gl.bind_vertex_array(Some(self.vertex_array));
-           gl.draw_arrays(glow::TRIANGLES, 0, 3);
-           gl.draw_arrays(glow::TRIANGLES, 3, 3);
+
+            gl.bind_vertex_array(Some(self.vertex_array));
+            gl.draw_arrays(glow::TRIANGLES, 0, 3);
+            gl.draw_arrays(glow::TRIANGLES, 3, 3);
         }
+    }
+
+    pub fn scroll(&mut self, lines: i32) {
+        self.scroll_back_line = max(
+            0,
+            min(
+                self.buf.layers[0].lines.len() as i32 - self.buf.get_buffer_height(),
+                self.scroll_back_line + lines,
+            ),
+        );
+        self.redraw_view();
     }
 }
 
 fn conv_color(c: u32, colors: u32) -> u8 {
     let r = ((255 * c) / colors) as u8;
     r
+}
+
+fn create_buffer_texture(
+    gl: &glow::Context,
+    buf: &Buffer,
+    scroll_back_line: i32,
+    buffer_texture: NativeTexture,
+) {
+    let first_line = max(
+        0,
+        buf.layers[0].lines.len() as i32 - buf.get_buffer_height(),
+    );
+    let mut buffer_data = Vec::with_capacity(
+        buf.get_buffer_width() as usize * 4 * buf.get_real_buffer_height() as usize,
+    );
+    let colors = buf.palette.colors.len() as u32 - 1;
+    for y in 0..buf.get_buffer_height() {
+        for x in 0..buf.get_buffer_width() {
+            let ch = buf
+                .get_char_xy(x, first_line - scroll_back_line + y)
+                .unwrap_or_default();
+            buffer_data.push(ch.ch as u8);
+            if ch.attribute.is_bold() {
+                buffer_data.push(conv_color(ch.attribute.get_foreground() + 8, colors));
+            } else {
+                buffer_data.push(conv_color(ch.attribute.get_foreground(), colors));
+            }
+            buffer_data.push(conv_color(ch.attribute.get_background(), colors));
+            buffer_data.push(ch.get_font_page() as u8);
+        }
+    }
+    unsafe {
+        use glow::HasContext as _;
+        gl.bind_texture(glow::TEXTURE_2D, Some(buffer_texture));
+        gl.tex_image_2d(
+            glow::TEXTURE_2D,
+            0,
+            glow::RGB as i32,
+            buf.get_buffer_width(),
+            buf.get_buffer_height(),
+            0,
+            glow::RGBA,
+            glow::UNSIGNED_BYTE,
+            Some(&buffer_data),
+        );
+    }
 }
