@@ -1,10 +1,8 @@
-use crate::com::Com;
-use crate::sound::play_music;
-use clipboard::{ClipboardContext, ClipboardProvider};
-use eframe::epaint::{Rect, Vec2};
+
+use eframe::epaint::{Rect};
 use glow::NativeTexture;
 use icy_engine::{
-    AvatarParser, Buffer, BufferParser, CallbackAction, Caret, EngineResult, Position,
+    Buffer, BufferParser, CallbackAction, Caret, EngineResult, Position,
     SixelReadStatus,
 };
 use std::cmp::{max, min};

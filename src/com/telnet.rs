@@ -5,12 +5,9 @@ use super::Com;
 use async_trait::async_trait;
 use std::{io::ErrorKind, thread, time::Duration};
 use tokio::{
-    io::{self},
+    io::{self, AsyncReadExt},
     net::TcpStream,
 };
-
-
-
 
 #[derive(Debug)]
 pub struct TelnetCom {
@@ -474,6 +471,12 @@ impl Com for TelnetCom {
     fn is_data_available(&mut self) -> io::Result<bool> {
         self.fill_buffer()?;
         Ok(self.buf.len() > 0)
+    }
+
+    async fn read_data(&mut self) -> io::Result<Vec<u8>> {
+        let mut buf = [0; 1024 * 50];
+        let bytes = self.tcp_stream.as_mut().unwrap().read(&mut buf).await?;
+        Ok(buf[0..bytes].into())
     }
 
     fn disconnect(&mut self) -> io::Result<()> {

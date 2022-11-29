@@ -100,6 +100,13 @@ impl Com for SSHCom {
         Ok(self.buf.len() > 0)
     }
 
+    async fn read_data(&mut self) -> io::Result<Vec<u8>> {
+        self.fill_buffer()?;
+        let r = self.buf.make_contiguous().to_vec();
+        self.buf.clear();
+        Ok(r)
+    }
+
     fn disconnect(&mut self) -> io::Result<()> {
         Ok(())
     }

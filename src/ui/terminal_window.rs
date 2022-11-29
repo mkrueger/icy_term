@@ -32,19 +32,6 @@ impl MainWindow {
             });
     }
 
-    pub fn output_char(&mut self, ch: char) {
-        let translated_char = self.buffer_parser.from_unicode(ch);
-        if let Some(com) = &mut self.com {
-            let state = com.write(&[translated_char as u8]);
-            if let Err(err) = state {
-                eprintln!("{}", err);
-                self.com = None;
-            }
-        } else {
-            self.print_char(translated_char as u8);
-        }
-    }
-
     fn custom_painting(&mut self, ui: &mut egui::Ui) {
         let size = ui.available_size();
 
@@ -97,16 +84,19 @@ impl MainWindow {
                     self.buffer_view.lock().scroll((x.y as i32) / 10);
                 },
                 egui::Event::Key { key, pressed, modifiers } => {
-                    let im = self.screen_mode.get_input_mode();
-                    let key_map = im.cur_map();
-                    let key = *key as u32;
-                    for (k, m) in key_map {
-                        if *k == key {
-                            self.handled_char = true;
-                            for c in *m {
-                                self.output_char(unsafe { char::from_u32_unchecked(*c as u32)});
+                    if *pressed {
+                        let im = self.screen_mode.get_input_mode();
+                        let key_map = im.cur_map();
+                        let key = *key as u32;
+                        
+                        for (k, m) in key_map {
+                            if *k == key {
+                                self.handled_char = true;
+                                for c in *m {
+                                    self.output_char(unsafe { char::from_u32_unchecked(*c as u32)});
+                                }
+                                break;
                             }
-                            break;
                         }
                     }
                 }

@@ -1,4 +1,4 @@
-use eframe::egui::{self, Ui};
+use eframe::egui::{self};
 use egui_extras::{Size, TableBuilder, TableBody};
 
 use crate::protocol::ProtocolType;

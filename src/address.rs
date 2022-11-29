@@ -1,6 +1,6 @@
 use crate::ui::screen_modes::ScreenMode;
 use directories::ProjectDirs;
-use icy_engine::{AnsiParser, AtasciiParser, AvatarParser, BufferParser, PETSCIIParser, ViewdataParser, AnsiMusicOption};
+use icy_engine::{AnsiParser, AtasciiParser, AvatarParser, BufferParser, PETSCIIParser, ViewdataParser};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use serde_derive::{Deserialize, Serialize};
 use std::path::Path;

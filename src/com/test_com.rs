@@ -71,6 +71,10 @@ impl Com for TestCom {
         Ok(false)
     }
 
+    async fn read_data(&mut self) -> io::Result<Vec<u8>> {
+        todo!();
+    }
+    
     fn disconnect(&mut self) -> io::Result<()> {
         // nothing
         Ok(())

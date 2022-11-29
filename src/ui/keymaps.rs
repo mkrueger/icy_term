@@ -4,6 +4,7 @@ pub const CTRL_MOD: u32 = 0b1000_0000_0000_0000_0000;
 pub const SHIFT_MOD: u32 = 0b0100_0000_0000_0000_0000;
 
 pub static ANSI_KEY_MAP: &[(u32, &[u8])] = &[
+    (Key::Escape as u32, &[0x1B]),
     (Key::Home as u32, b"\x1b[H"),
     (Key::Insert as u32, b"\x1b[@"),
     (Key::Backspace as u32, &[8]),
@@ -66,6 +67,7 @@ pub static ANSI_KEY_MAP: &[(u32, &[u8])] = &[
 ];
 
 pub static C64_KEY_MAP: &[(u32, &[u8])] = &[
+    (Key::Escape as u32, &[0x1B]),
     (Key::Home as u32, &[0x13]),
     (Key::Enter as u32, &[b'\r']),
     (Key::Insert as u32, &[0x94]),
@@ -86,6 +88,7 @@ pub static C64_KEY_MAP: &[(u32, &[u8])] = &[
 ];
 
 pub static ATASCII_KEY_MAP: &[(u32, &[u8])] = &[
+    (Key::Escape as u32, &[0x1B]),
     (Key::Enter as u32, &[155]),
     (Key::Backspace as u32, &[0x1b, 0x7e]),
     (Key::End as u32, &[0x1b, 0x9b]),
@@ -124,6 +127,7 @@ pub static ATASCII_KEY_MAP: &[(u32, &[u8])] = &[
 ];
 
 pub static VT500_KEY_MAP: &[(u32, &[u8])] = &[
+    (Key::Escape as u32, &[0x1B]),
     (Key::Home as u32, b"\x1b[1~"),
     (Key::Insert as u32, b"\x1b[2~"),
     (Key::Backspace as u32, &[8]),

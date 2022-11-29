@@ -1,12 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(unsafe_code)]
 
-use std::{sync::Arc, env};
+use std::{sync::{Arc}, env};
 use egui::mutex::Mutex;
 use icy_engine::{DEFAULT_FONT_NAME, BufferParser, AvatarParser};
 use poll_promise::Promise;
 use rfd::FileDialog;
-use tokio::{runtime::{Runtime, self}, task::JoinHandle};
 use std::time::{Duration, SystemTime};
 
 use eframe::{egui::{self, Key}};
@@ -18,6 +17,7 @@ use crate::com::{Com};
 use crate::protocol::{Protocol, TransferState};
 
 use super::{BufferView, screen_modes::ScreenMode};
+use tokio::sync::mpsc;
 
 #[derive(PartialEq, Eq)]
 pub enum MainWindowMode {
@@ -39,11 +39,21 @@ impl Options {
         }
     }
 }
+
+#[derive(Debug)]
+enum SendData {
+    Char(char),
+    Data(Vec<u8>),
+    Disconnect
+}
+
 pub struct MainWindow {
-    pub rt: Runtime,
     pub com: Option<Box<dyn Com>>,
     pub buffer_view: Arc<Mutex<BufferView>>,
     pub buffer_parser: Box<dyn BufferParser>,
+
+    rx: mpsc::Receiver<SendData>,
+    tx: mpsc::Sender<SendData>,
     
     trigger: bool,
     pub mode: MainWindowMode,
@@ -71,14 +81,16 @@ impl MainWindow {
             .expect("You need to run eframe with the glow backend");
         
         let view  = BufferView::new(gl);
+        let (tx, rx) = mpsc::channel::<SendData>(32);
 
         let mut view = MainWindow {
-            rt: runtime::Builder::new_multi_thread().enable_all().build().unwrap(),
+            tx, 
+            rx,
             buffer_view: Arc::new(Mutex::new(view)),
             //address_list: HoverList::new(),
             com: None,
             trigger: true,
-            mode: MainWindowMode::ShowTerminal,
+            mode: MainWindowMode::ShowPhonebook,
             addresses: start_read_book(),
             cur_addr: 0,
             connection_time: SystemTime::now(),
@@ -116,6 +128,15 @@ impl MainWindow {
         Ok(())
     }
 
+    pub fn output_char(&mut self, ch: char) {
+        let translated_char = self.buffer_parser.from_unicode(ch);
+//        if self.open_connection_promise.is_some() {
+            self.tx.try_send(SendData::Char(translated_char));
+/*         } else {
+            self.print_char(translated_char as u8);
+        }*/
+    }
+
     pub fn print_char(
         &mut self,
         c: u8,
@@ -142,9 +163,7 @@ impl MainWindow {
         match result {
             icy_engine::CallbackAction::None => {},
             icy_engine::CallbackAction::SendString(result) => {
-                if let Some(com) = &mut self.com {
-                    com.write(result.as_bytes())?;
-                }
+                self.tx.try_send(SendData::Data(result.as_bytes().to_vec()));
             },
             icy_engine::CallbackAction::PlayMusic(music) => { /* play_music(music)*/ }
         }
@@ -235,9 +254,36 @@ impl MainWindow {
     }
 
     pub fn update_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-
         unsafe { super::simulate::run_sim(self); }
-
+        if let Ok(data) = self.rx.try_recv() {
+            match data {
+                SendData::Data(vec) => {
+                    for ch in vec { 
+                        /*if let Some(adr) = self.addresses.get(self.cur_addr) {
+                            if let Err(err) = self.auto_login.try_login(com, adr, ch) {
+                                eprintln!("{}", err);
+                            }
+                        }*/
+                        let result = self.buffer_view.lock().print_char(&mut self.buffer_parser, unsafe { char::from_u32_unchecked(ch as u32) })?;
+                        match result {
+                            icy_engine::CallbackAction::None => {},
+                            icy_engine::CallbackAction::SendString(result) => {
+                                self.tx.try_send(SendData::Data(result.as_bytes().to_vec()));
+                            },
+                            icy_engine::CallbackAction::PlayMusic(music) => { /* play_music(music)*/ }
+                        }
+                        if let Some((protocol_type, download)) =
+                            self.auto_file_transfer.try_transfer(ch)
+                        {
+                            self.initiate_file_transfer(protocol_type, download);
+                            return Ok(());
+                        }
+                    }
+                }
+                _ => {} // never happens
+            }
+        }
+/*
         match &mut self.com {
             None => Ok(()),
             Some(com) => {
@@ -252,27 +298,7 @@ impl MainWindow {
                 // needed an upper limit for sixels - could really be much data in there
                 while com.is_data_available()? && i < 2048 {
                     i = i + 1;
-                    let ch = com.read_char_nonblocking()?;
-                    if let Some(adr) = self.addresses.get(self.cur_addr) {
-                        if let Err(err) = self.auto_login.try_login(com, adr, ch) {
-                            eprintln!("{}", err);
-                        }
-                    }
-                    let result = self.buffer_view.lock().print_char(&mut self.buffer_parser, unsafe { char::from_u32_unchecked(ch as u32) })?;
-                    match result {
-                        icy_engine::CallbackAction::None => {},
-                        icy_engine::CallbackAction::SendString(result) => {
-                            com.write(result.as_bytes())?;
-                        },
-                        icy_engine::CallbackAction::PlayMusic(music) => { /* play_music(music)*/ }
-                    }
-                    do_update = true;
-                    if let Some((protocol_type, download)) =
-                        self.auto_file_transfer.try_transfer(ch)
-                    {
-                        self.initiate_file_transfer(protocol_type, download);
-                        return Ok(());
-                    }
+                    
                 }
                 if do_update {
                     self.buffer_view.lock().redraw_view();
@@ -280,11 +306,14 @@ impl MainWindow {
                 }
                 Ok(())
             }
-        }
+        }*/
+
+        Ok(())
     }
 
     pub fn hangup(&mut self) {
         self.com = None;
+        self.tx.try_send(SendData::Disconnect);
         self.mode = MainWindowMode::ShowPhonebook;
     }
 
@@ -317,8 +346,41 @@ impl eframe::App for MainWindow {
         if self.open_connection_promise.is_some() {
             if self.open_connection_promise.as_ref().unwrap().ready().is_some() {
                 if let Ok(handle) = self.open_connection_promise.take().unwrap().try_take() {
-                    self.com = Some(handle);
                     self.open_connection_promise  = None;
+                    let ctx = ctx.clone();
+                    
+                    let (tx, rx) = mpsc::channel::<SendData>(32);
+                    let (tx2, mut rx2) = mpsc::channel::<SendData>(32);
+                    self.rx = rx;
+                    self.tx = tx2.clone();
+
+                    let mut handle = handle;
+                    tokio::spawn(async move {
+                        let mut done = false;
+                        while !done {
+                            tokio::select! {
+                                Ok(v) = handle.read_data() => {
+                                    if let Err(err) = tx.send(SendData::Data(v)).await {
+                                        eprintln!("error while sending: {}", err);
+                                        done = true;
+                                } else {
+                                        ctx.request_repaint();
+                                    }
+                                }
+                                result = rx2.recv() => {
+                                    let msg = result.unwrap();
+                                    println!("got key!!! {:?}", msg);
+                                    match msg {
+                                        SendData::Char(c) => { handle.write(&[c as u8]).unwrap(); },
+                                        SendData::Data(buf) => { handle.write(&buf).unwrap(); },
+                                        SendData::Disconnect => {
+                                            done = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
                 }
             }
         }
