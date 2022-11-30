@@ -1,4 +1,6 @@
 mod ui;
+use std::error::Error;
+
 use eframe::egui;
 use ui::{*};
 use lazy_static::*;
@@ -17,9 +19,10 @@ lazy_static! {
     static ref DEFAULT_TITLE: String = format!("iCY TERM {}", crate::VERSION);
 }
 
+pub type TerminalResult<T> = Result<T, Box<dyn Error>>;
+
 #[tokio::main]
 async fn main() {
-    
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1200.0, 1000.0)),
         multisampling: 8,

@@ -1,4 +1,4 @@
-use crate::{com::Com, ui::main_window::Connection};
+use crate::{com::{Connection}, TerminalResult};
 use std::io::{self};
 
 mod constants;
@@ -6,7 +6,7 @@ mod ry;
 mod sy;
 mod tests;
 
-use self::constants::{CAN, DEFAULT_BLOCK_LENGTH, EXT_BLOCK_LENGTH};
+use self::constants::{DEFAULT_BLOCK_LENGTH, EXT_BLOCK_LENGTH};
 
 use super::{FileDescriptor, TransferInformation, TransferState};
 #[derive(Debug, Clone, Copy)]
@@ -43,7 +43,7 @@ impl XYmodem {
 }
 
 impl super::Protocol for XYmodem {
-    fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> io::Result<()> {
+    fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> TerminalResult<()> {
         if let Some(ry) = &mut self.ry {
             ry.update(com, state)?;
             state.is_finished = ry.is_finished();
@@ -58,12 +58,12 @@ impl super::Protocol for XYmodem {
         &mut self,
         com: &mut Connection,
         files: Vec<FileDescriptor>,
-    ) -> io::Result<TransferState> {
+    ) -> TerminalResult<TransferState> {
         if !self.config.is_ymodem() && files.len() != 1 {
-            return Err(io::Error::new(
+            return Err(Box::new(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "Only 1 file can be send with x-modem.",
-            ));
+            )));
         }
 
         let mut sy = sy::Sy::new(self.config);
@@ -80,7 +80,7 @@ impl super::Protocol for XYmodem {
         Ok(state)
     }
 
-    fn initiate_recv(&mut self, com: &mut Connection) -> io::Result<TransferState> {
+    fn initiate_recv(&mut self, com: &mut Connection) -> TerminalResult<TransferState> {
         let mut ry = ry::Ry::new(self.config);
         ry.recv(com)?;
         self.ry = Some(ry);
@@ -108,7 +108,7 @@ impl super::Protocol for XYmodem {
         }
     }
 
-    fn cancel(&mut self, com: &mut Connection) -> io::Result<()> {
+    fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
         // TODO!!!
         // com.write(&[CAN, CAN])?;
         // com.write(&[CAN, CAN])?;

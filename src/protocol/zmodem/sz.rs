@@ -5,12 +5,12 @@ use std::{
 };
 
 use crate::{
-    com::Com,
     protocol::{
         zfile_flag, FileDescriptor, FrameType, Header, HeaderType, TransferState, Zmodem, ZCRCE,
         ZCRCG,
-    }, ui::main_window::Connection,
+    }, TerminalResult, 
 };
+use crate::{com::{Connection}};
 
 use super::ZCRCW;
 
@@ -118,7 +118,7 @@ impl Sz {
         self.cur_file += 1;
     }
 
-    pub fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> io::Result<()> {
+    pub fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> TerminalResult<()> {
         if let SendState::Idle = self.state {
             return Ok(());
         }
@@ -257,10 +257,10 @@ impl Sz {
                             self.state = SendState::Idle;
                         }
                         unk_frame => {
-                            return Err(io::Error::new(
+                            return Err(Box::new(io::Error::new(
                                 ErrorKind::InvalidInput,
                                 format!("unsupported frame {:?}.", unk_frame),
-                            ));
+                            )));
                         }
                     }
                 }
@@ -367,7 +367,7 @@ impl Sz {
         &mut self,
         com: &mut Connection,
         transfer_state: &mut crate::protocol::TransferInformation,
-    ) -> Result<(), io::Error> {
+    ) -> TerminalResult<()> {
         if self.cur_file < 0 {
             return Ok(());
         }
@@ -415,7 +415,7 @@ impl Sz {
         Ok(())
     }
 
-    pub fn send(&mut self, com: &mut Connection, files: Vec<FileDescriptor>) -> io::Result<()> {
+    pub fn send(&mut self, com: &mut Connection, files: Vec<FileDescriptor>) -> TerminalResult<()> {
         //println!("initiate zmodem send {}", files.len());
         self.state = SendState::SendZRQInit;
         self.files = files;
@@ -428,14 +428,14 @@ impl Sz {
         Ok(())
     }
 
-    pub fn send_zrqinit(&mut self, com: &mut Connection) -> io::Result<()> {
+    pub fn send_zrqinit(&mut self, com: &mut Connection) -> TerminalResult<()> {
         self.cur_file = -1;
         self.transfered_file = true;
         Header::empty(self.get_header_type(), FrameType::ZRQINIT).write(com)?;
         Ok(())
     }
 
-    pub fn send_zfin(&mut self, com: &mut Connection, size: u32) -> io::Result<()> {
+    pub fn send_zfin(&mut self, com: &mut Connection, size: u32) -> TerminalResult<()> {
         Header::from_number(self.get_header_type(), FrameType::ZFIN, size).write(com)?;
         self.state = SendState::Finished;
         self.last_send = SystemTime::now();

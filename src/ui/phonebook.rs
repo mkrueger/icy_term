@@ -2,7 +2,7 @@ use eframe::egui;
 
 use super::main_window::MainWindow;
 
-pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, frame: &mut eframe::Frame) {
+pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut eframe::Frame) {
     egui::TopBottomPanel::top("button_bar").show(ctx, |ui| {
         ui.horizontal(|ui| {
             if ui.button("Connect").clicked() {

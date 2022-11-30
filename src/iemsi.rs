@@ -7,9 +7,8 @@ use std::{
 };
 
 use icy_engine::{get_crc16, get_crc32, update_crc32};
-use tokio::sync::mpsc::Sender;
 
-use crate::{address::Address, com::Com, VERSION, ui::main_window::{MainWindow, SendData}};
+use crate::{address::Address, VERSION, com::Connection, TerminalResult};
 
 /// EMSI Inquiry is transmitted by the calling system to identify it as
 /// EMSI capable. If an EMSI_REQ sequence is received in response, it is
@@ -286,7 +285,7 @@ impl EmsiICI {
         }
     }
 
-    pub fn encode(&self) -> io::Result<Vec<u8>> {
+    pub fn encode(&self) -> TerminalResult<Vec<u8>> {
         // **EMSI_ICI<len><data><crc32><CR>
         let data = encode_emsi(&[
             &self.name,
@@ -305,10 +304,10 @@ impl EmsiICI {
         ])?;
 
         if data.len() > EmsiICI::MAX_SIZE {
-            return Err(io::Error::new(
+            return Err(Box::new(io::Error::new(
                 ErrorKind::OutOfMemory,
                 "maximum size exceeded",
-            ));
+            )));
         }
         let mut result = Vec::new();
         result.extend_from_slice(b"**EMSI_ICI");
@@ -429,7 +428,7 @@ impl IEmsi {
         }
     }
 
-    pub fn parse_char(&mut self, ch: u8) -> io::Result<()> {
+    pub fn parse_char(&mut self, ch: u8) -> TerminalResult<()> {
         if self.stars_read >= 2 {
             if self.isi_seq > 7 {
                 match self.isi_seq {
@@ -534,17 +533,17 @@ impl IEmsi {
         Ok(())
     }
 
-    pub fn try_login(&mut self, tx: &mut Sender<SendData>, adr: &Address, ch: u8) -> io::Result<bool> {
+    pub fn try_login(&mut self, tx: &mut Connection, adr: &Address, ch: u8) -> TerminalResult<bool> {
         if self.aborted {
             return Ok(false);
         }
         if let Some(data) = self.advance_char(adr, ch)? {
-            tx.try_send(SendData::Data(data));
+            tx.send(data);
         }
         Ok(self.logged_in)
     }
 
-    pub fn advance_char(&mut self, adr: &Address, ch: u8) -> io::Result<Option<Vec<u8>>> {
+    pub fn advance_char(&mut self, adr: &Address, ch: u8) -> TerminalResult<Option<Vec<u8>>> {
         if self.aborted {
             return Ok(None);
         }
@@ -610,7 +609,7 @@ fn get_value(ch: u8) -> usize {
     res as usize
 }
 
-fn parse_emsi_blocks(data: &[u8]) -> io::Result<Vec<String>> {
+fn parse_emsi_blocks(data: &[u8]) -> TerminalResult<Vec<String>> {
     let mut res = Vec::new();
     let mut i = 0;
     let mut str = String::new();
@@ -650,10 +649,10 @@ fn parse_emsi_blocks(data: &[u8]) -> io::Result<Vec<String>> {
                 i += 3;
                 continue;
             }
-            return Err(io::Error::new(
+            return Err(Box::new(io::Error::new(
                 ErrorKind::InvalidData,
                 "Escape char in emsi string invalid.",
-            ));
+            )));
         }
 
         str.push(char::from_u32(data[i] as u32).unwrap());
@@ -669,7 +668,7 @@ fn get_hex(n: u32) -> u8 {
     return b'A' + (n - 10) as u8;
 }
 
-fn encode_emsi(data: &[&str]) -> io::Result<Vec<u8>> {
+fn encode_emsi(data: &[&str]) -> TerminalResult<Vec<u8>> {
     let mut res = Vec::new();
     for i in 0..data.len() {
         let d = data[i];
@@ -685,10 +684,10 @@ fn encode_emsi(data: &[&str]) -> io::Result<Vec<u8>> {
             }
             let val = ch as u32;
             if val > 255 {
-                return Err(io::Error::new(
+                return Err(Box::new(io::Error::new(
                     ErrorKind::InvalidData,
                     "Unicode chars not supported",
-                ));
+                )));
             }
             // control codes.
             if val < 32 || val == 127 {

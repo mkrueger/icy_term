@@ -1,7 +1,6 @@
-use std::error::Error;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
-use std::{fs, io};
+use std::{fs};
 
 pub mod xymodem;
 use directories::UserDirs;
@@ -10,9 +9,8 @@ pub use xymodem::*;
 
 pub mod zmodem;
 pub use zmodem::*;
-
-use crate::com::Com;
-use crate::ui::main_window::Connection;
+use crate::TerminalResult;
+use crate::{com::{Connection}};
 
 #[derive(Clone)]
 pub struct FileDescriptor {
@@ -36,7 +34,7 @@ impl FileDescriptor {
         }
     }
 
-    pub fn from_paths(paths: &Vec<PathBuf>) -> Result<Vec<FileDescriptor>, Box<dyn Error>> {
+    pub fn from_paths(paths: &Vec<PathBuf>) -> TerminalResult<Vec<FileDescriptor>> {
         let mut res = Vec::new();
         for p in paths {
             let fd = FileDescriptor::create(p)?;
@@ -48,7 +46,7 @@ impl FileDescriptor {
     pub fn save_file_in_downloads(
         &self,
         transfer_state: &mut TransferInformation,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> TerminalResult<()> {
         if let Some(user_dirs) = UserDirs::new() {
             let dir = user_dirs.download_dir().unwrap();
 
@@ -73,7 +71,7 @@ impl FileDescriptor {
         Ok(())
     }
 
-    pub fn create(path: &PathBuf) -> io::Result<Self> {
+    pub fn create(path: &PathBuf) -> TerminalResult<Self> {
         let data = fs::metadata(path)?;
         let size = data.len() as usize;
         let date = data
@@ -103,7 +101,7 @@ impl FileDescriptor {
         }
     }
 
-    pub fn get_data(&self) -> io::Result<Vec<u8>> {
+    pub fn get_data(&self) -> TerminalResult<Vec<u8>> {
         if let Some(data) = &self.data {
             Ok(data.clone())
         } else {
@@ -201,15 +199,15 @@ impl TransferState {
 }
 
 pub trait Protocol {
-    fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> io::Result<()>;
+    fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> TerminalResult<()>;
     fn initiate_send(
         &mut self,
         com: &mut Connection,
         files: Vec<FileDescriptor>,
-    ) -> io::Result<TransferState>;
-    fn initiate_recv(&mut self, com: &mut Connection) -> io::Result<TransferState>;
+    ) -> TerminalResult<TransferState>;
+    fn initiate_recv(&mut self, com: &mut Connection) -> TerminalResult<TransferState>;
     fn get_received_files(&mut self) -> Vec<FileDescriptor>;
-    fn cancel(&mut self, com: &mut Connection) -> io::Result<()>;
+    fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()>;
 }
 
 #[derive(Debug, Clone, Copy)]

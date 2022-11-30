@@ -21,7 +21,7 @@ use rz::*;
 mod tests;
 
 use super::{TransferInformation, Protocol, TransferState};
-use crate::{com::Com, ui::main_window::Connection};
+use crate::{com::{Connection}, TerminalResult};
 
 pub struct Zmodem {
     block_length: usize,
@@ -46,7 +46,7 @@ impl Zmodem {
         }
     }
 
-    pub fn cancel(com: &mut Connection) -> io::Result<()> {
+    pub fn cancel(com: &mut Connection) -> TerminalResult<()> {
         com.send(ABORT_SEQ.to_vec());
         Ok(())
     }
@@ -104,7 +104,7 @@ pub fn append_zdle_encoded(v: &mut Vec<u8>, data: &[u8]) {
     }
 }
 
-pub fn read_zdle_bytes(com: &mut Connection, length: usize) -> io::Result<Vec<u8>> {
+pub fn read_zdle_bytes(com: &mut Connection, length: usize) -> TerminalResult<Vec<u8>> {
     let mut data = Vec::new();
     loop {
         let c = com.read_char(Duration::from_secs(5))?;
@@ -126,10 +126,10 @@ pub fn read_zdle_bytes(com: &mut Connection, length: usize) -> io::Result<Vec<u8
 
                     _ => {
                         Header::empty(HeaderType::Bin32, FrameType::ZNAK).write(com)?;
-                        return Err(io::Error::new(
+                        return Err(Box::new(io::Error::new(
                             ErrorKind::InvalidInput,
                             format!("don't understand subpacket {}/x{:X}", c2, c2),
-                        ));
+                        )));
                     }
                 }
             }
@@ -153,7 +153,7 @@ fn get_hex(n: u8) -> u8 {
     return b'a' + (n - 10) as u8;
 }
 
-fn from_hex(n: u8) -> io::Result<u8> {
+fn from_hex(n: u8) -> TerminalResult<u8> {
     if b'0' <= n && n <= b'9' {
         return Ok(n - b'0');
     }
@@ -163,14 +163,14 @@ fn from_hex(n: u8) -> io::Result<u8> {
     if b'a' <= n && n <= b'f' {
         return Ok(10 + n - b'a');
     }
-    return Err(io::Error::new(
+    return Err(Box::new(io::Error::new(
         io::ErrorKind::InvalidData,
         "Hex number expected",
-    ));
+    )));
 }
 
 impl Protocol for Zmodem {
-    fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> io::Result<()> {
+    fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> TerminalResult<()> {
         if self.sz.is_active() {
             self.sz.update(com, state)?;
             if !self.sz.is_active() {
@@ -194,7 +194,7 @@ impl Protocol for Zmodem {
         &mut self,
         com: &mut Connection,
         files: Vec<super::FileDescriptor>,
-    ) -> std::io::Result<TransferState> {
+    ) -> TerminalResult<TransferState> {
         let mut state = TransferState::new();
         state.send_state = Some(TransferInformation::new());
         state.protocol_name = self.get_name().to_string();
@@ -202,7 +202,7 @@ impl Protocol for Zmodem {
         Ok(state)
     }
 
-    fn initiate_recv(&mut self, com: &mut Connection) -> std::io::Result<TransferState> {
+    fn initiate_recv(&mut self, com: &mut Connection) -> TerminalResult<TransferState> {
         let mut state = TransferState::new();
         state.recieve_state = Some(TransferInformation::new());
         state.protocol_name = self.get_name().to_string();
@@ -216,7 +216,7 @@ impl Protocol for Zmodem {
         c
     }
 
-    fn cancel(&mut self, com: &mut Connection) -> io::Result<()> {
+    fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
         com.send(ABORT_SEQ.to_vec());
         Ok(())
     }

@@ -94,7 +94,7 @@ impl MainWindow {
                         for (k, m) in key_map {
                             if *k == key {
                                 self.handled_char = true;
-                                if let Some(con) = &self.connection_opt {
+                                if let Some(con) = &mut self.connection_opt {
                                     con.send(m.to_vec());
                                 } else {
                                     for c in *m {

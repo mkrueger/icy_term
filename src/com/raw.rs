@@ -1,11 +1,11 @@
-use crate::address::Address;
+use crate::{address::Address, TerminalResult};
 
-use super::Com;
+use super::{Com, ComResult, ComError};
 #[allow(dead_code)]
 use async_trait::async_trait;
-use std::{io::ErrorKind, thread, time::Duration, collections::VecDeque};
+use std::{time::Duration};
 use tokio::{
-    io::{self, AsyncWriteExt, AsyncReadExt},
+    io::{ AsyncWriteExt, AsyncReadExt},
     net::TcpStream,
 };
 
@@ -25,7 +25,7 @@ impl Com for RawCom {
         "Raw"
     }
 
-    async fn connect(&mut self, addr: &Address, timeout: Duration) -> Result<bool, String> {
+    async fn connect(&mut self, addr: &Address, timeout: Duration) -> TerminalResult<bool> {
         let r = tokio::time::timeout(timeout, TcpStream::connect(&addr.address)).await;
         match r {
             Ok(tcp_stream) => match tcp_stream {
@@ -33,23 +33,28 @@ impl Com for RawCom {
                     self.tcp_stream = Some(stream);
                     Ok(true)
                 }
-                Err(err) => Err(format!("{}", err)),
+                Err(err) => Err(Box::new(err)),
             },
-            Err(err) => Err(format!("{}", err)),
+            Err(err) => Err(Box::new(err)),
         }
     }
 
-    async fn read_data(&mut self) -> io::Result<Vec<u8>> {
+    async fn read_data(&mut self) -> ComResult<Vec<u8>> {
         let mut buf = [0; 1024 * 50];
-        let bytes = self.tcp_stream.as_mut().unwrap().read(&mut buf).await?;
-        Ok(buf[0..bytes].into())
+        match self.tcp_stream.as_mut().unwrap().read(&mut buf).await {
+            Ok(bytes) => Ok(buf[0..bytes].into()),
+            Err(err) => Err(Box::new(err))
+        }
     }
 
-    async fn write<'a>(&mut self, buf: &'a [u8]) -> io::Result<usize> {
-        Ok(self.tcp_stream.as_mut().unwrap().write(&buf).await?)
+    async fn write<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize> {
+        match self.tcp_stream.as_mut().unwrap().write(&buf).await {
+            Ok(bytes) => Ok(bytes),
+            Err(err) => Err(Box::new(err))
+        }
     }
 
-    fn disconnect(&mut self) -> io::Result<()> {
+    fn disconnect(&mut self) -> ComResult<()> {
         Ok(())
     }
 }

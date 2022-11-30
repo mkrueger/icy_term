@@ -9,13 +9,13 @@ use super::{
     get_checksum, Checksum, XYModemConfiguration,
 };
 use crate::{
-    com::Com,
     protocol::{
         str_from_null_terminated_utf8_unchecked,
         xymodem::constants::{ACK, CPMEOF, EOT, EXT_BLOCK_LENGTH, NAK, SOH, STX},
         FileDescriptor, TransferState,
-    }, ui::main_window::Connection,
+    }, TerminalResult
 };
+use crate::{com::{Connection}};
 
 #[derive(Debug)]
 pub enum RecvState {
@@ -67,7 +67,7 @@ impl Ry {
         }
     }
 
-    pub fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> io::Result<()> {
+    pub fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> TerminalResult<()> {
         if let Some(transfer_state) = &mut state.recieve_state {
             if self.files.len() > 0 {
                 let cur_file = self.files.len() - 1;
@@ -105,10 +105,10 @@ impl Ry {
                                 com.send(vec![NAK]);
                             } else {
                                 self.cancel(com)?;
-                                return Err(io::Error::new(
+                                return Err(Box::new(io::Error::new(
                                     ErrorKind::ConnectionAborted,
                                     "too many retries starting the communication",
-                                ));
+                                )));
                             }
                             self.errors += 1;
                             self.recv_state = RecvState::StartReceive(retries + 1);
@@ -205,10 +205,10 @@ impl Ry {
                                     com.send(vec![NAK]);
                                 } else {
                                     self.cancel(com)?;
-                                    return Err(io::Error::new(
+                                    return Err(Box::new(io::Error::new(
                                         ErrorKind::ConnectionAborted,
                                         "too many retries",
-                                    ));
+                                    )));
                                 }
                                 self.errors += 1;
                                 self.recv_state = RecvState::ReadBlockStart(0, retries + 1);
@@ -252,10 +252,10 @@ impl Ry {
                                     RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
                             } else {
                                 self.cancel(com)?;
-                                return Err(io::Error::new(
+                                return Err(Box::new(io::Error::new(
                                     ErrorKind::ConnectionAborted,
                                     "too many retries",
-                                ));
+                                )));
                             }
 
                             self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
@@ -281,19 +281,19 @@ impl Ry {
         Ok(())
     }
 
-    pub fn cancel(&self, com: &mut Connection) -> io::Result<()> {
+    pub fn cancel(&self, com: &mut Connection) -> TerminalResult<()> {
         com.send(vec![CAN, CAN]);
         Ok(())
     }
 
-    pub fn recv(&mut self, com: &mut Connection) -> io::Result<()> {
+    pub fn recv(&mut self, com: &mut Connection) -> TerminalResult<()> {
         self.await_data(com)?;
         self.data = Vec::new();
         self.recv_state = RecvState::StartReceive(0);
         Ok(())
     }
 
-    fn await_data(&mut self, com: &mut Connection) -> io::Result<usize> {
+    fn await_data(&mut self, com: &mut Connection) -> TerminalResult<usize> {
         if self.configuration.is_streaming() {
             com.send(vec![b'G']);
         } else if self.configuration.use_crc() {

@@ -1,16 +1,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(unsafe_code)]
 
-use std::{sync::{Arc}, env, io};
+use std::{sync::{Arc}, env};
 use egui::mutex::Mutex;
 use icy_engine::{DEFAULT_FONT_NAME, BufferParser, AvatarParser};
 use poll_promise::Promise;
-use rfd::FileDialog;
 use std::time::{Duration, SystemTime};
 
 use eframe::{egui::{self, Key}};
 
-use crate::{address::{Address, start_read_book}, com::{TelnetCom, RawCom, SSHCom}, protocol::FileDescriptor};
+use crate::{address::{Address, start_read_book}, com::{TelnetCom, RawCom, SSHCom, SendData}, TerminalResult};
 use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
 use crate::com::{Com};
@@ -18,6 +17,7 @@ use crate::protocol::{Protocol, TransferState};
 
 use super::{BufferView, screen_modes::ScreenMode};
 use tokio::sync::mpsc;
+use crate::{com::{Connection}};
 
 #[derive(PartialEq, Eq)]
 pub enum MainWindowMode {
@@ -40,36 +40,6 @@ impl Options {
     }
 }
 
-#[derive(Debug)]
-pub enum SendData {
-    Char(char),
-    Data(Vec<u8>),
-    Disconnect
-}
-
-pub struct Connection {
-    pub connection_time: SystemTime,
-    pub rx: mpsc::Receiver<SendData>,
-    pub tx: mpsc::Sender<SendData>,
-}
-
-impl Connection {
-    pub fn send(&self, vec: Vec<u8>) {
-        self.tx.try_send(SendData::Data(vec));
-    }
-
-    pub fn is_data_available(&mut self) -> io::Result<bool> {
-        Ok(false)
-    }
-    
-    pub fn read_char(&mut self, duration: Duration) -> io::Result<u8> {
-        Ok(0)
-    }
-
-    pub fn read_exact(&mut self, duration: Duration, bytes: usize) -> io::Result<Vec<u8>> {
-        Ok(Vec::new())
-    }
-}
 
 pub struct MainWindow {
     pub buffer_view: Arc<Mutex<BufferView>>,
@@ -148,7 +118,7 @@ impl MainWindow {
     pub fn output_char(&mut self, ch: char) {
         let translated_char = self.buffer_parser.from_unicode(ch);
         if let Some(con) = &mut self.connection_opt {
-            con.tx.try_send(SendData::Char(translated_char));
+            con.send(vec![translated_char as u8]);
         } else {
             self.print_char(translated_char as u8);
         }
@@ -272,46 +242,42 @@ impl MainWindow {
         }));
     }
 
-    pub fn update_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn update_state(&mut self) -> TerminalResult<()> {
 //        unsafe { super::simulate::run_sim(self); }
         let Some(con) = &mut self.connection_opt else { return Ok(()) };
 
-        if let Ok(data) = con.rx.try_recv() {
-            match data {
-                SendData::Data(vec) => {
-                    for ch in vec { 
-                        if let Some(adr) = self.addresses.get(self.cur_addr) {
-                            if let Err(err) = self.auto_login.try_login(&mut con.tx, adr, ch) {
-                                eprintln!("{}", err);
-                            }
-                        }
-                        let result = self.buffer_view.lock().print_char(&mut self.buffer_parser, unsafe { char::from_u32_unchecked(ch as u32) })?;
-                        match result {
-                            icy_engine::CallbackAction::None => {},
-                            icy_engine::CallbackAction::SendString(result) => {
-                                con.send(result.as_bytes().to_vec());
-                            },
-                            icy_engine::CallbackAction::PlayMusic(music) => { /* play_music(music)*/ }
-                        }
-                        if let Some((protocol_type, download)) =
-                            self.auto_file_transfer.try_transfer(ch)
-                        {
-                            self.initiate_file_transfer(protocol_type, download);
-                            return Ok(());
+        if con.is_data_available()? {
+            if let Ok(vec) = con.read_buffer() {
+                for ch in vec { 
+                    if let Some(adr) = self.addresses.get(self.cur_addr) {
+                        if let Err(err) = self.auto_login.try_login( con, adr, ch) {
+                            eprintln!("{}", err);
                         }
                     }
+                    let result = self.buffer_view.lock().print_char(&mut self.buffer_parser, unsafe { char::from_u32_unchecked(ch as u32) })?;
+                    match result {
+                        icy_engine::CallbackAction::None => {},
+                        icy_engine::CallbackAction::SendString(result) => {
+                            con.send(result.as_bytes().to_vec());
+                        },
+                        icy_engine::CallbackAction::PlayMusic(music) => { /* play_music(music)*/ }
+                    }
+                    if let Some((protocol_type, download)) =
+                        self.auto_file_transfer.try_transfer(ch)
+                    {
+                        self.initiate_file_transfer(protocol_type, download);
+                        return Ok(());
+                    }
                 }
-                SendData::Disconnect => {
-                    self.connection_opt = None;
-                }
-                _ => {} // never happens
             }
         }
-
+        if con.is_disconnected() {
+            self.connection_opt = None;
+        }
         self.auto_login.disabled |= self.is_alt_pressed;
         if let Some(adr) = self.addresses.get(self.cur_addr) {
             if let Some(con) = &mut self.connection_opt {
-                if let Err(err) = self.auto_login.run_autologin(&mut con.tx, adr) {
+                if let Err(err) = self.auto_login.run_autologin(con, adr) {
                     eprintln!("{}", err);
                 }
             }
@@ -323,7 +289,7 @@ impl MainWindow {
     pub fn hangup(&mut self) {
         self.open_connection_promise = None;
         if let Some(con) = &mut self.connection_opt {
-            con.tx.try_send(SendData::Disconnect);
+            con.disconnect();
         }
         self.connection_opt = None;
         self.mode = MainWindowMode::ShowPhonebook;
@@ -343,7 +309,7 @@ impl MainWindow {
         data.extend(&cr);
         data.extend_from_slice(adr.password.as_bytes());
         data.extend(cr);
-        if let Some(con) = &self.connection_opt {
+        if let Some(con) = &mut self.connection_opt {
             con.send(data);
         }
         self.auto_login.logged_in = true;
@@ -357,7 +323,7 @@ impl MainWindow {
             _ => {
                 let str = if let Some(con) = &self.connection_opt {
                     let d = SystemTime::now()
-                        .duration_since(con.connection_time)
+                        .duration_since(con.get_connection_time())
                         .unwrap();
                     let sec = d.as_secs();
                     let minutes = sec / 60;
@@ -396,13 +362,13 @@ impl eframe::App for MainWindow {
                     
                     let (tx, rx) = mpsc::channel::<SendData>(32);
                     let (tx2, mut rx2) = mpsc::channel::<SendData>(32);
-                    self.connection_opt = Some(Connection { connection_time: SystemTime::now(), rx, tx: tx2.clone() });
+                    self.connection_opt = Some(Connection::new(rx, tx2.clone()));
 
                     let mut handle = handle;
                     tokio::spawn(async move {
                         let mut done = false;
                         while !done {
-                            tokio::select! {
+                            let a = tokio::select! {
                                 Ok(v) = handle.read_data() => {
                                     if let Err(err) = tx.send(SendData::Data(v)).await {
                                         eprintln!("error while sending: {}", err);
@@ -431,9 +397,9 @@ impl eframe::App for MainWindow {
                                         }
                                     }
                                 }
-                            }
+                            };
                         }
-                        tx.send(SendData::Disconnect).await
+                        let a = tx.send(SendData::Disconnect).await;
                     });
                 }
             }

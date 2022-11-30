@@ -5,10 +5,10 @@ use std::{
 };
 
 use icy_engine::{get_crc16, get_crc32, update_crc16};
+use crate::{com::{Connection}, TerminalResult};
 
 use crate::{
-    com::Com,
-    protocol::{frame_types::ZACK, XON}, ui::main_window::Connection,
+    protocol::{frame_types::ZACK, XON}
 };
 
 use super::{
@@ -184,12 +184,12 @@ impl Header {
         res
     }
 
-    pub fn write(&mut self, com: &mut Connection) -> io::Result<usize> {
+    pub fn write(&mut self, com: &mut Connection) -> TerminalResult<usize> {
         com.send(self.build());
         Ok(0)
     }
 
-    pub fn get_frame_type(ftype: u8) -> io::Result<FrameType> {
+    pub fn get_frame_type(ftype: u8) -> TerminalResult<FrameType> {
         match ftype {
             frame_types::ZRQINIT => Ok(FrameType::ZRQINIT),
             frame_types::ZRINIT => Ok(FrameType::ZRINIT),
@@ -211,14 +211,14 @@ impl Header {
             frame_types::ZFREECNT => Ok(FrameType::ZFREECNT),
             frame_types::ZCOMMAND => Ok(FrameType::ZCOMMAND),
             frame_types::ZSTDERR => Ok(FrameType::ZSTDERR),
-            _ => Err(io::Error::new(
+            _ => Err(Box::new(io::Error::new(
                 ErrorKind::InvalidInput,
                 format!("Invalid frame type {}", ftype),
-            )),
+            ))),
         }
     }
 
-    pub fn read(com: &mut Connection, can_count: &mut usize) -> io::Result<Option<Header>> {
+    pub fn read(com: &mut Connection, can_count: &mut usize) -> TerminalResult<Option<Header>> {
         if com.is_data_available()? {
             let zpad = com.read_char(Duration::from_secs(5))?;
             if zpad == 0x18 {
@@ -226,14 +226,14 @@ impl Header {
                 *can_count += 1;
             }
             if zpad != ZPAD {
-                return Err(io::Error::new(
+                return Err(Box::new(io::Error::new(
                     io::ErrorKind::InvalidData,
                     format!(
                         "ZPAD expected got {} (0x{:X}) ",
                         char::from_u32(zpad as u32).unwrap(),
                         zpad
                     ),
-                ));
+                )));
             }
             *can_count = 0;
             let mut next = com.read_char(Duration::from_secs(5))?;
@@ -241,7 +241,7 @@ impl Header {
                 next = com.read_char(Duration::from_secs(5))?;
             }
             if next != ZDLE {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "ZDLE expected"));
+                return Err(Box::new(io::Error::new(io::ErrorKind::InvalidData, "ZDLE expected")));
             }
 
             let header_type = com.read_char(Duration::from_secs(5))?;
@@ -250,10 +250,10 @@ impl Header {
                 ZBIN32 => 9,
                 ZHEX => 14,
                 _ => {
-                    return Err(io::Error::new(
+                    return Err(Box::new(io::Error::new(
                         io::ErrorKind::InvalidData,
                         "Unknown header type",
-                    ))
+                    )))
                 }
             };
 
@@ -263,7 +263,7 @@ impl Header {
                     let crc16 = get_crc16(&header_data[0..5]);
                     let check_crc16 = u16::from_le_bytes(header_data[5..7].try_into().unwrap());
                     if crc16 != check_crc16 {
-                        return Err(io::Error::new(io::ErrorKind::InvalidData, "CRC16 mismatch"));
+                        return Err(Box::new(io::Error::new(io::ErrorKind::InvalidData, "CRC16 mismatch")));
                     }
                     Ok(Some(Header {
                         header_type: HeaderType::Bin,
@@ -276,13 +276,13 @@ impl Header {
                     let crc32 = get_crc32(&data);
                     let check_crc32 = u32::from_le_bytes(header_data[5..9].try_into().unwrap());
                     if crc32 != check_crc32 {
-                        return Err(io::Error::new(
+                        return Err(Box::new(io::Error::new(
                             ErrorKind::InvalidData,
                             format!(
                                 "crc32 mismatch got {:08X} expected {:08X}",
                                 crc32, check_crc32
                             ),
-                        ));
+                        )));
                     }
                     Ok(Some(Header {
                         header_type: HeaderType::Bin32,
@@ -306,13 +306,13 @@ impl Header {
                         check_crc16 = check_crc16 << 4 | (from_hex(*b)? as u16);
                     }
                     if crc16 != check_crc16 {
-                        return Err(io::Error::new(
+                        return Err(Box::new(io::Error::new(
                             ErrorKind::InvalidData,
                             format!(
                                 "crc16 mismatch got {:04X} expected {:04X}",
                                 crc16, check_crc16
                             ),
-                        ));
+                        )));
                     }
                     // read rest
                     let eol = com.read_char(Duration::from_secs(5))?;

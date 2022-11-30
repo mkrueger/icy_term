@@ -6,12 +6,12 @@ use std::{
 use icy_engine::{get_crc32, update_crc32};
 
 use crate::{
-    com::Com,
     protocol::{
         str_from_null_terminated_utf8_unchecked, FileDescriptor, TransferInformation, FrameType,
         Header, HeaderType, TransferState, Zmodem, ZCRCE, ZCRCG, ZCRCW,
-    }, ui::main_window::Connection,
+    }, TerminalResult, 
 };
+use crate::{com::{Connection}};
 
 use super::{constants::*, read_zdle_bytes};
 
@@ -67,12 +67,12 @@ impl Rz {
         HeaderType::Hex
     }
 
-    fn cancel(&mut self, com: &mut Connection) -> io::Result<()> {
+    fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
         self.state = RevcState::Idle;
         Zmodem::cancel(com)
     }
 
-    pub fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> io::Result<()> {
+    pub fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> TerminalResult<()> {
         if let RevcState::Idle = self.state {
             return Ok(());
         }
@@ -160,7 +160,7 @@ impl Rz {
         Ok(())
     }
 
-    fn request_zpos(&mut self, com: &mut Connection) -> io::Result<usize> {
+    fn request_zpos(&mut self, com: &mut Connection) -> TerminalResult<usize> {
         Header::from_number(self.get_header_type(), FrameType::ZRPOS, 0).write(com)
     }
 
@@ -168,7 +168,7 @@ impl Rz {
         &mut self,
         com: &mut Connection,
         transfer_state: &mut TransferInformation,
-    ) -> io::Result<bool> {
+    ) -> TerminalResult<bool> {
         while com.is_data_available()? {
             let result = Header::read(com, &mut self.can_count);
             if let Err(err) = result {
@@ -250,10 +250,10 @@ impl Rz {
                         let offset = res.number();
                         if self.files.len() == 0 {
                             self.cancel(com)?;
-                            return Err(io::Error::new(
+                            return Err(Box::new(io::Error::new(
                                 ErrorKind::InvalidInput,
                                 "Got ZDATA before ZFILE",
-                            ));
+                            )));
                         }
                         let header_type = self.get_header_type();
                         let last = self.files.len() - 1;
@@ -316,10 +316,10 @@ impl Rz {
                         self.state = RevcState::Idle;
                     }
                     unk_frame => {
-                        return Err(io::Error::new(
+                        return Err(Box::new(io::Error::new(
                             ErrorKind::InvalidInput,
                             format!("unsupported frame {:?}.", unk_frame),
-                        ));
+                        )));
                     }
                 }
             }
@@ -327,7 +327,7 @@ impl Rz {
         Ok(false)
     }
 
-    pub fn recv(&mut self, com: &mut Connection) -> io::Result<()> {
+    pub fn recv(&mut self, com: &mut Connection) -> TerminalResult<()> {
         self.state = RevcState::Await;
         self.last_send = SystemTime::UNIX_EPOCH;
         self.retries = 0;
@@ -335,7 +335,7 @@ impl Rz {
         Ok(())
     }
 
-    pub fn send_zrinit(&mut self, com: &mut Connection) -> io::Result<()> {
+    pub fn send_zrinit(&mut self, com: &mut Connection) -> TerminalResult<()> {
         Header::from_flags(self.get_header_type(), FrameType::ZRINIT, 0, 0, 0, 0x23).write(com)?;
         Ok(())
     }
@@ -345,7 +345,7 @@ pub fn read_subpacket(
     com: &mut Connection,
     block_length: usize,
     use_crc32: bool,
-) -> io::Result<(Vec<u8>, bool, bool)> {
+) -> TerminalResult<(Vec<u8>, bool, bool)> {
     let mut data = Vec::with_capacity(block_length);
     let d = Duration::from_secs(5);
     loop {
@@ -387,10 +387,10 @@ pub fn read_subpacket(
                         return Ok((data, true, true));
                     }
                     _ => {
-                        return Err(io::Error::new(
+                        return Err(Box::new(io::Error::new(
                             ErrorKind::InvalidData,
                             format!("don't understand subpacket {}/x{:X}", c2, c2),
-                        ));
+                        )));
                     }
                 }
             }
@@ -408,7 +408,7 @@ fn check_crc(
     use_crc32: bool,
     data: &Vec<u8>,
     zcrc_byte: u8,
-) -> io::Result<bool> {
+) -> TerminalResult<bool> {
     if use_crc32 {
         let mut crc = get_crc32(data);
         crc = !update_crc32(!crc, zcrc_byte);
@@ -417,10 +417,10 @@ fn check_crc(
         if crc == check_crc {
             Ok(true)
         } else {
-            Err(io::Error::new(
+            Err(Box::new(io::Error::new(
                 ErrorKind::InvalidData,
                 format!("crc32 mismatch got {:08X} expected {:08X}", crc, check_crc),
-            ))
+            )))
         }
     } else {
         let crc = icy_engine::get_crc16_buggy(data, zcrc_byte);
@@ -429,10 +429,10 @@ fn check_crc(
         if crc == check_crc {
             Ok(true)
         } else {
-            Err(io::Error::new(
+            Err(Box::new(io::Error::new(
                 ErrorKind::InvalidData,
                 format!("crc16 mismatch got {:04X} expected {:04X}", crc, check_crc),
-            ))
+            )))
         }
     }
 }

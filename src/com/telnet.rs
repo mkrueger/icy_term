@@ -1,7 +1,8 @@
-use crate::address::Address;
+use crate::{address::Address, TerminalResult};
 
 #[allow(dead_code)]
 use super::Com;
+use super::ComResult;
 use async_trait::async_trait;
 use std::{io::ErrorKind, thread, time::Duration};
 use tokio::{
@@ -89,7 +90,7 @@ enum TelnetCmd {
 }
 
 impl TelnetCmd {
-    pub fn get(byte: u8) -> io::Result<TelnetCmd> {
+    pub fn get(byte: u8) -> TerminalResult<TelnetCmd> {
         let cmd = match byte {
             0xF0 => TelnetCmd::SE,
             0xF1 => TelnetCmd::NOP,
@@ -108,10 +109,10 @@ impl TelnetCmd {
             0xFE => TelnetCmd::DONT,
             0xFF => TelnetCmd::IAC,
             _ => {
-                return Err(io::Error::new(
+                return Err(Box::new(io::Error::new(
                     ErrorKind::InvalidData,
                     format!("unknown IAC: {}/x{:02X}", byte, byte),
-                ));
+                )));
             }
         };
         Ok(cmd)
@@ -229,7 +230,7 @@ enum TelnetOption {
 }
 
 impl TelnetOption {
-    pub fn get(byte: u8) -> io::Result<TelnetOption> {
+    pub fn get(byte: u8) -> TerminalResult<TelnetOption> {
         let cmd = match byte {
             0 => TelnetOption::TransmitBinary,
             1 => TelnetOption::Echo,
@@ -282,10 +283,10 @@ impl TelnetOption {
             // unassigned
             255 => TelnetOption::ExtendedOptionsList,
             _ => {
-                return Err(io::Error::new(
+                return Err(Box::new(io::Error::new(
                     ErrorKind::InvalidData,
                     format!("unknown option: {}/x{:02X}", byte, byte),
-                ));
+                )));
             }
         };
         Ok(cmd)
@@ -301,7 +302,7 @@ impl TelnetCom {
         }
     }
 
-    fn parse(&mut self, data: &[u8]) -> io::Result<()> {
+    fn parse(&mut self, data: &[u8]) -> TerminalResult<()> {
         for b in data {
             match self.state {
                 ParserState::Data => {
@@ -393,7 +394,7 @@ impl TelnetCom {
         Ok(())
     }
 
-    fn fill_buffer(&mut self) -> io::Result<()> {
+    fn fill_buffer(&mut self) -> TerminalResult<()> {
         let mut buf = [0; 1024 * 256];
         loop {
             match self.tcp_stream.as_mut().unwrap().try_read(&mut buf) {
@@ -404,17 +405,17 @@ impl TelnetCom {
                     if e.kind() == io::ErrorKind::WouldBlock {
                         break;
                     }
-                    return Err(io::Error::new(
+                    return Err(Box::new(io::Error::new(
                         ErrorKind::ConnectionAborted,
                         format!("Telnet error: {}", e),
-                    ));
+                    )));
                 }
             };
         }
         Ok(())
     }
 
-    fn fill_buffer_wait(&mut self, _timeout: Duration) -> io::Result<()> {
+    fn fill_buffer_wait(&mut self, _timeout: Duration) -> TerminalResult<()> {
         self.fill_buffer()?;
         while self.buf.len() == 0 {
             self.fill_buffer()?;
@@ -430,7 +431,7 @@ impl Com for TelnetCom {
         "Telnet"
     }
 
-    async fn connect(&mut self, addr: &Address, timeout: Duration) -> Result<bool, String> {
+    async fn connect(&mut self, addr: &Address, timeout: Duration) -> TerminalResult<bool> {
         let r = tokio::time::timeout(timeout, TcpStream::connect(&addr.address)).await;
         match r {
             Ok(tcp_stream) => match tcp_stream {
@@ -438,24 +439,26 @@ impl Com for TelnetCom {
                     self.tcp_stream = Some(stream);
                     Ok(true)
                 }
-                Err(err) => Err(format!("{}", err)),
+                Err(err) => Err(Box::new(err)),
             },
-            Err(err) => Err(format!("{}", err)),
+            Err(err) => Err(Box::new(err)),
         }
     }
 
-    async fn read_data(&mut self) -> io::Result<Vec<u8>> {
+    async fn read_data(&mut self) -> ComResult<Vec<u8>> {
         let mut buf = [0; 1024 * 50];
-        let bytes = self.tcp_stream.as_mut().unwrap().read(&mut buf).await?;
-        Ok(buf[0..bytes].into())
+        match self.tcp_stream.as_mut().unwrap().read(&mut buf).await {
+            Ok(bytes) => Ok(buf[0..bytes].into()),
+            Err(error) => Err(Box::new(error))
+        }
     }
 
-    fn disconnect(&mut self) -> io::Result<()> {
+    fn disconnect(&mut self) -> ComResult<()> {
         // self.tcp_stream.shutdown(std::net::Shutdown::Both)
         Ok(())
     }
 
-    async fn write<'a>(&mut self, buf: &'a [u8]) -> io::Result<usize> {
+    async fn write<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize> {
         let mut data = Vec::with_capacity(buf.len());
         for b in buf {
             if *b == IAC {
@@ -464,6 +467,10 @@ impl Com for TelnetCom {
                 data.push(*b);
             }
         }
-        Ok(self.tcp_stream.as_mut().unwrap().write(&data).await?)
+
+        match self.tcp_stream.as_mut().unwrap().write(&data).await {
+            Ok(bytes) => Ok(bytes),
+            Err(error) => Err(Box::new(error))
+        }
     }
 }

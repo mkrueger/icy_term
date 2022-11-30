@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 use std::{
-    io::{self},
     time::Duration,
 };
 
 use async_trait::async_trait;
 
+use crate::TerminalResult;
 use crate::address::Address;
 
-use super::Com;
+use super::{Com, ComResult};
 
 #[derive(Debug)]
 pub struct TestCom {
@@ -27,24 +27,24 @@ impl Com for TestCom {
         "Test_Com"
     }
 
-    async fn connect(&mut self, _addr: &Address, _timeout: Duration) -> Result<bool, String> {
+    async fn connect(&mut self, _addr: &Address, _timeout: Duration) -> TerminalResult<bool> {
         Ok(true)
     }
 
-    async fn read_data(&mut self) -> io::Result<Vec<u8>> {
+    async fn read_data(&mut self) -> ComResult<Vec<u8>> {
         todo!();
     }
 
-    async fn write<'a>(&mut self, buf: &'a [u8]) -> io::Result<usize> {
+    async fn write<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize> {
         todo!();
     }
 
-    fn disconnect(&mut self) -> io::Result<()> {
+    fn disconnect(&mut self) -> ComResult<()> {
         // nothing
         Ok(())
     }
 /* 
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> TerminalResult<usize> {
         if self.name == "receiver" {
             indent_receiver();
         }
