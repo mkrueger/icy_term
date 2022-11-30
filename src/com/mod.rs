@@ -24,14 +24,7 @@ use crate::address::Address;
 pub trait Com: Sync + Send {
     fn get_name(&self) -> &'static str;
 
-    fn read_char(&mut self, duration: Duration) -> io::Result<u8>;
-    fn read_char_nonblocking(&mut self) -> io::Result<u8>;
-    fn read_exact(&mut self, duration: Duration, bytes: usize) -> io::Result<Vec<u8>>;
-
-    fn is_data_available(&mut self) -> io::Result<bool>;
-    
     async fn write<'a>(&mut self, buf: &'a [u8]) -> io::Result<usize>;
-    
     async fn connect(&mut self, addr: &Address, timeout: Duration) -> Result<bool, String>;
     async fn read_data(&mut self) -> io::Result<Vec<u8>>;
 

@@ -443,35 +443,6 @@ impl Com for TelnetCom {
             Err(err) => Err(format!("{}", err)),
         }
     }
-    fn read_char(&mut self, timeout: Duration) -> io::Result<u8> {
-        if let Some(b) = self.buf.pop_front() {
-            return Ok(b);
-        }
-        self.fill_buffer_wait(timeout)?;
-        if let Some(b) = self.buf.pop_front() {
-            return Ok(b);
-        }
-        return Err(io::Error::new(ErrorKind::TimedOut, "timed out"));
-    }
-
-    fn read_char_nonblocking(&mut self) -> io::Result<u8> {
-        if let Some(b) = self.buf.pop_front() {
-            return Ok(b);
-        }
-        return Err(io::Error::new(ErrorKind::TimedOut, "no data avaliable"));
-    }
-
-    fn read_exact(&mut self, duration: Duration, bytes: usize) -> io::Result<Vec<u8>> {
-        while self.buf.len() < bytes {
-            self.fill_buffer_wait(duration)?;
-        }
-        Ok(self.buf.drain(0..bytes).collect())
-    }
-
-    fn is_data_available(&mut self) -> io::Result<bool> {
-        self.fill_buffer()?;
-        Ok(self.buf.len() > 0)
-    }
 
     async fn read_data(&mut self) -> io::Result<Vec<u8>> {
         let mut buf = [0; 1024 * 50];

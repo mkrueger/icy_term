@@ -5,49 +5,17 @@ use super::Com;
 use async_trait::async_trait;
 use std::{io::ErrorKind, thread, time::Duration, collections::VecDeque};
 use tokio::{
-    io::{self, AsyncWriteExt},
+    io::{self, AsyncWriteExt, AsyncReadExt},
     net::TcpStream,
 };
 
 pub struct SSHCom {
-    tcp_stream: Option<TcpStream>,
-    buf: std::collections::VecDeque<u8>,
+    tcp_stream: Option<TcpStream>
 }
 
 impl SSHCom {
     pub fn new() -> Self {
-        Self { tcp_stream: None, buf: VecDeque::new() }
-    }
-
-    fn fill_buffer(&mut self) -> io::Result<()> {
-        let mut buf = [0; 1024 * 256];
-        loop {
-            match self.tcp_stream.as_mut().unwrap().try_read(&mut buf) {
-                Ok(size) => {
-                    self.buf.extend(&buf[0..size]);
-                    return Ok(());
-                }
-                Err(ref e) => {
-                    if e.kind() == io::ErrorKind::WouldBlock {
-                        break;
-                    }
-                    return Err(io::Error::new(
-                        ErrorKind::ConnectionAborted,
-                        format!("Telnet error: {}", e),
-                    ));
-                }
-            };
-        }
-        Ok(())
-    }
-
-    fn fill_buffer_wait(&mut self, _timeout: Duration) -> io::Result<()> {
-        self.fill_buffer()?;
-        while self.buf.len() == 0 {
-            self.fill_buffer()?;
-            thread::sleep(Duration::from_millis(10));
-        }
-        Ok(())
+        Self { tcp_stream: None }
     }
 }
 
@@ -70,41 +38,10 @@ impl Com for SSHCom {
         }
     }
 
-    fn read_char(&mut self, timeout: Duration) -> io::Result<u8> {
-        if let Some(b) = self.buf.pop_front() {
-            return Ok(b);
-        }
-        self.fill_buffer_wait(timeout)?;
-        if let Some(b) = self.buf.pop_front() {
-            return Ok(b);
-        }
-        return Err(io::Error::new(ErrorKind::TimedOut, "timed out"));
-    }
-
-    fn read_char_nonblocking(&mut self) -> io::Result<u8> {
-        if let Some(b) = self.buf.pop_front() {
-            return Ok(b);
-        }
-        return Err(io::Error::new(ErrorKind::TimedOut, "no data avaliable"));
-    }
-
-    fn read_exact(&mut self, duration: Duration, bytes: usize) -> io::Result<Vec<u8>> {
-        while self.buf.len() < bytes {
-            self.fill_buffer_wait(duration)?;
-        }
-        Ok(self.buf.drain(0..bytes).collect())
-    }
-
-    fn is_data_available(&mut self) -> io::Result<bool> {
-        self.fill_buffer()?;
-        Ok(self.buf.len() > 0)
-    }
-
     async fn read_data(&mut self) -> io::Result<Vec<u8>> {
-        self.fill_buffer()?;
-        let r = self.buf.make_contiguous().to_vec();
-        self.buf.clear();
-        Ok(r)
+        let mut buf = [0; 1024 * 50];
+        let bytes = self.tcp_stream.as_mut().unwrap().read(&mut buf).await?;
+        Ok(buf[0..bytes].into())
     }
 
     fn disconnect(&mut self) -> io::Result<()> {

@@ -31,46 +31,6 @@ impl Com for TestCom {
         Ok(true)
     }
 
-    fn read_char(&mut self, _timeout: Duration) -> io::Result<u8> {
-        if self.name == "receiver" {
-            indent_receiver();
-        }
-        /*
-        if let Some(b) = self.read_buf.borrow_mut().pop_front() {
-            println!("{} reads char {}/0x{:0X}({})", self.name, b, b, char::from_u32(b as u32).unwrap());
-            return Ok(b);
-        }*/
-        panic!("should not happen!");
-    }
-
-    fn read_char_nonblocking(&mut self) -> io::Result<u8> {
-        if self.name == "receiver" {
-            indent_receiver();
-        }
-        /*
-        if let Some(b) = self.read_buf.borrow_mut().pop_front() {
-            println!("{} reads char {}({})", self.name, b, char::from_u32(b as u32).unwrap());
-            return Ok(b);
-        }*/
-        panic!("should not happen!");
-    }
-
-    fn read_exact(&mut self, _duration: Duration, _bytes: usize) -> io::Result<Vec<u8>> {
-        if self.name == "receiver" {
-            indent_receiver();
-        }
-        panic!("should not happen!");
-        /*
-        let b = self.read_buf.borrow_mut().drain(0..bytes).collect();
-        println!("{} reads {:?}", self.name, b);
-        Ok(b) */
-    }
-
-    fn is_data_available(&mut self) -> io::Result<bool> {
-        //Ok(self.read_buf.borrow().len() > 0)
-        Ok(false)
-    }
-
     async fn read_data(&mut self) -> io::Result<Vec<u8>> {
         todo!();
     }
@@ -129,7 +89,7 @@ impl TestChannel {
         }
     }
 }
-
+/* 
 mod tests {
     use crate::com::test_com::TestChannel;
     use std::time::Duration;
@@ -146,4 +106,4 @@ mod tests {
                 .unwrap()
         );
     }
-}
+}*/
