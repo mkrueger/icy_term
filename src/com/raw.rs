@@ -5,7 +5,7 @@ use super::Com;
 use async_trait::async_trait;
 use std::{io::ErrorKind, thread, time::Duration, collections::VecDeque};
 use tokio::{
-    io::{self},
+    io::{self, AsyncWriteExt},
     net::TcpStream,
 };
 
@@ -56,6 +56,7 @@ impl Com for RawCom {
     fn get_name(&self) -> &'static str {
         "Raw"
     }
+
     async fn connect(&mut self, addr: &Address, timeout: Duration) -> Result<bool, String> {
         let r = tokio::time::timeout(timeout, TcpStream::connect(&addr.address)).await;
         match r {
@@ -68,6 +69,17 @@ impl Com for RawCom {
             },
             Err(err) => Err(format!("{}", err)),
         }
+    }
+
+    async fn read_data(&mut self) -> io::Result<Vec<u8>> {
+        self.fill_buffer()?;
+        let r = self.buf.make_contiguous().to_vec();
+        self.buf.clear();
+        Ok(r)
+    }
+
+    async fn write<'a>(&mut self, buf: &'a [u8]) -> io::Result<usize> {
+        Ok(self.tcp_stream.as_mut().unwrap().write(&buf).await?)
     }
 
     fn read_char(&mut self, timeout: Duration) -> io::Result<u8> {
@@ -100,18 +112,8 @@ impl Com for RawCom {
         Ok(self.buf.len() > 0)
     }
 
-    async fn read_data(&mut self) -> io::Result<Vec<u8>> {
-        self.fill_buffer()?;
-        let r = self.buf.make_contiguous().to_vec();
-        self.buf.clear();
-        Ok(r)
-    }
-
     fn disconnect(&mut self) -> io::Result<()> {
         Ok(())
     }
    
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.tcp_stream.as_mut().unwrap().try_write(&buf)
-    }
 }

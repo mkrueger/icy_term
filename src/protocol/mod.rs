@@ -12,6 +12,7 @@ pub mod zmodem;
 pub use zmodem::*;
 
 use crate::com::Com;
+use crate::ui::main_window::Connection;
 
 #[derive(Clone)]
 pub struct FileDescriptor {
@@ -200,15 +201,15 @@ impl TransferState {
 }
 
 pub trait Protocol {
-    fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()>;
+    fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> io::Result<()>;
     fn initiate_send(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         files: Vec<FileDescriptor>,
     ) -> io::Result<TransferState>;
-    fn initiate_recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<TransferState>;
+    fn initiate_recv(&mut self, com: &mut Connection) -> io::Result<TransferState>;
     fn get_received_files(&mut self) -> Vec<FileDescriptor>;
-    fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()>;
+    fn cancel(&mut self, com: &mut Connection) -> io::Result<()>;
 }
 
 #[derive(Debug, Clone, Copy)]

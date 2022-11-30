@@ -1,3 +1,4 @@
+/* 
 #[cfg(test)]
 mod tests {
     use crate::{com::TestChannel, protocol::*};
@@ -279,3 +280,4 @@ mod tests {
         assert_eq!(data2.len(), rdata[1].size);
     }
 }
+*/

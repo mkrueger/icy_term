@@ -10,7 +10,7 @@ use crate::{
     protocol::{
         str_from_null_terminated_utf8_unchecked, FileDescriptor, TransferInformation, FrameType,
         Header, HeaderType, TransferState, Zmodem, ZCRCE, ZCRCG, ZCRCW,
-    },
+    }, ui::main_window::Connection,
 };
 
 use super::{constants::*, read_zdle_bytes};
@@ -67,12 +67,12 @@ impl Rz {
         HeaderType::Hex
     }
 
-    fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
+    fn cancel(&mut self, com: &mut Connection) -> io::Result<()> {
         self.state = RevcState::Idle;
         Zmodem::cancel(com)
     }
 
-    pub fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()> {
+    pub fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> io::Result<()> {
         if let RevcState::Idle = self.state {
             return Ok(());
         }
@@ -160,13 +160,13 @@ impl Rz {
         Ok(())
     }
 
-    fn request_zpos(&mut self, com: &mut Box<dyn Com>) -> io::Result<usize> {
+    fn request_zpos(&mut self, com: &mut Connection) -> io::Result<usize> {
         Header::from_number(self.get_header_type(), FrameType::ZRPOS, 0).write(com)
     }
 
     fn read_header(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         transfer_state: &mut TransferInformation,
     ) -> io::Result<bool> {
         while com.is_data_available()? {
@@ -327,7 +327,7 @@ impl Rz {
         Ok(false)
     }
 
-    pub fn recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
+    pub fn recv(&mut self, com: &mut Connection) -> io::Result<()> {
         self.state = RevcState::Await;
         self.last_send = SystemTime::UNIX_EPOCH;
         self.retries = 0;
@@ -335,14 +335,14 @@ impl Rz {
         Ok(())
     }
 
-    pub fn send_zrinit(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
+    pub fn send_zrinit(&mut self, com: &mut Connection) -> io::Result<()> {
         Header::from_flags(self.get_header_type(), FrameType::ZRINIT, 0, 0, 0, 0x23).write(com)?;
         Ok(())
     }
 }
 
 pub fn read_subpacket(
-    com: &mut Box<dyn Com>,
+    com: &mut Connection,
     block_length: usize,
     use_crc32: bool,
 ) -> io::Result<(Vec<u8>, bool, bool)> {
@@ -404,7 +404,7 @@ pub fn read_subpacket(
 }
 
 fn check_crc(
-    com: &mut Box<dyn Com>,
+    com: &mut Connection,
     use_crc32: bool,
     data: &Vec<u8>,
     zcrc_byte: u8,

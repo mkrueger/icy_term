@@ -74,12 +74,16 @@ impl Com for TestCom {
     async fn read_data(&mut self) -> io::Result<Vec<u8>> {
         todo!();
     }
-    
+
+    async fn write<'a>(&mut self, buf: &'a [u8]) -> io::Result<usize> {
+        todo!();
+    }
+
     fn disconnect(&mut self) -> io::Result<()> {
         // nothing
         Ok(())
     }
-
+/* 
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         if self.name == "receiver" {
             indent_receiver();
@@ -95,7 +99,7 @@ impl Com for TestCom {
         }
         // self.write_buf.borrow_mut().extend(buf.iter());
         Ok(buf.len())
-    }
+    }*/
 }
 
 #[cfg(test)]
@@ -134,7 +138,7 @@ mod tests {
     fn test_simple() {
         let mut test = TestChannel::new();
         let t = b"Hello World";
-        test.sender.write(t).expect("error.");
+        test.sender.write(t);
         assert_eq!(
             t.to_vec(),
             test.receiver

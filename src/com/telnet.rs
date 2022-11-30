@@ -5,7 +5,7 @@ use super::Com;
 use async_trait::async_trait;
 use std::{io::ErrorKind, thread, time::Duration};
 use tokio::{
-    io::{self, AsyncReadExt},
+    io::{self, AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
 };
 
@@ -484,7 +484,7 @@ impl Com for TelnetCom {
         Ok(())
     }
 
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+    async fn write<'a>(&mut self, buf: &'a [u8]) -> io::Result<usize> {
         let mut data = Vec::with_capacity(buf.len());
         for b in buf {
             if *b == IAC {
@@ -493,6 +493,6 @@ impl Com for TelnetCom {
                 data.push(*b);
             }
         }
-        self.tcp_stream.as_mut().unwrap().try_write(&data)
+        Ok(self.tcp_stream.as_mut().unwrap().write(&data).await?)
     }
 }

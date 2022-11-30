@@ -1,4 +1,4 @@
-use crate::com::Com;
+use crate::{com::Com, ui::main_window::Connection};
 use std::io::{self};
 
 mod constants;
@@ -43,7 +43,7 @@ impl XYmodem {
 }
 
 impl super::Protocol for XYmodem {
-    fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()> {
+    fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> io::Result<()> {
         if let Some(ry) = &mut self.ry {
             ry.update(com, state)?;
             state.is_finished = ry.is_finished();
@@ -56,7 +56,7 @@ impl super::Protocol for XYmodem {
 
     fn initiate_send(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         files: Vec<FileDescriptor>,
     ) -> io::Result<TransferState> {
         if !self.config.is_ymodem() && files.len() != 1 {
@@ -80,7 +80,7 @@ impl super::Protocol for XYmodem {
         Ok(state)
     }
 
-    fn initiate_recv(&mut self, com: &mut Box<dyn Com>) -> io::Result<TransferState> {
+    fn initiate_recv(&mut self, com: &mut Connection) -> io::Result<TransferState> {
         let mut ry = ry::Ry::new(self.config);
         ry.recv(com)?;
         self.ry = Some(ry);
@@ -108,10 +108,11 @@ impl super::Protocol for XYmodem {
         }
     }
 
-    fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
-        com.write(&[CAN, CAN])?;
-        com.write(&[CAN, CAN])?;
-        com.write(&[CAN, CAN])?;
+    fn cancel(&mut self, com: &mut Connection) -> io::Result<()> {
+        // TODO!!!
+        // com.write(&[CAN, CAN])?;
+        // com.write(&[CAN, CAN])?;
+        // com.write(&[CAN, CAN])?;
         Ok(())
     }
 }

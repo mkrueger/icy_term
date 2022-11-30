@@ -14,7 +14,7 @@ use crate::{
     protocol::{
         xymodem::constants::{ACK, CPMEOF, EOT, EXT_BLOCK_LENGTH, NAK, SOH, STX},
         FileDescriptor, TransferState,
-    },
+    }, ui::main_window::Connection,
 };
 
 #[derive(Debug)]
@@ -77,7 +77,7 @@ impl Sy {
         }
     }
 
-    pub fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()> {
+    pub fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> io::Result<()> {
         if let Some(transfer_state) = &mut state.send_state {
             if self.cur_file < self.files.len() {
                 let f = &self.files[self.cur_file];
@@ -218,7 +218,7 @@ impl Sy {
                     0 => {
                         if com.is_data_available()? {
                             if self.read_command(com)? == NAK {
-                                com.write(&[EOT])?;
+                                com.send(vec![EOT]);
                                 self.send_state = SendState::YModemEndHeader(1);
                                 return Ok(());
                             }
@@ -254,7 +254,7 @@ impl Sy {
         Ok(())
     }
 
-    fn check_eof(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
+    fn check_eof(&mut self, com: &mut Connection) -> io::Result<()> {
         if self.bytes_send >= self.files[self.cur_file].size {
             self.eot(com)?;
             if self.configuration.is_ymodem() {
@@ -266,7 +266,7 @@ impl Sy {
         Ok(())
     }
 
-    fn read_command(&self, com: &mut Box<dyn Com>) -> io::Result<u8> {
+    fn read_command(&self, com: &mut Connection) -> io::Result<u8> {
         let ch = com.read_char(self.recv_timeout)?;
         /* let cmd = match ch {
             b'C' => "[C]",
@@ -286,12 +286,13 @@ impl Sy {
         Ok(ch)
     }
 
-    fn eot(&self, com: &mut Box<dyn Com>) -> io::Result<usize> {
+    fn eot(&self, com: &mut Connection) -> io::Result<usize> {
         // println!("[EOT]");
-        com.write(&[EOT])
+        com.send(vec![EOT]);
+        Ok(1)
     }
 
-    pub fn get_mode(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
+    pub fn get_mode(&mut self, com: &mut Connection) -> io::Result<()> {
         let ch = self.read_command(com)?;
         match ch {
             NAK => {
@@ -322,7 +323,7 @@ impl Sy {
         }
     }
 
-    fn send_block(&mut self, com: &mut Box<dyn Com>, data: &[u8], pad_byte: u8) -> io::Result<()> {
+    fn send_block(&mut self, com: &mut Connection, data: &[u8], pad_byte: u8) -> io::Result<()> {
         let block_len = if data.len() <= DEFAULT_BLOCK_LENGTH {
             SOH
         } else {
@@ -354,12 +355,12 @@ impl Sy {
             }
         }
         // println!("Send block {:X?}", block);
-        com.write(&block)?;
+        com.send(block);
         self.block_number += 1;
         Ok(())
     }
 
-    fn send_ymodem_header(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
+    fn send_ymodem_header(&mut self, com: &mut Connection) -> io::Result<()> {
         if self.cur_file < self.files.len() {
             // restart from 0
             let mut block = Vec::new();
@@ -376,7 +377,7 @@ impl Sy {
         }
     }
 
-    fn send_data_block(&mut self, com: &mut Box<dyn Com>, offset: usize) -> io::Result<bool> {
+    fn send_data_block(&mut self, com: &mut Connection, offset: usize) -> io::Result<bool> {
         let data_len = self.data.len();
         if offset >= data_len {
             return Ok(false);
@@ -395,16 +396,16 @@ impl Sy {
         Ok(true)
     }
 
-    pub fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
+    pub fn cancel(&mut self, com: &mut Connection) -> io::Result<()> {
         self.send_state = SendState::None;
         // println!("CANCEL!");
-        com.write(&[CAN, CAN])?;
-        com.write(&[CAN, CAN])?;
-        com.write(&[CAN, CAN])?;
+        com.send(vec![CAN, CAN]);
+        com.send(vec![CAN, CAN]);
+        com.send(vec![CAN, CAN]);
         Ok(())
     }
 
-    pub fn send(&mut self, _com: &Box<dyn Com>, files: Vec<FileDescriptor>) -> io::Result<()> {
+    pub fn send(&mut self, _com: &mut Connection, files: Vec<FileDescriptor>) -> io::Result<()> {
         self.send_state = SendState::InitiateSend;
         self.files = files;
         self.cur_file = 0;
@@ -413,7 +414,7 @@ impl Sy {
         Ok(())
     }
 
-    pub fn end_ymodem(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
+    pub fn end_ymodem(&mut self, com: &mut Connection) -> io::Result<()> {
         self.send_block(com, &[0], 0)?;
         self.transfer_stopped = true;
         Ok(())

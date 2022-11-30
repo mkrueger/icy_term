@@ -29,11 +29,11 @@ pub trait Com: Sync + Send {
     fn read_exact(&mut self, duration: Duration, bytes: usize) -> io::Result<Vec<u8>>;
 
     fn is_data_available(&mut self) -> io::Result<bool>;
-    async fn read_data(&mut self) -> io::Result<Vec<u8>>;
     
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize>;
-
+    async fn write<'a>(&mut self, buf: &'a [u8]) -> io::Result<usize>;
+    
     async fn connect(&mut self, addr: &Address, timeout: Duration) -> Result<bool, String>;
+    async fn read_data(&mut self) -> io::Result<Vec<u8>>;
 
     fn disconnect(&mut self) -> io::Result<()>;
 }

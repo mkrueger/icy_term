@@ -9,7 +9,7 @@ use crate::{
     protocol::{
         zfile_flag, FileDescriptor, FrameType, Header, HeaderType, TransferState, Zmodem, ZCRCE,
         ZCRCG,
-    },
+    }, ui::main_window::Connection,
 };
 
 use super::ZCRCW;
@@ -118,7 +118,7 @@ impl Sz {
         self.cur_file += 1;
     }
 
-    pub fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()> {
+    pub fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> io::Result<()> {
         if let SendState::Idle = self.state {
             return Ok(());
         }
@@ -231,7 +231,7 @@ impl Sz {
                         }
                         FrameType::ZFIN => {
                             self.state = SendState::Idle;
-                            com.write(b"OO")?;
+                            com.send(b"OO".to_vec());
                             return Ok(());
                         }
                         FrameType::ZSKIP => {
@@ -347,7 +347,7 @@ impl Sz {
                         self.state = SendState::Finished;
                         self.last_send = SystemTime::now();
                     }
-                    com.write(&p)?;
+                    com.send(p);
                 }
                 SendState::Finished => {
                     state.current_state = "Finishing transfer…";
@@ -365,7 +365,7 @@ impl Sz {
 
     fn send_zfile(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         transfer_state: &mut crate::protocol::TransferInformation,
     ) -> Result<(), io::Error> {
         if self.cur_file < 0 {
@@ -408,14 +408,14 @@ impl Sz {
 
         b.extend_from_slice(&self.encode_subpacket(ZCRCW, &data));
 
-        com.write(&b)?;
+        com.send(b);
         self.cur_file_pos = 0;
         self.last_send = SystemTime::now();
         self.state = SendState::AwaitZRPos;
         Ok(())
     }
 
-    pub fn send(&mut self, com: &mut Box<dyn Com>, files: Vec<FileDescriptor>) -> io::Result<()> {
+    pub fn send(&mut self, com: &mut Connection, files: Vec<FileDescriptor>) -> io::Result<()> {
         //println!("initiate zmodem send {}", files.len());
         self.state = SendState::SendZRQInit;
         self.files = files;
@@ -428,14 +428,14 @@ impl Sz {
         Ok(())
     }
 
-    pub fn send_zrqinit(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
+    pub fn send_zrqinit(&mut self, com: &mut Connection) -> io::Result<()> {
         self.cur_file = -1;
         self.transfered_file = true;
         Header::empty(self.get_header_type(), FrameType::ZRQINIT).write(com)?;
         Ok(())
     }
 
-    pub fn send_zfin(&mut self, com: &mut Box<dyn Com>, size: u32) -> io::Result<()> {
+    pub fn send_zfin(&mut self, com: &mut Connection, size: u32) -> io::Result<()> {
         Header::from_number(self.get_header_type(), FrameType::ZFIN, size).write(com)?;
         self.state = SendState::Finished;
         self.last_send = SystemTime::now();

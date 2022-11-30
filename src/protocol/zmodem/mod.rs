@@ -21,7 +21,7 @@ use rz::*;
 mod tests;
 
 use super::{TransferInformation, Protocol, TransferState};
-use crate::com::Com;
+use crate::{com::Com, ui::main_window::Connection};
 
 pub struct Zmodem {
     block_length: usize,
@@ -46,8 +46,8 @@ impl Zmodem {
         }
     }
 
-    pub fn cancel(com: &mut Box<dyn Com>) -> io::Result<()> {
-        com.write(&ABORT_SEQ)?;
+    pub fn cancel(com: &mut Connection) -> io::Result<()> {
+        com.send(ABORT_SEQ.to_vec());
         Ok(())
     }
 
@@ -104,7 +104,7 @@ pub fn append_zdle_encoded(v: &mut Vec<u8>, data: &[u8]) {
     }
 }
 
-pub fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> io::Result<Vec<u8>> {
+pub fn read_zdle_bytes(com: &mut Connection, length: usize) -> io::Result<Vec<u8>> {
     let mut data = Vec::new();
     loop {
         let c = com.read_char(Duration::from_secs(5))?;
@@ -170,7 +170,7 @@ fn from_hex(n: u8) -> io::Result<u8> {
 }
 
 impl Protocol for Zmodem {
-    fn update(&mut self, com: &mut Box<dyn Com>, state: &mut TransferState) -> io::Result<()> {
+    fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> io::Result<()> {
         if self.sz.is_active() {
             self.sz.update(com, state)?;
             if !self.sz.is_active() {
@@ -192,7 +192,7 @@ impl Protocol for Zmodem {
 
     fn initiate_send(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         files: Vec<super::FileDescriptor>,
     ) -> std::io::Result<TransferState> {
         let mut state = TransferState::new();
@@ -202,7 +202,7 @@ impl Protocol for Zmodem {
         Ok(state)
     }
 
-    fn initiate_recv(&mut self, com: &mut Box<dyn Com>) -> std::io::Result<TransferState> {
+    fn initiate_recv(&mut self, com: &mut Connection) -> std::io::Result<TransferState> {
         let mut state = TransferState::new();
         state.recieve_state = Some(TransferInformation::new());
         state.protocol_name = self.get_name().to_string();
@@ -216,8 +216,8 @@ impl Protocol for Zmodem {
         c
     }
 
-    fn cancel(&mut self, com: &mut Box<dyn Com>) -> io::Result<()> {
-        com.write(&ABORT_SEQ)?;
+    fn cancel(&mut self, com: &mut Connection) -> io::Result<()> {
+        com.send(ABORT_SEQ.to_vec());
         Ok(())
     }
 }

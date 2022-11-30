@@ -1,7 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(unsafe_code)]
 
-use std::{sync::{Arc}, env};
+use std::{sync::{Arc}, env, io};
 use egui::mutex::Mutex;
 use icy_engine::{DEFAULT_FONT_NAME, BufferParser, AvatarParser};
 use poll_promise::Promise;
@@ -47,13 +47,35 @@ pub enum SendData {
     Disconnect
 }
 
+pub struct Connection {
+    pub connection_time: SystemTime,
+    pub rx: mpsc::Receiver<SendData>,
+    pub tx: mpsc::Sender<SendData>,
+}
+
+impl Connection {
+    pub fn send(&self, vec: Vec<u8>) {
+        self.tx.try_send(SendData::Data(vec));
+    }
+
+    pub fn is_data_available(&mut self) -> io::Result<bool> {
+        Ok(false)
+    }
+    
+    pub fn read_char(&mut self, duration: Duration) -> io::Result<u8> {
+        Ok(0)
+    }
+
+    pub fn read_exact(&mut self, duration: Duration, bytes: usize) -> io::Result<Vec<u8>> {
+        Ok(Vec::new())
+    }
+}
+
 pub struct MainWindow {
     pub buffer_view: Arc<Mutex<BufferView>>,
     pub buffer_parser: Box<dyn BufferParser>,
 
-    rx: mpsc::Receiver<SendData>,
-    pub tx: mpsc::Sender<SendData>,
-    pub is_connected: bool,
+    pub connection_opt: Option<Connection>,
     
     trigger: bool,
     pub mode: MainWindowMode,
@@ -61,7 +83,6 @@ pub struct MainWindow {
     pub handled_char: bool,
     cur_addr: usize,
     options: Options,
-    connection_time: SystemTime,
     font: Option<String>,
     pub screen_mode: ScreenMode,
     auto_login: AutoLogin,
@@ -69,6 +90,7 @@ pub struct MainWindow {
     // protocols
     current_protocol: Option<(Box<dyn Protocol>, TransferState)>,
     is_alt_pressed: bool,
+
     open_connection_promise: Option<Promise<Box<dyn Com>>>,
 }
 
@@ -80,20 +102,16 @@ impl MainWindow {
             .expect("You need to run eframe with the glow backend");
         
         let view  = BufferView::new(gl);
-        let (tx, rx) = mpsc::channel::<SendData>(32);
 
         let mut view = MainWindow {
-            tx, 
-            rx,
             buffer_view: Arc::new(Mutex::new(view)),
             //address_list: HoverList::new(),
             trigger: true,
             mode: MainWindowMode::ShowPhonebook,
             addresses: start_read_book(),
             cur_addr: 0,
-            connection_time: SystemTime::now(),
+            connection_opt: None,
             options: Options::new(),
-            is_connected: false,
             auto_login: AutoLogin::new(String::new()),
             auto_file_transfer: AutoFileTransfer::new(),
             font: Some(DEFAULT_FONT_NAME.to_string()),
@@ -129,8 +147,8 @@ impl MainWindow {
 
     pub fn output_char(&mut self, ch: char) {
         let translated_char = self.buffer_parser.from_unicode(ch);
-        if self.is_connected {
-            self.tx.try_send(SendData::Char(translated_char));
+        if let Some(con) = &mut self.connection_opt {
+            con.tx.try_send(SendData::Char(translated_char));
         } else {
             self.print_char(translated_char as u8);
         }
@@ -162,7 +180,9 @@ impl MainWindow {
         match result {
             icy_engine::CallbackAction::None => {},
             icy_engine::CallbackAction::SendString(result) => {
-                self.tx.try_send(SendData::Data(result.as_bytes().to_vec()));
+                if let Some(con) = &mut self.connection_opt {
+                    con.send(result.as_bytes().to_vec());
+                }
             },
             icy_engine::CallbackAction::PlayMusic(music) => { /* play_music(music)*/ }
         }
@@ -254,15 +274,14 @@ impl MainWindow {
 
     pub fn update_state(&mut self) -> Result<(), Box<dyn std::error::Error>> {
 //        unsafe { super::simulate::run_sim(self); }
+        let Some(con) = &mut self.connection_opt else { return Ok(()) };
 
-        if !self.is_connected { return Ok(()); }
-
-        if let Ok(data) = self.rx.try_recv() {
+        if let Ok(data) = con.rx.try_recv() {
             match data {
                 SendData::Data(vec) => {
                     for ch in vec { 
                         if let Some(adr) = self.addresses.get(self.cur_addr) {
-                            if let Err(err) = self.auto_login.try_login(&mut self.tx, adr, ch) {
+                            if let Err(err) = self.auto_login.try_login(&mut con.tx, adr, ch) {
                                 eprintln!("{}", err);
                             }
                         }
@@ -270,7 +289,7 @@ impl MainWindow {
                         match result {
                             icy_engine::CallbackAction::None => {},
                             icy_engine::CallbackAction::SendString(result) => {
-                                self.tx.try_send(SendData::Data(result.as_bytes().to_vec()))?;
+                                con.send(result.as_bytes().to_vec());
                             },
                             icy_engine::CallbackAction::PlayMusic(music) => { /* play_music(music)*/ }
                         }
@@ -283,7 +302,7 @@ impl MainWindow {
                     }
                 }
                 SendData::Disconnect => {
-                    self.is_connected = false;
+                    self.connection_opt = None;
                 }
                 _ => {} // never happens
             }
@@ -291,8 +310,10 @@ impl MainWindow {
 
         self.auto_login.disabled |= self.is_alt_pressed;
         if let Some(adr) = self.addresses.get(self.cur_addr) {
-            if let Err(err) = self.auto_login.run_autologin(&mut self.tx, adr) {
-                eprintln!("{}", err);
+            if let Some(con) = &mut self.connection_opt {
+                if let Err(err) = self.auto_login.run_autologin(&mut con.tx, adr) {
+                    eprintln!("{}", err);
+                }
             }
         }
         
@@ -300,10 +321,12 @@ impl MainWindow {
     }
 
     pub fn hangup(&mut self) {
-        self.tx.try_send(SendData::Disconnect);
         self.open_connection_promise = None;
+        if let Some(con) = &mut self.connection_opt {
+            con.tx.try_send(SendData::Disconnect);
+        }
+        self.connection_opt = None;
         self.mode = MainWindowMode::ShowPhonebook;
-        self.is_connected = false;
     }
 
     pub fn send_login(&mut self) {
@@ -320,8 +343,9 @@ impl MainWindow {
         data.extend(&cr);
         data.extend_from_slice(adr.password.as_bytes());
         data.extend(cr);
-
-        self.tx.try_send(SendData::Data(data));
+        if let Some(con) = &self.connection_opt {
+            con.send(data);
+        }
         self.auto_login.logged_in = true;
     }
 
@@ -331,9 +355,9 @@ impl MainWindow {
                 frame.set_window_title(&crate::DEFAULT_TITLE);
             }
             _ => {
-                let str = if self.is_connected {
+                let str = if let Some(con) = &self.connection_opt {
                     let d = SystemTime::now()
-                        .duration_since(self.connection_time)
+                        .duration_since(con.connection_time)
                         .unwrap();
                     let sec = d.as_secs();
                     let minutes = sec / 60;
@@ -372,10 +396,7 @@ impl eframe::App for MainWindow {
                     
                     let (tx, rx) = mpsc::channel::<SendData>(32);
                     let (tx2, mut rx2) = mpsc::channel::<SendData>(32);
-                    self.rx = rx;
-                    self.tx = tx2.clone();
-                    self.connection_time = SystemTime::now();
-                    self.is_connected = true;
+                    self.connection_opt = Some(Connection { connection_time: SystemTime::now(), rx, tx: tx2.clone() });
 
                     let mut handle = handle;
                     tokio::spawn(async move {
@@ -394,13 +415,13 @@ impl eframe::App for MainWindow {
                                     let msg = result.unwrap();
                                     match msg {
                                         SendData::Char(c) => { 
-                                            if let Err(err) = handle.write(&[c as u8]) {
+                                            if let Err(err) = handle.write(&[c as u8]).await {
                                                 eprintln!("{}", err);
                                                 done = true;
                                             }
                                         },
                                         SendData::Data(buf) => { 
-                                            if let Err(err) = handle.write(&buf) {
+                                            if let Err(err) = handle.write(&buf).await {
                                                 eprintln!("{}", err);
                                                 done = true;
                                             }

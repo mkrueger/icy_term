@@ -8,7 +8,7 @@ use icy_engine::{get_crc16, get_crc32, update_crc16};
 
 use crate::{
     com::Com,
-    protocol::{frame_types::ZACK, XON},
+    protocol::{frame_types::ZACK, XON}, ui::main_window::Connection,
 };
 
 use super::{
@@ -184,9 +184,9 @@ impl Header {
         res
     }
 
-    pub fn write(&mut self, com: &mut Box<dyn Com>) -> io::Result<usize> {
-        println!("Send header {}", self);
-        com.write(&self.build())
+    pub fn write(&mut self, com: &mut Connection) -> io::Result<usize> {
+        com.send(self.build());
+        Ok(0)
     }
 
     pub fn get_frame_type(ftype: u8) -> io::Result<FrameType> {
@@ -218,7 +218,7 @@ impl Header {
         }
     }
 
-    pub fn read(com: &mut Box<dyn Com>, can_count: &mut usize) -> io::Result<Option<Header>> {
+    pub fn read(com: &mut Connection, can_count: &mut usize) -> io::Result<Option<Header>> {
         if com.is_data_available()? {
             let zpad = com.read_char(Duration::from_secs(5))?;
             if zpad == 0x18 {

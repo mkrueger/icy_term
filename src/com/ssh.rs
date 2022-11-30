@@ -5,7 +5,7 @@ use super::Com;
 use async_trait::async_trait;
 use std::{io::ErrorKind, thread, time::Duration, collections::VecDeque};
 use tokio::{
-    io::{self},
+    io::{self, AsyncWriteExt},
     net::TcpStream,
 };
 
@@ -111,7 +111,7 @@ impl Com for SSHCom {
         Ok(())
     }
    
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.tcp_stream.as_mut().unwrap().try_write(&buf)
+    async fn write<'a>(&mut self, buf: &'a [u8]) -> io::Result<usize> {
+        Ok(self.tcp_stream.as_mut().unwrap().write(&buf).await?)
     }
 }

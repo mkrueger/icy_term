@@ -1,9 +1,6 @@
 use std::cmp::max;
 
 use eframe::{egui, epaint::{Rect, Vec2, Color32}};
-
-use crate::ui::main_window::SendData;
-
 use super::main_window::{MainWindow, MainWindowMode};
 
 impl MainWindow {
@@ -97,8 +94,8 @@ impl MainWindow {
                         for (k, m) in key_map {
                             if *k == key {
                                 self.handled_char = true;
-                                if self.is_connected {
-                                    self.tx.try_send(SendData::Data(m.to_vec()));
+                                if let Some(con) = &self.connection_opt {
+                                    con.send(m.to_vec());
                                 } else {
                                     for c in *m {
                                         self.print_char(*c);
