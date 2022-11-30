@@ -575,8 +575,9 @@ void main() {
         parser: &mut Box<dyn BufferParser>,
         c: char,
     ) -> EngineResult<CallbackAction> {
+        let res = parser.print_char(&mut self.buf, &mut self.caret, c);
         self.redraw_view();
-        parser.print_char(&mut self.buf, &mut self.caret, c)
+        res
     }
 
     pub fn destroy(&self, gl: &glow::Context) {

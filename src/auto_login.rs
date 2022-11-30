@@ -1,9 +1,9 @@
 use tokio::sync::mpsc::Sender;
 
-use crate::{address::Address, auto_file_transfer::PatternRecognizer, com::Com, iemsi::IEmsi, ui::main_window::SendData};
+use crate::{address::Address, auto_file_transfer::PatternRecognizer, iemsi::IEmsi, ui::main_window::SendData};
 use std::{
     io::{self, ErrorKind},
-    time::{Duration, SystemTime},
+    time::{Duration, SystemTime}, fmt::Error,
 };
 
 pub struct AutoLogin {
@@ -38,8 +38,7 @@ impl AutoLogin {
         }
     }
 
-    pub fn run_command(&mut self, tx: &mut Sender<SendData>, adr: &Address) -> io::Result<bool> {
-
+    pub fn run_command(&mut self, tx: &mut Sender<SendData>, adr: &Address) -> Result<bool, Box::<Error>> {
         match self.login_expr[self.cur_expr_idx + 1] {
             b'D' => {
                 // Delay for x seconds. !D4= Delay for 4 seconds
@@ -130,7 +129,7 @@ impl AutoLogin {
         Ok(())
     }
 
-    pub fn run_autologin(&mut self, tx: &mut Sender<SendData>,  adr: &Address) -> io::Result<()> {
+    pub fn run_autologin(&mut self, tx: &mut Sender<SendData>,  adr: &Address) -> Result<(), Box<dyn std::error::Error>> {
         if self.logged_in && self.cur_expr_idx >= self.login_expr.len() || self.disabled {
             return Ok(());
         }
@@ -174,13 +173,13 @@ impl AutoLogin {
                             ch => {
                                 println!("send char {}!", ch);
                                 self.cur_expr_idx += 1; // escape
-                                return Err(io::Error::new(
+                                return Err(Box::new(io::Error::new(
                                     ErrorKind::InvalidData,
                                     format!(
                                         "invalid escape sequence in autologin string: {:?}",
                                         char::from_u32(ch as u32)
                                     ),
-                                ));
+                                )));
                             }
                         }
                         self.cur_expr_idx += 1; // escape

@@ -2,6 +2,8 @@ use std::cmp::max;
 
 use eframe::{egui, epaint::{Rect, Vec2, Color32}};
 
+use crate::ui::main_window::SendData;
+
 use super::main_window::{MainWindow, MainWindowMode};
 
 impl MainWindow {
@@ -85,13 +87,22 @@ impl MainWindow {
                     if *pressed {
                         let im = self.screen_mode.get_input_mode();
                         let key_map = im.cur_map();
-                        let key = *key as u32;
-                        
+                        let mut key = *key as u32;
+                        if modifiers.ctrl || modifiers.command {
+                            key |= super::CTRL_MOD;
+                        }
+                        if modifiers.shift {
+                            key |= super::SHIFT_MOD;
+                        }
                         for (k, m) in key_map {
                             if *k == key {
                                 self.handled_char = true;
-                                for c in *m {
-                                    self.output_char(unsafe { char::from_u32_unchecked(*c as u32)});
+                                if self.is_connected {
+                                    self.tx.try_send(SendData::Data(m.to_vec()));
+                                } else {
+                                    for c in *m {
+                                        self.print_char(*c);
+                                    }
                                 }
                                 break;
                             }

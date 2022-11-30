@@ -270,7 +270,7 @@ impl MainWindow {
                         match result {
                             icy_engine::CallbackAction::None => {},
                             icy_engine::CallbackAction::SendString(result) => {
-                                self.tx.try_send(SendData::Data(result.as_bytes().to_vec()));
+                                self.tx.try_send(SendData::Data(result.as_bytes().to_vec()))?;
                             },
                             icy_engine::CallbackAction::PlayMusic(music) => { /* play_music(music)*/ }
                         }
