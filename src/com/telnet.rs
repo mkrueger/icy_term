@@ -1,6 +1,7 @@
+#[allow(dead_code)]
+
 use crate::{address::Address, TerminalResult};
 
-#[allow(dead_code)]
 use super::Com;
 use super::ComResult;
 use async_trait::async_trait;
@@ -29,6 +30,7 @@ enum ParserState {
 
 pub const IAC: u8 = 0xFF;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 enum TelnetCmd {
     /// End of subnegotiation parameters.
@@ -89,6 +91,7 @@ enum TelnetCmd {
     IAC = 0xFF,
 }
 
+#[allow(dead_code)]
 impl TelnetCmd {
     pub fn get(byte: u8) -> TerminalResult<TelnetCmd> {
         let cmd = match byte {
@@ -229,6 +232,7 @@ enum TelnetOption {
     ExtendedOptionsList = 0xFF,
 }
 
+#[allow(dead_code)]
 impl TelnetOption {
     pub fn get(byte: u8) -> TerminalResult<TelnetOption> {
         let cmd = match byte {
@@ -293,6 +297,7 @@ impl TelnetOption {
     }
 }
 
+#[allow(dead_code)]
 impl TelnetCom {
     pub fn new() -> Self {
         Self {

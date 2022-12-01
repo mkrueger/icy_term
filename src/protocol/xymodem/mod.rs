@@ -6,7 +6,7 @@ mod ry;
 mod sy;
 mod tests;
 
-use self::constants::{DEFAULT_BLOCK_LENGTH, EXT_BLOCK_LENGTH};
+use self::constants::{DEFAULT_BLOCK_LENGTH, EXT_BLOCK_LENGTH, CAN};
 
 use super::{FileDescriptor, TransferInformation, TransferState};
 #[derive(Debug, Clone, Copy)]
@@ -109,12 +109,15 @@ impl super::Protocol for XYmodem {
     }
 
     fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
-        // TODO!!!
-        // com.write(&[CAN, CAN])?;
-        // com.write(&[CAN, CAN])?;
-        // com.write(&[CAN, CAN])?;
-        Ok(())
+        cancel(com)
     }
+}
+
+fn cancel(com: &mut Connection) -> TerminalResult<()> {
+    com.send(vec![CAN, CAN])?;
+    com.send(vec![CAN, CAN])?;
+    com.send(vec![CAN, CAN])?;
+    Ok(())
 }
 
 fn get_checksum(block: &[u8]) -> u8 {

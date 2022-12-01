@@ -533,12 +533,12 @@ impl IEmsi {
         Ok(())
     }
 
-    pub fn try_login(&mut self, tx: &mut Connection, adr: &Address, ch: u8) -> TerminalResult<bool> {
+    pub fn try_login(&mut self, con: &mut Connection, adr: &Address, ch: u8) -> TerminalResult<bool> {
         if self.aborted {
             return Ok(false);
         }
         if let Some(data) = self.advance_char(adr, ch)? {
-            tx.send(data);
+            con.send(data)?;
         }
         Ok(self.logged_in)
     }

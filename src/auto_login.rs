@@ -1,7 +1,7 @@
 use crate::{address::Address, auto_file_transfer::PatternRecognizer, iemsi::IEmsi, com::Connection, TerminalResult};
 use std::{
     io::{self, ErrorKind},
-    time::{Duration, SystemTime}, fmt::Error,
+    time::{Duration, SystemTime},
 };
 
 pub struct AutoLogin {
@@ -36,7 +36,7 @@ impl AutoLogin {
         }
     }
 
-    pub fn run_command(&mut self, con: &mut Connection, adr: &Address) -> Result<bool, Box::<Error>> {
+    pub fn run_command(&mut self, con: &mut Connection, adr: &Address) -> TerminalResult<bool> {
         match self.login_expr[self.cur_expr_idx + 1] {
             b'D' => {
                 // Delay for x seconds. !D4= Delay for 4 seconds
@@ -67,24 +67,24 @@ impl AutoLogin {
             b'N' => {
                 // Send full user name of active user
                 self.cur_expr_idx += 2;
-                con.send((adr.user_name.clone() + "\r").as_bytes().to_vec());
+                con.send((adr.user_name.clone() + "\r").as_bytes().to_vec())?;
             }
             b'F' => {
                 // Send first name of active user
                 self.cur_expr_idx += 2;
-                con.send((adr.user_name.clone() + "\r").as_bytes().to_vec());
+                con.send((adr.user_name.clone() + "\r").as_bytes().to_vec())?;
                 // TODO
             }
             b'L' => {
                 // Send last name of active user
                 self.cur_expr_idx += 2;
-                con.send((adr.user_name.clone() + "\r").as_bytes().to_vec());
+                con.send((adr.user_name.clone() + "\r").as_bytes().to_vec())?;
                 // TODO
             }
             b'P' => {
                 // Send password from active user
                 self.cur_expr_idx += 2;
-                con.send((adr.password.clone() + "\r").as_bytes().to_vec());
+                con.send((adr.password.clone() + "\r").as_bytes().to_vec())?;
                 self.logged_in = true;
             }
             b'I' => {
@@ -95,7 +95,7 @@ impl AutoLogin {
                 }
             }
             ch => {
-                con.send(vec![ch as u8]);
+                con.send(vec![ch as u8])?;
                 self.cur_expr_idx += 1;
             }
         }
@@ -127,7 +127,7 @@ impl AutoLogin {
         Ok(())
     }
 
-    pub fn run_autologin(&mut self, con: &mut Connection,  adr: &Address) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn run_autologin(&mut self, con: &mut Connection,  adr: &Address) -> TerminalResult<()> {
         if self.logged_in && self.cur_expr_idx >= self.login_expr.len() || self.disabled {
             return Ok(());
         }
@@ -154,19 +154,19 @@ impl AutoLogin {
                         match self.login_expr[self.cur_expr_idx] {
                             b'e' => {
                                 println!("send esc!");
-                                con.send(vec![0x1B]);
+                                con.send(vec![0x1B])?;
                             }
                             b'n' => {
                                 println!("send lf!");
-                                con.send(vec![b'\n']);
+                                con.send(vec![b'\n'])?;
                             }
                             b'r' => {
                                 println!("send cr!");
-                                con.send(vec![b'\r']);
+                                con.send(vec![b'\r'])?;
                             }
                             b't' => {
                                 println!("send tab!");
-                                con.send(vec![b'\t']);
+                                con.send(vec![b'\t'])?;
                             }
                             ch => {
                                 println!("send char {}!", ch);
@@ -186,7 +186,7 @@ impl AutoLogin {
 
                 }
                 ch => {
-                    con.send(vec![ch]);
+                    con.send(vec![ch])?;
                     self.cur_expr_idx += 1;
                 }
             }

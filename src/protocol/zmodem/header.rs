@@ -185,7 +185,7 @@ impl Header {
     }
 
     pub fn write(&mut self, com: &mut Connection) -> TerminalResult<usize> {
-        com.send(self.build());
+        com.send(self.build())?;
         Ok(0)
     }
 

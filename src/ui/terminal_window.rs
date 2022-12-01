@@ -1,6 +1,6 @@
-use std::cmp::max;
-
 use eframe::{egui, epaint::{Rect, Vec2, Color32}};
+use crate::TerminalResult;
+
 use super::main_window::{MainWindow, MainWindowMode};
 
 impl MainWindow {
@@ -27,16 +27,19 @@ impl MainWindow {
         egui::CentralPanel::default()
             .frame(frame_no_margins)
             .show(ctx, |ui| {
-                self.custom_painting(ui);
+                let res = self.custom_painting(ui);
+                if let Err(err) = res {
+                    eprintln!("{}", err);
+                }
             });
     }
 
-    fn custom_painting(&mut self, ui: &mut egui::Ui) {
+    fn custom_painting(&mut self, ui: &mut egui::Ui) -> TerminalResult<()> {
         let size = ui.available_size();
         let buffer_view = self.buffer_view.clone();
         let buf_w = buffer_view.lock().buf.get_buffer_width();
         let buf_h = buffer_view.lock().buf.get_buffer_height();
-        let h = max(buf_h, buffer_view.lock().buf.get_real_buffer_height());
+        // let h = max(buf_h, buffer_view.lock().buf.get_real_buffer_height());
         let (rect, _) = ui.allocate_at_least(size, egui::Sense::drag());
 
         let font_dimensions = buffer_view.lock().buf.get_font_dimensions();
@@ -95,10 +98,10 @@ impl MainWindow {
                             if *k == key {
                                 self.handled_char = true;
                                 if let Some(con) = &mut self.connection_opt {
-                                    con.send(m.to_vec());
+                                    con.send(m.to_vec())?;
                                 } else {
                                     for c in *m {
-                                        self.print_char(*c);
+                                        self.print_char(*c)?;
                                     }
                                 }
                                 break;
@@ -109,6 +112,6 @@ impl MainWindow {
                 _ => {}
             }
         }
-
+        Ok(())
     }
 }

@@ -5,7 +5,7 @@ use std::{
 };
 
 use super::{
-    constants::{CAN, DEFAULT_BLOCK_LENGTH},
+    constants::{DEFAULT_BLOCK_LENGTH},
     get_checksum, Checksum, XYModemConfiguration,
 };
 use crate::{
@@ -102,7 +102,7 @@ impl Ry {
                             if retries < 3 {
                                 self.await_data(com)?;
                             } else if retries == 4 {
-                                com.send(vec![NAK]);
+                                com.send(vec![NAK])?;
                             } else {
                                 self.cancel(com)?;
                                 return Err(Box::new(io::Error::new(
@@ -131,7 +131,7 @@ impl Ry {
                         let block = com.read_exact(self.recv_timeout, 2 + len + chksum_size)?;
 
                         if block[0] != block[1] ^ 0xFF {
-                            com.send(vec![NAK]);
+                            com.send(vec![NAK])?;
                             self.errors += 1;
                             self.recv_state = RecvState::StartReceive(retries + 1);
                             return Ok(());
@@ -140,14 +140,14 @@ impl Ry {
                         if !self.check_crc(block) {
                             //println!("NAK CRC FAIL");
                             self.errors += 1;
-                            com.send(vec![NAK]);
+                            com.send(vec![NAK])?;
                             self.recv_state = RecvState::ReadYModemHeader(retries + 1);
                             return Ok(());
                         }
                         if block[0] == 0 {
                             // END transfer
                             //println!("END TRANSFER");
-                            com.send(vec![ACK]);
+                            com.send(vec![ACK])?;
                             self.recv_state = RecvState::None;
                             return Ok(());
                         }
@@ -164,9 +164,9 @@ impl Ry {
                         transfer_state.write(format!("Receiving file '{}'…", &fd.file_name));
                         self.files.push(fd);
                         if self.configuration.is_ymodem() {
-                            com.send(vec![ACK, b'C']);
+                            com.send(vec![ACK, b'C'])?;
                         } else {
-                            com.send(vec![ACK]);
+                            com.send(vec![ACK])?;
                         }
                         self.recv_state = RecvState::ReadBlockStart(0, 0);
                     }
@@ -194,15 +194,15 @@ impl Ry {
                                 self.data = Vec::new();
 
                                 if self.configuration.is_ymodem() {
-                                    com.send(vec![NAK]);
+                                    com.send(vec![NAK])?;
                                     self.recv_state = RecvState::ReadBlockStart(1, 0);
                                 } else {
-                                    com.send(vec![ACK]);
+                                    com.send(vec![ACK])?;
                                     self.recv_state = RecvState::None;
                                 }
                             } else {
                                 if retries < 5 {
-                                    com.send(vec![NAK]);
+                                    com.send(vec![NAK])?;
                                 } else {
                                     self.cancel(com)?;
                                     return Err(Box::new(io::Error::new(
@@ -220,9 +220,9 @@ impl Ry {
                                 return Ok(());
                             }
                             if self.configuration.is_ymodem() {
-                                com.send(vec![ACK, b'C']);
+                                com.send(vec![ACK, b'C'])?;
                             } else {
-                                com.send(vec![ACK]);
+                                com.send(vec![ACK])?;
                             }
                             self.recv_state = RecvState::StartReceive(retries);
                         }
@@ -240,7 +240,7 @@ impl Ry {
                         };
                         let block = com.read_exact(self.recv_timeout, 2 + len + chksum_size)?;
                         if block[0] != block[1] ^ 0xFF {
-                            com.send(vec![NAK]);
+                            com.send(vec![NAK])?;
 
                             self.errors += 1;
                             let start = com.read_char(self.recv_timeout)?;
@@ -265,13 +265,13 @@ impl Ry {
                         if !self.check_crc(&block) {
                             //println!("\t\t\t\t\t\trecv crc mismatch");
                             self.errors += 1;
-                            com.send(vec![NAK]);
+                            com.send(vec![NAK])?;
                             self.recv_state = RecvState::ReadBlockStart(0, retries + 1);
                             return Ok(());
                         }
                         self.data.extend_from_slice(&block[0..len]);
                         if !self.configuration.is_streaming() {
-                            com.send(vec![ACK]);
+                            com.send(vec![ACK])?;
                         }
                         self.recv_state = RecvState::ReadBlockStart(0, 0);
                     }
@@ -281,9 +281,9 @@ impl Ry {
         Ok(())
     }
 
-    pub fn cancel(&self, com: &mut Connection) -> TerminalResult<()> {
-        com.send(vec![CAN, CAN]);
-        Ok(())
+    pub fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
+        self.recv_state = RecvState::None;
+        super::cancel(com)
     }
 
     pub fn recv(&mut self, com: &mut Connection) -> TerminalResult<()> {
@@ -295,11 +295,11 @@ impl Ry {
 
     fn await_data(&mut self, com: &mut Connection) -> TerminalResult<usize> {
         if self.configuration.is_streaming() {
-            com.send(vec![b'G']);
+            com.send(vec![b'G'])?;
         } else if self.configuration.use_crc() {
-            com.send(vec![b'C']);
+            com.send(vec![b'C'])?;
         } else {
-            com.send(vec![NAK]);
+            com.send(vec![NAK])?;
         }
         Ok(1)
     }

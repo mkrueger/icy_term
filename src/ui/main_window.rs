@@ -5,11 +5,12 @@ use std::{sync::{Arc}, env};
 use egui::mutex::Mutex;
 use icy_engine::{DEFAULT_FONT_NAME, BufferParser, AvatarParser};
 use poll_promise::Promise;
+use rfd::FileDialog;
 use std::time::{Duration, SystemTime};
 
 use eframe::{egui::{self, Key}};
 
-use crate::{address::{Address, start_read_book}, com::{TelnetCom, RawCom, SSHCom, SendData}, TerminalResult};
+use crate::{address::{Address, start_read_book}, com::{TelnetCom, RawCom, SSHCom, SendData}, TerminalResult, protocol::FileDescriptor};
 use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
 use crate::com::{Com};
@@ -108,19 +109,29 @@ impl MainWindow {
     }
 
 
-    pub fn println(&mut self, str: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn println(&mut self, str: &str) -> TerminalResult<()> {
         for c in str.chars() {
             self.buffer_view.lock().print_char(&mut self.buffer_parser, unsafe { char::from_u32_unchecked(c as u32) })?;
         }
         Ok(())
     }
 
+    pub fn handle_result<T>(&mut self, res: TerminalResult<T>) {
+        if let Err(err) = res {
+//            self.hangup();
+//            self.buffer_view.lock().buf.clear();
+//            self.println(&format!("{}", err)).unwrap();
+            eprintln!("{}", err);
+        }
+    }
+
     pub fn output_char(&mut self, ch: char) {
         let translated_char = self.buffer_parser.from_unicode(ch);
         if let Some(con) = &mut self.connection_opt {
-            con.send(vec![translated_char as u8]);
+            let r = con.send(vec![translated_char as u8]);
+            self.handle_result(r);
         } else {
-            self.print_char(translated_char as u8);
+            self.print_char(translated_char as u8).unwrap();
         }
     }
 
@@ -151,10 +162,11 @@ impl MainWindow {
             icy_engine::CallbackAction::None => {},
             icy_engine::CallbackAction::SendString(result) => {
                 if let Some(con) = &mut self.connection_opt {
-                    con.send(result.as_bytes().to_vec());
+                    let r = con.send(result.as_bytes().to_vec());
+                    self.handle_result(r);
                 }
             },
-            icy_engine::CallbackAction::PlayMusic(music) => { /* play_music(music)*/ }
+            icy_engine::CallbackAction::PlayMusic(_music) => { /* play_music(music)*/ }
         }
         //if !self.update_sixels() {
             self.buffer_view.lock().redraw_view();
@@ -164,7 +176,7 @@ impl MainWindow {
 
     pub(crate) fn initiate_file_transfer(&mut self, protocol_type: crate::protocol::ProtocolType, download: bool) {
         self.mode = MainWindowMode::ShowTerminal;
-       /*  match self.com.as_mut() {
+        match self.connection_opt.as_mut() {
             Some(com) => {
                 if !download {
                     let files = FileDialog::new().pick_files();
@@ -201,7 +213,7 @@ impl MainWindow {
             None => {
                 eprintln!("Communication error.");
             }
-        }*/
+        }
     }
         
     pub fn set_screen_mode(&mut self, mode: ScreenMode) {
@@ -258,9 +270,9 @@ impl MainWindow {
                     match result {
                         icy_engine::CallbackAction::None => {},
                         icy_engine::CallbackAction::SendString(result) => {
-                            con.send(result.as_bytes().to_vec());
+                            con.send(result.as_bytes().to_vec())?;
                         },
-                        icy_engine::CallbackAction::PlayMusic(music) => { /* play_music(music)*/ }
+                        icy_engine::CallbackAction::PlayMusic(_music) => { /* play_music(music)*/ }
                     }
                     if let Some((protocol_type, download)) =
                         self.auto_file_transfer.try_transfer(ch)
@@ -289,7 +301,7 @@ impl MainWindow {
     pub fn hangup(&mut self) {
         self.open_connection_promise = None;
         if let Some(con) = &mut self.connection_opt {
-            con.disconnect();
+            con.disconnect().unwrap_or_default();
         }
         self.connection_opt = None;
         self.mode = MainWindowMode::ShowPhonebook;
@@ -310,7 +322,8 @@ impl MainWindow {
         data.extend_from_slice(adr.password.as_bytes());
         data.extend(cr);
         if let Some(con) = &mut self.connection_opt {
-            con.send(data);
+            let res = con.send(data);
+            self.handle_result(res);
         }
         self.auto_login.logged_in = true;
     }
@@ -368,7 +381,7 @@ impl eframe::App for MainWindow {
                     tokio::spawn(async move {
                         let mut done = false;
                         while !done {
-                            let a = tokio::select! {
+                            tokio::select! {
                                 Ok(v) = handle.read_data() => {
                                     if let Err(err) = tx.send(SendData::Data(v)).await {
                                         eprintln!("error while sending: {}", err);
@@ -380,13 +393,7 @@ impl eframe::App for MainWindow {
                                 result = rx2.recv() => {
                                     let msg = result.unwrap();
                                     match msg {
-                                        SendData::Char(c) => { 
-                                            if let Err(err) = handle.write(&[c as u8]).await {
-                                                eprintln!("{}", err);
-                                                done = true;
-                                            }
-                                        },
-                                        SendData::Data(buf) => { 
+                                        SendData::Data(buf) => {
                                             if let Err(err) = handle.write(&buf).await {
                                                 eprintln!("{}", err);
                                                 done = true;
@@ -399,16 +406,18 @@ impl eframe::App for MainWindow {
                                 }
                             };
                         }
-                        let a = tx.send(SendData::Disconnect).await;
+                        tx.send(SendData::Disconnect).await.unwrap_or_default();
                     });
                 }
             }
         }
 
-        self.update_state();
-
         match self.mode {
-            MainWindowMode::ShowTerminal => self.update_terminal_window(ctx, frame),
+            MainWindowMode::ShowTerminal => {
+                let res = self.update_state();
+                self.update_terminal_window(ctx, frame);
+                self.handle_result(res);
+            }
             MainWindowMode::ShowPhonebook => {
                 super::view_phonebook(self, ctx, frame); 
             },
@@ -418,7 +427,35 @@ impl eframe::App for MainWindow {
             },
             MainWindowMode::FileTransfer(download) => {
                 self.update_terminal_window(ctx, frame);
-                todo!()
+                if let Some((protocol, state)) = &mut self.current_protocol {
+                    match protocol.update(self.connection_opt.as_mut().unwrap(), state) {
+                        Err(err) => {
+                            eprintln!("Err {}", err);
+                        }
+                        _ => {}
+                    }
+                    // self.print_result(&r);
+                    if state.is_finished {
+                        for f in protocol.get_received_files() {
+                            f.save_file_in_downloads(
+                                state.recieve_state.as_mut().unwrap(),
+                            )
+                            .expect("error saving file.");
+                        }
+                        self.mode = MainWindowMode::ShowTerminal;
+                        self.auto_file_transfer.reset();
+                    } else {
+                        ctx.request_repaint_after(Duration::from_millis(50));
+                    }
+                    if !super::view_file_transfer(ctx, frame, state, download) {
+                        self.mode = MainWindowMode::ShowTerminal;
+                        let res = protocol.cancel(self.connection_opt.as_mut().unwrap());
+                        self.handle_result(res);
+                    }
+                } else {
+                    eprintln!("error - in file transfer but no current protocol.");
+                    self.mode = MainWindowMode::ShowTerminal;
+                }
             },
             MainWindowMode::AskDeleteEntry => todo!(),
         }

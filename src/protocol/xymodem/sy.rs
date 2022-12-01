@@ -218,7 +218,7 @@ impl Sy {
                     0 => {
                         if com.is_data_available()? {
                             if self.read_command(com)? == NAK {
-                                com.send(vec![EOT]);
+                                com.send(vec![EOT])?;
                                 self.send_state = SendState::YModemEndHeader(1);
                                 return Ok(());
                             }
@@ -288,7 +288,7 @@ impl Sy {
 
     fn eot(&self, com: &mut Connection) -> TerminalResult<usize> {
         // println!("[EOT]");
-        com.send(vec![EOT]);
+        com.send(vec![EOT])?;
         Ok(1)
     }
 
@@ -355,7 +355,7 @@ impl Sy {
             }
         }
         // println!("Send block {:X?}", block);
-        com.send(block);
+        com.send(block)?;
         self.block_number += 1;
         Ok(())
     }
@@ -398,11 +398,7 @@ impl Sy {
 
     pub fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
         self.send_state = SendState::None;
-        // println!("CANCEL!");
-        com.send(vec![CAN, CAN]);
-        com.send(vec![CAN, CAN]);
-        com.send(vec![CAN, CAN]);
-        Ok(())
+        super::cancel(com)
     }
 
     pub fn send(&mut self, _com: &mut Connection, files: Vec<FileDescriptor>) -> TerminalResult<()> {

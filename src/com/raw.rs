@@ -1,6 +1,6 @@
 use crate::{address::Address, TerminalResult};
 
-use super::{Com, ComResult, ComError};
+use super::{Com, ComResult };
 #[allow(dead_code)]
 use async_trait::async_trait;
 use std::{time::Duration};

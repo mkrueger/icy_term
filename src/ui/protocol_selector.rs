@@ -5,10 +5,6 @@ use crate::protocol::ProtocolType;
 
 use super::main_window::{MainWindow, MainWindowMode};
 
-const BUTTON_WIDTH: u16 = 120;
-const SPACE: u16 = 8;
-const LEFT: u16 = 20;
-
 fn create_button_row(window: &mut MainWindow, body: &mut TableBody, protocol: ProtocolType, download: bool, title: &'static str, descr: &'static str) {
     body.row(18., |mut row| {
         row.col(|ui| {
@@ -22,14 +18,14 @@ fn create_button_row(window: &mut MainWindow, body: &mut TableBody, protocol: Pr
     });
 }
 
-pub fn view_protocol_selector(window: &mut MainWindow, ctx: &egui::Context, frame: &mut eframe::Frame, download: bool) {
+pub fn view_protocol_selector(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut eframe::Frame, download: bool) {
     let mut open = true;
     egui::Window::new(format!("Select {} protocol", if download { "download" } else { "upload" } ))
     .open(&mut open)
     .collapsible(false)
     .resizable(false)
     .show(ctx, |ui| {
-        let mut table = TableBuilder::new(ui)
+        let table = TableBuilder::new(ui)
             .striped(true)
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
             .column(Size::initial(100.0).at_least(100.0))

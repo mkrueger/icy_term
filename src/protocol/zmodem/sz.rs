@@ -231,7 +231,7 @@ impl Sz {
                         }
                         FrameType::ZFIN => {
                             self.state = SendState::Idle;
-                            com.send(b"OO".to_vec());
+                            com.send(b"OO".to_vec())?;
                             return Ok(());
                         }
                         FrameType::ZSKIP => {
@@ -347,7 +347,7 @@ impl Sz {
                         self.state = SendState::Finished;
                         self.last_send = SystemTime::now();
                     }
-                    com.send(p);
+                    com.send(p)?;
                 }
                 SendState::Finished => {
                     state.current_state = "Finishing transfer…";
@@ -408,7 +408,7 @@ impl Sz {
 
         b.extend_from_slice(&self.encode_subpacket(ZCRCW, &data));
 
-        com.send(b);
+        com.send(b)?;
         self.cur_file_pos = 0;
         self.last_send = SystemTime::now();
         self.state = SendState::AwaitZRPos;

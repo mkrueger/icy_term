@@ -47,7 +47,7 @@ impl Zmodem {
     }
 
     pub fn cancel(com: &mut Connection) -> TerminalResult<()> {
-        com.send(ABORT_SEQ.to_vec());
+        com.send(ABORT_SEQ.to_vec())?;
         Ok(())
     }
 
@@ -217,7 +217,7 @@ impl Protocol for Zmodem {
     }
 
     fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
-        com.send(ABORT_SEQ.to_vec());
+        com.send(ABORT_SEQ.to_vec())?;
         Ok(())
     }
 }

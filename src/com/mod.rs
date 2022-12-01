@@ -1,5 +1,5 @@
 use std::{
-    time::{Duration, SystemTime}, error::Error, fmt::Display, thread, io::{ErrorKind, self}, collections::VecDeque,
+    time::{Duration, SystemTime}, error::Error, fmt::Display, thread, collections::VecDeque,
 };
 
 #[cfg(test)]
@@ -36,13 +36,26 @@ pub trait Com: Sync + Send {
 
 #[derive(Debug, Clone)]
 pub enum ComError {
-    SendError(String),
-    ReceiveError(String),
+    Timeout
 }
 
 impl Display for ComError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+impl Error for ComError {
+    fn description(&self) -> &str {
+        "use std::display"
+    }
+
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+
+    fn cause(&self) -> Option<&dyn Error> {
+        self.source()
     }
 }
 
@@ -52,7 +65,6 @@ unsafe impl Send for ComError {
 
 #[derive(Debug)]
 pub enum SendData {
-    Char(char),
     Data(Vec<u8>),
     Disconnect
 }
@@ -89,13 +101,11 @@ impl Connection {
         Ok(())
     }
     
-    fn fill_buffer(&mut self) {
-        let mut buf = [0; 1024 * 256];
+    fn fill_buffer(&mut self) -> TerminalResult<()> {
         loop {
             match self.rx.try_recv() {
                 Ok(data) => {
                     match data {
-                        SendData::Char(_) => todo!(),
                         SendData::Data(v) => {
                             self.buf.extend(v);
                         },
@@ -105,41 +115,54 @@ impl Connection {
                         },
                     }
                 }
-                Err(ref e) => { 
-                    break;
+    
+                Err(err) => {
+                    match err {
+                        mpsc::error::TryRecvError::Empty => break,
+                        mpsc::error::TryRecvError::Disconnected => { 
+                            self.is_disconnected = true;
+                            return Err(Box::new(err));
+                        },
+                    }
                 }
-            };
+            }
         }
+        Ok(())
     }
     
-    fn fill_buffer_wait(&mut self, _timeout: Duration)  {
-        self.fill_buffer();
+    fn fill_buffer_wait(&mut self, timeout: Duration) -> TerminalResult<()>  {
+        self.fill_buffer()?;
+        let now = SystemTime::now();
         while self.buf.len() == 0 {
-            self.fill_buffer();
+            self.fill_buffer()?;
             thread::sleep(Duration::from_millis(10));
+            if SystemTime::now().duration_since(now)? > timeout {
+                return Err(Box::new(ComError::Timeout));
+            }
         }
+        Ok(())
     }
 
     pub fn is_data_available(&mut self) -> TerminalResult<bool> {
-        self.fill_buffer();
+        self.fill_buffer()?;
         Ok(self.buf.len() > 0)
     }
     
     pub fn read_char(&mut self, duration: Duration) -> TerminalResult<u8> {
-        self.fill_buffer();
+        self.fill_buffer()?;
         if let Some(b) = self.buf.pop_front() {
             return Ok(b);
         }
-        self.fill_buffer_wait(duration);
+        self.fill_buffer_wait(duration)?;
         if let Some(b) = self.buf.pop_front() {
             return Ok(b);
         }
-        return Err(Box::new(io::Error::new(ErrorKind::TimedOut, "timed out")));
+        return Err(Box::new(ComError::Timeout));
     }
 
     pub fn read_exact(&mut self, duration: Duration, bytes: usize) -> TerminalResult<Vec<u8>> {
         while self.buf.len() < bytes {
-            self.fill_buffer_wait(duration);
+            self.fill_buffer_wait(duration)?;
         }
         Ok(self.buf.drain(0..bytes).collect())
     }
@@ -149,7 +172,7 @@ impl Connection {
     }
     
     pub fn disconnect(&self) -> TerminalResult<()> {
-        self.tx.try_send(SendData::Disconnect);
+        self.tx.try_send(SendData::Disconnect)?;
         Ok(())
     }
 
