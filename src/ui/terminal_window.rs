@@ -1,29 +1,64 @@
-use eframe::{egui, epaint::{Rect, Vec2, Color32}};
 use crate::TerminalResult;
+use eframe::{
+    egui::{self},
+    epaint::{Color32, Rect, Vec2},
+};
 
 use super::main_window::{MainWindow, MainWindowMode};
 
 impl MainWindow {
     pub fn update_terminal_window(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let frame_no_margins = egui::containers::Frame::none().inner_margin(egui::style::Margin::same(0.0)).fill(Color32::from_rgb(0x40, 0x44, 0x4b));
+        let button_frame = egui::containers::Frame::none()
+            .fill(Color32::from_rgb(0x20, 0x22, 0x25))
+            .inner_margin(egui::style::Margin::same(4.0));
 
-        egui::TopBottomPanel::top("button_bar").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                if ui.button("Upload").clicked() {
-                    self.mode = MainWindowMode::SelectProtocol(false);
-                }
-                if ui.button("Download").clicked() {
-                    self.mode = MainWindowMode::SelectProtocol(true);
-                }
-                if ui.button("Login").clicked() { 
-                    self.send_login();
-                }
-                if ui.button("Hangup").clicked() { 
-                    self.hangup();
-                }
+        egui::TopBottomPanel::top("button_bar")
+            .frame(button_frame)
+            .show(ctx, |ui| {
+                let img_size = Vec2::new(24., 24.);
+
+                ui.horizontal(|ui| {
+                    if ui
+                        .add(egui::ImageButton::new(
+                            super::upload_svg.texture_id(ctx),
+                            img_size,
+                        ))
+                        .clicked()
+                    {
+                        self.mode = MainWindowMode::SelectProtocol(false);
+                    }
+                    if ui
+                        .add(egui::ImageButton::new(
+                            super::download_svg.texture_id(ctx),
+                            img_size,
+                        ))
+                        .clicked()
+                    {
+                        self.mode = MainWindowMode::SelectProtocol(true);
+                    }
+                    if ui
+                        .add(egui::ImageButton::new(
+                            super::key_svg.texture_id(ctx),
+                            img_size,
+                        ))
+                        .clicked()
+                    {
+                        self.send_login();
+                    }
+                    if ui
+                        .add(egui::ImageButton::new(
+                            super::call_end_svg.texture_id(ctx),
+                            img_size,
+                        ))
+                        .clicked()
+                    {
+                        self.hangup();
+                    }
+                });
             });
-        });
-
+        let frame_no_margins = egui::containers::Frame::none()
+            .inner_margin(egui::style::Margin::same(0.0))
+            .fill(Color32::from_rgb(0x40, 0x44, 0x4b));
         egui::CentralPanel::default()
             .frame(frame_no_margins)
             .show(ctx, |ui| {
@@ -46,7 +81,7 @@ impl MainWindow {
 
         let mut scale_x = rect.width() / font_dimensions.width as f32 / buf_w as f32;
         let mut scale_y = rect.height() / font_dimensions.height as f32 / buf_h as f32;
-    
+
         if scale_x < scale_y {
             scale_y = scale_x;
         } else {
@@ -56,8 +91,15 @@ impl MainWindow {
         let rect_w = scale_x * buf_w as f32 * font_dimensions.width as f32;
         let rect_h = scale_y * buf_h as f32 * font_dimensions.height as f32;
 
-        let rect = Rect::from_min_size(rect.left_top() + Vec2::new((rect.width() - rect_w) / 2., (1. + rect.height() - rect_h) / 2.).ceil(), Vec2::new(rect_w, rect_h));
-        
+        let rect = Rect::from_min_size(
+            rect.left_top()
+                + Vec2::new(
+                    (rect.width() - rect_w) / 2.,
+                    (1. + rect.height() - rect_h) / 2.,
+                )
+                .ceil(),
+            Vec2::new(rect_w, rect_h),
+        );
 
         let callback = egui::PaintCallback {
             rect: rect,
@@ -66,24 +108,27 @@ impl MainWindow {
                 buffer_view.lock().paint(painter.gl(), rect);
             })),
         };
-        ui.painter()
-        .add(callback);
+        ui.painter().add(callback);
 
         let events = ui.input().events.clone(); // avoid dead-lock by cloning. TODO(emilk): optimize
         for e in &events {
             match e {
-                egui::Event::Copy => {},
-                egui::Event::Cut => {},
-                egui::Event::Paste(_) => {},
+                egui::Event::Copy => {}
+                egui::Event::Cut => {}
+                egui::Event::Paste(_) => {}
                 egui::Event::Text(text) => {
                     for c in text.chars() {
                         self.output_char(c);
                     }
-                },
+                }
                 egui::Event::Scroll(x) => {
                     self.buffer_view.lock().scroll((x.y as i32) / 10);
-                },
-                egui::Event::Key { key, pressed, modifiers } => {
+                }
+                egui::Event::Key {
+                    key,
+                    pressed,
+                    modifiers,
+                } => {
                     if *pressed {
                         let im = self.screen_mode.get_input_mode();
                         let key_map = im.cur_map();

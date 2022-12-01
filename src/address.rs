@@ -1,3 +1,4 @@
+use crate::TerminalResult;
 use crate::ui::screen_modes::ScreenMode;
 use directories::ProjectDirs;
 use icy_engine::{AnsiParser, AtasciiParser, AvatarParser, BufferParser, PETSCIIParser, ViewdataParser};
@@ -5,7 +6,6 @@ use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use serde_derive::{Deserialize, Serialize};
 use std::path::Path;
 use std::{
-    error::Error,
     fmt::Display,
     fs::{self, File},
     io::Write,
@@ -51,7 +51,7 @@ pub struct AddressBook {
     pub addresses: Vec<Address>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Address {
     pub system_name: String,
     pub user_name: String,
@@ -226,7 +226,7 @@ pub fn start_read_book() -> Vec<Address> {
     res
 }
 
-pub fn store_phone_book(addr: &Vec<Address>) -> Result<(), Box<dyn Error>> {
+pub fn store_phone_book(addr: &Vec<Address>) -> TerminalResult<()> {
     if let Some(file_name) = Address::get_phonebook_file() {
         let mut addresses = Vec::new();
         for i in 1..addr.len() {

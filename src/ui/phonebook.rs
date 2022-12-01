@@ -1,109 +1,217 @@
-use eframe::egui;
+use eframe::{
+    egui::{self, ScrollArea, TextEdit, RichText},
+    epaint::{FontId, Vec2, Color32},
+};
+use rand::Rng;
 
-use super::main_window::MainWindow;
+use crate::{address::{Address, self, store_phone_book, Terminal}};
+
+use super::{main_window::MainWindow, DEFAULT_MODES};
 
 pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-    egui::TopBottomPanel::top("button_bar").show(ctx, |ui| {
+
+    egui::TopBottomPanel::top("top_panel")
+    .default_height(36.0)
+    .height_range(36.0..=36.0)
+    .show(ctx, |ui| {
         ui.horizontal(|ui| {
-            if ui.button("Connect").clicked() {
+            let img_size = Vec2::new(24., 24.);
+            if ui
+                .add(egui::ImageButton::new(
+                    super::call_svg.texture_id(ctx),
+                    img_size,
+                ))
+                .clicked()
+            {
                 window.call_bbs(0);
             }
-            ui.text_edit_singleline(&mut window.addresses[0].address);
+
+            ui.add(
+                TextEdit::singleline(&mut window.addresses[0].address)
+                    .desired_width(f32::INFINITY)
+                    .hint_text("Quick connect to…")
+                    .font(FontId::proportional(22.)),
+            );
+        });
+    });
+    egui::SidePanel::left("left")
+    .default_width(200.0)
+    .width_range(200.0..=200.0)
+    .show(ctx, |ui| {
+        let row_height = 18.;
+        ScrollArea::vertical().show_rows(
+            ui,
+            row_height,
+            window.addresses.len() - 1,
+            |ui, range| {
+                for i in 1 + range.start..range.end {
+                    let addr = window.addresses[i].clone();
+                    let img_size = Vec2::new(row_height, row_height);
+
+                    ui.horizontal(|ui| {
+                        if ui
+                            .add(egui::ImageButton::new(
+                                super::call_svg.texture_id(ctx),
+                                img_size,
+                                ).frame(false)
+                            )
+                            .clicked()
+                        {
+                            window.call_bbs(i);
+                            return;
+                        }
+                        let text_style = FontId::proportional(row_height + 2.);
+                        let mut text = RichText::new(addr.system_name.clone()).font(text_style);
+                        if i == window.selected_bbs {
+                            text = text.color(Color32::WHITE);
+                        }
+                        if ui.button(text).clicked() {
+                            window.select_bbs(i);
+                        }
+                    });
+                }
+            },
+        );
+
+        ui.horizontal(|ui| {
+            ui.horizontal(|ui| {
+                let img_size = Vec2::new(22., 22.);
+                if ui
+                    .add(egui::ImageButton::new(
+                        super::delete_svg.texture_id(ctx),
+                        img_size,
+                    ))
+                    .clicked()
+                {
+                    window.delete_selected_address();
+                }
+                if ui
+                    .add(egui::ImageButton::new(
+                        super::add_svg.texture_id(ctx),
+                        img_size,
+                    ))
+                    .clicked()
+                {
+                    window.addresses.push(Address::new());
+                    window.selected_bbs = window.addresses.len() - 1;
+                }
+            });  
         });
     });
 
-    
-    egui::CentralPanel::default()
-    .show(ctx, |ui| {
-        for i in 1..window.addresses.len() {
-            let addr = &window.addresses[i];
-            if ui.button(addr.system_name.clone()).clicked() {
-                window.call_bbs(i);
+    egui::CentralPanel::default().show(ctx, |ui| {
+        if window.selected_bbs > 0 {
+            let sav = window.addresses[window.selected_bbs].clone();
+            ui.vertical(|ui| {
+                view_edit_bbs(ui, &mut window.addresses[window.selected_bbs]);
+            });
+            if sav != window.addresses[window.selected_bbs] {
+                if let Err(err) = store_phone_book(&window.addresses) {
+                    eprintln!("{}", err);
+                }
             }
+        } else {
+            let text_style = FontId::proportional(22.);
+            ui.label(RichText::new("No selection").font(text_style));
         }
     });
-    /* 
-    let list_header = Column::new()
-        .push(
-            Row::new()
-                .push(horizontal_space(Length::Units(20)))
-                .push(
-                    create_icon_button("\u{F54D}")
-                        .on_press(Message::ListAction(HoverListMessage::CallBBS(0))),
-                )
-                .push(horizontal_space(Length::Units(10)))
-                .push(
-                    text_input(
-                        "Quick connect to…",
-                        &main_window.addresses[0].address,
-                        Message::QuickConnectChanged,
-                    )
-                    .id(INPUT_ID.clone())
-                    .size(18),
-                )
-                .push(horizontal_space(Length::Units(10)))
-                .align_items(Alignment::Center),
+}
+
+fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address::Address) {
+    let text_style = FontId::proportional(22.);
+
+    egui::Grid::new("some_unique_id")
+    .spacing(Vec2::new(5., 8.))
+    
+    .show(ui, |ui| {
+        ui.label(RichText::new("Name").font(text_style.clone()));
+        ui.add(
+            TextEdit::singleline(&mut adr.system_name)
+                .desired_width(f32::INFINITY)
+                .font(text_style.clone()),
         );
+        ui.end_row();
+    
+        ui.label(RichText::new("Address").font(text_style.clone()));
+        ui.horizontal(|ui| {
+            ui.add(
+                TextEdit::singleline(&mut adr.address)
+                .font(text_style.clone()),
+            );
 
-    let h = main_window.address_list.get_height();
-    let canvas: Element<HoverListMessage> = Canvas::new(&main_window.address_list)
-        .width(Length::Units(250))
-        .height(Length::Units(h))
-        .into();
+            egui::ComboBox::from_id_source("combobox1")
+            .selected_text(RichText::new(format!("{:?}", adr.connection_type)).font(text_style.clone()))
+            .show_ui(ui, |ui| {
+                for ct in &address::ConnectionType::ALL {
+                    let label = RichText::new(format!("{:?}", ct)).font(text_style.clone());
+                    ui.selectable_value(&mut adr.connection_type, *ct, label);
+                }
+            });
+        });
+        ui.end_row();
 
-    let canvas = canvas.map(Message::ListAction);
+        ui.label(RichText::new("User").font(text_style.clone()));
+        ui.add(
+            TextEdit::singleline(&mut adr.user_name)
+                .desired_width(f32::INFINITY)
+                .font(text_style.clone()),
+        );
+        ui.end_row();
 
-    let scrollable_content = iced::widget::scrollable(canvas).height(Length::Fill);
+        ui.label(RichText::new("Password").font(text_style.clone()));
+        ui.horizontal(|ui| {
+            ui.add(
+                TextEdit::singleline(&mut adr.password)
+                    .font(text_style.clone()),
+            );
+            if ui.button(RichText::new("Generate").font(text_style.clone())).clicked() {
+                let mut rng = rand::thread_rng();                
+                let mut pw = String::new();
+                for _ in 0..16 {
+                    pw.push(unsafe{char::from_u32_unchecked(rng.gen_range(b'0'..b'z') as u32) });
+                }
+                adr.password = pw;
+            }
+        });
+        ui.end_row();
 
-    let button_row = Row::new()
-        .push(horizontal_space(Length::Fill))
-        .push(
-            Button::new(
-                Text::new("\u{F56B}")
-                    .width(Length::Shrink)
-                    .height(Length::Shrink)
-                    .font(iced_aw::ICON_FONT)
-                    .size(24),
-            )
-            .on_press(Message::AskDeleteEntry)
-            .padding(5)
-            .style(theme::Button::Custom(Box::new(CircleButtonStyle::new(
-                theme::Button::Primary,
-            )))),
-        )
-        .push(
-            Button::new(
-                Text::new(Icon::Plus.to_string())
-                    .width(Length::Shrink)
-                    .height(Length::Shrink)
-                    .font(iced_aw::ICON_FONT)
-                    .size(24),
-            )
-            .on_press(Message::CreateNewBBS)
-            .padding(5)
-            .style(theme::Button::Custom(Box::new(CircleButtonStyle::new(
-                theme::Button::Primary,
-            )))),
-        )
-        .padding(10)
-        .spacing(10);
+        ui.label(RichText::new("Screen Mode").font(text_style.clone()));
+        ui.horizontal(|ui| {
+            egui::ComboBox::from_id_source("combobox2")
+            .selected_text(RichText::new(format!("{:?}", adr.screen_mode)).font(text_style.clone()))
+            .show_ui(ui, |ui| {
+                for mode in &DEFAULT_MODES {
+                    let label = RichText::new(format!("{:?}", mode)).font(text_style.clone());
+                    ui.selectable_value(&mut adr.screen_mode, Some(*mode), label);
+                }
+            });
+            ui.label(RichText::new("Terminal type").font(text_style.clone()));
+            egui::ComboBox::from_id_source("combobox3")
+            .selected_text(RichText::new(format!("{:?}", adr.terminal_type)).font(text_style.clone()))
+            .show_ui(ui, |ui| {
+                for t in &Terminal::ALL {
+                    let label = RichText::new(format!("{:?}", t)).font(text_style.clone());
+                    ui.selectable_value(&mut adr.terminal_type, *t, label);
+                }
+            });
+        });
+        ui.end_row();
 
-    let content = Column::new()
-        .push(scrollable_content)
-        .push(button_row)
-        .width(Length::Units(250))
-        .height(Length::Fill)
-        .max_width(250);
+        ui.label(RichText::new("Autologin String").font(text_style.clone()));
+        ui.add(
+            TextEdit::singleline(&mut adr.auto_login)
+                .desired_width(f32::INFINITY)
+                .font(text_style.clone()),
+        );
+        ui.end_row();
 
-    Column::new()
-        .push(list_header)
-        .push(
-            Row::new()
-                .push(content)
-                .push(vertical_rule(5))
-                .push(view_edit_bbs(main_window))
-        )
-        .padding(8)
-        .spacing(8)
-        .into()*/
+        ui.label(RichText::new("Comment").font(text_style.clone()));
+        ui.add(
+            TextEdit::singleline(&mut adr.comment)
+                .desired_width(f32::INFINITY)
+                .font(text_style.clone()),
+        );
+        ui.end_row();
+    });
+
 }

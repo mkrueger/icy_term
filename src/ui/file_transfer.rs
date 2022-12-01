@@ -4,11 +4,9 @@ use std::time::{Duration, SystemTime};
 use eframe::epaint::Color32;
 use gabi::BytesConfig;
 use eframe::egui::{self, ProgressBar};
-use egui_extras::{Size, TableBuilder, TableBody};
+use egui_extras::{Size, TableBuilder};
 
 use crate::protocol::TransferState;
-
-use super::main_window::{MainWindow, MainWindowMode};
 
 pub fn view_file_transfer(ctx: &egui::Context, frame: &mut eframe::Frame, state: &TransferState, download: bool) -> bool {
     let mut open = true;

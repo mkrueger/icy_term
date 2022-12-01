@@ -3,14 +3,15 @@
 
 use std::{sync::{Arc}, env};
 use egui::mutex::Mutex;
-use icy_engine::{DEFAULT_FONT_NAME, BufferParser, AvatarParser};
+use egui_extras::RetainedImage;
+use icy_engine::{BufferParser, AvatarParser};
 use poll_promise::Promise;
 use rfd::FileDialog;
 use std::time::{Duration, SystemTime};
 
 use eframe::{egui::{self, Key}};
 
-use crate::{address::{Address, start_read_book}, com::{TelnetCom, RawCom, SSHCom, SendData}, TerminalResult, protocol::FileDescriptor};
+use crate::{address::{Address, start_read_book, store_phone_book}, com::{TelnetCom, RawCom, SSHCom, SendData}, TerminalResult, protocol::FileDescriptor};
 use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
 use crate::com::{Com};
@@ -48,13 +49,13 @@ pub struct MainWindow {
 
     pub connection_opt: Option<Connection>,
     
-    trigger: bool,
     pub mode: MainWindowMode,
     pub addresses: Vec<Address>,
     pub handled_char: bool,
     cur_addr: usize,
+    pub selected_bbs: usize,
+    
     options: Options,
-    font: Option<String>,
     pub screen_mode: ScreenMode,
     auto_login: AutoLogin,
     auto_file_transfer: AutoFileTransfer,
@@ -65,6 +66,7 @@ pub struct MainWindow {
     open_connection_promise: Option<Promise<Box<dyn Com>>>,
 }
 
+
 impl MainWindow {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let gl = cc
@@ -73,19 +75,17 @@ impl MainWindow {
             .expect("You need to run eframe with the glow backend");
         
         let view  = BufferView::new(gl);
-
         let mut view = MainWindow {
             buffer_view: Arc::new(Mutex::new(view)),
             //address_list: HoverList::new(),
-            trigger: true,
             mode: MainWindowMode::ShowPhonebook,
             addresses: start_read_book(),
             cur_addr: 0,
+            selected_bbs: 0,
             connection_opt: None,
             options: Options::new(),
             auto_login: AutoLogin::new(String::new()),
             auto_file_transfer: AutoFileTransfer::new(),
-            font: Some(DEFAULT_FONT_NAME.to_string()),
             screen_mode: ScreenMode::DOS(80, 25),
             current_protocol: None,
             handled_char: false,
@@ -98,6 +98,7 @@ impl MainWindow {
             view.addresses[0].address = arg.clone();
             view.call_bbs(0);
         }
+
         //view.address_list.selected_item = 1;
         // view.set_screen_mode(&ScreenMode::Viewdata);
         //view.update_address_list();
@@ -239,6 +240,7 @@ impl MainWindow {
             self.set_screen_mode(ScreenMode::DOS(80, 25));
         }
         self.buffer_parser = self.addresses[i].get_terminal_parser();
+        self.buffer_view.lock().clear();
         self.println(&format!("Connect to {}...", &call_adr.address));
       
         let timeout  = self.options.connect_timeout;
@@ -252,6 +254,19 @@ impl MainWindow {
             com.connect(&call_adr, timeout).await;
             com
         }));
+    }
+
+    pub fn select_bbs(&mut self, i: usize) {
+        self.selected_bbs = i;
+    }
+
+    pub fn delete_selected_address(&mut self)
+    {
+        if self.selected_bbs > 0 {
+            self.addresses.remove(self.selected_bbs as usize);
+            self.selected_bbs -= 1;
+        }
+        store_phone_book(&self.addresses);
     }
 
     pub fn update_state(&mut self) -> TerminalResult<()> {

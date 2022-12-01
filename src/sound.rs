@@ -38,7 +38,7 @@ pub fn play_music(music: AnsiMusic) {
 
             },
             icy_engine::MusicAction::Pause(length) => {
-                let mut duration = 250000 / length;
+                let duration = 250000 / length;
                 std::thread::sleep(std::time::Duration::from_millis(duration as u64));
             },
         }
