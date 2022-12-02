@@ -87,7 +87,7 @@ impl BufferView {
         unsafe {
             let program = gl.create_program().expect("Cannot create program");
 
-            let mut shader = "precision highp float;\n".to_string();
+            let mut shader = "precision mediump float;\n".to_string();
 
             shader.push_str(
                 r#"
@@ -102,14 +102,11 @@ impl BufferView {
             out     vec4        fragColor;
             
             vec4 get_char(vec2 p, float c, float page) {
-                if (p.x < 0.|| p.x > 1. || p.y < 0.|| p.y > 1.) return vec4(0, 0, 0, 1.0);
-                vec2 v = vec2(
-                    p.x / 16 + fract ( floor (c) / 16 ),
-                    p.y / 16 + fract ( floor (-15.999 + c / 16) / 16 )
-                );
-                
-                //return texture( u_fonts, vec3(v, page) );
-                return textureGrad( u_fonts, vec3(v, page), dFdx(p/16.),dFdy(p/16.) );
+                if (p.x < 0.|| p.x > 1. || p.y < 0.|| p.y > 1.) {
+                    return vec4(0, 0, 0, 1.0);
+                }
+                vec2 v = p / 16.0 + fract(vec2(c, floor(c / 16.0)) / 16.0);
+                return textureGrad(u_fonts, vec3(v, page), dFdx(p / 16.0), dFdy(p / 16.0));
             }
 
             // TODO: Is there an easier way to disable the 'intelligent' color conversion crap?
@@ -125,9 +122,8 @@ impl BufferView {
             }
             
             void main (void) {
-                vec2 view_coord = gl_FragCoord.xy / u_resolution;
+                vec2 view_coord = (gl_FragCoord.xy - u_position) / u_resolution;
                 view_coord = vec2(view_coord.s, 1.0 - view_coord.t);
-                view_coord -= u_position / u_resolution;
 
                 vec2 sz = u_terminal_size;
                 vec2 fb_pos = (view_coord * sz);
@@ -526,7 +522,7 @@ void main() {
             gl.uniform_2_f32(
                 gl.get_uniform_location(self.program, "u_position").as_ref(),
                 rect.left(),
-                -rect.top() + top_margin_height,
+                rect.top() - top_margin_height,
             );
 
             gl.uniform_2_f32(
