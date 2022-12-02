@@ -62,8 +62,12 @@ pub struct BufferView {
     vertex_array: glow::VertexArray,
 
     redraw_view: bool,
+
     redraw_palette: bool,
+    colors: usize,
+
     redraw_font: bool,
+    fonts: usize,
     
     font_texture: NativeTexture,
     buffer_texture: NativeTexture,
@@ -235,7 +239,8 @@ void main() {
                 glow::TEXTURE_WRAP_T,
                 glow::CLAMP_TO_EDGE as i32,
             );
-
+            let colors = buf.palette.colors.len();
+            let fonts =  buf.font_table.len();
             Self {
                 buf,
                 caret: Caret::default(),
@@ -249,6 +254,8 @@ void main() {
                 redraw_palette: false,
                 redraw_font: false,
                 scroll_back_line: 0,
+                colors,
+                fonts,
                 program,
                 vertex_array,
                 font_texture,
@@ -498,14 +505,16 @@ void main() {
             }
         }
 
-        if self.redraw_palette {
+        if self.redraw_palette || self.colors != self.buf.palette.colors.len()  {
             self.redraw_palette = false;
             create_palette_texture(gl, &self.buf, self.palette_texture);
+            self.colors = self.buf.palette.colors.len();
         }
 
-        if self.redraw_font {
+        if self.redraw_font || self.fonts != self.buf.font_table.len() {
             self.redraw_font = false;
             create_font_texture(gl, &self.buf, self.palette_texture);
+            self.fonts = self.buf.font_table.len();
         }
     }
 
