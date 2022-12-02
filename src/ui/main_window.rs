@@ -240,6 +240,10 @@ impl MainWindow {
             self.set_screen_mode(ScreenMode::DOS(80, 25));
         }
         self.buffer_parser = self.addresses[i].get_terminal_parser();
+
+        self.buffer_view.lock().redraw_font();
+        self.buffer_view.lock().redraw_palette();
+        self.buffer_view.lock().redraw_view();
         self.buffer_view.lock().clear();
         self.println(&format!("Connect to {}...", &call_adr.address));
       

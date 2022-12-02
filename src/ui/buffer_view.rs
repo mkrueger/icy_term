@@ -62,6 +62,9 @@ pub struct BufferView {
     vertex_array: glow::VertexArray,
 
     redraw_view: bool,
+    redraw_palette: bool,
+    redraw_font: bool,
+    
     font_texture: NativeTexture,
     buffer_texture: NativeTexture,
     palette_texture: NativeTexture,
@@ -105,8 +108,8 @@ impl BufferView {
                     p.y / 16 + fract ( floor (-15.999 + c / 16) / 16 )
                 );
                 
-                return texture( u_fonts, vec3(v, page) );
-                // return textureGrad( u_fonts, vec3(v, page), dFdx(p/16.),dFdy(p/16.) );
+                //return texture( u_fonts, vec3(v, page) );
+                return textureGrad( u_fonts, vec3(v, page), dFdx(p/16.),dFdy(p/16.) );
             }
 
             // TODO: Is there an easier way to disable the 'intelligent' color conversion crap?
@@ -133,7 +136,7 @@ impl BufferView {
                 
                 fb_pos = fract(vec2(fb_pos.x, fb_pos.y));
                 
-                vec4 char_data = get_char(fb_pos, ch.x * 255, 0);
+                vec4 char_data = get_char(fb_pos, ch.x * 255, ch.a);
 
                 if (char_data.x > 0.5) {
                     fragColor = get_palette_color(ch.y);
@@ -199,132 +202,23 @@ void main() {
             let vertex_array = gl
                 .create_vertex_array()
                 .expect("Cannot create vertex array");
-
-            let mut buffer_data = Vec::with_capacity(buf.get_buffer_width() as usize * 4 * buf.get_real_buffer_height() as usize);
-            let colors = buf.palette.colors.len() as u32 - 1;
-
-            let h = max(buf.get_real_buffer_height(), buf.get_buffer_height());
-            for y in 0..h {
-                for x in 0..buf.get_buffer_width() {
-                    let ch = buf.get_char_xy(x, y).unwrap_or_default();
-                    buffer_data.push(ch.ch as u8);
-                    if ch.attribute.is_bold() {
-                        buffer_data.push(conv_color(ch.attribute.get_foreground() + 8, colors));
-                    } else {
-                        buffer_data.push(conv_color(ch.attribute.get_foreground(), colors));
-                    }
-                    buffer_data.push(conv_color(ch.attribute.get_background(), colors));
-                    buffer_data.push(ch.get_font_page() as u8);
-                }
-            }
-
             let buffer_texture = gl.create_texture().unwrap();
-            gl.bind_texture(glow::TEXTURE_2D, Some(buffer_texture));
-            gl.tex_image_2d(glow::TEXTURE_2D, 0, glow::RGB as i32, buf.get_buffer_width(), buf.get_real_buffer_height(),  0, glow::RGBA, glow::UNSIGNED_BYTE, Some(&buffer_data));
+            create_buffer_texture(gl, &buf, 0, buffer_texture);
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32);
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
 
-            let mut palette_data = Vec::new();
-            for i in 0..buf.palette.colors.len() {
-                let (r, g, b) = buf.palette.colors[i].get_rgb();
-                palette_data.push(r);
-                palette_data.push(g);
-                palette_data.push(b);
-                palette_data.push(0xFF);
-            }
             let palette_texture = gl.create_texture().unwrap();
-            gl.bind_texture(glow::TEXTURE_2D, Some(palette_texture));
-            gl.tex_image_2d(
-                glow::TEXTURE_2D,
-                0,
-                glow::RGB as i32,
-                buf.palette.colors.len() as i32,
-                1,
-                0,
-                glow::RGBA,
-                glow::UNSIGNED_BYTE,
-                Some(&palette_data),
-            );
-            gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_MIN_FILTER,
-                glow::NEAREST as i32,
-            );
+            create_palette_texture(gl, &buf, palette_texture);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
 
-            gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_MAG_FILTER,
-                glow::NEAREST as i32,
-            );
-            gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_WRAP_S,
-                glow::CLAMP_TO_EDGE as i32,
-            );
-            gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_WRAP_T,
-                glow::CLAMP_TO_EDGE as i32,
-            );
-
-            let w = buf.font_table[0].size.width as usize;
-            let h = buf.font_table[0].size.height as usize;
-
-            let mut font_data = Vec::new();
-            let chars_in_line = 16;
-            let line_width = w * chars_in_line * 4;
-            let height = h * 256 / chars_in_line;
-
-            font_data.resize(line_width * height, 0);
-
-            for ch in 0..256usize {
-                let glyph = buf.font_table[0]
-                    .get_glyph(char::from_u32_unchecked(ch as u32))
-                    .unwrap();
-
-                let x = ch % chars_in_line;
-                let y = ch / chars_in_line;
-
-                let offset = x * w * 4 + y * h * line_width;
-                for y in 0..h {
-                    let scan_line = glyph.data[y];
-                    let mut po = offset + y * line_width;
-
-                    for x in 0..w {
-                        if scan_line & (128 >> x) != 0 {
-                            // unroll
-                            font_data[po] = 0xFF;
-                            po += 1;
-                            font_data[po] = 0xFF;
-                            po += 1;
-                            font_data[po] = 0xFF;
-                            po += 1;
-                            font_data[po] = 0xFF;
-                            po += 1;
-                        } else {
-                            po += 4;
-                        }
-                    }
-                }
-            }
 
             let font_texture = gl.create_texture().unwrap();
-            gl.active_texture(glow::TEXTURE0);
-            gl.bind_texture(glow::TEXTURE_2D_ARRAY, Some(font_texture));
-            gl.tex_image_3d(
-                glow::TEXTURE_2D_ARRAY,
-                0,
-                glow::RGB as i32,
-                line_width as i32 / 4,
-                height as i32,
-                1,
-                0,
-                glow::RGBA,
-                glow::UNSIGNED_BYTE,
-                Some(&font_data),
-            );
+            create_font_texture(gl, &buf, font_texture);
             gl.tex_parameter_i32(
                 glow::TEXTURE_2D_ARRAY,
                 glow::TEXTURE_MIN_FILTER,
@@ -355,7 +249,9 @@ void main() {
                 buffer_input_mode: BufferInputMode::CP437,
                 sixel_cache: Vec::new(),
                 button_pressed: false,
-                redraw_view: true,
+                redraw_view: false,
+                redraw_palette: false,
+                redraw_font: false,
                 scroll_back_line: 0,
                 program,
                 vertex_array,
@@ -570,6 +466,14 @@ void main() {
         self.redraw_view = true;
     }
 
+    pub fn redraw_palette(&mut self) {
+        self.redraw_palette = true;
+    }
+
+    pub fn redraw_font(&mut self) {
+        self.redraw_font = true;
+    }
+
     pub fn print_char(
         &mut self,
         parser: &mut Box<dyn BufferParser>,
@@ -589,17 +493,27 @@ void main() {
     }
 
     pub fn update_buffer(&mut self, gl: &glow::Context) {
-        if !self.redraw_view {
-            return;
+        if self.redraw_view {
+            self.redraw_view = false;
+            unsafe {
+                use glow::HasContext as _;
+                gl.active_texture(glow::TEXTURE0 + 4);
+                create_buffer_texture(gl, &self.buf, self.scroll_back_line, self.buffer_texture);
+            }
         }
-        self.redraw_view = false;
-        unsafe {
-            use glow::HasContext as _;
-            gl.active_texture(glow::TEXTURE0 + 4);
-            create_buffer_texture(gl, &self.buf, self.scroll_back_line, self.buffer_texture);
+
+        if self.redraw_palette {
+            self.redraw_palette = false;
+            create_palette_texture(gl, &self.buf, self.palette_texture);
+        }
+
+        if self.redraw_font {
+            self.redraw_font = false;
+            create_font_texture(gl, &self.buf, self.palette_texture);
         }
     }
-    pub fn paint(&self, gl: &glow::Context, rect: Rect) {
+
+    pub fn paint(&self, gl: &glow::Context, rect: Rect, top_margin_height: f32) {
         use glow::HasContext as _;
         unsafe {
             gl.use_program(Some(self.program));
@@ -609,11 +523,10 @@ void main() {
                 rect.width(),
                 rect.height(),
             );
-
             gl.uniform_2_f32(
                 gl.get_uniform_location(self.program, "u_position").as_ref(),
                 rect.left(),
-                -rect.top() + 25.,
+                -rect.top() + top_margin_height,
             );
 
             gl.uniform_2_f32(
@@ -663,6 +576,103 @@ fn conv_color(c: u32, colors: u32) -> u8 {
     r
 }
 
+fn create_palette_texture(
+    gl: &glow::Context,
+    buf: &Buffer,
+    palette_texture: NativeTexture,
+) {
+    let mut palette_data = Vec::new();
+    for i in 0..buf.palette.colors.len() {
+        let (r, g, b) = buf.palette.colors[i].get_rgb();
+        palette_data.push(r);
+        palette_data.push(g);
+        palette_data.push(b);
+        palette_data.push(0xFF);
+    }
+    unsafe {
+        use glow::HasContext as _;
+        gl.bind_texture(glow::TEXTURE_2D, Some(palette_texture));
+        gl.tex_image_2d(
+            glow::TEXTURE_2D,
+            0,
+            glow::RGB as i32,
+            buf.palette.colors.len() as i32,
+            1,
+            0,
+            glow::RGBA,
+            glow::UNSIGNED_BYTE,
+            Some(&palette_data),
+        );
+    }
+}
+
+fn create_font_texture(
+    gl: &glow::Context,
+    buf: &Buffer,
+    font_texture: NativeTexture,
+) {
+    let w = buf.font_table[0].size.width as usize;
+    let h = buf.font_table[0].size.height as usize;
+
+    let mut font_data = Vec::new();
+    let chars_in_line = 16;
+    let line_width = w * chars_in_line * 4;
+    let height = h * 256 / chars_in_line;
+
+    font_data.resize(line_width * height * buf.font_table.len(), 0);
+
+    for i in 0..buf.font_table.len() {
+        for ch in 0..256usize {
+            let glyph = buf.font_table[i]
+                .get_glyph(unsafe { char::from_u32_unchecked(ch as u32) })
+                .unwrap();
+
+            let x = ch % chars_in_line;
+            let y = ch / chars_in_line;
+
+            let offset = x * w * 4 + y * h * line_width + i * line_width * height;
+            for y in 0..h {
+                let scan_line = glyph.data[y];
+                let mut po = offset + y * line_width;
+
+                for x in 0..w {
+                    if scan_line & (128 >> x) != 0 {
+                        // unroll
+                        font_data[po] = 0xFF;
+                        po += 1;
+                        font_data[po] = 0xFF;
+                        po += 1;
+                        font_data[po] = 0xFF;
+                        po += 1;
+                        font_data[po] = 0xFF;
+                        po += 1;
+                    } else {
+                        po += 4;
+                    }
+                }
+            }
+        }
+    }
+
+    unsafe {
+        use glow::HasContext as _;
+        gl.active_texture(glow::TEXTURE0);
+        gl.bind_texture(glow::TEXTURE_2D_ARRAY, Some(font_texture));
+        gl.tex_image_3d(
+            glow::TEXTURE_2D_ARRAY,
+            0,
+            glow::RGB as i32,
+            line_width as i32 / 4,
+            height as i32,
+            buf.font_table.len() as i32,
+            0,
+            glow::RGBA,
+            glow::UNSIGNED_BYTE,
+            Some(&font_data),
+        );
+    }
+}  
+
 fn create_buffer_texture(
     gl: &glow::Context,
     buf: &Buffer,
@@ -689,7 +699,11 @@ fn create_buffer_texture(
                 buffer_data.push(conv_color(ch.attribute.get_foreground(), colors));
             }
             buffer_data.push(conv_color(ch.attribute.get_background(), colors));
-            buffer_data.push(ch.get_font_page() as u8);
+            if buf.font_table.len() > 0 { 
+                buffer_data.push((255.0 * ch.get_font_page() as f32 / (buf.font_table.len() - 1) as f32) as u8);
+            } else { 
+                buffer_data.push(0);
+            }
         }
     }
     unsafe {
@@ -698,7 +712,7 @@ fn create_buffer_texture(
         gl.tex_image_2d(
             glow::TEXTURE_2D,
             0,
-            glow::RGB as i32,
+            glow::RGBA32F as i32,
             buf.get_buffer_width(),
             buf.get_buffer_height(),
             0,

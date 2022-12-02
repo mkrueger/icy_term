@@ -11,7 +11,7 @@ impl MainWindow {
         let button_frame = egui::containers::Frame::none()
             .fill(Color32::from_rgb(0x20, 0x22, 0x25))
             .inner_margin(egui::style::Margin::same(4.0));
-
+        let top_margin_height = 40.;
         egui::TopBottomPanel::top("button_bar")
             .frame(button_frame)
             .show(ctx, |ui| {
@@ -56,20 +56,21 @@ impl MainWindow {
                     }
                 });
             });
+
         let frame_no_margins = egui::containers::Frame::none()
             .inner_margin(egui::style::Margin::same(0.0))
             .fill(Color32::from_rgb(0x40, 0x44, 0x4b));
         egui::CentralPanel::default()
             .frame(frame_no_margins)
             .show(ctx, |ui| {
-                let res = self.custom_painting(ui);
+                let res = self.custom_painting(ui, top_margin_height);
                 if let Err(err) = res {
                     eprintln!("{}", err);
                 }
             });
     }
 
-    fn custom_painting(&mut self, ui: &mut egui::Ui) -> TerminalResult<()> {
+    fn custom_painting(&mut self, ui: &mut egui::Ui, top_margin_height: f32) -> TerminalResult<()> {
         let size = ui.available_size();
         let buffer_view = self.buffer_view.clone();
         let buf_w = buffer_view.lock().buf.get_buffer_width();
@@ -95,7 +96,7 @@ impl MainWindow {
             rect.left_top()
                 + Vec2::new(
                     (rect.width() - rect_w) / 2.,
-                    (1. + rect.height() - rect_h) / 2.,
+                    (rect.height() - rect_h) / 2.,
                 )
                 .ceil(),
             Vec2::new(rect_w, rect_h),
@@ -105,7 +106,7 @@ impl MainWindow {
             rect: rect,
             callback: std::sync::Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
                 buffer_view.lock().update_buffer(painter.gl());
-                buffer_view.lock().paint(painter.gl(), rect);
+                buffer_view.lock().paint(painter.gl(), rect, top_margin_height);
             })),
         };
         ui.painter().add(callback);
