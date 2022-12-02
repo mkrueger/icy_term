@@ -97,7 +97,7 @@ impl BufferView {
                 r#"
             uniform sampler2DArray u_fonts;
             uniform sampler2D u_palette;
-            uniform sampler2D u_buffer;
+            uniform sampler2DArray u_buffer;
                         
             uniform vec2        u_resolution;
             uniform vec2        u_position;
@@ -113,18 +113,23 @@ impl BufferView {
                 return textureGrad(u_fonts, vec3(v, page), dFdx(p / 16.0), dFdy(p / 16.0));
             }
 
+            /* 
             // TODO: Is there an easier way to disable the 'intelligent' color conversion crap?
             vec4 toLinearSlow(vec4 col) {
                 bvec4 cutoff = lessThan(col, vec4(0.04045));
                 vec4 higher = vec4(pow((col.rgb + vec3(0.055))/vec3(1.055), vec3(2.4)), col.a);
                 vec4 lower = vec4(col.rgb/vec3(12.92), col.a);
                 return mix(higher, lower, cutoff);
-            }
+            }*/
                         
             vec4 get_palette_color(float c) {
-                return toLinearSlow(texture(u_palette, vec2(c, 0)));
+                return texture(u_palette, vec2(c, 0));
             }
-            
+
+            bool check_bit(float v, int bit) {
+                return (int(255.0 * v) & (1 << bit)) != 0;
+            }
+
             void main (void) {
                 vec2 view_coord = (gl_FragCoord.xy - u_position) / u_resolution;
                 view_coord = vec2(view_coord.s, 1.0 - view_coord.t);
@@ -132,13 +137,14 @@ impl BufferView {
                 vec2 sz = u_terminal_size;
                 vec2 fb_pos = (view_coord * sz);
 
-                vec4 ch = texture(u_buffer, vec2(view_coord.x, view_coord.y));
+                vec4 ch = texture(u_buffer, vec3(view_coord.x, view_coord.y, 0.0));
+                vec4 ch_attr = texture(u_buffer, vec3(view_coord.x, view_coord.y, 1.0));
                 
                 fb_pos = fract(vec2(fb_pos.x, fb_pos.y));
                 
-                vec4 char_data = get_char(fb_pos, ch.x * 255, ch.a);
-
-                if (char_data.x > 0.5) {
+                vec4 char_data = get_char(fb_pos, ch.x * 255.0, ch.a);
+                
+                if (char_data.x > 0.5 && !check_bit(ch_attr.r, 7) && !check_bit(ch_attr.r, 4)) {
                     fragColor = get_palette_color(ch.y);
                 } else {
                     fragColor = get_palette_color(ch.z);
@@ -204,10 +210,26 @@ void main() {
                 .expect("Cannot create vertex array");
             let buffer_texture = gl.create_texture().unwrap();
             create_buffer_texture(gl, &buf, 0, buffer_texture);
-            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32);
-            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
-            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);
-            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D_ARRAY,
+                glow::TEXTURE_MIN_FILTER,
+                glow::NEAREST as i32,
+            );
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D_ARRAY,
+                glow::TEXTURE_MAG_FILTER,
+                glow::NEAREST as i32,
+            );
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D_ARRAY,
+                glow::TEXTURE_WRAP_S,
+                glow::CLAMP_TO_EDGE as i32,
+            );
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D_ARRAY,
+                glow::TEXTURE_WRAP_T,
+                glow::CLAMP_TO_EDGE as i32,
+            );
 
             let palette_texture = gl.create_texture().unwrap();
             create_palette_texture(gl, &buf, palette_texture);
@@ -500,7 +522,6 @@ void main() {
             self.redraw_view = false;
             unsafe {
                 use glow::HasContext as _;
-                gl.active_texture(glow::TEXTURE0 + 4);
                 create_buffer_texture(gl, &self.buf, self.scroll_back_line, self.buffer_texture);
             }
         }
@@ -689,7 +710,7 @@ fn create_buffer_texture(
         buf.layers[0].lines.len() as i32 - buf.get_buffer_height(),
     );
     let mut buffer_data = Vec::with_capacity(
-        buf.get_buffer_width() as usize * 4 * buf.get_real_buffer_height() as usize,
+        2 * buf.get_buffer_width() as usize * 4 * buf.get_real_buffer_height() as usize,
     );
     let colors = buf.palette.colors.len() as u32 - 1;
     for y in 0..buf.get_buffer_height() {
@@ -711,15 +732,34 @@ fn create_buffer_texture(
             }
         }
     }
+
+    for y in 0..buf.get_buffer_height() {
+        for x in 0..buf.get_buffer_width() {
+            let ch = buf
+                .get_char_xy(x, first_line - scroll_back_line + y)
+                .unwrap_or_default();
+            let mut attr = ch.attribute.attr as u8 & 0b1111_1110;
+            if ch.attribute.is_double_height() {
+                attr |= 1;
+            }
+            buffer_data.push(attr);
+            buffer_data.push(attr);
+            buffer_data.push(attr);
+            buffer_data.push(attr);
+        }
+    }
     unsafe {
         use glow::HasContext as _;
-        gl.bind_texture(glow::TEXTURE_2D, Some(buffer_texture));
-        gl.tex_image_2d(
-            glow::TEXTURE_2D,
+        gl.active_texture(glow::TEXTURE0 + 4);
+
+        gl.bind_texture(glow::TEXTURE_2D_ARRAY, Some(buffer_texture));
+        gl.tex_image_3d(
+            glow::TEXTURE_2D_ARRAY,
             0,
             glow::RGBA32F as i32,
             buf.get_buffer_width(),
             buf.get_buffer_height(),
+            2,
             0,
             glow::RGBA,
             glow::UNSIGNED_BYTE,
