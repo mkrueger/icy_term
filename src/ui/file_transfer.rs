@@ -4,7 +4,7 @@ use std::time::{Duration, SystemTime};
 use eframe::epaint::Color32;
 use gabi::BytesConfig;
 use eframe::egui::{self, ProgressBar};
-use egui_extras::{Size, TableBuilder};
+use egui_extras::{Size, TableBuilder, Column};
 
 use crate::protocol::TransferState;
 
@@ -56,8 +56,8 @@ pub fn view_file_transfer(ctx: &egui::Context, frame: &mut eframe::Frame, state:
             let table = TableBuilder::new(ui)
                 .striped(false)
                 .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                .column(Size::relative(0.5))
-                .column(Size::relative(0.5))
+                .column(Column::auto())
+                .column(Column::auto())
                 .resizable(false);
 
             table.body(|mut body| {

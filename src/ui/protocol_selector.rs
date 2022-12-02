@@ -1,5 +1,5 @@
 use eframe::egui::{self};
-use egui_extras::{Size, TableBuilder, TableBody};
+use egui_extras::{ TableBuilder, TableBody, Column};
 
 use crate::protocol::ProtocolType;
 
@@ -28,8 +28,8 @@ pub fn view_protocol_selector(window: &mut MainWindow, ctx: &egui::Context, _fra
         let table = TableBuilder::new(ui)
             .striped(true)
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-            .column(Size::initial(100.0).at_least(100.0))
-            .column(Size::remainder().at_least(60.0))
+            .column(Column::initial(100.0).at_least(100.0))
+            .column(Column::remainder().at_least(60.0))
             .resizable(false);
         table
             .body(|mut body| {
