@@ -1,7 +1,6 @@
 use std::{
     fmt::Display,
     io::{self, ErrorKind},
-    time::Duration,
 };
 
 use icy_engine::{get_crc16, get_crc32, update_crc16};

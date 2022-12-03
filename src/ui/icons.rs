@@ -1,7 +1,7 @@
 use egui_extras::RetainedImage;
 
 lazy_static::lazy_static! {
-    pub static ref call_svg: RetainedImage = egui_extras::RetainedImage::from_svg_bytes(
+    pub static ref CALL_SVG: RetainedImage = egui_extras::RetainedImage::from_svg_bytes(
         "call.svg",
         include_bytes!("../../data/icons/call.svg"),
     )
@@ -9,7 +9,7 @@ lazy_static::lazy_static! {
 }
 
 lazy_static::lazy_static! {
-    pub static ref call_end_svg: RetainedImage = egui_extras::RetainedImage::from_svg_bytes(
+    pub static ref CALL_END_SVG: RetainedImage = egui_extras::RetainedImage::from_svg_bytes(
         "call_end.svg",
         include_bytes!("../../data/icons/call_end.svg"),
     )
@@ -17,7 +17,7 @@ lazy_static::lazy_static! {
 }
 
 lazy_static::lazy_static! {
-    pub static ref upload_svg: RetainedImage = egui_extras::RetainedImage::from_svg_bytes(
+    pub static ref UPLOAD_SVG: RetainedImage = egui_extras::RetainedImage::from_svg_bytes(
         "upload.svg",
         include_bytes!("../../data/icons/upload.svg"),
     )
@@ -25,7 +25,7 @@ lazy_static::lazy_static! {
 }
 
 lazy_static::lazy_static! {
-    pub static ref download_svg: RetainedImage = egui_extras::RetainedImage::from_svg_bytes(
+    pub static ref DOWNLOAD_SVG: RetainedImage = egui_extras::RetainedImage::from_svg_bytes(
         "download.svg",
         include_bytes!("../../data/icons/download.svg"),
     )
@@ -33,7 +33,7 @@ lazy_static::lazy_static! {
 }
 
 lazy_static::lazy_static! {
-    pub static ref key_svg: RetainedImage = egui_extras::RetainedImage::from_svg_bytes(
+    pub static ref KEY_SVG: RetainedImage = egui_extras::RetainedImage::from_svg_bytes(
         "key.svg",
         include_bytes!("../../data/icons/key.svg"),
     )
@@ -41,7 +41,7 @@ lazy_static::lazy_static! {
 }
 
 lazy_static::lazy_static! {
-    pub static ref delete_svg: RetainedImage = egui_extras::RetainedImage::from_svg_bytes(
+    pub static ref DELETE_SVG: RetainedImage = egui_extras::RetainedImage::from_svg_bytes(
         "delete.svg",
         include_bytes!("../../data/icons/delete.svg"),
     )
@@ -49,7 +49,7 @@ lazy_static::lazy_static! {
 }
 
 lazy_static::lazy_static! {
-    pub static ref add_svg: RetainedImage = egui_extras::RetainedImage::from_svg_bytes(
+    pub static ref ADD_SVG: RetainedImage = egui_extras::RetainedImage::from_svg_bytes(
         "add.svg",
         include_bytes!("../../data/icons/add.svg"),
     )

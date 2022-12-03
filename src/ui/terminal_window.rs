@@ -20,7 +20,7 @@ impl MainWindow {
                 ui.horizontal(|ui| {
                     if ui
                         .add(egui::ImageButton::new(
-                            super::upload_svg.texture_id(ctx),
+                            super::UPLOAD_SVG.texture_id(ctx),
                             img_size,
                         ))
                         .clicked()
@@ -29,7 +29,7 @@ impl MainWindow {
                     }
                     if ui
                         .add(egui::ImageButton::new(
-                            super::download_svg.texture_id(ctx),
+                            super::DOWNLOAD_SVG.texture_id(ctx),
                             img_size,
                         ))
                         .clicked()
@@ -38,7 +38,7 @@ impl MainWindow {
                     }
                     if ui
                         .add(egui::ImageButton::new(
-                            super::key_svg.texture_id(ctx),
+                            super::KEY_SVG.texture_id(ctx),
                             img_size,
                         ))
                         .clicked()
@@ -47,7 +47,7 @@ impl MainWindow {
                     }
                     if ui
                         .add(egui::ImageButton::new(
-                            super::call_end_svg.texture_id(ctx),
+                            super::CALL_END_SVG.texture_id(ctx),
                             img_size,
                         ))
                         .clicked()
@@ -68,6 +68,8 @@ impl MainWindow {
                     eprintln!("{}", err);
                 }
             });
+
+        ctx.request_repaint_after(std::time::Duration::from_millis(250));
     }
 
     fn custom_painting(&mut self, ui: &mut egui::Ui, top_margin_height: f32) -> TerminalResult<()> {

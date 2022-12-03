@@ -191,7 +191,6 @@ impl Protocol for Zmodem {
         files: Vec<FileDescriptor>,
         transfer_state: Arc<Mutex<TransferState>>
     ) -> ComResult<()>  {
-        let mut state = TransferState::new();
         transfer_state.lock().unwrap().protocol_name = self.get_name().to_string();
         let mut sz = Sz::new(self.block_length);
         sz.send(com, files).await?;

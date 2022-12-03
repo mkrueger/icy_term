@@ -18,7 +18,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
             let img_size = Vec2::new(24., 24.);
             if ui
                 .add(egui::ImageButton::new(
-                    super::call_svg.texture_id(ctx),
+                    super::CALL_SVG.texture_id(ctx),
                     img_size,
                 ))
                 .clicked()
@@ -51,7 +51,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                     ui.horizontal(|ui| {
                         if ui
                             .add(egui::ImageButton::new(
-                                super::call_svg.texture_id(ctx),
+                                super::CALL_SVG.texture_id(ctx),
                                 img_size,
                                 ).frame(false)
                             )
@@ -78,7 +78,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                 let img_size = Vec2::new(22., 22.);
                 if ui
                     .add(egui::ImageButton::new(
-                        super::delete_svg.texture_id(ctx),
+                        super::DELETE_SVG.texture_id(ctx),
                         img_size,
                     ))
                     .clicked()
@@ -87,7 +87,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                 }
                 if ui
                     .add(egui::ImageButton::new(
-                        super::add_svg.texture_id(ctx),
+                        super::ADD_SVG.texture_id(ctx),
                         img_size,
                     ))
                     .clicked()

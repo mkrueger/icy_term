@@ -57,7 +57,7 @@ impl Com for SSHCom {
         let mut buf = Vec::new();
         buf.resize(len, 0);
         match self.tcp_stream.as_mut().unwrap().read_exact(&mut buf).await {
-            Ok(b) => Ok(buf),
+            Ok(_) => Ok(buf),
             Err(err) => Err(Box::new(err))
         }
     }

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use crate::{com::{ Com, ComResult }};
-use std::{io::{self}, sync::{Arc, Mutex}};
+use std::{ sync::{Arc, Mutex}};
 
 mod constants;
 mod ry;
@@ -9,7 +9,7 @@ mod sy;
 mod tests;
 mod error;
 
-use self::constants::{DEFAULT_BLOCK_LENGTH, EXT_BLOCK_LENGTH, CAN};
+use self::{constants::{DEFAULT_BLOCK_LENGTH, EXT_BLOCK_LENGTH, CAN}, error::TransmissionError};
 
 use super::{FileDescriptor, TransferState};
 #[derive(Debug, Clone, Copy)]
@@ -66,15 +66,12 @@ impl super::Protocol for XYmodem {
 
     async fn initiate_send(
         &mut self,
-        com: &mut Box<dyn Com>,
+        _com: &mut Box<dyn Com>,
         files: Vec<FileDescriptor>,
         transfer_state: Arc<Mutex<TransferState>>
     ) -> ComResult<()> {
         if !self.config.is_ymodem() && files.len() != 1 {
-            return Err(Box::new(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Only 1 file can be send with x-modem.",
-            )));
+            return Err(Box::new(TransmissionError::XModem1File));
         }
 
         let mut sy = sy::Sy::new(self.config);

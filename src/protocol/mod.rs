@@ -5,14 +5,11 @@ use std::{fs};
 
 pub mod xymodem;
 use async_trait::async_trait;
-use directories::UserDirs;
-use rfd::FileDialog;
 pub use xymodem::*;
 
 pub mod zmodem;
 pub use zmodem::*;
 use crate::com::{Com, ComResult};
-use crate::{com::{Connection}};
 
 #[derive(Debug, Clone)]
 pub struct FileDescriptor {
@@ -65,7 +62,7 @@ impl FileDescriptor {
     }
 
     #[cfg(test)]
-    pub fn create_test(file_name: String, data: Vec<u8>) -> Self {
+    pub fn _create_test(file_name: String, data: Vec<u8>) -> Self {
         Self {
             path_name: String::new(),
             file_name,
@@ -153,7 +150,7 @@ impl TransferInformation {
         self.bps
     }
 
-    pub fn write(&mut self, txt: String) {
+    pub fn _write(&mut self, txt: String) {
         self.output_log.push(txt);
     }
 }

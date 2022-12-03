@@ -5,7 +5,7 @@ use icy_engine::{
     Buffer, BufferParser, CallbackAction, Caret, EngineResult, Position,
     SixelReadStatus,
 };
-use std::cmp::{max, min};
+use std::{cmp::{max, min}, time::{SystemTime, UNIX_EPOCH}};
 
 #[derive(Clone, Copy)]
 pub enum BufferInputMode {
@@ -91,66 +91,6 @@ impl BufferView {
         unsafe {
             let program = gl.create_program().expect("Cannot create program");
 
-            let mut shader = "precision mediump float;\n".to_string();
-
-            shader.push_str(
-                r#"
-            uniform sampler2DArray u_fonts;
-            uniform sampler2D u_palette;
-            uniform sampler2DArray u_buffer;
-                        
-            uniform vec2        u_resolution;
-            uniform vec2        u_position;
-            uniform vec2        u_terminal_size;
-
-            out     vec4        fragColor;
-            
-            vec4 get_char(vec2 p, float c, float page) {
-                if (p.x < 0.|| p.x > 1. || p.y < 0.|| p.y > 1.) {
-                    return vec4(0, 0, 0, 1.0);
-                }
-                vec2 v = p / 16.0 + fract(vec2(c, floor(c / 16.0)) / 16.0);
-                return textureGrad(u_fonts, vec3(v, page), dFdx(p / 16.0), dFdy(p / 16.0));
-            }
-            /* 
-            // TODO: Is there an easier way to disable the 'intelligent' color conversion crap?
-            vec4 toLinearSlow(vec4 col) {
-                bvec4 cutoff = lessThan(col, vec4(0.04045));
-                vec4 higher = vec4(pow((col.rgb + vec3(0.055))/vec3(1.055), vec3(2.4)), col.a);
-                vec4 lower = vec4(col.rgb/vec3(12.92), col.a);
-                return mix(higher, lower, cutoff);
-            }*/
-                        
-            vec4 get_palette_color(float c) {
-                return texture(u_palette, vec2(c, 0));
-            }
-
-            bool check_bit(float v, int bit) {
-                return (int(255.0 * v) & (1 << bit)) != 0;
-            }
-
-            void main (void) {
-                vec2 view_coord = (gl_FragCoord.xy - u_position) / u_resolution;
-                view_coord = vec2(view_coord.s, 1.0 - view_coord.t);
-
-                vec2 sz = u_terminal_size;
-                vec2 fb_pos = (view_coord * sz);
-
-                vec4 ch = texture(u_buffer, vec3(view_coord.x, view_coord.y, 0.0));
-                vec4 ch_attr = texture(u_buffer, vec3(view_coord.x, view_coord.y, 1.0));
-                
-                fb_pos = fract(vec2(fb_pos.x, fb_pos.y));
-                
-                vec4 char_data = get_char(fb_pos, ch.x * 255.0, ch.a);
-                
-                if (char_data.x > 0.5 && !check_bit(ch_attr.r, 7) && !check_bit(ch_attr.r, 4)) {
-                    fragColor = get_palette_color(ch.y);
-                } else {
-                    fragColor = get_palette_color(ch.z);
-                }
-            }"#,
-            );
-
             let (vertex_shader_source, fragment_shader_source) = (
                 r#"
 const float low  =  -1.0;
@@ -171,7 +111,7 @@ void main() {
     gl_Position = vec4(vert, 0.3, 1.0);
 }
 "#,
-                shader.as_str(),
+include_str!("buffer_view.shader.frag"),
             );
             let shader_sources = [
                 (glow::VERTEX_SHADER, vertex_shader_source),
@@ -519,10 +459,7 @@ void main() {
     pub fn update_buffer(&mut self, gl: &glow::Context) {
         if self.redraw_view {
             self.redraw_view = false;
-            unsafe {
-                use glow::HasContext as _;
-                create_buffer_texture(gl, &self.buf, self.scroll_back_line, self.buffer_texture);
-            }
+            create_buffer_texture(gl, &self.buf, self.scroll_back_line, self.buffer_texture);
         }
 
         if self.redraw_palette || self.colors != self.buf.palette.colors.len()  {
@@ -536,6 +473,18 @@ void main() {
             create_font_texture(gl, &self.buf, self.palette_texture);
             self.fonts = self.buf.font_table.len();
         }
+
+        let start = SystemTime::now();
+        let since_the_epoch = start
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards");
+        let in_ms = since_the_epoch.as_millis();
+
+        if in_ms - self.last_blink > 550 {
+            self.blink = !self.blink;
+            self.last_blink = in_ms;
+        }
+
     }
 
     pub fn paint(&self, gl: &glow::Context, rect: Rect, top_margin_height: f32) {
@@ -552,6 +501,14 @@ void main() {
                 gl.get_uniform_location(self.program, "u_position").as_ref(),
                 rect.left(),
                 rect.top() - top_margin_height,
+            );
+
+            gl.uniform_4_f32(
+                gl.get_uniform_location(self.program, "u_caret_position").as_ref(),
+                self.caret.get_position().x as f32,
+                self.caret.get_position().y as f32,
+                if self.blink && self.caret.is_visible { 1.0 } else { 0.0 },
+                if self.caret.insert_mode { 1.0 } else { 0.0 } // shape
             );
 
             gl.uniform_2_f32(

@@ -1,7 +1,6 @@
 use icy_engine::get_crc16;
 use std::{
-    cmp::min,
-    time::{SystemTime}, sync::{Arc, Mutex},
+    cmp::min, sync::{Arc, Mutex},
 };
 
 use super::{
@@ -106,7 +105,7 @@ impl Sy {
             }
             
             SendState::AckSendYmodemHeader(retries) => {
-                let now = SystemTime::now();
+                //let now = SystemTime::now();
                 let ack = self.read_command(com).await?;
                 if ack == NAK {
                     state.lock().unwrap().current_state = "Encountered error";
@@ -214,7 +213,6 @@ impl Sy {
                     self.send_state = SendState::None;
                 }
             },
-            _  => {}
         }
         Ok(())
     }
@@ -253,8 +251,7 @@ impl Sy {
 
     async fn eot(&self, com: &mut Box<dyn Com>) -> ComResult<usize> {
         // println!("[EOT]");
-        com.send(&[EOT]).await;
-        Ok(1)
+        com.send(&[EOT]).await
     }
 
     pub async fn get_mode(&mut self, com: &mut Box<dyn Com>) -> ComResult<()> {

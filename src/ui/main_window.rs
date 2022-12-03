@@ -25,7 +25,7 @@ pub enum MainWindowMode {
     ShowPhonebook,
     SelectProtocol(bool),
     FileTransfer(bool),
-    AskDeleteEntry
+ //   AskDeleteEntry
 }
 
 struct Options {
@@ -201,15 +201,13 @@ self.current_transfer = Some(Arc::new(Mutex::new(state)));
     pub(crate) fn initiate_file_transfer(&mut self, protocol_type: crate::protocol::ProtocolType, download: bool) {
         self.mode = MainWindowMode::ShowTerminal;
         match self.connection_opt.as_mut() {
-            Some(com) => {
+            Some(_) => {
                 if !download {
                     let files = FileDialog::new().pick_files();
                     if let Some(path) = files {
                         let fd = FileDescriptor::from_paths(&path);
                         if let Ok(files) = fd {
                             self.start_transfer_thread(protocol_type, download, Some(files));
-                        } else {
-                        //   log_result(&fd);
                         }
                     }
                 } else {
@@ -250,7 +248,7 @@ self.current_transfer = Some(Arc::new(Mutex::new(state)));
         self.buffer_view.lock().redraw_palette();
         self.buffer_view.lock().redraw_view();
         self.buffer_view.lock().clear();
-        self.println(&format!("Connect to {}...", &call_adr.address));
+        self.println(&format!("Connect to {}...", &call_adr.address)).unwrap_or_default();
       
         let timeout  = self.options.connect_timeout;
         let ct  = call_adr.connection_type;
@@ -260,7 +258,7 @@ self.current_transfer = Some(Arc::new(Mutex::new(state)));
                 crate::address::ConnectionType::Raw => Box::new(RawCom::new()),
                 crate::address::ConnectionType::SSH => Box::new(SSHCom::new()),
             };
-            com.connect(&call_adr, timeout).await;
+            com.connect(&call_adr, timeout).await.unwrap_or_default();
             com
         }));
     }
@@ -275,7 +273,8 @@ self.current_transfer = Some(Arc::new(Mutex::new(state)));
             self.addresses.remove(self.selected_bbs as usize);
             self.selected_bbs -= 1;
         }
-        store_phone_book(&self.addresses);
+        let res  = store_phone_book(&self.addresses);
+        self.handle_result(res);
     }
 
     pub fn update_state(&mut self) -> TerminalResult<()> {
@@ -416,15 +415,14 @@ impl eframe::App for MainWindow {
                                     }
                                 }
                                 result = rx2.recv() => {
-                                    let msg = result.unwrap();
-                                    match msg {
-                                        SendData::Data(buf) => {
+                                    match result {
+                                        Some(SendData::Data(buf)) => {
                                             if let Err(err) = handle.send(&buf).await {
                                                 eprintln!("{}", err);
                                                 done = true;
                                             }
                                         },
-                                        SendData::StartTransfer(protocol_type, download, transfer_state, files_opt) => {
+                                        Some(SendData::StartTransfer(protocol_type, download, transfer_state, files_opt)) => {
                                           let mut protocol = protocol_type.create();
                                            if let Err(err) = if download {
                                                 protocol.initiate_recv(&mut handle, transfer_state.clone()).await
@@ -447,7 +445,6 @@ impl eframe::App for MainWindow {
                                                                 eprintln!("Err {}", err);
                                                                 break;
                                                             }
-                                                        _ => {}
                                                         }
                                                     }
                                                     result = rx2.recv() => {
@@ -465,7 +462,7 @@ impl eframe::App for MainWindow {
                                             }
                                             tx.send(SendData::EndTransfer).await.unwrap_or_default();
                                         }
-                                        SendData::Disconnect => {
+                                        Some(SendData::Disconnect) => {
                                             done = true;
                                         }
                                         _ => {}
@@ -513,14 +510,15 @@ impl eframe::App for MainWindow {
                     // self.print_result(&r);
                     if !super::view_file_transfer(ctx, frame, a, download) {
                         self.mode = MainWindowMode::ShowTerminal;
-                        self.connection_opt.as_mut().unwrap().cancel_transfer();
+                        let res = self.connection_opt.as_mut().unwrap().cancel_transfer();
+                        self.handle_result(res);
                     }
                 } else {
                     eprintln!("error - in file transfer but no current protocol.");
                     self.mode = MainWindowMode::ShowTerminal;
                 }
             },
-            MainWindowMode::AskDeleteEntry => todo!(),
+           // MainWindowMode::AskDeleteEntry => todo!(),
         }
     }
 

@@ -1,5 +1,5 @@
 use std::{
-    time::{SystemTime}, sync::{Arc, Mutex}, fs,
+    sync::{Arc, Mutex}, fs,
 };
 
 use directories::UserDirs;
@@ -97,16 +97,16 @@ impl Rz {
                 if self.read_header(com).await? {
                     return Ok(());
                 }
-                let now = SystemTime::now();
-              /*   if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
+              /*  let now = SystemTime::now();
+                 if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
                     self.send_zrinit(com).await?;
                     self.retries += 1;
                     self.last_send = SystemTime::now();
                 }*/
             }
             RevcState::AwaitZDATA => {
-                let now = SystemTime::now();
-               /* if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
+              /*  let now = SystemTime::now();
+                if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
                     self.request_zpos(com).await?;
                     self.retries += 1;
                     self.last_send = SystemTime::now();
@@ -131,7 +131,7 @@ impl Rz {
                             self.state = RevcState::AwaitEOF;
                         }
                     }
-                    Err(err) => {
+                    Err(_) => {
                         self.errors += 1;
                         //transfer_info.write(err.to_string());
 
@@ -164,7 +164,7 @@ impl Rz {
         com: &mut Box<dyn Com>
     ) -> ComResult<bool> {
         let result = Header::read(com, &mut self.can_count).await;
-        if let Err(err) = result {
+        if let Err(_) = result {
             if self.can_count >= 5 {
                 //transfer_state.write("Received cancel...".to_string());
                 self.cancel(com).await?;
@@ -230,7 +230,7 @@ impl Rz {
 
                             return Ok(true);
                         }
-                        Err(err) => {
+                        Err(_) => {
                             self.errors += 1;
                             //transfer_state.write(format!("Got no ZFILE subpacket: {}", err));
                             return Ok(false);

@@ -12,13 +12,13 @@ use super::{Com, ComResult};
 
 #[derive(Debug)]
 pub struct TestCom {
-    name: String,
+    _name: String,
     //  write_buf: Rc<RefCell<std::collections::VecDeque<u8>>>,
     // read_buf: Rc<RefCell<std::collections::VecDeque<u8>>>,
     pub cmd_table: HashMap<u8, String>,
 }
 
-pub fn indent_receiver() {
+pub fn _indent_receiver() {
     print!("\t\t\t\t\t\t");
 }
 #[async_trait]
@@ -35,7 +35,7 @@ impl Com for TestCom {
         todo!();
     }
 
-    async fn send<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize> {
+    async fn send<'a>(&mut self, _buf: &'a [u8]) -> ComResult<usize> {
         todo!();
     }
 
@@ -43,7 +43,7 @@ impl Com for TestCom {
         todo!();
     }
     
-    async fn read_exact(&mut self, len: usize) -> ComResult<Vec<u8>>{
+    async fn read_exact(&mut self, _len: usize) -> ComResult<Vec<u8>>{
         todo!();
     }
     
@@ -69,7 +69,7 @@ impl Com for TestCom {
         Ok(buf.len())
     }*/
 }
-
+/* 
 #[cfg(test)]
 pub struct TestChannel {
     pub sender: Box<dyn Com>,
@@ -83,20 +83,20 @@ impl TestChannel {
         //let b2 = Rc::new(RefCell::new(std::collections::VecDeque::new()));
         Self {
             sender: Box::new(TestCom {
-                name: "sender".to_string(),
+                _name: "sender".to_string(),
                 //  read_buf:b1.clone(),
                 //  write_buf:b2.clone(),
                 cmd_table: HashMap::new(),
             }),
             receiver: Box::new(TestCom {
-                name: "receiver".to_string(),
+                _name: "receiver".to_string(),
                 //   read_buf:b2,
                 //    write_buf:b1,
                 cmd_table: HashMap::new(),
             }),
         }
     }
-}
+}*/
 /* 
 mod tests {
     use crate::com::test_com::TestChannel;

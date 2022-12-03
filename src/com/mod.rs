@@ -68,10 +68,10 @@ impl Connection {
     }
 
     pub fn should_end_transfer(&mut self) -> bool {
-        self.fill_buffer();
-        
+        self.fill_buffer().unwrap_or_default();
         self.end_transfer
     }
+    
     pub fn get_connection_time(&self) -> SystemTime {
         self.connection_time
     }

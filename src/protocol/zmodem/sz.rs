@@ -1,12 +1,11 @@
 use std::{
-    cmp::min,
-    time::SystemTime, sync::{Arc, Mutex},
+    cmp::min, sync::{Arc, Mutex},
 };
 
 use crate::{
     protocol::{
         zfile_flag, FileDescriptor, FrameType, Header, HeaderType, TransferState, Zmodem, ZCRCE,
-        ZCRCG,
+        ZCRCG, zmodem::error::TransmissionError,
     }, com::{Com, ComResult}, 
 };
 
@@ -143,7 +142,7 @@ impl Sz {
             }
             SendState::SendZRQInit => {
 //                transfer_state.lock().unwrap().current_state = "Negotiating transfer";
-                let now = SystemTime::now();
+            //    let now = SystemTime::now();
            //     if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
                     self.send_zrqinit(com).await?;
                     self.read_next_header(com).await?;
@@ -199,13 +198,12 @@ impl Sz {
             }
             SendState::Finished => {
 //                transfer_state.lock().unwrap().current_state = "Finishing transfer…";
-                let now = SystemTime::now();
+                // let now = SystemTime::now();
                 //if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
                     self.send_zfin(com, 0).await?;
                 //}
                 return Ok(());
             }
-            _ => {}
         }
         Ok(())
     }
@@ -331,11 +329,7 @@ impl Sz {
                     self.state = SendState::Finished;
                 }
                 unk_frame => {
-                    /*   return Err(Box::new(io::Error::new(
-                        ErrorKind::InvalidInput,
-                        format!("unsupported frame {:?}.", unk_frame),
-                    )));*/
-                    return Ok(());
+                    return Err(Box::new(TransmissionError::UnsupportedFrame(unk_frame)));
                 }
             }
         }
@@ -394,7 +388,7 @@ impl Sz {
         Ok(())
     }
 
-    pub async fn send(&mut self, com: &mut Box<dyn Com>, files: Vec<FileDescriptor>) -> ComResult<()> {
+    pub async fn send(&mut self, _com: &mut Box<dyn Com>, files: Vec<FileDescriptor>) -> ComResult<()> {
         //println!("initiate zmodem send {}", files.len());
         self.state = SendState::SendZRQInit;
         self.files = files;

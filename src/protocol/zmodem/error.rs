@@ -3,8 +3,8 @@ use super::FrameType;
 
 #[derive(Debug, Clone, Copy)]
 pub enum TransmissionError {
-    Cancel,
-    InvalidMode(u8),
+    // Cancel,
+    //InvalidMode(u8),
     InvalidSubpacket(u8),
     InvalidFrameType(u8),
     ZPADExected(u8),
@@ -20,8 +20,8 @@ pub enum TransmissionError {
 impl std::fmt::Display for TransmissionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TransmissionError::Cancel => write!(f, "transmission canceled"),
-            TransmissionError::InvalidMode(m) => write!(f, "invalid x/y modem mode: {}", m),
+            // TransmissionError::Cancel => write!(f, "transmission canceled"),
+            // TransmissionError::InvalidMode(m) => write!(f, "invalid x/y modem mode: {}", m),
             TransmissionError::InvalidSubpacket(m) => write!(f, "don't understand subpacket {0}/x{0:X}", m),
             TransmissionError::InvalidFrameType(ft) => write!(f, "invalid frame type {}", ft),
             TransmissionError::ZPADExected(b) => write!(f, "ZPAD expected got {} (0x{:X})", char::from_u32(*b as u32).unwrap(), b),

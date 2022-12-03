@@ -1,7 +1,7 @@
 use directories::UserDirs;
 use icy_engine::get_crc16;
 use std::{
-    io::{self, ErrorKind}, sync::{Arc, Mutex}, fs::{File, self},
+    io::{self, ErrorKind}, sync::{Arc, Mutex}, fs::{self},
 };
 
 use super::{

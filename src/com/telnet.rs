@@ -4,7 +4,7 @@ use crate::{address::Address, TerminalResult};
 
 use super::{Com, ComResult};
 use async_trait::async_trait;
-use std::{io::ErrorKind, thread, time::Duration};
+use std::{io::ErrorKind, time::Duration};
 use tokio::{
     io::{self, AsyncReadExt, AsyncWriteExt},
     net::TcpStream,

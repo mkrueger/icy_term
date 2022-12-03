@@ -5,11 +5,11 @@ use std::time::{Duration, SystemTime};
 use eframe::epaint::{Color32, FontId};
 use gabi::BytesConfig;
 use eframe::egui::{self, ProgressBar, RichText};
-use egui_extras::{Size, TableBuilder, Column};
+use egui_extras::{ TableBuilder, Column};
 
 use crate::protocol::TransferState;
 
-pub fn view_file_transfer(ctx: &egui::Context, frame: &mut eframe::Frame, transfer_state: &Arc<Mutex<TransferState>>, download: bool) -> bool {
+pub fn view_file_transfer(ctx: &egui::Context, _frame: &mut eframe::Frame, transfer_state: &Arc<Mutex<TransferState>>, download: bool) -> bool {
     let mut open = true;
     let text_style = FontId::proportional(24.);
     let title = RichText::new(if download { "Download" } else { "Upload" } ).font(text_style);
