@@ -3,38 +3,41 @@
 
 pub mod constants;
 use std::{
-    io::{self, ErrorKind},
-    time::Duration,
+    sync::{Arc, Mutex},
 };
 
+use async_trait::async_trait;
 pub use constants::*;
 mod header;
 pub use header::*;
+use icy_engine::{get_crc32, update_crc32};
 
 mod sz;
-use icy_engine::{get_crc32, update_crc32};
 use sz::*;
 
 mod rz;
 use rz::*;
 
 mod tests;
+mod error;
 
-use super::{TransferInformation, Protocol, TransferState};
-use crate::{com::{Connection}, TerminalResult};
+use self::error::TransmissionError;
+
+use super::{Protocol, TransferState, FileDescriptor};
+use crate::{com::{Com, ComResult}};
 
 pub struct Zmodem {
     block_length: usize,
-    sz: Sz,
-    rz: Rz,
+    rz: Option<rz::Rz>,
+    sz: Option<sz::Sz>,
 }
 
 impl Zmodem {
     pub fn new(block_length: usize) -> Self {
         Self {
             block_length,
-            sz: Sz::new(block_length),
-            rz: Rz::new(block_length),
+            sz: None,
+            rz: None,
         }
     }
 
@@ -46,8 +49,8 @@ impl Zmodem {
         }
     }
 
-    pub fn cancel(com: &mut Connection) -> TerminalResult<()> {
-        com.send(ABORT_SEQ.to_vec())?;
+    pub async fn cancel(com: &mut Box<dyn Com>) -> ComResult<()> {
+        com.send(&ABORT_SEQ).await?;
         Ok(())
     }
 
@@ -104,13 +107,13 @@ pub fn append_zdle_encoded(v: &mut Vec<u8>, data: &[u8]) {
     }
 }
 
-pub fn read_zdle_bytes(com: &mut Connection, length: usize) -> TerminalResult<Vec<u8>> {
+pub async fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> ComResult<Vec<u8>> {
     let mut data = Vec::new();
     loop {
-        let c = com.read_char(Duration::from_secs(5))?;
+        let c = com.read_u8().await?;
         match c {
             ZDLE => {
-                let c2 = com.read_char(Duration::from_secs(5))?;
+                let c2 = com.read_u8().await?;
                 match c2 {
                     ZDLEE => data.push(ZDLE),
                     ESC_0X10 => data.push(0x10),
@@ -125,11 +128,8 @@ pub fn read_zdle_bytes(com: &mut Connection, length: usize) -> TerminalResult<Ve
                     ZRUB1 => data.push(0xFF),
 
                     _ => {
-                        Header::empty(HeaderType::Bin32, FrameType::ZNAK).write(com)?;
-                        return Err(Box::new(io::Error::new(
-                            ErrorKind::InvalidInput,
-                            format!("don't understand subpacket {}/x{:X}", c2, c2),
-                        )));
+                        Header::empty(HeaderType::Bin32, FrameType::ZNAK).write(com).await?;
+                        return Err(Box::new(TransmissionError::InvalidSubpacket(c2)));
                     }
                 }
             }
@@ -153,7 +153,7 @@ fn get_hex(n: u8) -> u8 {
     return b'a' + (n - 10) as u8;
 }
 
-fn from_hex(n: u8) -> TerminalResult<u8> {
+fn from_hex(n: u8) -> ComResult<u8> {
     if b'0' <= n && n <= b'9' {
         return Ok(n - b'0');
     }
@@ -163,61 +163,64 @@ fn from_hex(n: u8) -> TerminalResult<u8> {
     if b'a' <= n && n <= b'f' {
         return Ok(10 + n - b'a');
     }
-    return Err(Box::new(io::Error::new(
-        io::ErrorKind::InvalidData,
-        "Hex number expected",
-    )));
+    return Err(Box::new(TransmissionError::HexNumberExpected));
 }
 
+#[async_trait]
 impl Protocol for Zmodem {
-    fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> TerminalResult<()> {
-        if self.sz.is_active() {
-            self.sz.update(com, state)?;
-            if !self.sz.is_active() {
-                state.is_finished = true;
+    async fn update(&mut self, com: &mut Box<dyn Com>, transfer_state: Arc<Mutex<TransferState>>) -> ComResult<bool> {
+       if let Some(rz) = &mut self.rz {
+            rz.update(com, transfer_state.clone()).await?;
+            if !rz.is_active() {
+                transfer_state.lock().unwrap().is_finished = true;
+                return Ok(false);
             }
-        } else {
-            while self.rz.is_active() {
-                if !com.is_data_available()? || self.block_length > 1024 {
-                    break;
-                }
-                self.rz.update(com, state)?;
-                if !self.rz.is_active() {
-                    state.is_finished = true;
-                }
+        } else if let Some(sz) = &mut self.sz {
+            sz.update(com, transfer_state.clone()).await?;
+            if !sz.is_active() {
+                transfer_state.lock().unwrap().is_finished = true;
+                return Ok(false);
             }
         }
+        Ok(true)
+    }
+
+    async fn initiate_send(
+        &mut self,
+        com: &mut Box<dyn Com>,
+        files: Vec<FileDescriptor>,
+        transfer_state: Arc<Mutex<TransferState>>
+    ) -> ComResult<()>  {
+        let mut state = TransferState::new();
+        transfer_state.lock().unwrap().protocol_name = self.get_name().to_string();
+        let mut sz = Sz::new(self.block_length);
+        sz.send(com, files).await?;
+        self.sz = Some(sz);
         Ok(())
     }
 
-    fn initiate_send(
+    async fn initiate_recv(
         &mut self,
-        com: &mut Connection,
-        files: Vec<super::FileDescriptor>,
-    ) -> TerminalResult<TransferState> {
-        let mut state = TransferState::new();
-        state.send_state = Some(TransferInformation::new());
-        state.protocol_name = self.get_name().to_string();
-        self.sz.send(com, files)?;
-        Ok(state)
-    }
-
-    fn initiate_recv(&mut self, com: &mut Connection) -> TerminalResult<TransferState> {
-        let mut state = TransferState::new();
-        state.recieve_state = Some(TransferInformation::new());
-        state.protocol_name = self.get_name().to_string();
-        self.rz.recv(com)?;
-        Ok(state)
+        com: &mut Box<dyn Com>,
+        transfer_state: Arc<Mutex<TransferState>>
+    ) -> ComResult<()> {
+        transfer_state.lock().unwrap().protocol_name = self.get_name().to_string();
+        let mut rz = Rz::new(self.block_length);
+        rz.recv(com).await?;
+        self.rz = Some(rz);
+        Ok(())
     }
 
     fn get_received_files(&mut self) -> Vec<super::FileDescriptor> {
-        let c = self.rz.files.clone();
-        self.rz.files = Vec::new();
-        c
+        if let Some(rz) = &mut self.rz {
+            let c = rz.files.clone();
+            rz.files = Vec::new();
+            c
+        } else { Vec::new() }
     }
 
-    fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
-        com.send(ABORT_SEQ.to_vec())?;
+    async fn cancel(&mut self, com: &mut Box<dyn Com>) -> ComResult<()> {
+        com.send(&ABORT_SEQ).await?;
         Ok(())
     }
 }

@@ -46,7 +46,22 @@ impl Com for SSHCom {
         }
     }
 
-    async fn write<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize> {
+    async fn read_u8(&mut self) -> ComResult<u8> {
+        match self.tcp_stream.as_mut().unwrap().read_u8().await {
+            Ok(b) => Ok(b),
+            Err(err) => Err(Box::new(err))
+        }
+    }
+    
+    async fn read_exact(&mut self, len: usize) -> ComResult<Vec<u8>>{
+        let mut buf = Vec::new();
+        buf.resize(len, 0);
+        match self.tcp_stream.as_mut().unwrap().read_exact(&mut buf).await {
+            Ok(b) => Ok(buf),
+            Err(err) => Err(Box::new(err))
+        }
+    }
+    async fn send<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize> {
         match self.tcp_stream.as_mut().unwrap().write(&buf).await {
             Ok(bytes) => Ok(bytes),
             Err(err) => Err(Box::new(err))

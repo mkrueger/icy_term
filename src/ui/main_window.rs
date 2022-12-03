@@ -1,9 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(unsafe_code)]
 
-use std::{sync::{Arc}, env};
-use egui::mutex::Mutex;
-use egui_extras::RetainedImage;
+use std::{sync::{Arc, Mutex}, env};
 use icy_engine::{BufferParser, AvatarParser};
 use poll_promise::Promise;
 use rfd::FileDialog;
@@ -11,11 +9,11 @@ use std::time::{Duration, SystemTime};
 
 use eframe::{egui::{self, Key}};
 
-use crate::{address::{Address, start_read_book, store_phone_book}, com::{TelnetCom, RawCom, SSHCom, SendData}, TerminalResult, protocol::FileDescriptor};
+use crate::{address::{Address, start_read_book, store_phone_book}, com::{TelnetCom, RawCom, SSHCom, SendData}, TerminalResult, protocol::{FileDescriptor}};
 use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
 use crate::com::{Com};
-use crate::protocol::{Protocol, TransferState};
+use crate::protocol::{TransferState};
 
 use super::{BufferView, screen_modes::ScreenMode};
 use tokio::sync::mpsc;
@@ -42,9 +40,8 @@ impl Options {
     }
 }
 
-
 pub struct MainWindow {
-    pub buffer_view: Arc<Mutex<BufferView>>,
+    pub buffer_view: Arc<eframe::epaint::mutex::Mutex<BufferView>>,
     pub buffer_parser: Box<dyn BufferParser>,
 
     pub connection_opt: Option<Connection>,
@@ -60,7 +57,8 @@ pub struct MainWindow {
     auto_login: AutoLogin,
     auto_file_transfer: AutoFileTransfer,
     // protocols
-    current_protocol: Option<(Box<dyn Protocol>, TransferState)>,
+
+    current_transfer: Option<Arc<Mutex<TransferState>>>,
     is_alt_pressed: bool,
 
     open_connection_promise: Option<Promise<Box<dyn Com>>>,
@@ -76,7 +74,7 @@ impl MainWindow {
         
         let view  = BufferView::new(gl);
         let mut view = MainWindow {
-            buffer_view: Arc::new(Mutex::new(view)),
+            buffer_view: Arc::new(eframe::epaint::mutex::Mutex::new(view)),
             //address_list: HoverList::new(),
             mode: MainWindowMode::ShowPhonebook,
             addresses: start_read_book(),
@@ -87,7 +85,7 @@ impl MainWindow {
             auto_login: AutoLogin::new(String::new()),
             auto_file_transfer: AutoFileTransfer::new(),
             screen_mode: ScreenMode::DOS(80, 25),
-            current_protocol: None,
+            current_transfer: None,
             handled_char: false,
             is_alt_pressed: false,
             buffer_parser: Box::new(AvatarParser::new(true)),
@@ -175,6 +173,31 @@ impl MainWindow {
         Ok(())
     }
 
+    fn start_transfer_thread(&mut self, protocol_type: crate::protocol::ProtocolType, download: bool, files_opt: Option<Vec<FileDescriptor>>)
+    {
+        self.mode = MainWindowMode::FileTransfer(download);
+        let state = Arc::new(Mutex::new(TransferState::new()));
+        self.current_transfer = Some(state.clone());
+        let res = self.connection_opt.as_mut().unwrap().start_file_transfer(protocol_type, download, state, files_opt);
+        self.handle_result(res);
+    }
+
+    /*
+    
+                                let mut protocol = protocol_type.create();
+                            match protocol.initiate_send(com, files, &self.current_transfer.unwrap()) {
+                                Ok(state) => {
+                                    self.mode = MainWindowMode::FileTransfer(download);
+//                                    let a =(protocol, )));
+                                    
+self.current_transfer = Some(Arc::new(Mutex::new(state)));
+}
+                                Err(error) => {
+                                    eprintln!("{}", error);
+                                }
+                            }
+
+    */
     pub(crate) fn initiate_file_transfer(&mut self, protocol_type: crate::protocol::ProtocolType, download: bool) {
         self.mode = MainWindowMode::ShowTerminal;
         match self.connection_opt.as_mut() {
@@ -184,31 +207,13 @@ impl MainWindow {
                     if let Some(path) = files {
                         let fd = FileDescriptor::from_paths(&path);
                         if let Ok(files) = fd {
-                            let mut protocol = protocol_type.create();
-                            match protocol.initiate_send(com, files) {
-                                Ok(state) => {
-                                    self.mode = MainWindowMode::FileTransfer(download);
-                                    self.current_protocol = Some((protocol, state));
-                                }
-                                Err(error) => {
-                                    eprintln!("{}", error);
-                                }
-                            }
+                            self.start_transfer_thread(protocol_type, download, Some(files));
                         } else {
-                         //   log_result(&fd);
+                        //   log_result(&fd);
                         }
                     }
                 } else {
-                    let mut protocol = protocol_type.create();
-                    match protocol.initiate_recv(com) {
-                        Ok(state) => {
-                            self.mode = MainWindowMode::FileTransfer(download);
-                            self.current_protocol = Some((protocol, state));
-                        }
-                        Err(error) => {
-                            eprintln!("{}", error);
-                        }
-                    }
+                    self.start_transfer_thread(protocol_type, download, None);
                 }
             }
             None => {
@@ -397,6 +402,7 @@ impl eframe::App for MainWindow {
                     self.connection_opt = Some(Connection::new(rx, tx2.clone()));
 
                     let mut handle = handle;
+
                     tokio::spawn(async move {
                         let mut done = false;
                         while !done {
@@ -405,7 +411,7 @@ impl eframe::App for MainWindow {
                                     if let Err(err) = tx.send(SendData::Data(v)).await {
                                         eprintln!("error while sending: {}", err);
                                         done = true;
-                                } else {
+                                    } else {
                                         ctx.request_repaint();
                                     }
                                 }
@@ -413,14 +419,56 @@ impl eframe::App for MainWindow {
                                     let msg = result.unwrap();
                                     match msg {
                                         SendData::Data(buf) => {
-                                            if let Err(err) = handle.write(&buf).await {
+                                            if let Err(err) = handle.send(&buf).await {
                                                 eprintln!("{}", err);
                                                 done = true;
                                             }
                                         },
+                                        SendData::StartTransfer(protocol_type, download, transfer_state, files_opt) => {
+                                          let mut protocol = protocol_type.create();
+                                           if let Err(err) = if download {
+                                                protocol.initiate_recv(&mut handle, transfer_state.clone()).await
+                                            } else {
+                                                protocol.initiate_send(&mut handle, files_opt.unwrap(), transfer_state.clone()).await
+                                            } {
+                                                eprintln!("{}", err);
+                                                break;
+                                            }
+                                            loop {
+                                                tokio::select! {
+                                                    v = protocol.update(&mut handle, transfer_state.clone()) => {
+                                                        match v {
+                                                            Ok(running) => {
+                                                                if !running {
+                                                                    break;
+                                                                }
+                                                            }
+                                                            Err(err) => {
+                                                                eprintln!("Err {}", err);
+                                                                break;
+                                                            }
+                                                        _ => {}
+                                                        }
+                                                    }
+                                                    result = rx2.recv() => {
+                                                        let msg = result.unwrap();
+                                                        match msg {
+                                                            SendData::CancelTransfer => {
+                                                                protocol.cancel(&mut handle).await.unwrap_or_default();
+                                                                eprintln!("Cancel");
+                                                                break;
+                                                            }
+                                                            _ => {}
+                                                        }
+                                                    }                    
+                                                }
+                                            }
+                                            tx.send(SendData::EndTransfer).await.unwrap_or_default();
+                                        }
                                         SendData::Disconnect => {
                                             done = true;
                                         }
+                                        _ => {}
                                     }
                                 }
                             };
@@ -445,31 +493,27 @@ impl eframe::App for MainWindow {
                 super::view_protocol_selector(self, ctx, frame, download); 
             },
             MainWindowMode::FileTransfer(download) => {
+                if self.connection_opt.as_mut().unwrap().should_end_transfer() {
+                    /*  if guard.1.is_finished {
+                    for f in guard.0.get_received_files() {
+                        f.save_file_in_downloads(
+                            guard.1.recieve_state.as_mut().unwrap(),
+                        )
+                        .expect("error saving file.");
+                    }
+                } else */
+                    self.mode = MainWindowMode::ShowTerminal;
+                    self.auto_file_transfer.reset();
+                } else {
+                    ctx.request_repaint_after(Duration::from_millis(50));
+                }
+
                 self.update_terminal_window(ctx, frame);
-                if let Some((protocol, state)) = &mut self.current_protocol {
-                    match protocol.update(self.connection_opt.as_mut().unwrap(), state) {
-                        Err(err) => {
-                            eprintln!("Err {}", err);
-                        }
-                        _ => {}
-                    }
+                if let Some(a) = &mut self.current_transfer {
                     // self.print_result(&r);
-                    if state.is_finished {
-                        for f in protocol.get_received_files() {
-                            f.save_file_in_downloads(
-                                state.recieve_state.as_mut().unwrap(),
-                            )
-                            .expect("error saving file.");
-                        }
+                    if !super::view_file_transfer(ctx, frame, a, download) {
                         self.mode = MainWindowMode::ShowTerminal;
-                        self.auto_file_transfer.reset();
-                    } else {
-                        ctx.request_repaint_after(Duration::from_millis(50));
-                    }
-                    if !super::view_file_transfer(ctx, frame, state, download) {
-                        self.mode = MainWindowMode::ShowTerminal;
-                        let res = protocol.cancel(self.connection_opt.as_mut().unwrap());
-                        self.handle_result(res);
+                        self.connection_opt.as_mut().unwrap().cancel_transfer();
                     }
                 } else {
                     eprintln!("error - in file transfer but no current protocol.");

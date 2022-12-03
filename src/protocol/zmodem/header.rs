@@ -5,7 +5,7 @@ use std::{
 };
 
 use icy_engine::{get_crc16, get_crc32, update_crc16};
-use crate::{com::{Connection}, TerminalResult};
+use crate::{com::{Com, ComResult}};
 
 use crate::{
     protocol::{frame_types::ZACK, XON}
@@ -14,7 +14,7 @@ use crate::{
 use super::{
     append_zdle_encoded,
     frame_types::{self},
-    from_hex, get_hex, read_zdle_bytes, ZBIN, ZBIN32, ZDLE, ZHEX, ZPAD,
+    from_hex, get_hex, read_zdle_bytes, ZBIN, ZBIN32, ZDLE, ZHEX, ZPAD, error::TransmissionError,
 };
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -184,12 +184,12 @@ impl Header {
         res
     }
 
-    pub fn write(&mut self, com: &mut Connection) -> TerminalResult<usize> {
-        com.send(self.build())?;
-        Ok(0)
+    pub async fn write(&mut self, com: &mut Box<dyn Com>) -> ComResult<usize> {
+        println!("send header: {:?}", self);
+        com.send(&self.build()).await
     }
 
-    pub fn get_frame_type(ftype: u8) -> TerminalResult<FrameType> {
+    pub fn get_frame_type(ftype: u8) -> ComResult<FrameType> {
         match ftype {
             frame_types::ZRQINIT => Ok(FrameType::ZRQINIT),
             frame_types::ZRINIT => Ok(FrameType::ZRINIT),
@@ -211,132 +211,115 @@ impl Header {
             frame_types::ZFREECNT => Ok(FrameType::ZFREECNT),
             frame_types::ZCOMMAND => Ok(FrameType::ZCOMMAND),
             frame_types::ZSTDERR => Ok(FrameType::ZSTDERR),
-            _ => Err(Box::new(io::Error::new(
-                ErrorKind::InvalidInput,
-                format!("Invalid frame type {}", ftype),
-            ))),
+            _ => Err(Box::new(TransmissionError::InvalidFrameType(ftype)))
         }
     }
 
-    pub fn read(com: &mut Connection, can_count: &mut usize) -> TerminalResult<Option<Header>> {
-        if com.is_data_available()? {
-            let zpad = com.read_char(Duration::from_secs(5))?;
-            if zpad == 0x18 {
-                // CAN
-                *can_count += 1;
-            }
-            if zpad != ZPAD {
-                return Err(Box::new(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    format!(
-                        "ZPAD expected got {} (0x{:X}) ",
-                        char::from_u32(zpad as u32).unwrap(),
-                        zpad
-                    ),
-                )));
-            }
-            *can_count = 0;
-            let mut next = com.read_char(Duration::from_secs(5))?;
-            if next == ZPAD {
-                next = com.read_char(Duration::from_secs(5))?;
-            }
-            if next != ZDLE {
-                return Err(Box::new(io::Error::new(io::ErrorKind::InvalidData, "ZDLE expected")));
-            }
+    pub async fn read(com: &mut Box<dyn Com>, can_count: &mut usize) -> ComResult<Option<Header>> {
+        let zpad = com.read_u8().await?;
+        if zpad == 0x18 {
+            // CAN
+            *can_count += 1;
+        }
+        if zpad != ZPAD {
+            return Err(Box::new(TransmissionError::ZPADExected(zpad)));
+        }
+        *can_count = 0;
+        let mut next = com.read_u8().await?;
+        if next == ZPAD {
+            next = com.read_u8().await?;
+        }
+        if next != ZDLE {
+            return Err(Box::new(TransmissionError::ZLDEExected(next)));
+        }
 
-            let header_type = com.read_char(Duration::from_secs(5))?;
-            let header_data_size = match header_type {
-                ZBIN => 7,
-                ZBIN32 => 9,
-                ZHEX => 14,
-                _ => {
+        let header_type = com.read_u8().await?;
+        let header_data_size = match header_type {
+            ZBIN => 7,
+            ZBIN32 => 9,
+            ZHEX => 14,
+            _ => {
+                return Err(Box::new(TransmissionError::UnknownHeaderType(header_type)));
+            }
+        };
+
+        let header_data = read_zdle_bytes(com, header_data_size).await?;
+        match header_type {
+            ZBIN => {
+                let crc16 = get_crc16(&header_data[0..5]);
+                let check_crc16 = u16::from_le_bytes(header_data[5..7].try_into().unwrap());
+                if crc16 != check_crc16 {
+                    return Err(Box::new(TransmissionError::CRC16Mismatch(crc16, check_crc16)));
+                }
+                Ok(Some(Header {
+                    header_type: HeaderType::Bin,
+                    frame_type: Header::get_frame_type(header_data[0])?,
+                    data: header_data[1..5].try_into().unwrap(),
+                }))
+            }
+            ZBIN32 => {
+                let data = &header_data[0..5];
+                let crc32 = get_crc32(&data);
+                let check_crc32 = u32::from_le_bytes(header_data[5..9].try_into().unwrap());
+                if crc32 != check_crc32 {
                     return Err(Box::new(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "Unknown header type",
-                    )))
+                        ErrorKind::InvalidData,
+                        format!(
+                            "crc32 mismatch got {:08X} expected {:08X}",
+                            crc32, check_crc32
+                        ),
+                    )));
                 }
-            };
-
-            let header_data = read_zdle_bytes(com, header_data_size)?;
-            match header_type {
-                ZBIN => {
-                    let crc16 = get_crc16(&header_data[0..5]);
-                    let check_crc16 = u16::from_le_bytes(header_data[5..7].try_into().unwrap());
-                    if crc16 != check_crc16 {
-                        return Err(Box::new(io::Error::new(io::ErrorKind::InvalidData, "CRC16 mismatch")));
-                    }
-                    Ok(Some(Header {
-                        header_type: HeaderType::Bin,
-                        frame_type: Header::get_frame_type(header_data[0])?,
-                        data: header_data[1..5].try_into().unwrap(),
-                    }))
-                }
-                ZBIN32 => {
-                    let data = &header_data[0..5];
-                    let crc32 = get_crc32(&data);
-                    let check_crc32 = u32::from_le_bytes(header_data[5..9].try_into().unwrap());
-                    if crc32 != check_crc32 {
-                        return Err(Box::new(io::Error::new(
-                            ErrorKind::InvalidData,
-                            format!(
-                                "crc32 mismatch got {:08X} expected {:08X}",
-                                crc32, check_crc32
-                            ),
-                        )));
-                    }
-                    Ok(Some(Header {
-                        header_type: HeaderType::Bin32,
-                        frame_type: Header::get_frame_type(header_data[0])?,
-                        data: header_data[1..5].try_into().unwrap(),
-                    }))
-                }
-                ZHEX => {
-                    let data = [
-                        from_hex(header_data[0])? << 4 | from_hex(header_data[1])?,
-                        from_hex(header_data[2])? << 4 | from_hex(header_data[3])?,
-                        from_hex(header_data[4])? << 4 | from_hex(header_data[5])?,
-                        from_hex(header_data[6])? << 4 | from_hex(header_data[7])?,
-                        from_hex(header_data[8])? << 4 | from_hex(header_data[9])?,
-                    ];
-
-                    let crc16 = get_crc16(&data);
-
-                    let mut check_crc16 = 0;
-                    for b in &header_data[10..14] {
-                        check_crc16 = check_crc16 << 4 | (from_hex(*b)? as u16);
-                    }
-                    if crc16 != check_crc16 {
-                        return Err(Box::new(io::Error::new(
-                            ErrorKind::InvalidData,
-                            format!(
-                                "crc16 mismatch got {:04X} expected {:04X}",
-                                crc16, check_crc16
-                            ),
-                        )));
-                    }
-                    // read rest
-                    let eol = com.read_char(Duration::from_secs(5))?;
-
-                    // don't check the next bytes. Errors there don't impact much
-                    if eol == b'\r' {
-                        com.read_char(Duration::from_secs(5))?; // \n windows eol
-                    }
-                    if data[0] != ZACK && data[0] != frame_types::ZFIN {
-                        com.read_char(Duration::from_secs(5))?; // read XON
-                    }
-
-                    Ok(Some(Header {
-                        header_type: HeaderType::Hex,
-                        frame_type: Header::get_frame_type(data[0])?,
-                        data: data[1..5].try_into().unwrap(),
-                    }))
-                }
-                _ => {
-                    panic!("should never happen");
-                }
+                Ok(Some(Header {
+                    header_type: HeaderType::Bin32,
+                    frame_type: Header::get_frame_type(header_data[0])?,
+                    data: header_data[1..5].try_into().unwrap(),
+                }))
             }
-        } else {
-            Ok(None)
+            ZHEX => {
+                let data = [
+                    from_hex(header_data[0])? << 4 | from_hex(header_data[1])?,
+                    from_hex(header_data[2])? << 4 | from_hex(header_data[3])?,
+                    from_hex(header_data[4])? << 4 | from_hex(header_data[5])?,
+                    from_hex(header_data[6])? << 4 | from_hex(header_data[7])?,
+                    from_hex(header_data[8])? << 4 | from_hex(header_data[9])?,
+                ];
+
+                let crc16 = get_crc16(&data);
+
+                let mut check_crc16 = 0;
+                for b in &header_data[10..14] {
+                    check_crc16 = check_crc16 << 4 | (from_hex(*b)? as u16);
+                }
+                if crc16 != check_crc16 {
+                    return Err(Box::new(io::Error::new(
+                        ErrorKind::InvalidData,
+                        format!(
+                            "crc16 mismatch got {:04X} expected {:04X}",
+                            crc16, check_crc16
+                        ),
+                    )));
+                }
+                // read rest
+                let eol = com.read_u8().await?;
+
+                // don't check the next bytes. Errors there don't impact much
+                if eol == b'\r' {
+                    com.read_u8().await?; // \n windows eol
+                }
+                if data[0] != ZACK && data[0] != frame_types::ZFIN {
+                    com.read_u8().await?; // read XON
+                }
+
+                Ok(Some(Header {
+                    header_type: HeaderType::Hex,
+                    frame_type: Header::get_frame_type(data[0])?,
+                    data: data[1..5].try_into().unwrap(),
+                }))
+            }
+            _ => {
+                panic!("should never happen");
+            }
         }
     }
 }

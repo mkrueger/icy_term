@@ -112,7 +112,6 @@ impl BufferView {
                 vec2 v = p / 16.0 + fract(vec2(c, floor(c / 16.0)) / 16.0);
                 return textureGrad(u_fonts, vec3(v, page), dFdx(p / 16.0), dFdy(p / 16.0));
             }
-
             /* 
             // TODO: Is there an easier way to disable the 'intelligent' color conversion crap?
             vec4 toLinearSlow(vec4 col) {

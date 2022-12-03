@@ -1,18 +1,20 @@
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 use std::{fs};
 
 pub mod xymodem;
+use async_trait::async_trait;
 use directories::UserDirs;
 use rfd::FileDialog;
 pub use xymodem::*;
 
 pub mod zmodem;
 pub use zmodem::*;
-use crate::TerminalResult;
+use crate::com::{Com, ComResult};
 use crate::{com::{Connection}};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct FileDescriptor {
     pub path_name: String,
     pub file_name: String,
@@ -34,7 +36,7 @@ impl FileDescriptor {
         }
     }
 
-    pub fn from_paths(paths: &Vec<PathBuf>) -> TerminalResult<Vec<FileDescriptor>> {
+    pub fn from_paths(paths: &Vec<PathBuf>) -> ComResult<Vec<FileDescriptor>> {
         let mut res = Vec::new();
         for p in paths {
             let fd = FileDescriptor::create(p)?;
@@ -43,35 +45,8 @@ impl FileDescriptor {
         Ok(res)
     }
 
-    pub fn save_file_in_downloads(
-        &self,
-        transfer_state: &mut TransferInformation,
-    ) -> TerminalResult<()> {
-        if let Some(user_dirs) = UserDirs::new() {
-            let dir = user_dirs.download_dir().unwrap();
 
-            if self.file_name.is_empty() {
-                let new_name = FileDialog::new().save_file();
-                if let Some(path) = new_name {
-                    let out_file = dir.join(path);
-                    transfer_state.write(format!("Storing file as '{:?}'…", out_file));
-                    fs::write(out_file, &self.get_data()?)?;
-                }
-                return Ok(());
-            }
-            let mut file_name = dir.join(&self.file_name);
-            let mut i = 1;
-            while file_name.exists() {
-                file_name = dir.join(&format!("{}.{}", self.file_name, i));
-                i += 1;
-            }
-            transfer_state.write(format!("Storing file as '{:?}'…", file_name));
-            fs::write(file_name, &self.get_data()?)?;
-        }
-        Ok(())
-    }
-
-    pub fn create(path: &PathBuf) -> TerminalResult<Self> {
+    pub fn create(path: &PathBuf) -> ComResult<Self> {
         let data = fs::metadata(path)?;
         let size = data.len() as usize;
         let date = data
@@ -101,17 +76,25 @@ impl FileDescriptor {
         }
     }
 
-    pub fn get_data(&self) -> TerminalResult<Vec<u8>> {
+    pub fn get_data(&self) -> ComResult<Vec<u8>> {
         if let Some(data) = &self.data {
             Ok(data.clone())
         } else {
-            let res = std::fs::read(&self.path)?;
-            Ok(res)
+            let res = std::fs::read(&self.path);
+
+            match res {
+                Ok(res) => Ok(res),
+                Err(err) => {
+                    eprintln!("error {}", err);
+                    Ok(Vec::new())
+                }
+            }
+            
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TransferInformation {
     pub file_name: String,
     pub file_size: usize,
@@ -175,14 +158,14 @@ impl TransferInformation {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TransferState {
     pub current_state: &'static str,
     pub is_finished: bool,
     pub protocol_name: String,
     pub start_time: SystemTime,
-    pub send_state: Option<TransferInformation>,
-    pub recieve_state: Option<TransferInformation>,
+    pub send_state: TransferInformation,
+    pub recieve_state: TransferInformation,
 }
 
 impl TransferState {
@@ -192,22 +175,32 @@ impl TransferState {
             protocol_name: String::new(),
             is_finished: false,
             start_time: SystemTime::now(),
-            send_state: None,
-            recieve_state: None,
+            send_state: TransferInformation::new(),
+            recieve_state: TransferInformation::new()
         }
     }
 }
 
-pub trait Protocol {
-    fn update(&mut self, com: &mut Connection, state: &mut TransferState) -> TerminalResult<()>;
-    fn initiate_send(
+#[async_trait]
+pub trait Protocol: Send {
+    async fn update(&mut self, com: &mut Box<dyn Com>, transfer_state: Arc<Mutex<TransferState>>) -> ComResult<bool>;
+
+    async fn initiate_send(
         &mut self,
-        com: &mut Connection,
+        com: &mut Box<dyn Com>,
         files: Vec<FileDescriptor>,
-    ) -> TerminalResult<TransferState>;
-    fn initiate_recv(&mut self, com: &mut Connection) -> TerminalResult<TransferState>;
+        transfer_state: Arc<Mutex<TransferState>>
+    ) -> ComResult<()>;
+
+    async fn initiate_recv(
+        &mut self,
+        com: &mut Box<dyn Com>,
+        transfer_state: Arc<Mutex<TransferState>>
+    ) -> ComResult<()>;
+
     fn get_received_files(&mut self) -> Vec<FileDescriptor>;
-    fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()>;
+
+    async fn cancel(&mut self, com: &mut Box<dyn Com>) -> ComResult<()>;
 }
 
 #[derive(Debug, Clone, Copy)]

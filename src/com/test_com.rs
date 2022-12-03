@@ -35,10 +35,18 @@ impl Com for TestCom {
         todo!();
     }
 
-    async fn write<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize> {
+    async fn send<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize> {
         todo!();
     }
 
+    async fn read_u8(&mut self) -> ComResult<u8> {
+        todo!();
+    }
+    
+    async fn read_exact(&mut self, len: usize) -> ComResult<Vec<u8>>{
+        todo!();
+    }
+    
     fn disconnect(&mut self) -> ComResult<()> {
         // nothing
         Ok(())

@@ -1,5 +1,5 @@
 use std::{
-    time::{Duration, SystemTime}, error::Error, fmt::Display, thread, collections::VecDeque,
+    time::{Duration, SystemTime}, error::Error, collections::VecDeque,
 };
 
 #[cfg(test)]
@@ -19,61 +19,38 @@ pub use ssh::*;
 use tokio::sync::mpsc;
 
 use crate::{address::Address, TerminalResult};
-
-pub type ComResult<T> = Result<T, Box<dyn Error + Send>>;
+pub type ComResult<T> = Result<T, Box<dyn Error+Send+Sync>>;
 
 #[async_trait]
 pub trait Com: Sync + Send {
     fn get_name(&self) -> &'static str;
 
-    async fn write<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize>;
+    async fn send<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize>;
     async fn connect(&mut self, addr: &Address, timeout: Duration) -> TerminalResult<bool>;
     async fn read_data(&mut self) -> ComResult<Vec<u8>>;
+    async fn read_u8(&mut self) -> ComResult<u8>;
+    async fn read_exact(&mut self, len: usize) -> ComResult<Vec<u8>>;
 
     fn disconnect(&mut self) -> ComResult<()>;
-}
-
-
-#[derive(Debug, Clone)]
-pub enum ComError {
-    Timeout
-}
-
-impl Display for ComError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl Error for ComError {
-    fn description(&self) -> &str {
-        "use std::display"
-    }
-
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        None
-    }
-
-    fn cause(&self) -> Option<&dyn Error> {
-        self.source()
-    }
-}
-
-unsafe impl Send for ComError {
-    
 }
 
 #[derive(Debug)]
 pub enum SendData {
     Data(Vec<u8>),
-    Disconnect
+    Disconnect,
+    
+    StartTransfer(crate::protocol::ProtocolType, bool, std::sync::Arc<std::sync::Mutex<crate::protocol::TransferState>>, Option<Vec<crate::protocol::FileDescriptor>>),
+    EndTransfer,
+    CancelTransfer
 }
 
+#[derive(Debug)]
 pub struct Connection {
     connection_time: SystemTime,
     is_disconnected: bool,
-    rx: mpsc::Receiver<SendData>,
-    tx: mpsc::Sender<SendData>,
+    pub rx: mpsc::Receiver<SendData>,
+    pub tx: mpsc::Sender<SendData>,
+    end_transfer: bool,
 
     buf: std::collections::VecDeque<u8>,
 }
@@ -83,12 +60,18 @@ impl Connection {
         Self {
             connection_time: SystemTime::now(),
             is_disconnected: false,
+            end_transfer: false,
             rx,
             tx,
             buf: VecDeque::new()
         }
     }
 
+    pub fn should_end_transfer(&mut self) -> bool {
+        self.fill_buffer();
+        
+        self.end_transfer
+    }
     pub fn get_connection_time(&self) -> SystemTime {
         self.connection_time
     }
@@ -113,6 +96,11 @@ impl Connection {
                             self.is_disconnected = true;
                             break;
                         },
+                        SendData::EndTransfer =>  {
+                            self.end_transfer = true;
+                            break;
+                        },
+                        _ => {}
                     }
                 }
     
@@ -129,42 +117,10 @@ impl Connection {
         }
         Ok(())
     }
-    
-    fn fill_buffer_wait(&mut self, timeout: Duration) -> TerminalResult<()>  {
-        self.fill_buffer()?;
-        let now = SystemTime::now();
-        while self.buf.len() == 0 {
-            self.fill_buffer()?;
-            thread::sleep(Duration::from_millis(10));
-            if SystemTime::now().duration_since(now)? > timeout {
-                return Err(Box::new(ComError::Timeout));
-            }
-        }
-        Ok(())
-    }
 
     pub fn is_data_available(&mut self) -> TerminalResult<bool> {
         self.fill_buffer()?;
         Ok(self.buf.len() > 0)
-    }
-    
-    pub fn read_char(&mut self, duration: Duration) -> TerminalResult<u8> {
-        self.fill_buffer()?;
-        if let Some(b) = self.buf.pop_front() {
-            return Ok(b);
-        }
-        self.fill_buffer_wait(duration)?;
-        if let Some(b) = self.buf.pop_front() {
-            return Ok(b);
-        }
-        return Err(Box::new(ComError::Timeout));
-    }
-
-    pub fn read_exact(&mut self, duration: Duration, bytes: usize) -> TerminalResult<Vec<u8>> {
-        while self.buf.len() < bytes {
-            self.fill_buffer_wait(duration)?;
-        }
-        Ok(self.buf.drain(0..bytes).collect())
     }
 
     pub fn read_buffer(&mut self) -> TerminalResult<Vec<u8>> {
@@ -176,7 +132,18 @@ impl Connection {
         Ok(())
     }
 
+    pub fn cancel_transfer(&self) -> TerminalResult<()> {
+        self.tx.try_send(SendData::CancelTransfer)?;
+        Ok(())
+    }
+
     pub fn is_disconnected(&self) -> bool {
         self.is_disconnected
+    }
+
+    pub(crate) fn start_file_transfer(&mut self, protocol_type: crate::protocol::ProtocolType, download: bool, state: std::sync::Arc<std::sync::Mutex<crate::protocol::TransferState>>, files_opt: Option<Vec<crate::protocol::FileDescriptor>>) -> TerminalResult<()> {
+        self.end_transfer = false;
+        self.tx.try_send(SendData::StartTransfer(protocol_type, download, state, files_opt))?;
+        Ok(())
     }
 }

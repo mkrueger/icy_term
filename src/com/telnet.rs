@@ -2,8 +2,7 @@
 
 use crate::{address::Address, TerminalResult};
 
-use super::Com;
-use super::ComResult;
+use super::{Com, ComResult};
 use async_trait::async_trait;
 use std::{io::ErrorKind, thread, time::Duration};
 use tokio::{
@@ -14,8 +13,7 @@ use tokio::{
 #[derive(Debug)]
 pub struct TelnetCom {
     tcp_stream: Option<TcpStream>,
-    state: ParserState,
-    buf: std::collections::VecDeque<u8>,
+    state: ParserState
 }
 
 #[derive(Debug)]
@@ -93,7 +91,7 @@ enum TelnetCmd {
 
 #[allow(dead_code)]
 impl TelnetCmd {
-    pub fn get(byte: u8) -> TerminalResult<TelnetCmd> {
+    pub fn get(byte: u8) -> ComResult<TelnetCmd> {
         let cmd = match byte {
             0xF0 => TelnetCmd::SE,
             0xF1 => TelnetCmd::NOP,
@@ -234,7 +232,7 @@ enum TelnetOption {
 
 #[allow(dead_code)]
 impl TelnetOption {
-    pub fn get(byte: u8) -> TerminalResult<TelnetOption> {
+    pub fn get(byte: u8) -> ComResult<TelnetOption> {
         let cmd = match byte {
             0 => TelnetOption::TransmitBinary,
             1 => TelnetOption::Echo,
@@ -303,18 +301,18 @@ impl TelnetCom {
         Self {
             tcp_stream: None,
             state: ParserState::Data,
-            buf: std::collections::VecDeque::new(),
         }
     }
 
-    fn parse(&mut self, data: &[u8]) -> TerminalResult<()> {
+    fn parse(&mut self, data: &[u8]) -> ComResult<Vec<u8>> {
+        let mut buf = Vec::with_capacity(data.len());
         for b in data {
             match self.state {
                 ParserState::Data => {
                     if *b == IAC {
                         self.state = ParserState::Iac;
                     } else {
-                        self.buf.push_back(*b);
+                        buf.push(*b);
                     }
                 }
                 ParserState::Iac => match TelnetCmd::get(*b) {
@@ -329,7 +327,7 @@ impl TelnetCom {
                         self.state = ParserState::Data;
                     }
                     Ok(TelnetCmd::IAC) => {
-                        self.buf.push_back(0xFF);
+                        buf.push(0xFF);
                         self.state = ParserState::Data;
                     }
                     Ok(TelnetCmd::WILL) => {
@@ -396,38 +394,9 @@ impl TelnetCom {
                 }
             }
         }
-        Ok(())
+        Ok(buf)
     }
 
-    fn fill_buffer(&mut self) -> TerminalResult<()> {
-        let mut buf = [0; 1024 * 256];
-        loop {
-            match self.tcp_stream.as_mut().unwrap().try_read(&mut buf) {
-                Ok(size) => {
-                    return self.parse(&buf[0..size]);
-                }
-                Err(ref e) => {
-                    if e.kind() == io::ErrorKind::WouldBlock {
-                        break;
-                    }
-                    return Err(Box::new(io::Error::new(
-                        ErrorKind::ConnectionAborted,
-                        format!("Telnet error: {}", e),
-                    )));
-                }
-            };
-        }
-        Ok(())
-    }
-
-    fn fill_buffer_wait(&mut self, _timeout: Duration) -> TerminalResult<()> {
-        self.fill_buffer()?;
-        while self.buf.len() == 0 {
-            self.fill_buffer()?;
-            thread::sleep(Duration::from_millis(10));
-        }
-        Ok(())
-    }
 }
 
 #[async_trait]
@@ -453,17 +422,52 @@ impl Com for TelnetCom {
     async fn read_data(&mut self) -> ComResult<Vec<u8>> {
         let mut buf = [0; 1024 * 50];
         match self.tcp_stream.as_mut().unwrap().read(&mut buf).await {
-            Ok(bytes) => Ok(buf[0..bytes].into()),
+            Ok(bytes) => self.parse(&buf[0..bytes]),
             Err(error) => Err(Box::new(error))
         }
     }
 
+    async fn read_u8(&mut self) -> ComResult<u8> {
+        match self.tcp_stream.as_mut().unwrap().read_u8().await {
+            Ok(b) => {
+                if b == IAC {
+                    let b2 = self.tcp_stream.as_mut().unwrap().read_u8().await?;
+                    if b2 != IAC {
+                        return Err(Box::new(io::Error::new(
+                            ErrorKind::InvalidData,
+                            format!("expected iac, got {}", b2),
+                        )));
+                    }
+                    // IGNORE additional telnet commands
+                }
+   
+                Ok(b)
+            }
+            Err(err) => Err(Box::new(err))
+        }
+    }
+    
+    async fn read_exact(&mut self, len: usize) -> ComResult<Vec<u8>>{
+        let mut buf = Vec::new();
+        buf.resize(len, 0);
+        match self.tcp_stream.as_mut().unwrap().read_exact(&mut buf).await {
+            Ok(_) => {
+                let mut buf = self.parse(&buf)?;
+                while buf.len() < len {
+                    buf.push(self.read_u8().await?);
+                }
+                Ok(buf)
+            },
+            Err(err) => Err(Box::new(err))
+        }
+    }
+    
     fn disconnect(&mut self) -> ComResult<()> {
         // self.tcp_stream.shutdown(std::net::Shutdown::Both)
         Ok(())
     }
 
-    async fn write<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize> {
+    async fn send<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize> {
         let mut data = Vec::with_capacity(buf.len());
         for b in buf {
             if *b == IAC {
