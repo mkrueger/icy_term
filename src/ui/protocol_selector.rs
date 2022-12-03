@@ -1,4 +1,4 @@
-use eframe::egui::{self};
+use eframe::{egui::{self, RichText}, epaint::FontId};
 use egui_extras::{ TableBuilder, TableBody, Column};
 
 use crate::protocol::ProtocolType;
@@ -6,21 +6,25 @@ use crate::protocol::ProtocolType;
 use super::main_window::{MainWindow, MainWindowMode};
 
 fn create_button_row(window: &mut MainWindow, body: &mut TableBody, protocol: ProtocolType, download: bool, title: &'static str, descr: &'static str) {
-    body.row(18., |mut row| {
+    let text_style = FontId::proportional(22.);
+    body.row(30., |mut row| {
         row.col(|ui| {
-            if ui.button(title).clicked() {
+            if ui.button(RichText::new(title).font(text_style.clone())).clicked() {
                 window.initiate_file_transfer(protocol, download);
             }
         });
         row.col(|ui| {
-            ui.label(descr);
+            ui.label(RichText::new(descr).font(text_style.clone()));
         });
     });
 }
 
 pub fn view_protocol_selector(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut eframe::Frame, download: bool) {
     let mut open = true;
-    egui::Window::new(format!("Select {} protocol", if download { "download" } else { "upload" } ))
+    let text_style = FontId::proportional(26.);
+    let title = RichText::new(format!("Select {} protocol", if download { "download" } else { "upload" } )).font(text_style);
+
+    egui::Window::new(title)
     .open(&mut open)
     .collapsible(false)
     .resizable(false)
