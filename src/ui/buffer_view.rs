@@ -92,7 +92,7 @@ impl BufferView {
             let program = gl.create_program().expect("Cannot create program");
 
             let (vertex_shader_source, fragment_shader_source) = (
-                r#"
+                r#"#version 300 es
 const float low  =  -1.0;
 const float high = 1.0;
 
@@ -124,7 +124,7 @@ include_str!("buffer_view.shader.frag"),
                     let shader = gl
                         .create_shader(*shader_type)
                         .expect("Cannot create shader");
-                    gl.shader_source(shader, &format!("{}\n{}", shader_version, shader_source));
+                    gl.shader_source(shader, shader_source/*&format!("{}\n{}", shader_version, shader_source)*/);
                     gl.compile_shader(shader);
                     if !gl.get_shader_compile_status(shader) {
                         panic!("{}", gl.get_shader_info_log(shader));

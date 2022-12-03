@@ -1,6 +1,6 @@
 use crate::TerminalResult;
 use eframe::{
-    egui::{self},
+    egui::{self, Sense},
     epaint::{Color32, Rect, Vec2},
 };
 
@@ -78,7 +78,8 @@ impl MainWindow {
         let buf_w = buffer_view.lock().buf.get_buffer_width();
         let buf_h = buffer_view.lock().buf.get_buffer_height();
         // let h = max(buf_h, buffer_view.lock().buf.get_real_buffer_height());
-        let (rect, _) = ui.allocate_at_least(size, egui::Sense::drag());
+        let (rect, mut response) = ui.allocate_at_least(size, egui::Sense::drag());
+        response.request_focus();
 
         let font_dimensions = buffer_view.lock().buf.get_font_dimensions();
 
@@ -90,7 +91,6 @@ impl MainWindow {
         } else {
             scale_x = scale_y;
         }
-
         let rect_w = scale_x * buf_w as f32 * font_dimensions.width as f32;
         let rect_h = scale_y * buf_h as f32 * font_dimensions.height as f32;
 
@@ -115,45 +115,49 @@ impl MainWindow {
 
         let events = ui.input().events.clone(); // avoid dead-lock by cloning. TODO(emilk): optimize
         for e in &events {
+            println!("{:?}", e);
             match e {
                 egui::Event::Copy => {}
                 egui::Event::Cut => {}
                 egui::Event::Paste(_) => {}
-                egui::Event::Text(text) => {
+                egui::Event::CompositionEnd(text) | egui::Event::Text(text) => {
                     for c in text.chars() {
                         self.output_char(c);
                     }
+                    response.mark_changed();
                 }
                 egui::Event::Scroll(x) => {
                     self.buffer_view.lock().scroll((x.y as i32) / 10);
                 }
                 egui::Event::Key {
                     key,
-                    pressed,
+                    pressed: true,
                     modifiers,
                 } => {
-                    if *pressed {
-                        let im = self.screen_mode.get_input_mode();
-                        let key_map = im.cur_map();
-                        let mut key = *key as u32;
-                        if modifiers.ctrl || modifiers.command {
-                            key |= super::CTRL_MOD;
-                        }
-                        if modifiers.shift {
-                            key |= super::SHIFT_MOD;
-                        }
-                        for (k, m) in key_map {
-                            if *k == key {
-                                self.handled_char = true;
-                                if let Some(con) = &mut self.connection_opt {
-                                    con.send(m.to_vec())?;
-                                } else {
-                                    for c in *m {
-                                        self.print_char(*c)?;
-                                    }
+
+                    let im = self.screen_mode.get_input_mode();
+                    let key_map = im.cur_map();
+                    let mut key_code = *key as u32;
+                    if modifiers.ctrl || modifiers.command {
+                        key_code |= super::CTRL_MOD;
+                    }
+                    if modifiers.shift {
+                        key_code |= super::SHIFT_MOD;
+                    }
+                    for (k, m) in key_map {
+                        if *k == key_code {
+                            self.handled_char = true;
+                            if let Some(con) = &mut self.connection_opt {
+                                con.send(m.to_vec())?;
+                            } else {
+                                for c in *m {
+                                    self.print_char(*c)?;
                                 }
-                                break;
                             }
+                            response.mark_changed();
+                            println!("consume key!");
+                            ui.input_mut().count_and_consume_key(*modifiers, *key);
+                            break;
                         }
                     }
                 }

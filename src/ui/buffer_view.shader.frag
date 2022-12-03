@@ -1,5 +1,5 @@
+#version 330
 precision mediump float;
-
 uniform sampler2DArray u_fonts;
 uniform sampler2D u_palette;
 uniform sampler2DArray u_buffer;
@@ -57,11 +57,11 @@ void main (void) {
     if (u_caret_position.z > 0 && floor(fb_pos) == u_caret_position.xy) {
         if (u_caret_position.w == 0.0) { // underscore
             if (fract_fb_pos.y >= 13.0 / 16.0 && fract_fb_pos.y <= 15.0 / 16.0) {
-            fragColor = get_palette_color(ch.y);
+                fragColor = get_palette_color(ch.y);
             }
         } else if (u_caret_position.w == 1.0) { // half height
             if (fract_fb_pos.y >= 0.5) {
-            fragColor = get_palette_color(ch.y);
+                fragColor = get_palette_color(ch.y);
             }
         }
     }
