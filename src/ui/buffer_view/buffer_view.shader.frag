@@ -3,11 +3,13 @@ precision mediump float;
 uniform sampler2DArray u_fonts;
 uniform sampler2D u_palette;
 uniform sampler2DArray u_buffer;
+// uniform sampler2D u_sixel;
             
 uniform vec2        u_resolution;
 uniform vec2        u_position;
 uniform vec2        u_terminal_size;
 uniform vec4        u_caret_position;
+// uniform vec4        u_sixel_rectangle;
 
 out     vec4        fragColor;
 
@@ -53,6 +55,14 @@ void main (void) {
     } else {
         fragColor = get_palette_color(ch.z);
     }
+/*
+    if (u_sixel_rectangle.z > 0.0) {
+        vec2 start = (u_sixel_rectangle.xy - u_position) / u_resolution;
+        vec2 end = (u_sixel_rectangle.zw - u_position) / u_resolution;
+        if (start.x <= view_coord.x && start.y <= view_coord.y && view_coord.x < end.x && view_coord.y < end.y) {
+            fragColor = texture(u_sixel, vec2((view_coord - start) / (end - start)));
+        }
+    }*/
 
     if (u_caret_position.z > 0 && floor(fb_pos) == u_caret_position.xy) {
         if (u_caret_position.w == 0.0) { // underscore

@@ -115,7 +115,6 @@ impl MainWindow {
 
         let events = ui.input().events.clone(); // avoid dead-lock by cloning. TODO(emilk): optimize
         for e in &events {
-            println!("{:?}", e);
             match e {
                 egui::Event::Copy => {}
                 egui::Event::Cut => {}
@@ -155,8 +154,7 @@ impl MainWindow {
                                 }
                             }
                             response.mark_changed();
-                            println!("consume key!");
-                            ui.input_mut().count_and_consume_key(*modifiers, *key);
+//                            ui.input_mut().consume_key(*modifiers, *key);
                             break;
                         }
                     }

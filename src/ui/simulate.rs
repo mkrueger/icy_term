@@ -7,5 +7,7 @@ pub unsafe fn run_sim(window: &mut MainWindow) {
     }
 }
 
-pub static TXT: &str = "";
 
+pub static TXT: &str = "Sixel:\n";
+
+// \x1bPq#0;2;0;0;0#1;2;100;100;0#2;2;0;100;0#1~~@@vv@@~~@@~~$#2??}}GG}}??}}??-#1!14@\x1b\\

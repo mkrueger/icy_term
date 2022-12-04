@@ -421,9 +421,16 @@ impl Com for TelnetCom {
 
     async fn read_data(&mut self) -> ComResult<Vec<u8>> {
         let mut buf = [0; 1024 * 50];
-        match self.tcp_stream.as_mut().unwrap().read(&mut buf).await {
-            Ok(bytes) => self.parse(&buf[0..bytes]),
-            Err(error) => Err(Box::new(error))
+        if let Some(stream) = self.tcp_stream.as_mut() {
+            match stream.read(&mut buf).await {
+                Ok(bytes) => self.parse(&buf[0..bytes]),
+                Err(error) => Err(Box::new(error))
+            }
+        } else {
+            return Err(Box::new(io::Error::new(
+                ErrorKind::BrokenPipe,
+                "no stream"
+            )));
         }
     }
 

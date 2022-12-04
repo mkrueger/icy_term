@@ -101,6 +101,7 @@ impl MainWindow {
         // view.set_screen_mode(&ScreenMode::Viewdata);
         //view.update_address_list();
         unsafe {
+            view.mode = MainWindowMode::ShowTerminal;
             super::simulate::run_sim(&mut view); 
         }
 
@@ -121,7 +122,12 @@ impl MainWindow {
 //            self.buffer_view.lock().buf.clear();
 //            self.println(&format!("{}", err)).unwrap();
             eprintln!("{}", err);
-        }
+            self.open_connection_promise = None;
+            if let Some(con) = &mut self.connection_opt {
+                con.disconnect().unwrap_or_default();
+            }
+            self.connection_opt = None;
+            }
     }
 
     pub fn output_char(&mut self, ch: char) {
