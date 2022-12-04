@@ -127,7 +127,7 @@ impl MainWindow {
                 con.disconnect().unwrap_or_default();
             }
             self.connection_opt = None;
-            }
+        }
     }
 
     pub fn output_char(&mut self, ch: char) {
@@ -136,7 +136,9 @@ impl MainWindow {
             let r = con.send(vec![translated_char as u8]);
             self.handle_result(r);
         } else {
-            self.print_char(translated_char as u8).unwrap();
+            if let Err(err) = self.print_char(translated_char as u8) {
+                eprintln!("{}", err);
+            }
         }
     }
 

@@ -31,14 +31,37 @@ impl BufferInputMode {
         }
     }
 }
+pub struct Blink {
+    is_on: bool,
+    last_blink: u128,
+    blink_rate: u128
+}
 
+impl Blink {
+    pub fn new(blink_rate: u128) -> Self {
+        Self { is_on: false, last_blink: 0, blink_rate }
+    }
+
+    pub fn is_on(&self) -> bool {
+        self.is_on 
+    }
+
+    pub fn update(&mut self, cur_ms: u128) {
+        if cur_ms - self.last_blink > self.blink_rate {
+            self.is_on = !self.is_on;
+            self.last_blink = cur_ms;
+        }
+    }
+}
 
 pub struct BufferView {
     pub buf: Buffer,
     sixel_cache: Vec<SixelCacheEntry>,
     pub caret: Caret,
-    pub blink: bool,
-    pub last_blink: u128,
+
+    pub caret_blink: Blink,
+    pub character_blink: Blink,
+
     pub scale: f32,
     pub buffer_input_mode: BufferInputMode,
     pub scroll_back_line: i32,
@@ -129,7 +152,7 @@ include_str!("buffer_view.shader.frag"),
                 .create_vertex_array()
                 .expect("Cannot create vertex array");
             let buffer_texture = gl.create_texture().unwrap();
-            create_buffer_texture(gl, &buf, 0, buffer_texture);
+            create_buffer_texture(gl, &buf, 0, buffer_texture, &Blink::new(2 * (1000.0 / 1.8) as u128));
             gl.tex_parameter_i32(
                 glow::TEXTURE_2D_ARRAY,
                 glow::TEXTURE_MIN_FILTER,
@@ -186,8 +209,8 @@ include_str!("buffer_view.shader.frag"),
             Self {
                 buf,
                 caret: Caret::default(),
-                blink: false,
-                last_blink: 0,
+                caret_blink: Blink::new((1000.0 / 1.875) as u128 / 2),
+                character_blink: Blink::new(  (1000.0 / 1.8) as u128),
                 scale: 1.0,
                 buffer_input_mode: BufferInputMode::CP437,
                 sixel_cache: Vec::new(),

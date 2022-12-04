@@ -5,7 +5,7 @@ use icy_engine::{
 };
 use std::{cmp::{max}, time::{SystemTime, UNIX_EPOCH}};
 
-use super::BufferView;
+use super::{BufferView, Blink};
 
 
 impl BufferView {
@@ -29,8 +29,13 @@ impl BufferView {
                 gl.get_uniform_location(self.program, "u_caret_position").as_ref(),
                 self.caret.get_position().x as f32,
                 self.caret.get_position().y as f32,
-                if self.blink && self.caret.is_visible { 1.0 } else { 0.0 },
+                if self.caret_blink.is_on() && self.caret.is_visible { 1.0 } else { 0.0 },
                 if self.caret.insert_mode { 1.0 } else { 0.0 } // shape
+            );
+
+            gl.uniform_1_f32(
+                gl.get_uniform_location(self.program, "u_blink").as_ref(),
+                if self.character_blink.is_on(){ 1.0 } else { 0.0 }
             );
 
             gl.uniform_2_f32(
@@ -96,7 +101,7 @@ impl BufferView {
 
         if self.redraw_view {
             self.redraw_view = false;
-            create_buffer_texture(gl, &self.buf, self.scroll_back_line, self.buffer_texture);
+            create_buffer_texture( gl, &self.buf, self.scroll_back_line, self.buffer_texture, &self.character_blink);
         }
 
         if self.redraw_palette || self.colors != self.buf.palette.colors.len()  {
@@ -115,12 +120,9 @@ impl BufferView {
         let since_the_epoch = start
             .duration_since(UNIX_EPOCH)
             .expect("Time went backwards");
-        let in_ms = since_the_epoch.as_millis();
-
-        if in_ms - self.last_blink > 550 {
-            self.blink = !self.blink;
-            self.last_blink = in_ms;
-        }
+        let cur_ms = since_the_epoch.as_millis();
+        self.caret_blink.update(cur_ms);
+        self.character_blink.update(cur_ms);
     }
 
 }
@@ -232,6 +234,7 @@ pub fn create_buffer_texture(
     buf: &Buffer,
     scroll_back_line: i32,
     buffer_texture: NativeTexture,
+    character_blink: &Blink
 ) {
     let first_line = max(
         0,
@@ -246,7 +249,11 @@ pub fn create_buffer_texture(
             let ch = buf
                 .get_char_xy(x, first_line - scroll_back_line + y)
                 .unwrap_or_default();
-            buffer_data.push(ch.ch as u8);
+            if ch.attribute.is_concealed() {
+                buffer_data.push(' ' as u8);
+            } else {
+                buffer_data.push(ch.ch as u8);
+            }
             if ch.attribute.is_bold() {
                 buffer_data.push(conv_color(ch.attribute.get_foreground() + 8, colors));
             } else {
@@ -273,7 +280,7 @@ pub fn create_buffer_texture(
             buffer_data.push(attr);
             buffer_data.push(attr);
             buffer_data.push(attr);
-            buffer_data.push(attr);
+            buffer_data.push(if ch.attribute.is_blinking() { 255 } else { 0 });
         }
     }
     unsafe {

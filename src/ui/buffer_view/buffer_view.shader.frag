@@ -11,6 +11,8 @@ uniform vec2        u_terminal_size;
 uniform vec4        u_caret_position;
 uniform vec4        u_sixel_rectangle;
 
+uniform float       u_blink;
+
 out     vec4        fragColor;
 
 vec4 get_char(vec2 p, float c, float page) {
@@ -50,7 +52,7 @@ void main (void) {
     vec2 fract_fb_pos = fract(vec2(fb_pos.x, fb_pos.y));
     vec4 char_data = get_char(fract_fb_pos, ch.x * 255.0, ch.a);
     
-    if (char_data.x > 0.5 && !check_bit(ch_attr.r, 7) && !check_bit(ch_attr.r, 4)) {
+    if (char_data.x > 0.5 && (ch_attr[3] == 0.0 || u_blink > 0)) {
         fragColor = get_palette_color(ch.y);
     } else {
         fragColor = get_palette_color(ch.z);
