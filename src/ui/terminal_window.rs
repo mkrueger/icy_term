@@ -64,18 +64,14 @@ impl MainWindow {
 
         let frame_no_margins = egui::containers::Frame::none()
             .inner_margin(egui::style::Margin::same(0.0))
-            .fill(Color32::from_rgb(0x40, 0x44, 0x4b));
+            .fill(Color32::from_rgba_unmultiplied(0x40, 0x44, 0x4b, 0xAF));
         egui::CentralPanel::default()
             .frame(frame_no_margins)
             .show(ctx, |ui| {
-
-
                 let res = self.custom_painting(ui, top_margin_height);
                 if let Err(err) = res {
                     eprintln!("{}", err);
                 }
-
-
             });
 
         ctx.request_repaint_after(std::time::Duration::from_millis(250));
@@ -118,6 +114,7 @@ impl MainWindow {
             let real_height = buffer_view.lock().buf.get_real_buffer_height();
             let max_lines = max(0, real_height - buf_h);
             ui.set_height(scale_y * max_lines as f32 * font_dimensions.height as f32);
+
             let scroll_back_line = max(0,  max_lines - (viewport.top() / scale_y / (font_dimensions.height as f32))  as i32);
 
             if scroll_back_line != buffer_view.lock().scroll_back_line {
