@@ -42,7 +42,18 @@ void main (void) {
     vec4 ch_attr = texture(u_buffer, vec3(view_coord.x, view_coord.y, 1.0));
     
     vec2 fract_fb_pos = fract(vec2(fb_pos.x, fb_pos.y));
-    vec4 char_data = get_char(fract_fb_pos, ch.x * 255.0, ch.a);
+
+    float ch_value = ch.x * 255.0;
+    // double height
+    if (check_bit(ch_attr[0], 3)) {
+        fract_fb_pos.y /= 2.0;
+        // 2nd line
+        if (check_bit(ch_attr[0], 4)) {
+            fract_fb_pos.y += 0.5;
+        }
+    }
+
+    vec4 char_data = get_char(fract_fb_pos, ch_value, ch.a);
     
     if (char_data.x > 0.5 && (ch_attr[3] == 0.0 || u_blink > 0)) {
         fragColor = get_palette_color(ch.y);

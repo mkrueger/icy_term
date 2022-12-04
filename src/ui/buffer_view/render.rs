@@ -244,11 +244,20 @@ pub fn create_buffer_texture(
         2 * buf.get_buffer_width() as usize * 4 * buf.get_real_buffer_height() as usize,
     );
     let colors = buf.palette.colors.len() as u32 - 1;
-    for y in 0..buf.get_buffer_height() {
+    let mut y = 0;
+
+    while y < buf.get_buffer_height() {
+        let mut is_double_height = false;
+
         for x in 0..buf.get_buffer_width() {
             let ch = buf
                 .get_char_xy(x, first_line - scroll_back_line + y)
                 .unwrap_or_default();
+
+            if ch.attribute.is_double_height() { 
+                is_double_height = true;
+            }
+
             if ch.attribute.is_concealed() {
                 buffer_data.push(' ' as u8);
             } else {
@@ -266,9 +275,45 @@ pub fn create_buffer_texture(
                 buffer_data.push(0);
             }
         }
-    }
 
-    for y in 0..buf.get_buffer_height() {
+        if is_double_height {
+            for x in 0..buf.get_buffer_width() {
+                let ch = buf
+                .get_char_xy(x, first_line - scroll_back_line + y)
+                .unwrap_or_default();
+
+                if !ch.attribute.is_double_height() {
+                    buffer_data.push(' ' as u8);
+                } else {
+                    buffer_data.push(ch.ch as u8);
+                }
+
+                if ch.attribute.is_bold() {
+                    buffer_data.push(conv_color(ch.attribute.get_foreground() + 8, colors));
+                } else {
+                    buffer_data.push(conv_color(ch.attribute.get_foreground(), colors));
+                }
+                
+                buffer_data.push(conv_color(ch.attribute.get_background(), colors));
+
+                if buf.font_table.len() > 0 { 
+                    buffer_data.push((255.0 * ch.get_font_page() as f32 / (buf.font_table.len() - 1) as f32) as u8);
+                } else { 
+                    buffer_data.push(0);
+                }
+            }
+        }
+
+        if is_double_height {
+            y += 2;
+        } else {
+            y += 1;
+        }
+    }
+    y = 0;
+    while y < buf.get_buffer_height() {
+        let mut is_double_height = false;
+
         for x in 0..buf.get_buffer_width() {
             let ch = buf
                 .get_char_xy(x, first_line - scroll_back_line + y)
@@ -287,10 +332,54 @@ pub fn create_buffer_texture(
                 attr |= 4
             }
 
+            if ch.attribute.is_double_height() { 
+                is_double_height = true;
+                attr |= 8
+            }
+
             buffer_data.push(attr);
             buffer_data.push(attr);
             buffer_data.push(attr);
             buffer_data.push(if ch.attribute.is_blinking() { 255 } else { 0 });
+        }
+
+        if is_double_height {
+            for x in 0..buf.get_buffer_width() {
+                let ch = buf
+                    .get_char_xy(x, first_line - scroll_back_line + y)
+                    .unwrap_or_default();
+                let mut attr = ch.attribute.attr as u8 & 0b1111_1110;
+                if ch.attribute.is_double_height() {
+                    attr |= 1;
+                }
+    
+                let mut attr = if ch.attribute.is_double_underlined() { 
+                    3 
+                } else if ch.attribute.is_underlined() { 
+                    1 
+                } else { 0 };
+                if ch.attribute.is_crossed_out() { 
+                    attr |= 4
+                }
+    
+                if ch.attribute.is_double_height() { 
+                    is_double_height = true;
+                    attr |= 8;
+                    attr |= 16;
+                }
+    
+                buffer_data.push(attr);
+                buffer_data.push(attr);
+                buffer_data.push(attr);
+                buffer_data.push(if ch.attribute.is_blinking() { 255 } else { 0 });
+            }
+        }
+
+
+        if is_double_height {
+            y += 2;
+        } else {
+            y += 1;
         }
     }
     unsafe {
