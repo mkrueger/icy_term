@@ -1,6 +1,6 @@
 use crate::TerminalResult;
 use eframe::{
-    egui::{self, Sense},
+    egui::{self},
     epaint::{Color32, Rect, Vec2},
 };
 

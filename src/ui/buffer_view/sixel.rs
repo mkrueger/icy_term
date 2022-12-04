@@ -32,6 +32,13 @@ impl BufferView {
         let buffer = &self.buf;
         let l = buffer.layers[0].sixels.len();
         if l == 0 {
+            for sx in &self.sixel_cache { 
+                if let Some(tex) = sx.texture_opt {
+                    unsafe {
+                        gl.delete_texture(tex);
+                    }
+                }
+            }
             self.sixel_cache.clear();
         }
 
@@ -116,10 +123,10 @@ impl BufferView {
                 }
             }
             let (texture_opt, data_opt, clear) = match sixel.read_status {
-             /*   SixelReadStatus::Finished | SixelReadStatus::Error => {
+                SixelReadStatus::Finished | SixelReadStatus::Error => {
                     unsafe { 
                         let texture = gl.create_texture().unwrap();
-                        gl.active_texture(glow::TEXTURE0 + 5 + self.sixel_cache.len() as u32);
+                        gl.active_texture(glow::TEXTURE0 + 6);
                         gl.bind_texture(glow::TEXTURE_2D, Some(texture));
                         gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32);
                         gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
@@ -138,7 +145,7 @@ impl BufferView {
                         );
                         (Some(texture), None, true)
                     }
-                },*/
+                },
                 _ => (None, Some(v), false),
             };
 
@@ -153,21 +160,33 @@ impl BufferView {
                 },
                 texture_opt
             };
-
+            if new_entry.texture_opt.is_some() {
+                // TODO: atm there is just 1 sixel possible.
+                for sx in &self.sixel_cache { 
+                    if let Some(tex) = sx.texture_opt {
+                        unsafe {
+                            gl.delete_texture(tex);
+                        }
+                    }
+                }
+                self.sixel_cache.clear();
+                self.sixel_cache.push(new_entry);
+            } else {
+ 
             if removed_index < 0 {
                 self.sixel_cache.push(new_entry);
                 if clear {
-                    // self.clear_invisible_sixel_cache(gl, self.sixel_cache.len() - 1);
+                    self.clear_invisible_sixel_cache(gl, self.sixel_cache.len() - 1);
                     break;
                 }
             } else {
                 self.sixel_cache.insert(removed_index as usize, new_entry);
                 if clear {
-                    // self.clear_invisible_sixel_cache(gl, removed_index as usize);
+                    self.clear_invisible_sixel_cache(gl, removed_index as usize);
                     break;
                 }
             }
-
+        }
         }
         res
     }

@@ -100,10 +100,10 @@ impl MainWindow {
         //view.address_list.selected_item = 1;
         // view.set_screen_mode(&ScreenMode::Viewdata);
         //view.update_address_list();
-        unsafe {
+       /* unsafe {
             view.mode = MainWindowMode::ShowTerminal;
             super::simulate::run_sim(&mut view); 
-        }
+        }*/
 
         view
     }

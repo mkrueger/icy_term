@@ -49,6 +49,10 @@ impl BufferView {
                 gl.get_uniform_location(self.program, "u_buffer").as_ref(),
                 4,
             );
+            gl.uniform_1_i32(
+                gl.get_uniform_location(self.program, "u_sixel").as_ref(),
+                6,
+            );
 
             gl.active_texture(glow::TEXTURE0);
             gl.bind_texture(glow::TEXTURE_2D, Some(self.font_texture));
@@ -57,19 +61,20 @@ impl BufferView {
             gl.active_texture(glow::TEXTURE0 + 4);
             gl.bind_texture(glow::TEXTURE_2D, Some(self.buffer_texture));
 
-            /* 
             if self.sixel_cache.len() > 0 && self.sixel_cache[0].texture_opt.is_some() {
                 let x = self.sixel_cache[0].pos.x as f32 * self.buf.get_font_dimensions().width as f32;
                 let y = self.sixel_cache[0].pos.y as f32 * self.buf.get_font_dimensions().height as f32;
+                
+                let w  = rect.width() / (self.buf.get_font_dimensions().width as f32 * self.buf.get_buffer_width() as f32);
+                let h  = rect.height() / (self.buf.get_font_dimensions().height as f32 * self.buf.get_buffer_height() as f32);
+
                 gl.uniform_4_f32(
                     gl.get_uniform_location(self.program, "u_sixel_rectangle").as_ref(),
                     x,
                     y,
-                    x + self.sixel_cache[0].size.width as f32,
-                    y + self.sixel_cache[0].size.height as f32
+                    x + self.sixel_cache[0].size.width as f32 * w,
+                    y + self.sixel_cache[0].size.height as f32 * h
                 );
-                gl.active_texture(glow::TEXTURE0 + 6);
-                gl.bind_texture(glow::TEXTURE_2D, self.sixel_cache[0].texture_opt);
             } else {
                 gl.uniform_4_f32(
                     gl.get_uniform_location(self.program, "u_sixel_rectangle").as_ref(),
@@ -78,7 +83,7 @@ impl BufferView {
                     0.0,
                     0.0
                 );
-            }*/
+            }
 
             gl.bind_vertex_array(Some(self.vertex_array));
             gl.draw_arrays(glow::TRIANGLES, 0, 3);
@@ -87,7 +92,7 @@ impl BufferView {
     }
 
     pub fn update_buffer(&mut self, gl: &glow::Context) {
-        //self.update_sixels(gl);
+        self.update_sixels(gl);
 
         if self.redraw_view {
             self.redraw_view = false;
@@ -120,8 +125,7 @@ impl BufferView {
 
 }
 
-
-pub fn conv_color(c: u32, colors: u32) -> u8 {
+fn conv_color(c: u32, colors: u32) -> u8 {
     let r = ((255 * c) / colors) as u8;
     r
 }
@@ -275,6 +279,7 @@ pub fn create_buffer_texture(
     unsafe {
         use glow::HasContext as _;
         gl.active_texture(glow::TEXTURE0 + 4);
+
         gl.bind_texture(glow::TEXTURE_2D_ARRAY, Some(buffer_texture));
         gl.tex_image_3d(
             glow::TEXTURE_2D_ARRAY,

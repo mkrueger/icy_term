@@ -69,12 +69,6 @@ impl BufferView {
 
         use glow::HasContext as _;
 
-        let shader_version = if cfg!(target_arch = "wasm32") {
-            "#version 300 es"
-        } else {
-            "#version 330"
-        };
-
         unsafe {
             let program = gl.create_program().expect("Cannot create program");
 
@@ -135,25 +129,24 @@ include_str!("buffer_view.shader.frag"),
                 .create_vertex_array()
                 .expect("Cannot create vertex array");
             let buffer_texture = gl.create_texture().unwrap();
-
             create_buffer_texture(gl, &buf, 0, buffer_texture);
             gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
+                glow::TEXTURE_2D_ARRAY,
                 glow::TEXTURE_MIN_FILTER,
                 glow::NEAREST as i32,
             );
             gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
+                glow::TEXTURE_2D_ARRAY,
                 glow::TEXTURE_MAG_FILTER,
                 glow::NEAREST as i32,
             );
             gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
+                glow::TEXTURE_2D_ARRAY,
                 glow::TEXTURE_WRAP_S,
                 glow::CLAMP_TO_EDGE as i32,
             );
             gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
+                glow::TEXTURE_2D_ARRAY,
                 glow::TEXTURE_WRAP_T,
                 glow::CLAMP_TO_EDGE as i32,
             );
@@ -164,6 +157,7 @@ include_str!("buffer_view.shader.frag"),
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
+
 
             let font_texture = gl.create_texture().unwrap();
             create_font_texture(gl, &buf, font_texture);
