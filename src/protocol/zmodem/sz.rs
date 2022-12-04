@@ -1,5 +1,5 @@
 use std::{
-    cmp::min, sync::{Arc, Mutex},
+    cmp::min, sync::{Arc, Mutex}, time::Duration,
 };
 
 use crate::{
@@ -9,7 +9,7 @@ use crate::{
     }, com::{Com, ComResult}, 
 };
 
-use super::ZCRCW;
+use super::{ZCRCW, ZCRCQ};
 
 #[derive(Debug)]
 pub enum SendState {
@@ -170,9 +170,12 @@ impl Sz {
                 if self.cur_file < 0 {
                     return Ok(());
                 }
+                let old_pos = self.cur_file_pos;
                 let end_pos = min(self.data.len(), self.cur_file_pos + self.package_len);
+                let nonstop = true; // self.package_len > 1024;
+
                 let crc_byte = if self.cur_file_pos + self.package_len < self.data.len() {
-                    ZCRCG
+                    if nonstop { ZCRCG } else { ZCRCQ }
                 } else {
                     ZCRCE
                 };
@@ -195,6 +198,25 @@ impl Sz {
                     self.state = SendState::Await;
                 }
                 com.send(&p).await?;
+                if !nonstop {
+                    let ack = Header::read(com, &mut self.can_count).await?;
+                    if let Some(header) = ack {
+                        match header.frame_type {
+                            FrameType::ZACK => { /* ok */},
+                            FrameType::ZNAK => { self.cur_file_pos = old_pos;  /* resend */} ,
+                            FrameType::ZRPOS => { self.cur_file_pos = header.number() as usize; },
+                            _ => {
+                                eprintln!("unexpected header {:?}", header);
+                                // cancel
+                                self.state = SendState::Finished;
+                                Zmodem::cancel(com).await?;
+                            }
+                        }
+                    }
+                }
+                // for some reason for some BBSes it's too fast - adding a little delay here fixes that
+                // Note that using ZCRCQ doesn't seem to fix that issue.
+                std::thread::sleep(Duration::from_millis(5));
             }
             SendState::Finished => {
 //                transfer_state.lock().unwrap().current_state = "Finishing transfer…";

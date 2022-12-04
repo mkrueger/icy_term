@@ -447,7 +447,6 @@ impl Com for TelnetCom {
                     }
                     // IGNORE additional telnet commands
                 }
-   
                 Ok(b)
             }
             Err(err) => Err(Box::new(err))
