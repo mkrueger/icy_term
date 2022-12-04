@@ -277,6 +277,16 @@ pub fn create_buffer_texture(
             if ch.attribute.is_double_height() {
                 attr |= 1;
             }
+
+            let mut attr = if ch.attribute.is_double_underlined() { 
+                3 
+            } else if ch.attribute.is_underlined() { 
+                1 
+            } else { 0 };
+            if ch.attribute.is_crossed_out() { 
+                attr |= 4
+            }
+
             buffer_data.push(attr);
             buffer_data.push(attr);
             buffer_data.push(attr);

@@ -22,14 +22,6 @@ vec4 get_char(vec2 p, float c, float page) {
     vec2 v = p / 16.0 + fract(vec2(c, floor(c / 16.0)) / 16.0);
     return textureGrad(u_fonts, vec3(v, page), dFdx(p / 16.0), dFdy(p / 16.0));
 }
-/* 
-// TODO: Is there an easier way to disable the 'intelligent' color conversion crap?
-vec4 toLinearSlow(vec4 col) {
-    bvec4 cutoff = lessThan(col, vec4(0.04045));
-    vec4 higher = vec4(pow((col.rgb + vec3(0.055))/vec3(1.055), vec3(2.4)), col.a);
-    vec4 lower = vec4(col.rgb/vec3(12.92), col.a);
-    return mix(higher, lower, cutoff);
-}*/
             
 vec4 get_palette_color(float c) {
     return texture(u_palette, vec2(c, 0));
@@ -56,6 +48,27 @@ void main (void) {
         fragColor = get_palette_color(ch.y);
     } else {
         fragColor = get_palette_color(ch.z);
+    }
+
+    // underline
+    if (check_bit(ch_attr[0], 0)) {
+        if (fract_fb_pos.y >= 15.0 / 16.0) {
+            fragColor = get_palette_color(ch.y);
+        }
+    }
+
+    // double underline
+    if (check_bit(ch_attr[0], 1)) {
+        if (fract_fb_pos.y >= 13.0 / 16.0 && fract_fb_pos.y < 14.0 / 16.0) {
+            fragColor = get_palette_color(ch.y);
+        }
+    }
+
+    // strike through
+    if (check_bit(ch_attr[0], 2)) {
+        if (fract_fb_pos.y >= 7.0 / 16.0 && fract_fb_pos.y < 8.0 / 16.0) {
+            fragColor = get_palette_color(ch.y);
+        }
     }
 
     if (u_sixel_rectangle.z > 0.0) {
