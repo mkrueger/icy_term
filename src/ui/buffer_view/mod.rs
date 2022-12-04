@@ -96,7 +96,7 @@ impl BufferView {
             let program = gl.create_program().expect("Cannot create program");
 
             let (vertex_shader_source, fragment_shader_source) = (
-                r#"#version 300 es
+                r#"#version 330
 const float low  =  -1.0;
 const float high = 1.0;
 
