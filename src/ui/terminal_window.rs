@@ -1,6 +1,8 @@
+use std::cmp::max;
+
 use crate::TerminalResult;
 use eframe::{
-    egui::{self},
+    egui::{self, ScrollArea},
     epaint::{Color32, Rect, Vec2},
 };
 
@@ -36,14 +38,17 @@ impl MainWindow {
                     {
                         self.mode = MainWindowMode::SelectProtocol(true);
                     }
-                    if ui
-                        .add(egui::ImageButton::new(
-                            super::KEY_SVG.texture_id(ctx),
-                            img_size,
-                        ))
-                        .clicked()
-                    {
-                        self.send_login();
+
+                    if !self.auto_login.logged_in {
+                        if ui
+                            .add(egui::ImageButton::new(
+                                super::KEY_SVG.texture_id(ctx),
+                                img_size,
+                            ))
+                            .clicked()
+                        {
+                            self.send_login();
+                        }
                     }
                     if ui
                         .add(egui::ImageButton::new(
@@ -63,10 +68,14 @@ impl MainWindow {
         egui::CentralPanel::default()
             .frame(frame_no_margins)
             .show(ctx, |ui| {
+
+
                 let res = self.custom_painting(ui, top_margin_height);
                 if let Err(err) = res {
                     eprintln!("{}", err);
                 }
+
+
             });
 
         ctx.request_repaint_after(std::time::Duration::from_millis(250));
@@ -78,13 +87,11 @@ impl MainWindow {
         let buf_w = buffer_view.lock().buf.get_buffer_width();
         let buf_h = buffer_view.lock().buf.get_buffer_height();
         // let h = max(buf_h, buffer_view.lock().buf.get_real_buffer_height());
-        let (rect, mut response) = ui.allocate_at_least(size, egui::Sense::drag());
-        response.request_focus();
 
         let font_dimensions = buffer_view.lock().buf.get_font_dimensions();
 
-        let mut scale_x = rect.width() / font_dimensions.width as f32 / buf_w as f32;
-        let mut scale_y = rect.height() / font_dimensions.height as f32 / buf_h as f32;
+        let mut scale_x = (size.x + 5.0) / font_dimensions.width as f32 / buf_w as f32;
+        let mut scale_y = size.y / font_dimensions.height as f32 / buf_h as f32;
 
         if scale_x < scale_y {
             scale_y = scale_x;
@@ -93,27 +100,40 @@ impl MainWindow {
         }
         let rect_w = scale_x * buf_w as f32 * font_dimensions.width as f32;
         let rect_h = scale_y * buf_h as f32 * font_dimensions.height as f32;
+       
+        ScrollArea::vertical()
+        .auto_shrink([false; 2])
+        .stick_to_bottom(true)
+        .show_viewport(ui, |ui, viewport| {
+            let (rect, mut response) = ui.allocate_at_least(size, egui::Sense::drag());
+            let rect = Rect::from_min_size(
+                rect.left_top()
+                    + Vec2::new(
+                        (rect.width() - rect_w) / 2.,
+                        (viewport.top() + (rect.height() - rect_h) / 2.).floor(),
+                    )
+                    .ceil(),
+                Vec2::new(rect_w, rect_h),
+            );
+            let real_height = buffer_view.lock().buf.get_real_buffer_height();
+            let max_lines = max(0, real_height - buf_h);
+            ui.set_height(scale_y * max_lines as f32 * font_dimensions.height as f32);
+            let scroll_back_line = max(0,  max_lines - (viewport.top() / scale_y / (font_dimensions.height as f32))  as i32);
 
-        let rect = Rect::from_min_size(
-            rect.left_top()
-                + Vec2::new(
-                    (rect.width() - rect_w) / 2.,
-                    (rect.height() - rect_h) / 2.,
-                )
-                .ceil(),
-            Vec2::new(rect_w, rect_h),
-        );
+            if scroll_back_line != buffer_view.lock().scroll_back_line {
+                buffer_view.lock().scroll_back_line = scroll_back_line;
+                buffer_view.lock().redraw_view();
+            }
+            let callback = egui::PaintCallback {
+                rect: rect,
+                callback: std::sync::Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
+                    buffer_view.lock().update_buffer(painter.gl());
+                    buffer_view.lock().paint(painter.gl(), rect, top_margin_height);
+                })),
+            };
+            ui.painter().add(callback);
 
-        let callback = egui::PaintCallback {
-            rect: rect,
-            callback: std::sync::Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
-                buffer_view.lock().update_buffer(painter.gl());
-                buffer_view.lock().paint(painter.gl(), rect, top_margin_height);
-            })),
-        };
-        ui.painter().add(callback);
-
-        let events = ui.input().events.clone(); // avoid dead-lock by cloning. TODO(emilk): optimize
+            let events = ui.input().events.clone(); // avoid dead-lock by cloning. TODO(emilk): optimize
         for e in &events {
             match e {
                 egui::Event::Copy => {}
@@ -124,10 +144,10 @@ impl MainWindow {
                         self.output_char(c);
                     }
                     response.mark_changed();
-                }
+                }/* 
                 egui::Event::Scroll(x) => {
                     self.buffer_view.lock().scroll((x.y as i32) / 10);
-                }
+                }*/
                 egui::Event::Key {
                     key,
                     pressed: true,
@@ -147,10 +167,10 @@ impl MainWindow {
                         if *k == key_code {
                             self.handled_char = true;
                             if let Some(con) = &mut self.connection_opt {
-                                con.send(m.to_vec())?;
+                                con.send(m.to_vec());
                             } else {
                                 for c in *m {
-                                    self.print_char(*c)?;
+                                    self.print_char(*c);
                                 }
                             }
                             response.mark_changed();
@@ -162,6 +182,9 @@ impl MainWindow {
                 _ => {}
             }
         }
+        });
+
+        
         Ok(())
     }
 }

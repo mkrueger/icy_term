@@ -54,7 +54,7 @@ pub struct MainWindow {
     
     options: Options,
     pub screen_mode: ScreenMode,
-    auto_login: AutoLogin,
+    pub auto_login: AutoLogin,
     auto_file_transfer: AutoFileTransfer,
     // protocols
 
@@ -146,23 +146,6 @@ impl MainWindow {
         &mut self,
         c: u8,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        /* 
-        match c  {
-            b'\\' => print!("\\\\"),
-            b'\n' => print!("\\n"),
-            b'\r' => print!("\\r"),
-            b'\"' => print!("\\\""),
-            _ => {
-                if c < b' ' || c == b'\x7F' {
-                    print!("\\x{:02X}", c as u8);
-                } else if c > b'\x7F' {
-                    print!("\\u{{{:02X}}}", c as u8);
-                } else {
-                    print!("{}", char::from_u32(c as u32).unwrap());
-                }
-            }
-        }*/
-        
         let result = self.buffer_view.lock().print_char(&mut self.buffer_parser, unsafe { char::from_u32_unchecked(c as u32) })?;
 
         match result {
@@ -297,6 +280,23 @@ self.current_transfer = Some(Arc::new(Mutex::new(state)));
                             eprintln!("{}", err);
                         }
                     }
+/*
+                    match ch  {
+                        b'\\' => print!("\\\\"),
+                        b'\n' => print!("\\n"),
+                        b'\r' => print!("\\r"),
+                        b'\"' => print!("\\\""),
+                        _ => {
+                            if ch < b' ' || ch == b'\x7F' {
+                                print!("\\x{:02X}", ch as u8);
+                            } else if ch > b'\x7F' {
+                                print!("\\u{{{:02X}}}", ch as u8);
+                            } else {
+                                print!("{}", char::from_u32(ch as u32).unwrap());
+                            }
+                        }
+                    }*/
+                    
                     let result = self.buffer_view.lock().print_char(&mut self.buffer_parser, unsafe { char::from_u32_unchecked(ch as u32) })?;
                     match result {
                         icy_engine::CallbackAction::None => {},

@@ -5,7 +5,7 @@ use icy_engine::{
 };
 use std::{cmp::{max}, time::{SystemTime, UNIX_EPOCH}};
 
-use super::{BufferView, Blink};
+use super::{BufferView};
 
 
 impl BufferView {
@@ -101,7 +101,7 @@ impl BufferView {
 
         if self.redraw_view {
             self.redraw_view = false;
-            create_buffer_texture( gl, &self.buf, self.scroll_back_line, self.buffer_texture, &self.character_blink);
+            create_buffer_texture( gl, &self.buf, self.scroll_back_line, self.buffer_texture);
         }
 
         if self.redraw_palette || self.colors != self.buf.palette.colors.len()  {
@@ -233,8 +233,7 @@ pub fn create_buffer_texture(
     gl: &glow::Context,
     buf: &Buffer,
     scroll_back_line: i32,
-    buffer_texture: NativeTexture,
-    character_blink: &Blink
+    buffer_texture: NativeTexture
 ) {
     let first_line = max(
         0,
@@ -318,10 +317,6 @@ pub fn create_buffer_texture(
             let ch = buf
                 .get_char_xy(x, first_line - scroll_back_line + y)
                 .unwrap_or_default();
-            let mut attr = ch.attribute.attr as u8 & 0b1111_1110;
-            if ch.attribute.is_double_height() {
-                attr |= 1;
-            }
 
             let mut attr = if ch.attribute.is_double_underlined() { 
                 3 
@@ -348,11 +343,6 @@ pub fn create_buffer_texture(
                 let ch = buf
                     .get_char_xy(x, first_line - scroll_back_line + y)
                     .unwrap_or_default();
-                let mut attr = ch.attribute.attr as u8 & 0b1111_1110;
-                if ch.attribute.is_double_height() {
-                    attr |= 1;
-                }
-    
                 let mut attr = if ch.attribute.is_double_underlined() { 
                     3 
                 } else if ch.attribute.is_underlined() { 
