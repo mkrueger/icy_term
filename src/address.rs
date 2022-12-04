@@ -83,6 +83,7 @@ address = 'cpbbs.de:2323'
 auto_login = ''
 connection_type = 'Telnet'
 ice_mode = true
+ansi_music = 'Off'
 
 [[addresses]]
 system_name = 'Deadline BBS'
@@ -94,6 +95,7 @@ address = 'deadline.aegis-corp.org:1337'
 auto_login = ''
 connection_type = 'Telnet'
 ice_mode = true
+ansi_music = 'Off'
 
 [[addresses]]
 system_name = 'BBS Retroacademy'
@@ -105,6 +107,7 @@ address = 'bbs.retroacademy.it:6510'
 auto_login = ''
 connection_type = 'Telnet'
 ice_mode = true
+ansi_music = 'Off'
 
 [addresses.screen_mode]
 name = 'C64'
@@ -119,6 +122,7 @@ address = 'amis86.ddns.net:9000'
 auto_login = ''
 connection_type = 'Telnet'
 ice_mode = true
+ansi_music = 'Off'
 
 [addresses.screen_mode]
 name = 'Atari'
