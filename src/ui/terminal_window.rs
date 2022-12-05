@@ -71,7 +71,6 @@ impl MainWindow {
                 self.custom_painting(ui, top_margin_height)
             });
 
-        ctx.request_repaint_after(std::time::Duration::from_millis(250));
     }
 
     fn custom_painting(&mut self, ui: &mut egui::Ui, top_margin_height: f32) -> egui::Response {

@@ -511,7 +511,7 @@ impl eframe::App for MainWindow {
                     self.mode = MainWindowMode::ShowTerminal;
                     self.auto_file_transfer.reset();
                 } else {
-                    ctx.request_repaint_after(Duration::from_millis(50));
+                    ctx.request_repaint_after(Duration::from_millis(150));
                 }
 
                 self.update_terminal_window(ctx, frame);

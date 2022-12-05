@@ -25,10 +25,11 @@ impl BufferView {
                 rect.top() - top_margin_height,
             );
 
+            let sbl= (self.buf.get_first_visible_line() - self.scroll_back_line) as f32;
             gl.uniform_4_f32(
                 gl.get_uniform_location(self.program, "u_caret_position").as_ref(),
                 self.caret.get_position().x as f32,
-                self.caret.get_position().y as f32,
+                self.caret.get_position().y as f32 - sbl,
                 if self.caret_blink.is_on() && self.caret.is_visible { 1.0 } else { 0.0 },
                 if self.caret.insert_mode { 1.0 } else { 0.0 } // shape
             );
@@ -65,7 +66,6 @@ impl BufferView {
                         gl.uniform_4_f32(gl.get_uniform_location(self.program, "u_selection").as_ref(), 0.0, 0.0, 0.0, 0.0);
                         gl.uniform_1_f32(gl.get_uniform_location(self.program, "u_selection_attr").as_ref(), -1.0);
                     } else {
-                        let sbl= (self.buf.get_first_visible_line() - self.scroll_back_line) as f32;
 
                         if sel.anchor.y.floor() < sel.lead.y.floor() || sel.anchor.y.floor() == sel.lead.y.floor() && sel.anchor.x < sel.lead.x  {
                             gl.uniform_4_f32(gl.get_uniform_location(self.program, "u_selection").as_ref(), sel.anchor.x.floor(), sel.anchor.y.floor() - sbl, sel.lead.x.floor(), sel.lead.y.floor() - sbl);
