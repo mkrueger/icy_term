@@ -59,6 +59,27 @@ impl BufferView {
                 6,
             );
 
+            match &self.selection_opt {
+                Some(sel) => {
+                    let sbl= (self.buf.get_first_visible_line() - self.scroll_back_line) as f32;
+
+                    if sel.anchor.y.floor() < sel.lead.y.floor() || sel.anchor.y.floor() == sel.lead.y.floor() && sel.anchor.x < sel.lead.x  {
+                        gl.uniform_4_f32(gl.get_uniform_location(self.program, "u_selection").as_ref(), sel.anchor.x.floor(), sel.anchor.y.floor() - sbl, sel.lead.x.floor(), sel.lead.y.floor() - sbl);
+                    } else {
+                        gl.uniform_4_f32(gl.get_uniform_location(self.program, "u_selection").as_ref(), sel.lead.x.floor(), sel.lead.y.floor() - sbl, sel.anchor.x.floor(), sel.anchor.y.floor() - sbl);
+                    }
+                    if sel.block_selection {
+                        gl.uniform_1_f32(gl.get_uniform_location(self.program, "u_selection_attr").as_ref(), 1.0);
+                    } else {
+                        gl.uniform_1_f32(gl.get_uniform_location(self.program, "u_selection_attr").as_ref(), 0.0);
+                    }
+                }
+                None => {
+                    gl.uniform_4_f32(gl.get_uniform_location(self.program, "u_selection").as_ref(), 0.0, 0.0, 0.0, 0.0);
+                    gl.uniform_1_f32(gl.get_uniform_location(self.program, "u_selection_attr").as_ref(), -1.0);
+                }
+            }
+
             gl.active_texture(glow::TEXTURE0);
             gl.bind_texture(glow::TEXTURE_2D, Some(self.font_texture));
             gl.active_texture(glow::TEXTURE0 + 2);

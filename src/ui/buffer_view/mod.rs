@@ -1,15 +1,19 @@
+use std::cmp::{min, max};
+
+use clipboard::{ClipboardContext, ClipboardProvider};
 use glow::NativeTexture;
 use icy_engine::{
-    Buffer, BufferParser, CallbackAction, Caret, EngineResult
+    Buffer, BufferParser, CallbackAction, Caret, EngineResult, Position
 };
-
-use std::{cmp::{max, min}};
 
 pub mod render;
 pub use render::*;
 
 pub mod sixel;
 pub use sixel::*;
+
+pub mod selection;
+pub use selection::*;
 
 #[derive(Clone, Copy)]
 pub enum BufferInputMode {
@@ -67,6 +71,8 @@ pub struct BufferView {
     pub scroll_back_line: i32,
 
     pub button_pressed: bool,
+
+    pub selection_opt: Option<Selection>,
 
     program: glow::Program,
     vertex_array: glow::VertexArray,
@@ -181,7 +187,6 @@ include_str!("buffer_view.shader.frag"),
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
 
-
             let font_texture = gl.create_texture().unwrap();
             create_font_texture(gl, &buf, font_texture);
             gl.tex_parameter_i32(
@@ -210,7 +215,7 @@ include_str!("buffer_view.shader.frag"),
                 buf,
                 caret: Caret::default(),
                 caret_blink: Blink::new((1000.0 / 1.875) as u128 / 2),
-                character_blink: Blink::new(  (1000.0 / 1.8) as u128),
+                character_blink: Blink::new((1000.0 / 1.8) as u128),
                 scale: 1.0,
                 buffer_input_mode: BufferInputMode::CP437,
                 sixel_cache: Vec::new(),
@@ -219,6 +224,7 @@ include_str!("buffer_view.shader.frag"),
                 redraw_palette: false,
                 redraw_font: false,
                 scroll_back_line: 0,
+                selection_opt: None,
                 colors,
                 fonts,
                 program,
@@ -234,47 +240,49 @@ include_str!("buffer_view.shader.frag"),
         self.caret.ff(&mut self.buf);
     }
 
-    pub fn copy_to_clipboard(&mut self) {
-        /*  let Some(selection) = &self.selection else {
+    pub fn copy_to_clipboard(&mut self, buffer_parser: &Box<dyn BufferParser>) {
+        let Some(selection) = &self.selection_opt else {
             return;
         };
 
         let mut res = String::new();
         if selection.block_selection {
-            for y in selection.selection_start.y..=selection.selection_end.y {
-                for x in selection.selection_start.x..selection.selection_end.x {
+            let start = Position::new(min(selection.anchor_pos.x, selection.lead_pos.x), min(selection.anchor_pos.y, selection.lead_pos.y) );
+            let end = Position::new(max(selection.anchor_pos.x, selection.lead_pos.x), max(selection.anchor_pos.y, selection.lead_pos.y) );
+            for y in start.y..=end.y {
+                for x in start.x..end.x {
                     let ch = self.buf.get_char(Position::new(x, y)).unwrap();
-                    res.push(self.buffer_parser.to_unicode(ch.ch));
+                    res.push(buffer_parser.to_unicode(ch.ch));
                 }
                 res.push('\n');
             }
         } else {
-            let (start, end) = if selection.anchor < selection.lead {
-                (selection.anchor, selection.lead)
+            let (start, end) = if selection.anchor_pos < selection.lead_pos {
+                (selection.anchor_pos, selection.lead_pos)
             } else {
-                (selection.lead, selection.anchor)
+                (selection.lead_pos, selection.anchor_pos)
             };
             if start.y != end.y {
                 for x in start.x..self.buf.get_line_length(start.y) {
                     let ch = self.buf.get_char(Position::new(x, start.y)).unwrap();
-                    res.push(self.buffer_parser.to_unicode(ch.ch));
+                    res.push(buffer_parser.to_unicode(ch.ch));
                 }
                 res.push('\n');
                 for y in start.y + 1..end.y {
                     for x in 0..self.buf.get_line_length(y) {
                         let ch = self.buf.get_char(Position::new(x, y)).unwrap();
-                        res.push(self.buffer_parser.to_unicode(ch.ch));
+                        res.push(buffer_parser.to_unicode(ch.ch));
                     }
                     res.push('\n');
                 }
-                for x in 0..end.x {
+                for x in 0..=end.x {
                     let ch = self.buf.get_char(Position::new(x, end.y)).unwrap();
-                    res.push(self.buffer_parser.to_unicode(ch.ch));
+                    res.push(buffer_parser.to_unicode(ch.ch));
                 }
             } else {
-                for x in start.x..end.x {
+                for x in start.x..=end.x {
                     let ch = self.buf.get_char(Position::new(x, start.y)).unwrap();
-                    res.push(self.buffer_parser.to_unicode(ch.ch));
+                    res.push(buffer_parser.to_unicode(ch.ch));
                 }
             }
         }
@@ -282,7 +290,7 @@ include_str!("buffer_view.shader.frag"),
         if let Err(err) = ctx.set_contents(res) {
             eprintln!("{}", err);
         }
-        self.selection = None; */
+        self.selection_opt = None;
     }
 
     pub fn redraw_view(&mut self) {
@@ -315,15 +323,4 @@ include_str!("buffer_view.shader.frag"),
         }
     }
 
-    pub fn scroll(&mut self, lines: i32) {
-        self.scroll_back_line = max(
-            0,
-            min(
-                self.buf.layers[0].lines.len() as i32 - self.buf.get_buffer_height(),
-                self.scroll_back_line + lines,
-            ),
-        );
-        self.redraw_view();
-    }
 }
-

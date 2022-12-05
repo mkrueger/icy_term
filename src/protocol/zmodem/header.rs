@@ -184,7 +184,7 @@ impl Header {
     }
 
     pub async fn write(&mut self, com: &mut Box<dyn Com>) -> ComResult<usize> {
-        println!("send header: {:?}", self);
+        // println!("send header: {:?}", self);
         com.send(&self.build()).await
     }
 

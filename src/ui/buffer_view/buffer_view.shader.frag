@@ -11,6 +11,9 @@ uniform vec2        u_terminal_size;
 uniform vec4        u_caret_position;
 uniform vec4        u_sixel_rectangle;
 
+uniform vec4        u_selection;
+uniform float       u_selection_attr;
+
 uniform float       u_blink;
 
 out     vec4        fragColor;
@@ -29,6 +32,16 @@ vec4 get_palette_color(float c) {
 
 bool check_bit(float v, int bit) {
     return (int(255.0 * v) & (1 << bit)) != 0;
+}
+
+bool is_selected(float x, float y) {
+    if (u_selection_attr > 0.0) {
+        return u_selection.y <= y && y <= u_selection.w && u_selection.x <= x && x <= u_selection.z;
+    }
+    return u_selection.y == y && u_selection.w == y && u_selection.x <= x && x <= u_selection.z || // same line
+           u_selection.y < y && y < u_selection.w || // between start & end line
+           u_selection.y == y && u_selection.w != y && u_selection.x <= x  || // start line
+           u_selection.w == y && u_selection.y != y && x <= u_selection.z;    // end line
 }
 
 void main (void) {
@@ -55,30 +68,43 @@ void main (void) {
 
     vec4 char_data = get_char(fract_fb_pos, ch_value, ch.a);
     
+    vec4 fg = get_palette_color(ch.y);
+    vec4 bg = get_palette_color(ch.z);
+
+    if (u_selection_attr >= 0.0) {
+        float x = floor(fb_pos.x);
+        float y = floor(fb_pos.y);
+        if (is_selected(x, y)) {
+            vec4 tmp = bg;
+            bg = fg;
+            fg = tmp;
+        }
+    }
+
     if (char_data.x > 0.5 && (ch_attr[3] == 0.0 || u_blink > 0)) {
-        fragColor = get_palette_color(ch.y);
+        fragColor = fg;
     } else {
-        fragColor = get_palette_color(ch.z);
+        fragColor = bg;
     }
 
     // underline
     if (check_bit(ch_attr[0], 0)) {
         if (fract_fb_pos.y >= 15.0 / 16.0) {
-            fragColor = get_palette_color(ch.y);
+            fragColor = fg;
         }
     }
 
     // double underline
     if (check_bit(ch_attr[0], 1)) {
         if (fract_fb_pos.y >= 13.0 / 16.0 && fract_fb_pos.y < 14.0 / 16.0) {
-            fragColor = get_palette_color(ch.y);
+            fragColor = fg;
         }
     }
 
     // strike through
     if (check_bit(ch_attr[0], 2)) {
         if (fract_fb_pos.y >= 7.0 / 16.0 && fract_fb_pos.y < 8.0 / 16.0) {
-            fragColor = get_palette_color(ch.y);
+            fragColor = fg;
         }
     }
 
@@ -90,7 +116,7 @@ void main (void) {
         }
     }
 
-    if (u_caret_position.z > 0 && floor(fb_pos) == u_caret_position.xy) {
+    if (u_selection_attr < 0.0 && u_caret_position.z > 0 && floor(fb_pos) == u_caret_position.xy) {
         if (u_caret_position.w == 0.0) { // underscore
             if (fract_fb_pos.y >= 13.0 / 16.0 && fract_fb_pos.y <= 15.0 / 16.0) {
                 fragColor = get_palette_color(ch.y);

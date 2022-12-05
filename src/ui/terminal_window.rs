@@ -1,12 +1,12 @@
-use std::cmp::max;
+use std::{cmp::max};
 
-use crate::TerminalResult;
+use clipboard::{ClipboardProvider, ClipboardContext};
 use eframe::{
-    egui::{self, ScrollArea},
+    egui::{self, ScrollArea, CursorIcon, PointerButton},
     epaint::{Color32, Rect, Vec2},
 };
 
-use super::main_window::{MainWindow, MainWindowMode};
+use super::{main_window::{MainWindow, MainWindowMode}};
 
 impl MainWindow {
     pub fn update_terminal_window(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -68,16 +68,13 @@ impl MainWindow {
         egui::CentralPanel::default()
             .frame(frame_no_margins)
             .show(ctx, |ui| {
-                let res = self.custom_painting(ui, top_margin_height);
-                if let Err(err) = res {
-                    eprintln!("{}", err);
-                }
+                self.custom_painting(ui, top_margin_height)
             });
 
         ctx.request_repaint_after(std::time::Duration::from_millis(250));
     }
 
-    fn custom_painting(&mut self, ui: &mut egui::Ui, top_margin_height: f32) -> TerminalResult<()> {
+    fn custom_painting(&mut self, ui: &mut egui::Ui, top_margin_height: f32) -> egui::Response {
         let size = ui.available_size();
         let buffer_view = self.buffer_view.clone();
         let buf_w = buffer_view.lock().buf.get_buffer_width();
@@ -94,18 +91,21 @@ impl MainWindow {
         } else {
             scale_x = scale_y;
         }
-        let rect_w = scale_x * buf_w as f32 * font_dimensions.width as f32;
-        let rect_h = scale_y * buf_h as f32 * font_dimensions.height as f32;
+        let char_size = Vec2::new(font_dimensions.width as f32 * scale_x, font_dimensions.height as f32 * scale_y);
+
+        let rect_w = buf_w as f32 * char_size.x;
+        let rect_h = buf_h as f32 * char_size.y;
        
-        ScrollArea::vertical()
+        let output = ScrollArea::vertical()
         .auto_shrink([false; 2])
         .stick_to_bottom(true)
         .show_viewport(ui, |ui, viewport| {
-            let (rect, mut response) = ui.allocate_at_least(size, egui::Sense::drag());
+            let (rect, mut response) = ui.allocate_at_least(size, egui::Sense::click());
+
             let rect = Rect::from_min_size(
                 rect.left_top()
                     + Vec2::new(
-                        (rect.width() - rect_w) / 2.,
+                        1.0 + (rect.width() - rect_w) / 2.,
                         (viewport.top() + (rect.height() - rect_h) / 2.).floor(),
                     )
                     .ceil(),
@@ -115,7 +115,8 @@ impl MainWindow {
             let max_lines = max(0, real_height - buf_h);
             ui.set_height(scale_y * max_lines as f32 * font_dimensions.height as f32);
 
-            let scroll_back_line = max(0,  max_lines - (viewport.top() / scale_y / (font_dimensions.height as f32))  as i32);
+            let first_line = (viewport.top() / char_size.y)  as i32;
+            let scroll_back_line = max(0,  max_lines - first_line);
 
             if scroll_back_line != buffer_view.lock().scroll_back_line {
                 buffer_view.lock().scroll_back_line = scroll_back_line;
@@ -129,59 +130,127 @@ impl MainWindow {
                 })),
             };
             ui.painter().add(callback);
-
+            response = response.context_menu(terminal_context_menu);
             let events = ui.input().events.clone(); // avoid dead-lock by cloning. TODO(emilk): optimize
-        for e in &events {
-            match e {
-                egui::Event::Copy => {}
-                egui::Event::Cut => {}
-                egui::Event::Paste(_) => {}
-                egui::Event::CompositionEnd(text) | egui::Event::Text(text) => {
-                    for c in text.chars() {
-                        self.output_char(c);
+            for e in &events {
+                match e {
+                    egui::Event::Copy => {
+                        let buffer_view = self.buffer_view.clone();
+                        let mut l = buffer_view.lock();
+                        l.copy_to_clipboard(&self.buffer_parser);
                     }
-                    response.mark_changed();
-                }/* 
-                egui::Event::Scroll(x) => {
-                    self.buffer_view.lock().scroll((x.y as i32) / 10);
-                }*/
-                egui::Event::Key {
-                    key,
-                    pressed: true,
-                    modifiers,
-                } => {
-
-                    let im = self.screen_mode.get_input_mode();
-                    let key_map = im.cur_map();
-                    let mut key_code = *key as u32;
-                    if modifiers.ctrl || modifiers.command {
-                        key_code |= super::CTRL_MOD;
-                    }
-                    if modifiers.shift {
-                        key_code |= super::SHIFT_MOD;
-                    }
-                    for (k, m) in key_map {
-                        if *k == key_code {
-                            self.handled_char = true;
-                            if let Some(con) = &mut self.connection_opt {
-                                con.send(m.to_vec());
-                            } else {
-                                for c in *m {
-                                    self.print_char(*c);
-                                }
-                            }
-                            response.mark_changed();
-//                            ui.input_mut().consume_key(*modifiers, *key);
-                            break;
+                    egui::Event::Cut => {}
+                    egui::Event::Paste(text) => {
+                        for c in text.chars() {
+                            self.output_char(c);
                         }
                     }
+                    egui::Event::CompositionEnd(text) | egui::Event::Text(text) => {
+                        for c in text.chars() {
+                            self.output_char(c);
+                        }
+                        response.mark_changed();
+                    }
+
+                    egui::Event::PointerButton { pos, button: PointerButton::Primary, pressed: true, modifiers } => {
+                        if rect.contains(*pos) {
+                            let buffer_view = self.buffer_view.clone();
+                            let click_pos = (*pos - rect.min) / char_size + Vec2::new(0.0, first_line as f32);
+                            buffer_view.lock().selection_opt = Some(crate::ui::Selection::new(click_pos));
+                            buffer_view.lock().selection_opt.as_mut().unwrap().block_selection = modifiers.alt;
+                        }
+                    }
+                    
+                    egui::Event::PointerButton {button: PointerButton::Primary, pressed: false, .. } => {
+                        let buffer_view = self.buffer_view.clone();
+                        let mut l = buffer_view.lock();
+                        if let Some(sel) = &mut l.selection_opt {
+                            sel.locked = true;
+                        }
+                    }
+                    egui::Event::PointerButton {button: PointerButton::Middle, pressed: true, .. } => {
+                        let buffer_view = self.buffer_view.clone();
+                        let mut l = buffer_view.lock();
+                        l.copy_to_clipboard(&self.buffer_parser);
+                    }
+                    
+                    egui::Event::PointerMoved(pos) => {
+                        let buffer_view = self.buffer_view.clone();
+                        let mut l = buffer_view.lock();
+                        if let Some(sel) = &mut l.selection_opt {
+                            if !sel.locked {
+                                let click_pos = (*pos - rect.min) / char_size + Vec2::new(0.0, first_line as f32);
+                                sel.set_lead(click_pos);
+                                sel.block_selection = ui.input().modifiers.alt;
+                                l.redraw_view();
+                            }
+                        }
+                    }
+                    egui::Event::Key {
+                        key,
+                        pressed: true,
+                        modifiers,
+                    } => {
+
+                        let im = self.screen_mode.get_input_mode();
+                        let key_map = im.cur_map();
+                        let mut key_code = *key as u32;
+                        if modifiers.ctrl || modifiers.command {
+                            key_code |= super::CTRL_MOD;
+                        }
+                        if modifiers.shift {
+                            key_code |= super::SHIFT_MOD;
+                        }
+                        for (k, m) in key_map {
+                            if *k == key_code {
+                                self.handled_char = true;
+                                if let Some(con) = &mut self.connection_opt {
+                                    let res = con.send(m.to_vec());
+                                    self.handle_result(res);
+                                } else {
+                                    for c in *m {
+                                        if let Err(err) = self.print_char(*c) {
+                                            eprintln!("{}", err);
+                                        }
+                                    }
+                                }
+                                response.mark_changed();
+                                ui.input_mut().consume_key(*modifiers, *key);
+                                break;
+                            }
+                        }
+                    }
+                    _ => {}
                 }
-                _ => {}
             }
-        }
+            if response.hovered() {
+                let hover_pos_opt = ui.input().pointer.hover_pos();
+                if let Some(hover_pos) = hover_pos_opt { 
+                    if rect.contains(hover_pos) {
+                        ui.output().cursor_icon = CursorIcon::Text;
+                    }
+                }
+            } 
+            response
         });
 
-        
-        Ok(())
+        output.inner
+    }
+}
+
+fn terminal_context_menu(ui: &mut egui::Ui) {
+    ui.input_mut().events.clear();
+
+    if ui.button("Copy").clicked() {
+        ui.input_mut().events.push(egui::Event::Copy);
+        ui.close_menu();
+    }
+
+    if ui.button("Paste").clicked() {
+        let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
+        if let Ok(text) = ctx.get_contents() {
+            ui.input_mut().events.push(egui::Event::Paste(text));
+        }
+        ui.close_menu();
     }
 }
