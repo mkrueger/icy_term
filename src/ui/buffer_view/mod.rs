@@ -307,7 +307,6 @@ include_str!("buffer_view.shader.frag"),
         c: char,
     ) -> EngineResult<CallbackAction> {
         let res = parser.print_char(&mut self.buf, &mut self.caret, c);
-        self.selection_opt = None;
         self.redraw_view();
         res
     }

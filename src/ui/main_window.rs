@@ -132,6 +132,7 @@ impl MainWindow {
 
     pub fn output_char(&mut self, ch: char) {
         let translated_char = self.buffer_parser.from_unicode(ch);
+        self.buffer_view.lock().selection_opt = None;
         if let Some(con) = &mut self.connection_opt {
             let r = con.send(vec![translated_char as u8]);
             self.handle_result(r);

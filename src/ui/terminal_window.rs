@@ -91,6 +91,7 @@ impl MainWindow {
         } else {
             scale_x = scale_y;
         }
+
         let char_size = Vec2::new(font_dimensions.width as f32 * scale_x, font_dimensions.height as f32 * scale_y);
 
         let rect_w = buf_w as f32 * char_size.x;
@@ -106,7 +107,7 @@ impl MainWindow {
                 rect.left_top()
                     + Vec2::new(
                         1.0 + (rect.width() - rect_w) / 2.,
-                        (viewport.top() + (rect.height() - rect_h) / 2.).floor(),
+                        (1.0 + viewport.top() + (rect.height() - rect_h) / 2.).floor(),
                     )
                     .ceil(),
                 Vec2::new(rect_w, rect_h),
@@ -184,6 +185,7 @@ impl MainWindow {
                             }
                         }
                     }
+                    egui::Event::KeyRepeat {key, modifiers} |
                     egui::Event::Key {
                         key,
                         pressed: true,

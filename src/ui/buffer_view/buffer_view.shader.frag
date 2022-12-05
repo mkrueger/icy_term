@@ -1,5 +1,6 @@
 #version 330
-precision mediump float;
+precision highp float;
+
 uniform sampler2DArray u_fonts;
 uniform sampler2D u_palette;
 uniform sampler2DArray u_buffer;

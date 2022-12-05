@@ -41,8 +41,8 @@ impl BufferView {
             gl.uniform_2_f32(
                 gl.get_uniform_location(self.program, "u_terminal_size")
                     .as_ref(),
-                self.buf.get_buffer_width() as f32,
-                self.buf.get_buffer_height() as f32,
+                self.buf.get_buffer_width() as f32 - 0.0001,
+                self.buf.get_buffer_height() as f32 - 0.0001,
             );
 
             gl.uniform_1_i32(gl.get_uniform_location(self.program, "u_fonts").as_ref(), 0);
