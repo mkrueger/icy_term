@@ -82,7 +82,7 @@ impl MainWindow {
 
         let font_dimensions = buffer_view.lock().buf.get_font_dimensions();
 
-        let mut scale_x = (size.x + 5.0) / font_dimensions.width as f32 / buf_w as f32;
+        let mut scale_x = (size.x) / font_dimensions.width as f32 / buf_w as f32;
         let mut scale_y = size.y / font_dimensions.height as f32 / buf_h as f32;
 
         if scale_x < scale_y {
@@ -105,7 +105,7 @@ impl MainWindow {
             let rect = Rect::from_min_size(
                 rect.left_top()
                     + Vec2::new(
-                        1.0 + (rect.width() - rect_w) / 2.,
+                        3.0 + (rect.width() - rect_w) / 2.,
                         (1.0 + viewport.top() + (rect.height() - rect_h) / 2.).floor(),
                     )
                     .ceil(),
