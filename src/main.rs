@@ -26,7 +26,6 @@ async fn main() {
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1200.0, 1000.0)),
         multisampling: 8,
-        transparent: true,
         renderer: eframe::Renderer::Glow,
         ..Default::default()
     };

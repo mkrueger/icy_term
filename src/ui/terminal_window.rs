@@ -64,7 +64,7 @@ impl MainWindow {
 
         let frame_no_margins = egui::containers::Frame::none()
             .inner_margin(egui::style::Margin::same(0.0))
-            .fill(Color32::from_rgba_unmultiplied(0x40, 0x44, 0x4b, 0xAF));
+            .fill(Color32::from_rgb(0x40, 0x44, 0x4b));
         egui::CentralPanel::default()
             .frame(frame_no_margins)
             .show(ctx, |ui| {
