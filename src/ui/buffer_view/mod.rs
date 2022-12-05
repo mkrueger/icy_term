@@ -1,6 +1,5 @@
 use std::cmp::{min, max};
 
-use clipboard::{ClipboardContext, ClipboardProvider};
 use glow::NativeTexture;
 use icy_engine::{
     Buffer, BufferParser, CallbackAction, Caret, EngineResult, Position
@@ -240,9 +239,9 @@ include_str!("buffer_view.shader.frag"),
         self.caret.ff(&mut self.buf);
     }
 
-    pub fn copy_to_clipboard(&mut self, buffer_parser: &Box<dyn BufferParser>) {
+    pub fn get_copy_text(&mut self, buffer_parser: &Box<dyn BufferParser>) -> Option<String> {
         let Some(selection) = &self.selection_opt else {
-            return;
+            return None;
         };
 
         let mut res = String::new();
@@ -286,11 +285,8 @@ include_str!("buffer_view.shader.frag"),
                 }
             }
         }
-        let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
-        if let Err(err) = ctx.set_contents(res) {
-            eprintln!("{}", err);
-        }
         self.selection_opt = None;
+        Some(res)
     }
 
     pub fn redraw_view(&mut self) {
@@ -311,6 +307,7 @@ include_str!("buffer_view.shader.frag"),
         c: char,
     ) -> EngineResult<CallbackAction> {
         let res = parser.print_char(&mut self.buf, &mut self.caret, c);
+        self.selection_opt = None;
         self.redraw_view();
         res
     }

@@ -131,13 +131,16 @@ impl MainWindow {
             };
             ui.painter().add(callback);
             response = response.context_menu(terminal_context_menu);
-            let events = ui.input().events.clone(); // avoid dead-lock by cloning. TODO(emilk): optimize
+            let events = ui.input().events.clone();
             for e in &events {
                 match e {
+                    egui::Event::PointerButton {button: PointerButton::Middle, pressed: true, .. } | 
                     egui::Event::Copy => {
                         let buffer_view = self.buffer_view.clone();
                         let mut l = buffer_view.lock();
-                        l.copy_to_clipboard(&self.buffer_parser);
+                        if let Some(txt) = l.get_copy_text(&self.buffer_parser) {
+                            ui.output().copied_text = txt;
+                        }
                     }
                     egui::Event::Cut => {}
                     egui::Event::Paste(text) => {
@@ -167,11 +170,6 @@ impl MainWindow {
                         if let Some(sel) = &mut l.selection_opt {
                             sel.locked = true;
                         }
-                    }
-                    egui::Event::PointerButton {button: PointerButton::Middle, pressed: true, .. } => {
-                        let buffer_view = self.buffer_view.clone();
-                        let mut l = buffer_view.lock();
-                        l.copy_to_clipboard(&self.buffer_parser);
                     }
                     
                     egui::Event::PointerMoved(pos) => {
@@ -231,6 +229,10 @@ impl MainWindow {
                     }
                 }
             } 
+            response.dragged = false;
+            response.drag_released = true;
+            response.is_pointer_button_down_on = false;
+            response.interact_pointer_pos = None;
             response
         });
 

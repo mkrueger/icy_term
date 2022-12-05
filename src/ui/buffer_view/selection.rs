@@ -30,6 +30,9 @@ impl Selection {
             locked: false,
         }
     }
+    pub fn is_empty(&self) -> bool {
+        self.anchor_pos == self.lead_pos
+    }
 }
 
 impl Selection {
