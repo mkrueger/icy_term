@@ -5,7 +5,7 @@ uniform sampler2DArray u_fonts;
 uniform sampler2D u_palette;
 uniform sampler2DArray u_buffer;
 uniform sampler2D u_sixel;
-            
+
 uniform vec2        u_resolution;
 uniform vec2        u_position;
 uniform vec2        u_terminal_size;
@@ -26,7 +26,7 @@ vec4 get_char(vec2 p, float c, float page) {
     vec2 v = p / 16.0 + fract(vec2(c, floor(c / 16.0)) / 16.0);
     return textureGrad(u_fonts, vec3(v, page), dFdx(p / 16.0), dFdy(p / 16.0));
 }
-            
+
 vec4 get_palette_color(float c) {
     return texture(u_palette, vec2(c, 0));
 }

@@ -12,12 +12,12 @@ impl MainWindow {
     pub fn update_terminal_window(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let button_frame = egui::containers::Frame::none()
          .fill(Color32::from_rgb(0x20, 0x22, 0x25))
-        .inner_margin(egui::style::Margin::same(4.0));
-        let top_margin_height = 38.;
+        .inner_margin(egui::style::Margin::same(8.0));
+        let top_margin_height = 42.;
         egui::TopBottomPanel::top("button_bar")
             .frame(button_frame)
             .show(ctx, |ui| {
-                let img_size = Vec2::new(24., 24.);
+                let img_size = Vec2::new(22., 22.);
 
                 ui.horizontal(|ui| {
                     if ui
@@ -82,7 +82,7 @@ impl MainWindow {
 
         let font_dimensions = buffer_view.lock().buf.get_font_dimensions();
 
-        let mut scale_x = (size.x) / font_dimensions.width as f32 / buf_w as f32;
+        let mut scale_x = (size.x - 4.0) / font_dimensions.width as f32 / buf_w as f32;
         let mut scale_y = size.y / font_dimensions.height as f32 / buf_h as f32;
 
         if scale_x < scale_y {
@@ -105,7 +105,7 @@ impl MainWindow {
             let rect = Rect::from_min_size(
                 draw_area.left_top()
                     + Vec2::new(
-                        3.0 + (draw_area.width() - rect_w) / 2.,
+                        (-4.0 + draw_area.width() - rect_w) / 2.,
                         (-top_margin_height + viewport.top() + (draw_area.height() - rect_h) / 2.).floor(),
                     )
                     .ceil(),
@@ -123,7 +123,7 @@ impl MainWindow {
                 buffer_view.lock().redraw_view();
             }
             let callback = egui::PaintCallback {
-                rect: rect,
+                rect,
                 callback: std::sync::Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
                     buffer_view.lock().update_buffer(painter.gl());
                     buffer_view.lock().paint(painter.gl(), rect, draw_area, top_margin_height);
