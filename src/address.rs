@@ -129,9 +129,9 @@ name = 'Atari'
 "#;
 
 impl Address {
-    pub fn new() -> Self {
+    pub fn new(system_name: String) -> Self {
         Self {
-            system_name: String::new(),
+            system_name: system_name,
             user_name: String::new(),
             password: String::new(),
             comment: String::new(),
@@ -180,8 +180,7 @@ impl Address {
             }
             let phonebook = proj_dirs.config_dir().join("phonebook.toml");
             if !phonebook.exists() {
-                fs::write(phonebook, &TEMPLATE).expect("Can't create phonebook");
-                return None;
+                fs::write(&phonebook, &TEMPLATE).expect("Can't create phonebook");
             }
             return Some(phonebook);
         }
@@ -190,7 +189,7 @@ impl Address {
 
     pub fn read_phone_book() -> Vec<Self> {
         let mut res = Vec::new();
-        res.push(Address::new());
+        res.push(Address::new(String::new()));
         if let Some(phonebook) = Address::get_phonebook_file() {
             let fs = fs::read_to_string(&phonebook).expect("Can't read phonebook");
             match toml::from_str::<AddressBook>(&fs.as_str()) {

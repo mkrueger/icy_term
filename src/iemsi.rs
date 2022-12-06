@@ -815,7 +815,7 @@ mod tests {
     #[test]
     fn test_auto_logon() {
         let mut state = IEmsi::new();
-        let mut adr = Address::new();
+        let mut adr = Address::new(String::new());
         adr.user_name = "foo".to_string();
         adr.password = "bar".to_string();
 

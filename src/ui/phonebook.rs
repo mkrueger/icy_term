@@ -39,39 +39,44 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
     .width_range(200.0..=200.0)
     .show(ctx, |ui| {
         let row_height = 18.;
-        ScrollArea::vertical().show_rows(
-            ui,
-            row_height,
-            window.addresses.len() - 1,
-            |ui, range| {
-                for i in 1 + range.start..range.end {
-                    let addr = window.addresses[i].clone();
-                    let img_size = Vec2::new(row_height, row_height);
+        if window.addresses.len() > 1 {
+            ScrollArea::vertical().show_rows(
+                ui,
+                row_height,
+                window.addresses.len() - 1,
+                |ui, range| {
+                    for i in range.start..range.end {
+                        let addr = window.addresses[i + 1].clone();
+                        let img_size = Vec2::new(row_height, row_height);
 
-                    ui.horizontal(|ui| {
-                        if ui
-                            .add(egui::ImageButton::new(
-                                super::CALL_SVG.texture_id(ctx),
-                                img_size,
-                                ).frame(false)
-                            )
-                            .clicked()
-                        {
-                            window.call_bbs(i);
-                            return;
-                        }
-                        let text_style = FontId::proportional(row_height + 2.);
-                        let mut text = RichText::new(addr.system_name.clone()).font(text_style);
-                        if i == window.selected_bbs {
-                            text = text.color(Color32::WHITE);
-                        }
-                        if ui.button(text).clicked() {
-                            window.select_bbs(i);
-                        }
-                    });
-                }
-            },
-        );
+                        ui.horizontal(|ui| {
+                            if ui
+                                .add(egui::ImageButton::new(
+                                    super::CALL_SVG.texture_id(ctx),
+                                    img_size,
+                                    ).frame(false)
+                                )
+                                .clicked()
+                            {
+                                window.call_bbs(i + 1);
+                                return;
+                            }
+                            let text_style = FontId::proportional(row_height + 2.);
+                            let mut text = RichText::new(addr.system_name.clone()).font(text_style);
+                            if i == window.selected_bbs {
+                                text = text.color(Color32::WHITE);
+                            }
+                            if ui.button(text).clicked() {
+                                window.select_bbs(i + 1);
+                            }
+                        });
+                    }
+                },
+            );
+        } else { 
+            let text_style = FontId::proportional(22.);
+            ui.label(RichText::new("No BBSes").font(text_style));
+        }
 
         ui.horizontal(|ui| {
             ui.horizontal(|ui| {
@@ -92,7 +97,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                     ))
                     .clicked()
                 {
-                    window.addresses.push(Address::new());
+                    window.addresses.push(Address::new("New BBS".to_string()));
                     window.selected_bbs = window.addresses.len() - 1;
                 }
             });  
