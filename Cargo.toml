@@ -20,7 +20,7 @@ glow = "0.11.2"
 #sound
 cpal = { git = "https://github.com/RustAudio/cpal.git" }
 anyhow = "1.0"
-icy_engine = { path = "../icy_engine" }
+icy_engine = { git = "https://github.com/mkrueger/icy_engine.git" }
 tokio = { version = "1.21.2", features = ["full"] }
 
 directories = "4.0.1"
