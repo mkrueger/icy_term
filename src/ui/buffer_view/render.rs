@@ -1,4 +1,4 @@
-use eframe::epaint::{ Rect };
+use eframe::epaint::{ Rect, Vec2 };
 use glow::NativeTexture;
 use icy_engine::{
     Buffer
@@ -7,22 +7,28 @@ use std::{cmp::{max}, time::{SystemTime, UNIX_EPOCH}};
 
 use super::{BufferView};
 
-
 impl BufferView {
-    pub fn paint(&self, gl: &glow::Context, rect: Rect, top_margin_height: f32) {
+    pub fn paint(&self, gl: &glow::Context, rect: Rect, draw_area: Rect, top_margin_height: f32) {
         use glow::HasContext as _;
         unsafe {
+            gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.framebuffer));
+            gl.bind_texture(glow::TEXTURE_2D, Some(self.render_texture));
+
+            gl.viewport(0, 0, self.render_buffer_size.x as i32, self.render_buffer_size.y as i32);
+            gl.clear(glow::COLOR_BUFFER_BIT | glow ::DEPTH_BUFFER_BIT);
+            gl.clear_color(0., 0., 0., 1.0);
+
             gl.use_program(Some(self.program));
             gl.uniform_2_f32(
                 gl.get_uniform_location(self.program, "u_resolution")
                     .as_ref(),
-                rect.width(),
-                rect.height(),
+                    self.render_buffer_size.x,
+                    self.render_buffer_size.y,
             );
             gl.uniform_2_f32(
                 gl.get_uniform_location(self.program, "u_position").as_ref(),
-                rect.left(),
-                rect.top() - top_margin_height,
+                0.0,
+                0.0,
             );
 
             let sbl= (self.buf.get_first_visible_line() - self.scroll_back_line) as f32;
@@ -119,6 +125,33 @@ impl BufferView {
             gl.bind_vertex_array(Some(self.vertex_array));
             gl.draw_arrays(glow::TRIANGLES, 0, 3);
             gl.draw_arrays(glow::TRIANGLES, 3, 3);
+
+            gl.bind_framebuffer(glow::FRAMEBUFFER,None);
+            gl.clear(glow::COLOR_BUFFER_BIT | glow ::DEPTH_BUFFER_BIT);
+            gl.clear_color(1., 1., 1., 1.0);
+
+            gl.viewport(rect.left() as i32, rect.top() as i32, rect.width() as i32, rect.height() as i32);
+            gl.use_program(Some(self.draw_program));
+
+            gl.active_texture(glow::TEXTURE0);
+            gl.uniform_1_i32(gl.get_uniform_location(self.draw_program, "u_render_texture").as_ref(), 0);
+            gl.bind_texture(glow::TEXTURE_2D, Some(self.render_texture));
+
+            gl.uniform_2_f32(
+                gl.get_uniform_location(self.draw_program, "u_resolution")
+                    .as_ref(),
+                rect.width(),
+                rect.height(),
+            );
+            gl.uniform_2_f32(
+                gl.get_uniform_location(self.draw_program, "u_position").as_ref(),
+                rect.left(),
+                rect.top(),
+            );
+
+            gl.bind_vertex_array(Some(self.vertex_array));
+            gl.draw_arrays(glow::TRIANGLES, 0, 3);
+            gl.draw_arrays(glow::TRIANGLES, 3, 3);
         }
     }
 
@@ -141,6 +174,63 @@ impl BufferView {
             create_font_texture(gl, &self.buf, self.palette_texture);
             self.fonts = self.buf.font_table.len();
         }
+        let buf = &self.buf;
+        let render_buffer_size = Vec2::new(buf.get_font_dimensions().width as f32 * buf.get_buffer_width() as f32, buf.get_font_dimensions().height as f32 * buf.get_buffer_height() as f32);
+
+        if render_buffer_size != self.render_buffer_size {
+            unsafe { 
+                println!("update render buffer !");
+                use glow::HasContext as _;
+                gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.framebuffer));
+
+                gl.delete_texture(self.render_texture);
+
+                let render_texture = gl.create_texture().unwrap();
+                gl.bind_texture(glow::TEXTURE_2D, Some(render_texture));
+                gl.tex_image_2d(
+                    glow::TEXTURE_2D,
+                    0,
+                    glow::RGBA as i32,
+                    render_buffer_size.x as i32,
+                    render_buffer_size.y as i32,
+                    0,
+                    glow::RGBA,
+                    glow::UNSIGNED_BYTE,
+                    None);
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_MIN_FILTER,
+                    glow::LINEAR as i32,
+                );
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_MAG_FILTER,
+                    glow::LINEAR as i32,
+                );
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_WRAP_S,
+                    glow::CLAMP_TO_EDGE as i32,
+                );
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_WRAP_T,
+                    glow::CLAMP_TO_EDGE as i32,
+                );
+                
+                let depth_buffer = gl.create_renderbuffer().unwrap();
+                gl.bind_renderbuffer(glow::RENDERBUFFER, Some(depth_buffer));
+                gl.renderbuffer_storage(glow::RENDERBUFFER, glow::DEPTH_COMPONENT, render_buffer_size.x as i32, render_buffer_size.y as i32);
+                gl.framebuffer_renderbuffer(glow::FRAMEBUFFER, glow::DEPTH_ATTACHMENT, glow::RENDERBUFFER, Some(depth_buffer));
+                gl.framebuffer_texture(glow::FRAMEBUFFER, glow::COLOR_ATTACHMENT0, Some(render_texture), 0);
+
+                gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+                self.render_texture = render_texture;
+                self.render_buffer_size = render_buffer_size;
+            }
+
+        }
+
 
         let start = SystemTime::now();
         let since_the_epoch = start
@@ -282,7 +372,6 @@ pub fn create_buffer_texture(
             if ch.attribute.is_double_height() { 
                 is_double_height = true;
             }
-
             if ch.attribute.is_concealed() {
                 buffer_data.push(' ' as u8);
             } else {
@@ -390,7 +479,6 @@ pub fn create_buffer_texture(
                 buffer_data.push(if ch.attribute.is_blinking() { 255 } else { 0 });
             }
         }
-
 
         if is_double_height {
             y += 2;

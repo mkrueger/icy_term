@@ -28,5 +28,3 @@ pub use keymaps::*;
 
 pub mod icons;
 pub use icons::*;
-
-//pub mod simulate;

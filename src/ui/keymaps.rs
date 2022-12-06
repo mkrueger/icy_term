@@ -196,7 +196,7 @@ pub static VIDEOTERM_KEY_MAP: &[(u32, &[u8])] = &[
     (Key::Delete as u32, &[0x7F]),
     (Key::Escape as u32, &[0x1B]),
     (Key::F1 as u32, &[b'*']),
-    (Key::F2 as u32, &[0b101_1111]),// #
+    (Key::F2 as u32, &[0b101_1111]),
 
     (Key::ArrowUp as u32, &[0x0B]),
     (Key::ArrowDown as u32, &[b'\n']),

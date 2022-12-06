@@ -11,9 +11,9 @@ use super::{main_window::{MainWindow, MainWindowMode}};
 impl MainWindow {
     pub fn update_terminal_window(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let button_frame = egui::containers::Frame::none()
-            .fill(Color32::from_rgb(0x20, 0x22, 0x25))
-            .inner_margin(egui::style::Margin::same(4.0));
-        let top_margin_height = 40.;
+         .fill(Color32::from_rgb(0x20, 0x22, 0x25))
+        .inner_margin(egui::style::Margin::same(4.0));
+        let top_margin_height = 38.;
         egui::TopBottomPanel::top("button_bar")
             .frame(button_frame)
             .show(ctx, |ui| {
@@ -100,13 +100,13 @@ impl MainWindow {
         .auto_shrink([false; 2])
         .stick_to_bottom(true)
         .show_viewport(ui, |ui, viewport| {
-            let (rect, mut response) = ui.allocate_at_least(size, egui::Sense::click());
+            let (draw_area, mut response) = ui.allocate_at_least(size, egui::Sense::click());
 
             let rect = Rect::from_min_size(
-                rect.left_top()
+                draw_area.left_top()
                     + Vec2::new(
-                        3.0 + (rect.width() - rect_w) / 2.,
-                        (1.0 + viewport.top() + (rect.height() - rect_h) / 2.).floor(),
+                        3.0 + (draw_area.width() - rect_w) / 2.,
+                        (-top_margin_height + viewport.top() + (draw_area.height() - rect_h) / 2.).floor(),
                     )
                     .ceil(),
                 Vec2::new(rect_w, rect_h),
@@ -126,7 +126,7 @@ impl MainWindow {
                 rect: rect,
                 callback: std::sync::Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
                     buffer_view.lock().update_buffer(painter.gl());
-                    buffer_view.lock().paint(painter.gl(), rect, top_margin_height);
+                    buffer_view.lock().paint(painter.gl(), rect, draw_area, top_margin_height);
                 })),
             };
             ui.painter().add(callback);
@@ -190,7 +190,6 @@ impl MainWindow {
                         pressed: true,
                         modifiers,
                     } => {
-
                         let im = self.screen_mode.get_input_mode();
                         let key_map = im.cur_map();
                         let mut key_code = *key as u32;
