@@ -126,7 +126,7 @@ impl MainWindow {
                 rect,
                 callback: std::sync::Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
                     buffer_view.lock().update_buffer(painter.gl());
-                    buffer_view.lock().paint(painter.gl(), rect, draw_area, top_margin_height);
+                    buffer_view.lock().paint(painter.gl(), rect);
                 })),
             };
             ui.painter().add(callback);
@@ -158,7 +158,7 @@ impl MainWindow {
                     egui::Event::PointerButton { pos, button: PointerButton::Primary, pressed: true, modifiers } => {
                         if rect.contains(*pos) {
                             let buffer_view = self.buffer_view.clone();
-                            let click_pos = (*pos - rect.min) / char_size + Vec2::new(0.0, first_line as f32);
+                            let click_pos = (*pos - rect.min - Vec2::new(0., top_margin_height)) / char_size + Vec2::new(0.0, first_line as f32);
                             buffer_view.lock().selection_opt = Some(crate::ui::Selection::new(click_pos));
                             buffer_view.lock().selection_opt.as_mut().unwrap().block_selection = modifiers.alt;
                         }
@@ -177,7 +177,7 @@ impl MainWindow {
                         let mut l = buffer_view.lock();
                         if let Some(sel) = &mut l.selection_opt {
                             if !sel.locked {
-                                let click_pos = (*pos - rect.min) / char_size + Vec2::new(0.0, first_line as f32);
+                                let click_pos = (*pos - rect.min - Vec2::new(0., top_margin_height)) / char_size + Vec2::new(0.0, first_line as f32);
                                 sel.set_lead(click_pos);
                                 sel.block_selection = ui.input().modifiers.alt;
                                 l.redraw_view();
@@ -204,7 +204,7 @@ impl MainWindow {
                                 self.handled_char = true;
                                 if let Some(con) = &mut self.connection_opt {
                                     let res = con.send(m.to_vec());
-                                    self.handle_result(res);
+                                    self.handle_result(res, true);
                                 } else {
                                     for c in *m {
                                         if let Err(err) = self.print_char(*c) {

@@ -58,9 +58,6 @@ impl Blink {
     }
 }
 
-const buffer_width: i32 = 640;
-const buffer_height: i32 = 400;
-
 pub struct BufferView {
     pub buf: Buffer,
     sixel_cache: Vec<SixelCacheEntry>,
@@ -289,13 +286,15 @@ include_str!("buffer_view.shader.frag"),
 
             gl.bind_framebuffer(glow::FRAMEBUFFER, Some(framebuffer));
             let render_texture = gl.create_texture().unwrap();
+            let render_buffer_size = Vec2::new(buf.get_font_dimensions().width as f32 * buf.get_buffer_width() as f32, buf.get_font_dimensions().height as f32 * buf.get_buffer_height() as f32);
+
             gl.bind_texture(glow::TEXTURE_2D, Some(render_texture));
             gl.tex_image_2d(
                 glow::TEXTURE_2D,
                 0,
                 glow::RGBA as i32,
-                buffer_width,
-                buffer_height,
+                render_buffer_size.x as i32,
+                render_buffer_size.y as i32,
                 0,
                 glow::RGBA,
                 glow::UNSIGNED_BYTE,
@@ -323,7 +322,6 @@ include_str!("buffer_view.shader.frag"),
             
             let depth_buffer = gl.create_renderbuffer().unwrap();
             gl.bind_renderbuffer(glow::RENDERBUFFER, Some(depth_buffer));
-            let render_buffer_size = Vec2::new(buf.get_font_dimensions().width as f32 * buf.get_buffer_width() as f32, buf.get_font_dimensions().height as f32 * buf.get_buffer_height() as f32);
             gl.renderbuffer_storage(glow::RENDERBUFFER, glow::DEPTH_COMPONENT, render_buffer_size.x as i32, render_buffer_size.y as i32);
             gl.framebuffer_renderbuffer(glow::FRAMEBUFFER, glow::DEPTH_ATTACHMENT, glow::RENDERBUFFER, Some(depth_buffer));
             gl.framebuffer_texture(glow::FRAMEBUFFER, glow::COLOR_ATTACHMENT0, Some(render_texture), 0);

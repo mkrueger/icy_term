@@ -8,7 +8,7 @@ use std::{cmp::{max}, time::{SystemTime, UNIX_EPOCH}};
 use super::{BufferView};
 
 impl BufferView {
-    pub fn paint(&self, gl: &glow::Context, rect: Rect, draw_area: Rect, top_margin_height: f32) {
+    pub fn paint(&self, gl: &glow::Context, rect: Rect) {
         use glow::HasContext as _;
         unsafe {
             gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.framebuffer));

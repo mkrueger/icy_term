@@ -100,10 +100,10 @@ impl MainWindow {
         //view.address_list.selected_item = 1;
         // view.set_screen_mode(&ScreenMode::Viewdata);
         //view.update_address_list();
-        /*  unsafe {
+        unsafe {
             view.mode = MainWindowMode::ShowTerminal;
             super::simulate::run_sim(&mut view); 
-        }*/
+        }
 
         view
     }
@@ -116,17 +116,19 @@ impl MainWindow {
         Ok(())
     }
 
-    pub fn handle_result<T>(&mut self, res: TerminalResult<T>) {
+    pub fn handle_result<T>(&mut self, res: TerminalResult<T>, terminate_connection: bool) {
         if let Err(err) = res {
 //            self.hangup();
 //            self.buffer_view.lock().buf.clear();
 //            self.println(&format!("{}", err)).unwrap();
             eprintln!("{}", err);
-            self.open_connection_promise = None;
-            if let Some(con) = &mut self.connection_opt {
-                con.disconnect().unwrap_or_default();
+            if terminate_connection { 
+                self.open_connection_promise = None;
+                if let Some(con) = &mut self.connection_opt {
+                    con.disconnect().unwrap_or_default();
+                }
+                self.connection_opt = None;
             }
-            self.connection_opt = None;
         }
     }
 
@@ -135,7 +137,7 @@ impl MainWindow {
         self.buffer_view.lock().selection_opt = None;
         if let Some(con) = &mut self.connection_opt {
             let r = con.send(vec![translated_char as u8]);
-            self.handle_result(r);
+            self.handle_result(r, false);
         } else {
             if let Err(err) = self.print_char(translated_char as u8) {
                 eprintln!("{}", err);
@@ -154,7 +156,7 @@ impl MainWindow {
             icy_engine::CallbackAction::SendString(result) => {
                 if let Some(con) = &mut self.connection_opt {
                     let r = con.send(result.as_bytes().to_vec());
-                    self.handle_result(r);
+                    self.handle_result(r, false);
                 }
             },
             icy_engine::CallbackAction::PlayMusic(_music) => { /* play_music(music)*/ }
@@ -171,7 +173,7 @@ impl MainWindow {
         let state = Arc::new(Mutex::new(TransferState::new()));
         self.current_transfer = Some(state.clone());
         let res = self.connection_opt.as_mut().unwrap().start_file_transfer(protocol_type, download, state, files_opt);
-        self.handle_result(res);
+        self.handle_result(res, true);
     }
 
     /*
@@ -266,7 +268,7 @@ self.current_transfer = Some(Arc::new(Mutex::new(state)));
             self.selected_bbs -= 1;
         }
         let res  = store_phone_book(&self.addresses);
-        self.handle_result(res);
+        self.handle_result(res, true);
     }
 
     pub fn update_state(&mut self) -> TerminalResult<()> {
@@ -355,7 +357,7 @@ self.current_transfer = Some(Arc::new(Mutex::new(state)));
         data.extend(cr);
         if let Some(con) = &mut self.connection_opt {
             let res = con.send(data);
-            self.handle_result(res);
+            self.handle_result(res, true);
         }
         self.auto_login.logged_in = true;
     }
@@ -489,7 +491,7 @@ impl eframe::App for MainWindow {
             MainWindowMode::ShowTerminal => {
                 let res = self.update_state();
                 self.update_terminal_window(ctx, frame);
-                self.handle_result(res);
+                self.handle_result(res, false);
             }
             MainWindowMode::ShowPhonebook => {
                 super::view_phonebook(self, ctx, frame); 
@@ -520,7 +522,7 @@ impl eframe::App for MainWindow {
                     if !super::view_file_transfer(ctx, frame, a, download) {
                         self.mode = MainWindowMode::ShowTerminal;
                         let res = self.connection_opt.as_mut().unwrap().cancel_transfer();
-                        self.handle_result(res);
+                        self.handle_result(res, true);
                     }
                 } else {
                     eprintln!("error - in file transfer but no current protocol.");
