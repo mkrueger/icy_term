@@ -145,6 +145,27 @@ impl MainWindow {
         }
     }
 
+
+    pub fn output_string(&mut self, str: &str) {
+        self.buffer_view.lock().selection_opt = None;
+        if let Some(con) = &mut self.connection_opt {
+            let mut v = Vec::new();
+            for ch in str.chars() {
+                let translated_char = self.buffer_parser.from_unicode(ch);
+                v.push(translated_char as u8);
+            }
+            let r = con.send(v);
+            self.handle_result(r, false);
+        } else {
+            for ch in str.chars() {
+                let translated_char = self.buffer_parser.from_unicode(ch);
+                if let Err(err) = self.print_char(translated_char as u8) {
+                    eprintln!("{}", err);
+                }
+            }
+        }
+    }
+
     pub fn print_char(
         &mut self,
         c: u8,

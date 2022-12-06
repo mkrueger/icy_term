@@ -150,9 +150,7 @@ impl MainWindow {
                     }
                     egui::Event::Cut => {}
                     egui::Event::Paste(text) => {
-                        for c in text.chars() {
-                            self.output_char(c);
-                        }
+                        self.output_string(text);
                     }
                     egui::Event::CompositionEnd(text) | egui::Event::Text(text) => {
                         for c in text.chars() {

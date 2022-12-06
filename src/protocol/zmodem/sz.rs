@@ -134,7 +134,7 @@ impl Sz {
             transfer_info.check_size = format!("Crc32/{}", self.package_len);
             transfer_info.update_bps();
         }
- 
+        
         match self.state {
             SendState::Await | 
             SendState::AwaitZRPos => {
@@ -216,7 +216,7 @@ impl Sz {
                 }
                 // for some reason for some BBSes it's too fast - adding a little delay here fixes that
                 // Note that using ZCRCQ doesn't seem to fix that issue.
-                std::thread::sleep(Duration::from_millis(5));
+                std::thread::sleep(Duration::from_millis(15));
             }
             SendState::Finished => {
 //                transfer_state.lock().unwrap().current_state = "Finishing transfer…";
