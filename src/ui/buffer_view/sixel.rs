@@ -160,18 +160,6 @@ impl BufferView {
                 },
                 texture_opt
             };
-            if new_entry.texture_opt.is_some() {
-                // TODO: atm there is just 1 sixel possible.
-                for sx in &self.sixel_cache { 
-                    if let Some(tex) = sx.texture_opt {
-                        unsafe {
-                            gl.delete_texture(tex);
-                        }
-                    }
-                }
-                self.sixel_cache.clear();
-                self.sixel_cache.push(new_entry);
-            } else {
  
             if removed_index < 0 {
                 self.sixel_cache.push(new_entry);
@@ -186,7 +174,6 @@ impl BufferView {
                     break;
                 }
             }
-        }
         }
         res
     }

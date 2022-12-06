@@ -4,13 +4,11 @@ precision highp float;
 uniform sampler2DArray u_fonts;
 uniform sampler2D u_palette;
 uniform sampler2DArray u_buffer;
-uniform sampler2D u_sixel;
 
 uniform vec2        u_resolution;
 uniform vec2        u_position;
 uniform vec2        u_terminal_size;
 uniform vec4        u_caret_position;
-uniform vec4        u_sixel_rectangle;
 
 uniform vec4        u_selection;
 uniform float       u_selection_attr;
@@ -106,14 +104,6 @@ void main (void) {
     if (check_bit(ch_attr[0], 2)) {
         if (fract_fb_pos.y >= 7.0 / 16.0 && fract_fb_pos.y < 8.0 / 16.0) {
             fragColor = fg;
-        }
-    }
-
-    if (u_sixel_rectangle.z > 0.0) {
-        vec2 start = (u_sixel_rectangle.xy ) / u_resolution;
-        vec2 end = (u_sixel_rectangle.zw ) / u_resolution;
-        if (start.x <= view_coord.x && start.y <= view_coord.y && view_coord.x < end.x && view_coord.y < end.y) {
-            fragColor = texture(u_sixel, vec2((view_coord - start) / (end - start)));
         }
     }
 

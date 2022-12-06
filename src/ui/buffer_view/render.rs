@@ -12,8 +12,8 @@ impl BufferView {
         use glow::HasContext as _;
         unsafe {
             gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.framebuffer));
+            gl.framebuffer_texture(glow::FRAMEBUFFER, glow::COLOR_ATTACHMENT0, Some(self.render_texture), 0);
             gl.bind_texture(glow::TEXTURE_2D, Some(self.render_texture));
-
             gl.viewport(0, 0, self.render_buffer_size.x as i32, self.render_buffer_size.y as i32);
             gl.clear(glow::COLOR_BUFFER_BIT | glow ::DEPTH_BUFFER_BIT);
             gl.clear_color(0., 0., 0., 1.0);
@@ -61,11 +61,7 @@ impl BufferView {
                 gl.get_uniform_location(self.program, "u_buffer").as_ref(),
                 4,
             );
-            gl.uniform_1_i32(
-                gl.get_uniform_location(self.program, "u_sixel").as_ref(),
-                6,
-            );
-
+            
             match &self.selection_opt {
                 Some(sel) => {
                     if sel.is_empty() {
@@ -98,44 +94,71 @@ impl BufferView {
             gl.active_texture(glow::TEXTURE0 + 4);
             gl.bind_texture(glow::TEXTURE_2D, Some(self.buffer_texture));
 
-            if self.sixel_cache.len() > 0 && self.sixel_cache[0].texture_opt.is_some() {
-                let x = self.sixel_cache[0].pos.x as f32 * self.buf.get_font_dimensions().width as f32;
-                let y = self.sixel_cache[0].pos.y as f32 * self.buf.get_font_dimensions().height as f32;
-                
-                let w  = rect.width() / (self.buf.get_font_dimensions().width as f32 * self.buf.get_buffer_width() as f32);
-                let h  = rect.height() / (self.buf.get_font_dimensions().height as f32 * self.buf.get_buffer_height() as f32);
-
-                gl.uniform_4_f32(
-                    gl.get_uniform_location(self.program, "u_sixel_rectangle").as_ref(),
-                    x,
-                    y,
-                    x + self.sixel_cache[0].size.width as f32 * w,
-                    y + self.sixel_cache[0].size.height as f32 * h
-                );
-            } else {
-                gl.uniform_4_f32(
-                    gl.get_uniform_location(self.program, "u_sixel_rectangle").as_ref(),
-                    -1.0,
-                    -1.0,
-                    0.0,
-                    0.0
-                );
-            }
-
             gl.bind_vertex_array(Some(self.vertex_array));
             gl.draw_arrays(glow::TRIANGLES, 0, 3);
             gl.draw_arrays(glow::TRIANGLES, 3, 3);
 
+            // draw sixels 
+            let mut render_texture = self.render_texture;
+            let mut sixel_render_texture = self.sixel_render_texture;
+
+            for sixel in &self.sixel_cache {
+                if let Some(sixel_tex) = sixel.texture_opt {
+                    gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.framebuffer));
+                    gl.framebuffer_texture(glow::FRAMEBUFFER, glow::COLOR_ATTACHMENT0, Some(sixel_render_texture), 0);
+                    gl.bind_texture(glow::TEXTURE_2D, Some(sixel_render_texture));
+
+                    gl.viewport(0, 0, self.render_buffer_size.x as i32, self.render_buffer_size.y as i32);
+        
+                    gl.use_program(Some(self.sixel_shader));
+                    gl.uniform_1_i32(gl.get_uniform_location(self.sixel_shader, "u_render_texture").as_ref(), 4);
+                    gl.uniform_1_i32(gl.get_uniform_location(self.sixel_shader, "u_sixel").as_ref(), 2);
+
+                    gl.active_texture(glow::TEXTURE0 + 4);
+                    gl.bind_texture(glow::TEXTURE_2D, Some(render_texture));
+
+                    gl.active_texture(glow::TEXTURE0 + 2);
+                    gl.bind_texture(glow::TEXTURE_2D, Some(sixel_tex));
+
+                    gl.uniform_2_f32(
+                        gl.get_uniform_location(self.sixel_shader, "u_resolution")
+                            .as_ref(),
+                            self.render_buffer_size.x,
+                            self.render_buffer_size.y,
+                    );
+
+                    let x = sixel.pos.x as f32 * self.buf.get_font_dimensions().width as f32;
+                    let y = sixel.pos.y as f32 * self.buf.get_font_dimensions().height as f32;
+                    
+                    let w  = sixel.size.width as f32;
+                    let h  = sixel.size.height as f32;
+
+                    gl.uniform_4_f32(
+                        gl.get_uniform_location(self.sixel_shader, "u_sixel_rectangle").as_ref(),
+                        x,
+                        y,
+                        x + w,
+                        y + h
+                    );
+
+                    gl.bind_vertex_array(Some(self.vertex_array));
+                    gl.draw_arrays(glow::TRIANGLES, 0, 3);
+                    gl.draw_arrays(glow::TRIANGLES, 3, 3);
+
+                    let tmp = render_texture;
+                    render_texture = sixel_render_texture;
+                    sixel_render_texture = tmp;
+                }
+            }
+
+            // draw Framebuffer
             gl.bind_framebuffer(glow::FRAMEBUFFER,None);
             gl.clear(glow::COLOR_BUFFER_BIT | glow ::DEPTH_BUFFER_BIT);
-            gl.clear_color(1., 1., 1., 1.0);
-
             gl.viewport(rect.left() as i32, rect.top() as i32, rect.width() as i32, rect.height() as i32);
             gl.use_program(Some(self.draw_program));
-
             gl.active_texture(glow::TEXTURE0);
             gl.uniform_1_i32(gl.get_uniform_location(self.draw_program, "u_render_texture").as_ref(), 0);
-            gl.bind_texture(glow::TEXTURE_2D, Some(self.render_texture));
+            gl.bind_texture(glow::TEXTURE_2D, Some(render_texture));
 
             gl.uniform_2_f32(
                 gl.get_uniform_location(self.draw_program, "u_resolution")
