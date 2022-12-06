@@ -159,7 +159,11 @@ impl BufferView {
             gl.active_texture(glow::TEXTURE0);
             gl.uniform_1_i32(gl.get_uniform_location(self.draw_program, "u_render_texture").as_ref(), 0);
             gl.bind_texture(glow::TEXTURE_2D, Some(render_texture));
-
+            gl.uniform_1_f32(
+                gl.get_uniform_location(self.draw_program, "u_effect").as_ref(),
+                if self.crt_effect { 1.0 } else { 0.0 }
+            );
+            
             gl.uniform_2_f32(
                 gl.get_uniform_location(self.draw_program, "u_resolution")
                     .as_ref(),

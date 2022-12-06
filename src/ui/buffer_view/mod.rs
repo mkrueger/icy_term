@@ -73,6 +73,7 @@ pub struct BufferView {
     pub button_pressed: bool,
 
     pub selection_opt: Option<Selection>,
+    pub crt_effect: bool,
 
     program: glow::Program,
     vertex_array: glow::VertexArray,
@@ -179,21 +180,7 @@ include_str!("sixel.shader.frag")
         vec2 vert = verts[gl_VertexID];
         gl_Position = vec4(vert, 0.3, 1.0);
     }
-    "#,
-    r#"#version 330
-    in vec2 UV;
-    
-    uniform sampler2D u_render_texture;
-    uniform vec2      u_resolution;
-    uniform vec2      u_position;
-    
-    out vec3 color;
-    
-    void main(){
-        vec2 uv = (gl_FragCoord.xy - u_position) / u_resolution;
-        color = texture(u_render_texture, uv).xyz;
-    }
-    "#,
+    "#,include_str!("render.shader.frag")
                 );
                 let shader_sources = [
                     (glow::VERTEX_SHADER, vertex_shader_source),
@@ -451,6 +438,7 @@ include_str!("buffer_view.shader.frag"),
                 font_texture,
                 buffer_texture,
                 palette_texture,
+                crt_effect: true,
 
                 framebuffer,
                 render_texture,
