@@ -513,6 +513,7 @@ impl eframe::App for MainWindow {
                 let res = self.update_state();
                 self.update_terminal_window(ctx, frame);
                 self.handle_result(res, false);
+                ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowPhonebook => {
                 super::view_phonebook(self, ctx, frame); 
@@ -533,8 +534,6 @@ impl eframe::App for MainWindow {
                 } else */
                     self.mode = MainWindowMode::ShowTerminal;
                     self.auto_file_transfer.reset();
-                } else {
-                    ctx.request_repaint_after(Duration::from_millis(150));
                 }
 
                 self.update_terminal_window(ctx, frame);
@@ -549,6 +548,7 @@ impl eframe::App for MainWindow {
                     eprintln!("error - in file transfer but no current protocol.");
                     self.mode = MainWindowMode::ShowTerminal;
                 }
+                ctx.request_repaint_after(Duration::from_millis(150));
             },
            // MainWindowMode::AskDeleteEntry => todo!(),
         }

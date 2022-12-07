@@ -185,6 +185,15 @@ impl BufferView {
     pub fn update_buffer(&mut self, gl: &glow::Context) {
         self.update_sixels(gl);
 
+        let start = SystemTime::now();
+        let since_the_epoch = start
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards");
+        let cur_ms = since_the_epoch.as_millis();
+        if self.caret_blink.update(cur_ms) || self.character_blink.update(cur_ms) {
+            self.redraw_view = true;
+        }
+
         if self.redraw_view {
             self.redraw_view = false;
             create_buffer_texture( gl, &self.buf, self.scroll_back_line, self.buffer_texture);
@@ -259,13 +268,6 @@ impl BufferView {
         }
 
 
-        let start = SystemTime::now();
-        let since_the_epoch = start
-            .duration_since(UNIX_EPOCH)
-            .expect("Time went backwards");
-        let cur_ms = since_the_epoch.as_millis();
-        self.caret_blink.update(cur_ms);
-        self.character_blink.update(cur_ms);
     }
 
 }

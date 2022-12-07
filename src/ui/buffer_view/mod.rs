@@ -50,10 +50,13 @@ impl Blink {
         self.is_on 
     }
 
-    pub fn update(&mut self, cur_ms: u128) {
+    pub fn update(&mut self, cur_ms: u128) -> bool {
         if cur_ms - self.last_blink > self.blink_rate {
             self.is_on = !self.is_on;
             self.last_blink = cur_ms;
+            true
+        } else {
+            false
         }
     }
 }
