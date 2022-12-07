@@ -64,6 +64,15 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
         });
 
     if !open {
-        window.mode = MainWindowMode::ShowPhonebook;
+        match window.mode {
+            MainWindowMode::ShowSettings(show_phonebook) => {
+                if show_phonebook {
+                    window.mode = MainWindowMode::ShowPhonebook;
+                } else {
+                    window.mode = MainWindowMode::ShowTerminal;
+                }
+            },
+            _ => {}
+        }
     }
 }

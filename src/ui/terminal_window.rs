@@ -146,124 +146,127 @@ impl MainWindow {
                 };
                 ui.painter().add(callback);
                 response = response.context_menu(terminal_context_menu);
-                let events = ui.input().events.clone();
-                for e in &events {
-                    match e {
-                        egui::Event::PointerButton {
-                            button: PointerButton::Middle,
-                            pressed: true,
-                            ..
-                        }
-                        | egui::Event::Copy => {
-                            let buffer_view = self.buffer_view.clone();
-                            let mut l = buffer_view.lock();
-                            if let Some(txt) = l.get_copy_text(&self.buffer_parser) {
-                                ui.output().copied_text = txt;
-                            }
-                        }
-                        egui::Event::Cut => {}
-                        egui::Event::Paste(text) => {
-                            self.output_string(text);
-                        }
-                        egui::Event::CompositionEnd(text) | egui::Event::Text(text) => {
-                            for c in text.chars() {
-                                self.output_char(c);
-                            }
-                            response.mark_changed();
-                        }
 
-                        egui::Event::PointerButton {
-                            pos,
-                            button: PointerButton::Primary,
-                            pressed: true,
-                            modifiers,
-                        } => {
-                            if rect.contains(*pos) {
+                if matches!(self.mode, MainWindowMode::ShowTerminal) {
+                    let events = ui.input().events.clone();
+                    for e in &events {
+                        match e {
+                            egui::Event::PointerButton {
+                                button: PointerButton::Middle,
+                                pressed: true,
+                                ..
+                            }
+                            | egui::Event::Copy => {
                                 let buffer_view = self.buffer_view.clone();
-                                let click_pos =
-                                    (*pos - rect.min - Vec2::new(0., top_margin_height))
-                                        / char_size
-                                        + Vec2::new(0.0, first_line as f32);
-                                buffer_view.lock().selection_opt =
-                                    Some(crate::ui::Selection::new(click_pos));
-                                buffer_view
-                                    .lock()
-                                    .selection_opt
-                                    .as_mut()
-                                    .unwrap()
-                                    .block_selection = modifiers.alt;
+                                let mut l = buffer_view.lock();
+                                if let Some(txt) = l.get_copy_text(&self.buffer_parser) {
+                                    ui.output().copied_text = txt;
+                                }
                             }
-                        }
-
-                        egui::Event::PointerButton {
-                            button: PointerButton::Primary,
-                            pressed: false,
-                            ..
-                        } => {
-                            let buffer_view = self.buffer_view.clone();
-                            let mut l = buffer_view.lock();
-                            if let Some(sel) = &mut l.selection_opt {
-                                sel.locked = true;
+                            egui::Event::Cut => {}
+                            egui::Event::Paste(text) => {
+                                self.output_string(text);
                             }
-                        }
+                            egui::Event::CompositionEnd(text) | egui::Event::Text(text) => {
+                                for c in text.chars() {
+                                    self.output_char(c);
+                                }
+                                response.mark_changed();
+                            }
 
-                        egui::Event::PointerMoved(pos) => {
-                            let buffer_view = self.buffer_view.clone();
-                            let mut l = buffer_view.lock();
-                            if let Some(sel) = &mut l.selection_opt {
-                                if !sel.locked {
+                            egui::Event::PointerButton {
+                                pos,
+                                button: PointerButton::Primary,
+                                pressed: true,
+                                modifiers,
+                            } => {
+                                if rect.contains(*pos) {
+                                    let buffer_view = self.buffer_view.clone();
                                     let click_pos =
                                         (*pos - rect.min - Vec2::new(0., top_margin_height))
                                             / char_size
                                             + Vec2::new(0.0, first_line as f32);
-                                    sel.set_lead(click_pos);
-                                    sel.block_selection = ui.input().modifiers.alt;
-                                    l.redraw_view();
+                                    buffer_view.lock().selection_opt =
+                                        Some(crate::ui::Selection::new(click_pos));
+                                    buffer_view
+                                        .lock()
+                                        .selection_opt
+                                        .as_mut()
+                                        .unwrap()
+                                        .block_selection = modifiers.alt;
                                 }
                             }
-                        }
-                        egui::Event::KeyRepeat { key, modifiers }
-                        | egui::Event::Key {
-                            key,
-                            pressed: true,
-                            modifiers,
-                        } => {
-                            let im = self.screen_mode.get_input_mode();
-                            let key_map = im.cur_map();
-                            let mut key_code = *key as u32;
-                            if modifiers.ctrl || modifiers.command {
-                                key_code |= super::CTRL_MOD;
+
+                            egui::Event::PointerButton {
+                                button: PointerButton::Primary,
+                                pressed: false,
+                                ..
+                            } => {
+                                let buffer_view = self.buffer_view.clone();
+                                let mut l = buffer_view.lock();
+                                if let Some(sel) = &mut l.selection_opt {
+                                    sel.locked = true;
+                                }
                             }
-                            if modifiers.shift {
-                                key_code |= super::SHIFT_MOD;
+
+                            egui::Event::PointerMoved(pos) => {
+                                let buffer_view = self.buffer_view.clone();
+                                let mut l = buffer_view.lock();
+                                if let Some(sel) = &mut l.selection_opt {
+                                    if !sel.locked {
+                                        let click_pos =
+                                            (*pos - rect.min - Vec2::new(0., top_margin_height))
+                                                / char_size
+                                                + Vec2::new(0.0, first_line as f32);
+                                        sel.set_lead(click_pos);
+                                        sel.block_selection = ui.input().modifiers.alt;
+                                        l.redraw_view();
+                                    }
+                                }
                             }
-                            for (k, m) in key_map {
-                                if *k == key_code {
-                                    self.handled_char = true;
-                                    if let Some(con) = &mut self.connection_opt {
-                                        let res = con.send(m.to_vec());
-                                        self.handle_result(res, true);
-                                    } else {
-                                        for c in *m {
-                                            if let Err(err) = self.print_char(*c) {
-                                                eprintln!("{}", err);
+                            egui::Event::KeyRepeat { key, modifiers }
+                            | egui::Event::Key {
+                                key,
+                                pressed: true,
+                                modifiers,
+                            } => {
+                                let im = self.screen_mode.get_input_mode();
+                                let key_map = im.cur_map();
+                                let mut key_code = *key as u32;
+                                if modifiers.ctrl || modifiers.command {
+                                    key_code |= super::CTRL_MOD;
+                                }
+                                if modifiers.shift {
+                                    key_code |= super::SHIFT_MOD;
+                                }
+                                for (k, m) in key_map {
+                                    if *k == key_code {
+                                        self.handled_char = true;
+                                        if let Some(con) = &mut self.connection_opt {
+                                            let res = con.send(m.to_vec());
+                                            self.handle_result(res, true);
+                                        } else {
+                                            for c in *m {
+                                                if let Err(err) = self.print_char(*c) {
+                                                    eprintln!("{}", err);
+                                                }
                                             }
                                         }
+                                        response.mark_changed();
+                                        ui.input_mut().consume_key(*modifiers, *key);
+                                        break;
                                     }
-                                    response.mark_changed();
-                                    ui.input_mut().consume_key(*modifiers, *key);
-                                    break;
                                 }
                             }
+                            _ => {}
                         }
-                        _ => {}
                     }
-                }
-                if response.hovered() {
-                    let hover_pos_opt = ui.input().pointer.hover_pos();
-                    if let Some(hover_pos) = hover_pos_opt {
-                        if rect.contains(hover_pos) {
-                            ui.output().cursor_icon = CursorIcon::Text;
+                    if response.hovered() {
+                        let hover_pos_opt = ui.input().pointer.hover_pos();
+                        if let Some(hover_pos) = hover_pos_opt {
+                            if rect.contains(hover_pos) {
+                                ui.output().cursor_icon = CursorIcon::Text;
+                            }
                         }
                     }
                 }
