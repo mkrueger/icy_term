@@ -2,8 +2,8 @@ use std::{cmp::max};
 
 use clipboard::{ClipboardProvider, ClipboardContext};
 use eframe::{
-    egui::{self, ScrollArea, CursorIcon, PointerButton, RichText},
-    epaint::{Color32, Rect, Vec2, FontId},
+    egui::{self, ScrollArea, CursorIcon, PointerButton},
+    epaint::{Color32, Rect, Vec2},
 };
 
 use super::{main_window::{MainWindow, MainWindowMode}};
@@ -60,11 +60,16 @@ impl MainWindow {
                         self.hangup();
                     }
 
-
-                    let text_style = FontId::proportional(22.);
-                    let mut b = self.buffer_view.lock().crt_effect;
-                    ui.checkbox( &mut b, RichText::new("CRT effect").font(text_style.clone()));
-                    self.buffer_view.lock().crt_effect = b;
+                    if ui
+                    .add(egui::ImageButton::new(
+                        super::SETTINGS_SVG.texture_id(ctx),
+                        img_size,
+                    ))
+                    .clicked()
+                    {
+                        self.show_settings(false);
+                    }
+    
                 });
             });
 

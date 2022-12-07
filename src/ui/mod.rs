@@ -29,4 +29,7 @@ pub use keymaps::*;
 pub mod icons;
 pub use icons::*;
 
+pub mod settings_dialog;
+pub use settings_dialog::*;
+
 // pub mod simulate;

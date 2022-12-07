@@ -1,7 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(unsafe_code)]
 
-use std::{sync::{Arc, Mutex}, env};
+use std::{sync::{Arc, Mutex}, env, fs::{self, File}, io::Write};
+use directories::ProjectDirs;
 use icy_engine::{BufferParser, AvatarParser};
 use poll_promise::Promise;
 use rfd::FileDialog;
@@ -23,12 +24,36 @@ use crate::{com::{Connection}};
 pub enum MainWindowMode {
     ShowTerminal,
     ShowPhonebook,
+    ShowSettings(bool),
     SelectProtocol(bool),
     FileTransfer(bool),
  //   AskDeleteEntry
 }
 
-struct Options {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum Scaling {
+    Nearest,
+    Linear,
+}
+
+impl Scaling {
+    pub const ALL: [Scaling; 2] = [Scaling::Nearest, Scaling::Linear];
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PostProcessing {
+    None,
+    CRT1,
+}
+
+impl PostProcessing {
+    pub const ALL: [PostProcessing; 2] = [PostProcessing::None, PostProcessing::CRT1];
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Options {
+    pub scaling: Scaling,
+    pub post_processing: PostProcessing,
     connect_timeout: Duration,
 }
 
@@ -36,8 +61,44 @@ impl Options {
     pub fn new() -> Self {
         Options {
             connect_timeout: Duration::from_secs(10),
+            scaling: Scaling::Linear,
+            post_processing: PostProcessing::CRT1
         }
     }
+
+    pub fn load_options() -> Self {
+        if let Some(proj_dirs) = ProjectDirs::from("com", "GitHub", "icy_term") {
+            let options_file = proj_dirs.config_dir().join("options.toml");
+            if options_file.exists() {
+                let fs = fs::read_to_string(&options_file).expect("Can't read options");
+                if let Ok(options) = toml::from_str::<Options>(&fs.as_str()) { 
+                    return options;
+                }
+            }
+        }
+        Options::new()
+    }
+
+    pub fn store_options(&self) -> TerminalResult<()> {
+        if let Some(proj_dirs) = ProjectDirs::from("com", "GitHub", "icy_term") {
+            let options_file = proj_dirs.config_dir().join("options.toml");
+            match toml::to_string_pretty(&self) {
+                Ok(str) => {
+                    let mut tmp = options_file.clone();
+                    if !tmp.set_extension("tmp") {
+                        return Ok(());
+                    }
+                    let mut file = File::create(&tmp)?;
+                    file.write_all(str.as_bytes())?;
+                    file.sync_all()?;
+                    fs::rename(&tmp, options_file)?;
+                }
+                Err(err) => return Err(Box::new(err)),
+            }
+        }
+        Ok(())
+    }
+
 }
 
 pub struct MainWindow {
@@ -52,7 +113,7 @@ pub struct MainWindow {
     cur_addr: usize,
     pub selected_bbs: usize,
     
-    options: Options,
+    pub options: Options,
     pub screen_mode: ScreenMode,
     pub auto_login: AutoLogin,
     auto_file_transfer: AutoFileTransfer,
@@ -71,8 +132,8 @@ impl MainWindow {
             .gl
             .as_ref()
             .expect("You need to run eframe with the glow backend");
-        
-        let view  = BufferView::new(gl);
+        let options = Options::load_options();
+        let view  = BufferView::new(gl, &options);
         let mut view = MainWindow {
             buffer_view: Arc::new(eframe::epaint::mutex::Mutex::new(view)),
             //address_list: HoverList::new(),
@@ -81,7 +142,7 @@ impl MainWindow {
             cur_addr: 0,
             selected_bbs: 0,
             connection_opt: None,
-            options: Options::new(),
+            options,
             auto_login: AutoLogin::new(String::new()),
             auto_file_transfer: AutoFileTransfer::new(),
             screen_mode: ScreenMode::DOS(80, 25),
@@ -416,6 +477,10 @@ self.current_transfer = Some(Arc::new(Mutex::new(state)));
             }
         }
     }
+
+    pub(crate) fn show_settings(&mut self, in_phonebook:bool) {
+        self.mode = MainWindowMode::ShowSettings(in_phonebook);
+    }
 }
 
 impl eframe::App for MainWindow {
@@ -517,6 +582,17 @@ impl eframe::App for MainWindow {
             }
             MainWindowMode::ShowPhonebook => {
                 super::view_phonebook(self, ctx, frame); 
+            },
+            MainWindowMode::ShowSettings(in_phonebook) => {
+                if in_phonebook { 
+                    super::view_phonebook(self, ctx, frame); 
+                } else { 
+                    let res = self.update_state();
+                    self.update_terminal_window(ctx, frame);
+                    self.handle_result(res, false);
+                    ctx.request_repaint_after(Duration::from_millis(150));
+                }
+                super::show_settings(self, ctx, frame); 
             },
             MainWindowMode::SelectProtocol(download) => {
                 self.update_terminal_window(ctx, frame);

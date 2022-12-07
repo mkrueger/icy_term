@@ -213,6 +213,7 @@ impl Address {
 
 pub static mut READ_ADDRESSES: bool = false;
 
+
 pub fn start_read_book() -> Vec<Address> {
     let res = Address::read_phone_book();
 

@@ -5,6 +5,8 @@ use icy_engine::{
 };
 use std::{cmp::{max}, time::{SystemTime, UNIX_EPOCH}};
 
+use crate::ui::main_window::Scaling;
+
 use super::{BufferView};
 
 impl BufferView {
@@ -161,7 +163,10 @@ impl BufferView {
             gl.bind_texture(glow::TEXTURE_2D, Some(render_texture));
             gl.uniform_1_f32(
                 gl.get_uniform_location(self.draw_program, "u_effect").as_ref(),
-                if self.crt_effect { 1.0 } else { 0.0 }
+                match self.post_processing {
+                    crate::ui::main_window::PostProcessing::None => 0.0,
+                    crate::ui::main_window::PostProcessing::CRT1 => 1.0,
+                }
             );
             
             gl.uniform_2_f32(
@@ -215,11 +220,49 @@ impl BufferView {
 
         if render_buffer_size != self.render_buffer_size {
             unsafe { 
-                println!("update render buffer !");
                 use glow::HasContext as _;
                 gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.framebuffer));
-
                 gl.delete_texture(self.render_texture);
+                gl.delete_texture(self.sixel_render_texture);
+
+                let scale_filter  = match self.scaling {
+                    Scaling::Nearest => glow::NEAREST as i32,
+                    Scaling::Linear => glow::LINEAR as i32,
+                };
+                let sixel_render_texture = gl.create_texture().unwrap();
+
+                gl.bind_texture(glow::TEXTURE_2D, Some(sixel_render_texture));
+                gl.tex_image_2d(
+                    glow::TEXTURE_2D,
+                    0,
+                    glow::RGBA as i32,
+                    render_buffer_size.x as i32,
+                    render_buffer_size.y as i32,
+                    0,
+                    glow::RGBA,
+                    glow::UNSIGNED_BYTE,
+                    None);
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_MIN_FILTER,
+                    scale_filter,
+                );
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_MAG_FILTER,
+                    scale_filter,
+                );
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_WRAP_S,
+                    glow::CLAMP_TO_EDGE as i32,
+                );
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_WRAP_T,
+                    glow::CLAMP_TO_EDGE as i32,
+                );
+                
 
                 let render_texture = gl.create_texture().unwrap();
                 gl.bind_texture(glow::TEXTURE_2D, Some(render_texture));
@@ -236,12 +279,12 @@ impl BufferView {
                 gl.tex_parameter_i32(
                     glow::TEXTURE_2D,
                     glow::TEXTURE_MIN_FILTER,
-                    glow::LINEAR as i32,
+                    scale_filter,
                 );
                 gl.tex_parameter_i32(
                     glow::TEXTURE_2D,
                     glow::TEXTURE_MAG_FILTER,
-                    glow::LINEAR as i32,
+                    scale_filter,
                 );
                 gl.tex_parameter_i32(
                     glow::TEXTURE_2D,
@@ -262,12 +305,10 @@ impl BufferView {
 
                 gl.bind_framebuffer(glow::FRAMEBUFFER, None);
                 self.render_texture = render_texture;
+                self.sixel_render_texture = sixel_render_texture;
                 self.render_buffer_size = render_buffer_size;
             }
-
         }
-
-
     }
 
 }

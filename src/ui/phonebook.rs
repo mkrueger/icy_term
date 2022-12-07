@@ -28,10 +28,20 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
 
             ui.add(
                 TextEdit::singleline(&mut window.addresses[0].address)
-                    .desired_width(f32::INFINITY)
+                    .desired_width(ui.available_width() - 50.)
                     .hint_text("Quick connect to…")
                     .font(FontId::proportional(22.)),
             );
+
+            if ui
+                .add(egui::ImageButton::new(
+                    super::SETTINGS_SVG.texture_id(ctx),
+                    img_size,
+                ))
+                .clicked()
+            {
+                window.show_settings(true);
+            }
         });
     });
     egui::SidePanel::left("left")

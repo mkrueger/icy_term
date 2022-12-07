@@ -55,3 +55,11 @@ lazy_static::lazy_static! {
     )
     .unwrap();
 }
+
+lazy_static::lazy_static! {
+    pub static ref SETTINGS_SVG: RetainedImage = egui_extras::RetainedImage::from_svg_bytes(
+        "settings.svg",
+        include_bytes!("../../data/icons/settings.svg"),
+    )
+    .unwrap();
+}

@@ -15,6 +15,8 @@ pub use sixel::*;
 pub mod selection;
 pub use selection::*;
 
+use super::main_window::{Scaling, PostProcessing, Options};
+
 #[derive(Clone, Copy)]
 pub enum BufferInputMode {
     CP437,
@@ -76,7 +78,6 @@ pub struct BufferView {
     pub button_pressed: bool,
 
     pub selection_opt: Option<Selection>,
-    pub crt_effect: bool,
 
     program: glow::Program,
     vertex_array: glow::VertexArray,
@@ -88,6 +89,8 @@ pub struct BufferView {
 
     redraw_font: bool,
     fonts: usize,
+    scaling: Scaling,
+    post_processing: PostProcessing,
     
     font_texture: NativeTexture,
     buffer_texture: NativeTexture,
@@ -101,7 +104,7 @@ pub struct BufferView {
 }
 
 impl BufferView {
-    pub fn new(gl: &glow::Context) -> Self {
+    pub fn new(gl: &glow::Context, options: &Options) -> Self {
         let mut buf = Buffer::create(80, 25);
         buf.layers[0].is_transparent = false;
         buf.is_terminal_buffer = true;
@@ -334,6 +337,10 @@ include_str!("buffer_view.shader.frag"),
             let render_texture = gl.create_texture().unwrap();
             let render_buffer_size = Vec2::new(buf.get_font_dimensions().width as f32 * buf.get_buffer_width() as f32, buf.get_font_dimensions().height as f32 * buf.get_buffer_height() as f32);
 
+            let filter  = match options.scaling {
+                Scaling::Nearest => glow::NEAREST as i32,
+                Scaling::Linear => glow::LINEAR as i32,
+            };
             gl.bind_texture(glow::TEXTURE_2D, Some(render_texture));
             gl.tex_image_2d(
                 glow::TEXTURE_2D,
@@ -348,12 +355,12 @@ include_str!("buffer_view.shader.frag"),
             gl.tex_parameter_i32(
                 glow::TEXTURE_2D,
                 glow::TEXTURE_MIN_FILTER,
-                glow::LINEAR as i32,
+                filter,
             );
             gl.tex_parameter_i32(
                 glow::TEXTURE_2D,
                 glow::TEXTURE_MAG_FILTER,
-                glow::LINEAR as i32,
+                filter,
             );
             gl.tex_parameter_i32(
                 glow::TEXTURE_2D,
@@ -374,7 +381,6 @@ include_str!("buffer_view.shader.frag"),
 
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
 
-
             let sixel_render_texture = gl.create_texture().unwrap();
             let render_buffer_size = Vec2::new(buf.get_font_dimensions().width as f32 * buf.get_buffer_width() as f32, buf.get_font_dimensions().height as f32 * buf.get_buffer_height() as f32);
 
@@ -392,12 +398,12 @@ include_str!("buffer_view.shader.frag"),
             gl.tex_parameter_i32(
                 glow::TEXTURE_2D,
                 glow::TEXTURE_MIN_FILTER,
-                glow::LINEAR as i32,
+                filter,
             );
             gl.tex_parameter_i32(
                 glow::TEXTURE_2D,
                 glow::TEXTURE_MAG_FILTER,
-                glow::LINEAR as i32,
+                filter,
             );
             gl.tex_parameter_i32(
                 glow::TEXTURE_2D,
@@ -441,8 +447,9 @@ include_str!("buffer_view.shader.frag"),
                 font_texture,
                 buffer_texture,
                 palette_texture,
-                crt_effect: true,
-
+                scaling: options.scaling,
+                post_processing: options.post_processing,
+                
                 framebuffer,
                 render_texture,
                 render_buffer_size,
@@ -535,6 +542,14 @@ include_str!("buffer_view.shader.frag"),
             gl.delete_program(self.program);
             gl.delete_vertex_array(self.vertex_array);
         }
+    }
+
+    pub fn set_scaling(&mut self, scaling: Scaling) {
+        self.scaling = scaling;   
+        self.render_buffer_size = Vec2::new(0., 0.);
+    }
+    pub fn set_post_processing(&mut self, post_processing: PostProcessing) {
+        self.post_processing = post_processing;
     }
 
 }
