@@ -1,17 +1,20 @@
 use icy_engine::get_crc16;
 use std::{
-    cmp::min, sync::{Arc, Mutex},
+    cmp::min,
+    sync::{Arc, Mutex},
 };
 
 use super::{
     constants::{CAN, DEFAULT_BLOCK_LENGTH},
-    get_checksum, Checksum, XYModemConfiguration, XYModemVariant, error::TransmissionError,
+    error::TransmissionError,
+    get_checksum, Checksum, XYModemConfiguration, XYModemVariant,
 };
 use crate::{
+    com::{Com, ComResult},
     protocol::{
         xymodem::constants::{ACK, CPMEOF, EOT, EXT_BLOCK_LENGTH, NAK, SOH, STX},
         FileDescriptor, TransferState,
-    }, com::{Com, ComResult}
+    },
 };
 
 #[derive(Debug)]
@@ -65,7 +68,11 @@ impl Sy {
         }
     }
 
-    pub async fn update(&mut self, com: &mut Box<dyn Com>, state: &Arc<Mutex<TransferState>>) -> ComResult<()> {
+    pub async fn update(
+        &mut self,
+        com: &mut Box<dyn Com>,
+        state: &Arc<Mutex<TransferState>>,
+    ) -> ComResult<()> {
         if let Ok(transfer_state) = &mut state.lock() {
             let transfer_info = &mut transfer_state.send_state;
             if self.cur_file < self.files.len() {
@@ -103,7 +110,7 @@ impl Sy {
                 self.send_ymodem_header(com).await?;
                 self.send_state = SendState::AckSendYmodemHeader(retries);
             }
-            
+
             SendState::AckSendYmodemHeader(retries) => {
                 //let now = SystemTime::now();
                 let ack = self.read_command(com).await?;
@@ -129,7 +136,7 @@ impl Sy {
                     self.send_state = SendState::SendData(0, 0);
                 }
 
-               /*  if now
+                /*  if now
                     .duration_since(self.last_header_send)
                     .unwrap()
                     .as_millis()
@@ -282,7 +289,12 @@ impl Sy {
         }
     }
 
-    async fn send_block(&mut self, com: &mut Box<dyn Com>, data: &[u8], pad_byte: u8) -> ComResult<()> {
+    async fn send_block(
+        &mut self,
+        com: &mut Box<dyn Com>,
+        data: &[u8],
+        pad_byte: u8,
+    ) -> ComResult<()> {
         let block_len = if data.len() <= DEFAULT_BLOCK_LENGTH {
             SOH
         } else {
@@ -350,7 +362,8 @@ impl Sy {
             com,
             &Vec::from_iter(self.data[offset..block_end].iter().cloned()),
             CPMEOF,
-        ).await?;
+        )
+        .await?;
         Ok(true)
     }
 

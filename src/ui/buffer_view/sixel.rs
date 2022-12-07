@@ -1,9 +1,5 @@
-
-use glow::{NativeTexture, HasContext};
-use icy_engine::{
-     Position,
-    SixelReadStatus,
-};
+use glow::{HasContext, NativeTexture};
+use icy_engine::{Position, SixelReadStatus};
 
 use super::BufferView;
 
@@ -15,7 +11,7 @@ pub struct SixelCacheEntry {
     pub pos: Position,
     pub size: icy_engine::Size<i32>,
 
-    pub texture_opt:  Option<NativeTexture>,
+    pub texture_opt: Option<NativeTexture>,
 }
 
 impl SixelCacheEntry {
@@ -32,7 +28,7 @@ impl BufferView {
         let buffer = &self.buf;
         let l = buffer.layers[0].sixels.len();
         if l == 0 {
-            for sx in &self.sixel_cache { 
+            for sx in &self.sixel_cache {
                 if let Some(tex) = sx.texture_opt {
                     unsafe {
                         gl.delete_texture(tex);
@@ -123,28 +119,42 @@ impl BufferView {
                 }
             }
             let (texture_opt, data_opt, clear) = match sixel.read_status {
-                SixelReadStatus::Finished | SixelReadStatus::Error => {
-                    unsafe { 
-                        let texture = gl.create_texture().unwrap();
-                        gl.active_texture(glow::TEXTURE0 + 6);
-                        gl.bind_texture(glow::TEXTURE_2D, Some(texture));
-                        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, glow::NEAREST as i32);
-                        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::NEAREST as i32);
-                        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);
-                        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
-                        gl.tex_image_2d(
-                            glow::TEXTURE_2D,
-                            0,
-                            glow::RGB as i32,
-                            sixel.width() as i32,
-                            sixel.height() as i32,
-                            0,
-                            glow::RGBA,
-                            glow::UNSIGNED_BYTE,
-                            Some(&v),
-                        );
-                        (Some(texture), None, true)
-                    }
+                SixelReadStatus::Finished | SixelReadStatus::Error => unsafe {
+                    let texture = gl.create_texture().unwrap();
+                    gl.active_texture(glow::TEXTURE0 + 6);
+                    gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+                    gl.tex_parameter_i32(
+                        glow::TEXTURE_2D,
+                        glow::TEXTURE_MIN_FILTER,
+                        glow::NEAREST as i32,
+                    );
+                    gl.tex_parameter_i32(
+                        glow::TEXTURE_2D,
+                        glow::TEXTURE_MAG_FILTER,
+                        glow::NEAREST as i32,
+                    );
+                    gl.tex_parameter_i32(
+                        glow::TEXTURE_2D,
+                        glow::TEXTURE_WRAP_S,
+                        glow::CLAMP_TO_EDGE as i32,
+                    );
+                    gl.tex_parameter_i32(
+                        glow::TEXTURE_2D,
+                        glow::TEXTURE_WRAP_T,
+                        glow::CLAMP_TO_EDGE as i32,
+                    );
+                    gl.tex_image_2d(
+                        glow::TEXTURE_2D,
+                        0,
+                        glow::RGB as i32,
+                        sixel.width() as i32,
+                        sixel.height() as i32,
+                        0,
+                        glow::RGBA,
+                        glow::UNSIGNED_BYTE,
+                        Some(&v),
+                    );
+                    (Some(texture), None, true)
                 },
                 _ => (None, Some(v), false),
             };
@@ -158,9 +168,9 @@ impl BufferView {
                     width: sixel.width() as i32,
                     height: sixel.height() as i32,
                 },
-                texture_opt
+                texture_opt,
             };
- 
+
             if removed_index < 0 {
                 self.sixel_cache.push(new_entry);
                 if clear {
@@ -177,7 +187,7 @@ impl BufferView {
         }
         res
     }
-    
+
     pub fn clear_invisible_sixel_cache(&mut self, gl: &glow::Context, j: usize) {
         // remove cache entries that are removed by the engine
         if j > 0 {

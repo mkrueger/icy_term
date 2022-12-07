@@ -1,4 +1,4 @@
-/* 
+/*
 #[cfg(test)]
 mod tests {
     use std::vec;

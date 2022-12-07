@@ -1,15 +1,15 @@
+use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
-use std::{fs};
 
 pub mod xymodem;
 use async_trait::async_trait;
 pub use xymodem::*;
 
 pub mod zmodem;
-pub use zmodem::*;
 use crate::com::{Com, ComResult};
+pub use zmodem::*;
 
 #[derive(Debug, Clone)]
 pub struct FileDescriptor {
@@ -41,7 +41,6 @@ impl FileDescriptor {
         }
         Ok(res)
     }
-
 
     pub fn create(path: &PathBuf) -> ComResult<Self> {
         let data = fs::metadata(path)?;
@@ -86,7 +85,6 @@ impl FileDescriptor {
                     Ok(Vec::new())
                 }
             }
-            
         }
     }
 }
@@ -173,26 +171,30 @@ impl TransferState {
             is_finished: false,
             start_time: SystemTime::now(),
             send_state: TransferInformation::new(),
-            recieve_state: TransferInformation::new()
+            recieve_state: TransferInformation::new(),
         }
     }
 }
 
 #[async_trait]
 pub trait Protocol: Send {
-    async fn update(&mut self, com: &mut Box<dyn Com>, transfer_state: Arc<Mutex<TransferState>>) -> ComResult<bool>;
+    async fn update(
+        &mut self,
+        com: &mut Box<dyn Com>,
+        transfer_state: Arc<Mutex<TransferState>>,
+    ) -> ComResult<bool>;
 
     async fn initiate_send(
         &mut self,
         com: &mut Box<dyn Com>,
         files: Vec<FileDescriptor>,
-        transfer_state: Arc<Mutex<TransferState>>
+        transfer_state: Arc<Mutex<TransferState>>,
     ) -> ComResult<()>;
 
     async fn initiate_recv(
         &mut self,
         com: &mut Box<dyn Com>,
-        transfer_state: Arc<Mutex<TransferState>>
+        transfer_state: Arc<Mutex<TransferState>>,
     ) -> ComResult<()>;
 
     fn get_received_files(&mut self) -> Vec<FileDescriptor>;

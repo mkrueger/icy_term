@@ -1,4 +1,4 @@
-/* 
+/*
 #[cfg(test)]
 mod tests {
     use crate::{com::TestChannel, protocol::*};

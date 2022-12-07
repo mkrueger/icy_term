@@ -1,12 +1,10 @@
 use std::collections::HashMap;
-use std::{
-    time::Duration,
-};
+use std::time::Duration;
 
 use async_trait::async_trait;
 
-use crate::TerminalResult;
 use crate::address::Address;
+use crate::TerminalResult;
 
 use super::{Com, ComResult};
 
@@ -42,16 +40,16 @@ impl Com for TestCom {
     async fn read_u8(&mut self) -> ComResult<u8> {
         todo!();
     }
-    
-    async fn read_exact(&mut self, _len: usize) -> ComResult<Vec<u8>>{
+
+    async fn read_exact(&mut self, _len: usize) -> ComResult<Vec<u8>> {
         todo!();
     }
-    
+
     fn disconnect(&mut self) -> ComResult<()> {
         // nothing
         Ok(())
     }
-/* 
+    /*
     fn write(&mut self, buf: &[u8]) -> TerminalResult<usize> {
         if self.name == "receiver" {
             indent_receiver();
@@ -69,7 +67,7 @@ impl Com for TestCom {
         Ok(buf.len())
     }*/
 }
-/* 
+/*
 #[cfg(test)]
 pub struct TestChannel {
     pub sender: Box<dyn Com>,
@@ -97,7 +95,7 @@ impl TestChannel {
         }
     }
 }*/
-/* 
+/*
 mod tests {
     use crate::com::test_com::TestChannel;
     use std::time::Duration;

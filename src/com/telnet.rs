@@ -1,5 +1,4 @@
 #[allow(dead_code)]
-
 use crate::{address::Address, TerminalResult};
 
 use super::{Com, ComResult};
@@ -13,7 +12,7 @@ use tokio::{
 #[derive(Debug)]
 pub struct TelnetCom {
     tcp_stream: Option<TcpStream>,
-    state: ParserState
+    state: ParserState,
 }
 
 #[derive(Debug)]
@@ -396,7 +395,6 @@ impl TelnetCom {
         }
         Ok(buf)
     }
-
 }
 
 #[async_trait]
@@ -424,13 +422,10 @@ impl Com for TelnetCom {
         if let Some(stream) = self.tcp_stream.as_mut() {
             match stream.read(&mut buf).await {
                 Ok(bytes) => self.parse(&buf[0..bytes]),
-                Err(error) => Err(Box::new(error))
+                Err(error) => Err(Box::new(error)),
             }
         } else {
-            return Err(Box::new(io::Error::new(
-                ErrorKind::BrokenPipe,
-                "no stream"
-            )));
+            return Err(Box::new(io::Error::new(ErrorKind::BrokenPipe, "no stream")));
         }
     }
 
@@ -449,11 +444,11 @@ impl Com for TelnetCom {
                 }
                 Ok(b)
             }
-            Err(err) => Err(Box::new(err))
+            Err(err) => Err(Box::new(err)),
         }
     }
-    
-    async fn read_exact(&mut self, len: usize) -> ComResult<Vec<u8>>{
+
+    async fn read_exact(&mut self, len: usize) -> ComResult<Vec<u8>> {
         let mut buf = Vec::new();
         buf.resize(len, 0);
         match self.tcp_stream.as_mut().unwrap().read_exact(&mut buf).await {
@@ -463,11 +458,11 @@ impl Com for TelnetCom {
                     buf.push(self.read_u8().await?);
                 }
                 Ok(buf)
-            },
-            Err(err) => Err(Box::new(err))
+            }
+            Err(err) => Err(Box::new(err)),
         }
     }
-    
+
     fn disconnect(&mut self) -> ComResult<()> {
         // self.tcp_stream.shutdown(std::net::Shutdown::Both)
         Ok(())
@@ -485,7 +480,7 @@ impl Com for TelnetCom {
 
         match self.tcp_stream.as_mut().unwrap().write(&data).await {
             Ok(bytes) => Ok(bytes),
-            Err(error) => Err(Box::new(error))
+            Err(error) => Err(Box::new(error)),
         }
     }
 }

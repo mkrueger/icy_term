@@ -122,8 +122,8 @@ pub static ATASCII_KEY_MAP: &[(u32, &[u8])] = &[
     (Key::X as u32 | CTRL_MOD, &[24]),
     (Key::Y as u32 | CTRL_MOD, &[25]),
     (Key::Z as u32 | CTRL_MOD, &[26]),
-//    (Key::Period as u32 | CTRL_MOD, &[96]),
-//    (Key::Colon as u32 | CTRL_MOD, &[13]),
+    //    (Key::Period as u32 | CTRL_MOD, &[96]),
+    //    (Key::Colon as u32 | CTRL_MOD, &[13]),
 ];
 
 pub static VT500_KEY_MAP: &[(u32, &[u8])] = &[
@@ -197,7 +197,6 @@ pub static VIDEOTERM_KEY_MAP: &[(u32, &[u8])] = &[
     (Key::Escape as u32, &[0x1B]),
     (Key::F1 as u32, &[b'*']),
     (Key::F2 as u32, &[0b101_1111]),
-
     (Key::ArrowUp as u32, &[0x0B]),
     (Key::ArrowDown as u32, &[b'\n']),
     (Key::ArrowRight as u32, &[b'\t']),

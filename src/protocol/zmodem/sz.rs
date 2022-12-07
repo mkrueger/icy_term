@@ -1,15 +1,18 @@
 use std::{
-    cmp::min, sync::{Arc, Mutex}, time::Duration,
+    cmp::min,
+    sync::{Arc, Mutex},
+    time::Duration,
 };
 
 use crate::{
+    com::{Com, ComResult},
     protocol::{
-        zfile_flag, FileDescriptor, FrameType, Header, HeaderType, TransferState, Zmodem, ZCRCE,
-        ZCRCG, zmodem::error::TransmissionError,
-    }, com::{Com, ComResult}, 
+        zfile_flag, zmodem::error::TransmissionError, FileDescriptor, FrameType, Header,
+        HeaderType, TransferState, Zmodem, ZCRCE, ZCRCG,
+    },
 };
 
-use super::{ZCRCW, ZCRCQ};
+use super::{ZCRCQ, ZCRCW};
 
 #[derive(Debug)]
 pub enum SendState {
@@ -112,7 +115,11 @@ impl Sz {
         self.cur_file += 1;
     }
 
-    pub async fn update(&mut self, com: &mut Box<dyn Com>, transfer_state: Arc<Mutex<TransferState>>) -> ComResult<()> {
+    pub async fn update(
+        &mut self,
+        com: &mut Box<dyn Com>,
+        transfer_state: Arc<Mutex<TransferState>>,
+    ) -> ComResult<()> {
         if let SendState::Finished = self.state {
             return Ok(());
         }
@@ -121,7 +128,7 @@ impl Sz {
             self.state = SendState::Finished;
             return Ok(());
         }
- 
+
         if let Ok(transfer_state) = &mut transfer_state.lock() {
             let transfer_info = &mut transfer_state.send_state;
             if self.cur_file >= 0 && self.cur_file < self.files.len() as i32 {
@@ -134,25 +141,24 @@ impl Sz {
             transfer_info.check_size = format!("Crc32/{}", self.package_len);
             transfer_info.update_bps();
         }
-        
+
         match self.state {
-            SendState::Await | 
-            SendState::AwaitZRPos => {
+            SendState::Await | SendState::AwaitZRPos => {
                 self.read_next_header(com).await?;
             }
             SendState::SendZRQInit => {
-//                transfer_state.lock().unwrap().current_state = "Negotiating transfer";
-            //    let now = SystemTime::now();
-           //     if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
-                    self.send_zrqinit(com).await?;
-                    self.read_next_header(com).await?;
+                //                transfer_state.lock().unwrap().current_state = "Negotiating transfer";
+                //    let now = SystemTime::now();
+                //     if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
+                self.send_zrqinit(com).await?;
+                self.read_next_header(com).await?;
 
-                    self.retries += 1;
-           //         self.last_send = SystemTime::now();
-           //     }
+                self.retries += 1;
+                //         self.last_send = SystemTime::now();
+                //     }
             }
             SendState::SendZDATA => {
-  //              transfer_state.lock().unwrap().current_state = "Sending data";
+                //              transfer_state.lock().unwrap().current_state = "Sending data";
                 if self.cur_file < 0 {
                     //println!("no file to send!");
                     return Ok(());
@@ -162,7 +168,8 @@ impl Sz {
                     FrameType::ZDATA,
                     self.cur_file_pos as u32,
                 )
-                .write(com).await?;
+                .write(com)
+                .await?;
                 self.state = SendState::SendDataPackages;
             }
             SendState::SendDataPackages => {
@@ -175,7 +182,11 @@ impl Sz {
                 let nonstop = true; // self.package_len > 1024;
 
                 let crc_byte = if self.cur_file_pos + self.package_len < self.data.len() {
-                    if nonstop { ZCRCG } else { ZCRCQ }
+                    if nonstop {
+                        ZCRCG
+                    } else {
+                        ZCRCQ
+                    }
                 } else {
                     ZCRCE
                 };
@@ -193,7 +204,7 @@ impl Sz {
                         .build(),
                     );
                     //transfer_info.write("Done sending file date.".to_string());
-                   // transfer_state.lock().unwrap().current_state = "Done data";
+                    // transfer_state.lock().unwrap().current_state = "Done data";
                     self.transfered_file = true;
                     self.state = SendState::Await;
                 }
@@ -202,9 +213,13 @@ impl Sz {
                     let ack = Header::read(com, &mut self.can_count).await?;
                     if let Some(header) = ack {
                         match header.frame_type {
-                            FrameType::ZACK => { /* ok */},
-                            FrameType::ZNAK => { self.cur_file_pos = old_pos;  /* resend */} ,
-                            FrameType::ZRPOS => { self.cur_file_pos = header.number() as usize; },
+                            FrameType::ZACK => { /* ok */ }
+                            FrameType::ZNAK => {
+                                self.cur_file_pos = old_pos; /* resend */
+                            }
+                            FrameType::ZRPOS => {
+                                self.cur_file_pos = header.number() as usize;
+                            }
                             _ => {
                                 eprintln!("unexpected header {:?}", header);
                                 // cancel
@@ -219,10 +234,10 @@ impl Sz {
                 std::thread::sleep(Duration::from_millis(15));
             }
             SendState::Finished => {
-//                transfer_state.lock().unwrap().current_state = "Finishing transfer…";
+                //                transfer_state.lock().unwrap().current_state = "Finishing transfer…";
                 // let now = SystemTime::now();
                 //if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
-                    self.send_zfin(com, 0).await?;
+                self.send_zfin(com, 0).await?;
                 //}
                 return Ok(());
             }
@@ -230,8 +245,7 @@ impl Sz {
         Ok(())
     }
 
-    async fn read_next_header(&mut self, com: &mut Box<dyn Com>) -> ComResult<()>  
-    {
+    async fn read_next_header(&mut self, com: &mut Box<dyn Com>) -> ComResult<()> {
         let err = Header::read(com, &mut self.can_count).await;
         if self.can_count >= 5 {
             // transfer_info.write("Received cancel...".to_string());
@@ -293,13 +307,12 @@ impl Sz {
                     if self.can_esc_8thbit() {
                         println!("receiver expects 8th bit to be escaped");
                     }*/
-                  //  transfer_state.lock().unwrap().current_state = "Sending header";
+                    //  transfer_state.lock().unwrap().current_state = "Sending header";
                     self.send_zfile(com).await?;
                     self.state = SendState::AwaitZRPos;
                     return Ok(());
                 }
-        
-        
+
                 FrameType::ZNAK => {
                     // transfer_info
                     //     .write("Package error, resending file header...".to_string());
@@ -328,7 +341,7 @@ impl Sz {
                 }
 
                 FrameType::ZSKIP => {
-                   // transfer_state.lock().unwrap().current_state = "Skipped… next file";
+                    // transfer_state.lock().unwrap().current_state = "Skipped… next file";
                     //transfer_info.write("Skip file".to_string());
                     self.next_file();
                     self.send_zfile(com).await?;
@@ -339,15 +352,14 @@ impl Sz {
                     self.state = SendState::SendDataPackages;
                 }
                 FrameType::ZCHALLENGE => {
-                    Header::from_number(
-                        self.get_header_type(),
-                        FrameType::ZACK,
-                        res.number(),
-                    )
-                    .write(com).await?;
+                    Header::from_number(self.get_header_type(), FrameType::ZACK, res.number())
+                        .write(com)
+                        .await?;
                 }
                 FrameType::ZABORT | FrameType::ZFERR | FrameType::ZCAN => {
-                    Header::empty(self.get_header_type(), FrameType::ZFIN).write(com).await?;
+                    Header::empty(self.get_header_type(), FrameType::ZFIN)
+                        .write(com)
+                        .await?;
                     self.state = SendState::Finished;
                 }
                 unk_frame => {
@@ -358,10 +370,7 @@ impl Sz {
         Ok(())
     }
 
-    async fn send_zfile(
-        &mut self,
-        com: &mut Box<dyn Com>
-    ) -> ComResult<()> {
+    async fn send_zfile(&mut self, com: &mut Box<dyn Com>) -> ComResult<()> {
         if self.cur_file < 0 {
             return Ok(());
         }
@@ -404,33 +413,40 @@ impl Sz {
 
         com.send(&b).await?;
 
-
         self.cur_file_pos = 0;
         self.state = SendState::AwaitZRPos;
         Ok(())
     }
 
-    pub async fn send(&mut self, _com: &mut Box<dyn Com>, files: Vec<FileDescriptor>) -> ComResult<()> {
+    pub async fn send(
+        &mut self,
+        _com: &mut Box<dyn Com>,
+        files: Vec<FileDescriptor>,
+    ) -> ComResult<()> {
         //println!("initiate zmodem send {}", files.len());
         self.state = SendState::SendZRQInit;
         self.files = files;
         self.cur_file = 0;
         self.cur_file_pos = 0;
         self.retries = 0;
-//        com.write(b"rz\r")?;
+        //        com.write(b"rz\r")?;
         Ok(())
     }
 
     pub async fn send_zrqinit(&mut self, com: &mut Box<dyn Com>) -> ComResult<()> {
         self.cur_file = -1;
         self.transfered_file = true;
-        Header::empty(self.get_header_type(), FrameType::ZRQINIT).write(com).await?;
+        Header::empty(self.get_header_type(), FrameType::ZRQINIT)
+            .write(com)
+            .await?;
         Ok(())
     }
 
     pub async fn send_zfin(&mut self, com: &mut Box<dyn Com>, size: u32) -> ComResult<()> {
         println!("send zfin!");
-        Header::from_number(self.get_header_type(), FrameType::ZFIN, size).write(com).await?;
+        Header::from_number(self.get_header_type(), FrameType::ZFIN, size)
+            .write(com)
+            .await?;
         self.state = SendState::Await;
         Ok(())
     }

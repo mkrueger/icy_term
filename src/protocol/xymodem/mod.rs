@@ -1,15 +1,18 @@
 use async_trait::async_trait;
 
-use crate::{com::{ Com, ComResult }};
-use std::{ sync::{Arc, Mutex}};
+use crate::com::{Com, ComResult};
+use std::sync::{Arc, Mutex};
 
 mod constants;
+mod error;
 mod ry;
 mod sy;
 mod tests;
-mod error;
 
-use self::{constants::{DEFAULT_BLOCK_LENGTH, EXT_BLOCK_LENGTH, CAN}, error::TransmissionError};
+use self::{
+    constants::{CAN, DEFAULT_BLOCK_LENGTH, EXT_BLOCK_LENGTH},
+    error::TransmissionError,
+};
 
 use super::{FileDescriptor, TransferState};
 #[derive(Debug, Clone, Copy)]
@@ -47,7 +50,11 @@ impl XYmodem {
 
 #[async_trait]
 impl super::Protocol for XYmodem {
-    async fn update(&mut self, com: &mut Box<dyn Com>, transfer_state: Arc<Mutex<TransferState>>) -> ComResult<bool> {
+    async fn update(
+        &mut self,
+        com: &mut Box<dyn Com>,
+        transfer_state: Arc<Mutex<TransferState>>,
+    ) -> ComResult<bool> {
         if let Some(ry) = &mut self.ry {
             ry.update(com, &transfer_state).await?;
             transfer_state.lock().unwrap().is_finished = ry.is_finished();
@@ -57,7 +64,7 @@ impl super::Protocol for XYmodem {
         } else if let Some(sy) = &mut self.sy {
             sy.update(com, &transfer_state).await?;
             transfer_state.lock().unwrap().is_finished = sy.is_finished();
-             if sy.is_finished() {
+            if sy.is_finished() {
                 return Ok(false);
             }
         }
@@ -68,7 +75,7 @@ impl super::Protocol for XYmodem {
         &mut self,
         _com: &mut Box<dyn Com>,
         files: Vec<FileDescriptor>,
-        transfer_state: Arc<Mutex<TransferState>>
+        transfer_state: Arc<Mutex<TransferState>>,
     ) -> ComResult<()> {
         if !self.config.is_ymodem() && files.len() != 1 {
             return Err(Box::new(TransmissionError::XModem1File));
@@ -89,7 +96,7 @@ impl super::Protocol for XYmodem {
     async fn initiate_recv(
         &mut self,
         com: &mut Box<dyn Com>,
-        transfer_state: Arc<Mutex<TransferState>>
+        transfer_state: Arc<Mutex<TransferState>>,
     ) -> ComResult<()> {
         let mut ry = ry::Ry::new(self.config);
         ry.recv(com).await?;

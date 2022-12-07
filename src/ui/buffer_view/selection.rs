@@ -1,4 +1,4 @@
-use eframe::epaint::{Vec2};
+use eframe::epaint::Vec2;
 use icy_engine::Position;
 
 #[derive(Debug, Clone)]
@@ -10,7 +10,7 @@ pub struct Selection {
     pub anchor_pos: Position,
     pub lead_pos: Position,
 
-    pub locked: bool
+    pub locked: bool,
 }
 
 impl Default for Selection {

@@ -1,19 +1,19 @@
 use directories::UserDirs;
 use icy_engine::get_crc16;
 use std::{
-    io::{self, ErrorKind}, sync::{Arc, Mutex}, fs::{self},
+    fs::{self},
+    io::{self, ErrorKind},
+    sync::{Arc, Mutex},
 };
 
-use super::{
-    constants::{DEFAULT_BLOCK_LENGTH},
-    get_checksum, Checksum, XYModemConfiguration,
-};
+use super::{constants::DEFAULT_BLOCK_LENGTH, get_checksum, Checksum, XYModemConfiguration};
 use crate::{
+    com::{Com, ComResult},
     protocol::{
         str_from_null_terminated_utf8_unchecked,
         xymodem::constants::{ACK, CPMEOF, EOT, EXT_BLOCK_LENGTH, NAK, SOH, STX},
         FileDescriptor, TransferState,
-    },  com::{Com, ComResult}
+    },
 };
 
 #[derive(Debug)]
@@ -33,7 +33,7 @@ pub struct Ry {
 
     pub files: Vec<FileDescriptor>,
     data: Vec<u8>,
-    
+
     errors: usize,
     recv_state: RecvState,
 }
@@ -58,8 +58,11 @@ impl Ry {
         }
     }
 
-    pub async fn update(&mut self, com: &mut Box<dyn Com>, state: &Arc<Mutex<TransferState>>) -> ComResult<()> {
-
+    pub async fn update(
+        &mut self,
+        com: &mut Box<dyn Com>,
+        state: &Arc<Mutex<TransferState>>,
+    ) -> ComResult<()> {
         if let Ok(transfer_state) = &mut state.lock() {
             let transfer_info = &mut transfer_state.recieve_state;
             if self.files.len() > 0 {
@@ -112,8 +115,7 @@ impl Ry {
                 let len = 128; // constant header length
 
                 state.lock().unwrap().current_state = "Get header...";
-                let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode
-                {
+                let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode {
                     2
                 } else {
                     1
@@ -145,10 +147,9 @@ impl Ry {
 
                 let mut fd = FileDescriptor::new();
                 fd.file_name = str_from_null_terminated_utf8_unchecked(&block).to_string();
-                let num = str_from_null_terminated_utf8_unchecked(
-                    &block[(fd.file_name.len() + 1)..],
-                )
-                .to_string();
+                let num =
+                    str_from_null_terminated_utf8_unchecked(&block[(fd.file_name.len() + 1)..])
+                        .to_string();
                 if let Ok(file_size) = usize::from_str_radix(&num, 10) {
                     fd.size = file_size;
                 }
@@ -228,8 +229,7 @@ impl Ry {
 
             RecvState::ReadBlock(len, retries) => {
                 state.lock().unwrap().current_state = "Receiving data...";
-                let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode
-                {
+                let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode {
                     2
                 } else {
                     1
@@ -241,11 +241,9 @@ impl Ry {
                     self.errors += 1;
                     let start = com.read_u8().await?;
                     if start == SOH {
-                        self.recv_state =
-                            RecvState::ReadBlock(DEFAULT_BLOCK_LENGTH, retries + 1);
+                        self.recv_state = RecvState::ReadBlock(DEFAULT_BLOCK_LENGTH, retries + 1);
                     } else if start == STX {
-                        self.recv_state =
-                            RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
+                        self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
                     } else {
                         self.cancel(com).await?;
                         return Err(Box::new(io::Error::new(

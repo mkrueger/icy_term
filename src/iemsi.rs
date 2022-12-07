@@ -8,7 +8,7 @@ use std::{
 
 use icy_engine::{get_crc16, get_crc32, update_crc32};
 
-use crate::{address::Address, VERSION, com::Connection, TerminalResult};
+use crate::{address::Address, com::Connection, TerminalResult, VERSION};
 
 /// EMSI Inquiry is transmitted by the calling system to identify it as
 /// EMSI capable. If an EMSI_REQ sequence is received in response, it is
@@ -533,7 +533,12 @@ impl IEmsi {
         Ok(())
     }
 
-    pub fn try_login(&mut self, con: &mut Connection, adr: &Address, ch: u8) -> TerminalResult<bool> {
+    pub fn try_login(
+        &mut self,
+        con: &mut Connection,
+        adr: &Address,
+        ch: u8,
+    ) -> TerminalResult<bool> {
         if self.aborted {
             return Ok(false);
         }

@@ -2,9 +2,7 @@
 // ZModem protocol specification http://cristal.inria.fr/~doligez/zmodem/zmodem.txt
 
 pub mod constants;
-use std::{
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 pub use constants::*;
@@ -18,13 +16,13 @@ use sz::*;
 mod rz;
 use rz::*;
 
-mod tests;
 mod error;
+mod tests;
 
 use self::error::TransmissionError;
 
-use super::{Protocol, TransferState, FileDescriptor};
-use crate::{com::{Com, ComResult}};
+use super::{FileDescriptor, Protocol, TransferState};
+use crate::com::{Com, ComResult};
 
 pub struct Zmodem {
     block_length: usize,
@@ -128,7 +126,9 @@ pub async fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> ComResult
                     ZRUB1 => data.push(0xFF),
 
                     _ => {
-                        Header::empty(HeaderType::Bin32, FrameType::ZNAK).write(com).await?;
+                        Header::empty(HeaderType::Bin32, FrameType::ZNAK)
+                            .write(com)
+                            .await?;
                         return Err(Box::new(TransmissionError::InvalidSubpacket(c2)));
                     }
                 }
@@ -168,8 +168,12 @@ fn from_hex(n: u8) -> ComResult<u8> {
 
 #[async_trait]
 impl Protocol for Zmodem {
-    async fn update(&mut self, com: &mut Box<dyn Com>, transfer_state: Arc<Mutex<TransferState>>) -> ComResult<bool> {
-       if let Some(rz) = &mut self.rz {
+    async fn update(
+        &mut self,
+        com: &mut Box<dyn Com>,
+        transfer_state: Arc<Mutex<TransferState>>,
+    ) -> ComResult<bool> {
+        if let Some(rz) = &mut self.rz {
             rz.update(com, transfer_state.clone()).await?;
             if !rz.is_active() {
                 transfer_state.lock().unwrap().is_finished = true;
@@ -189,8 +193,8 @@ impl Protocol for Zmodem {
         &mut self,
         com: &mut Box<dyn Com>,
         files: Vec<FileDescriptor>,
-        transfer_state: Arc<Mutex<TransferState>>
-    ) -> ComResult<()>  {
+        transfer_state: Arc<Mutex<TransferState>>,
+    ) -> ComResult<()> {
         transfer_state.lock().unwrap().protocol_name = self.get_name().to_string();
         let mut sz = Sz::new(self.block_length);
         sz.send(com, files).await?;
@@ -201,7 +205,7 @@ impl Protocol for Zmodem {
     async fn initiate_recv(
         &mut self,
         com: &mut Box<dyn Com>,
-        transfer_state: Arc<Mutex<TransferState>>
+        transfer_state: Arc<Mutex<TransferState>>,
     ) -> ComResult<()> {
         transfer_state.lock().unwrap().protocol_name = self.get_name().to_string();
         let mut rz = Rz::new(self.block_length);
@@ -215,7 +219,9 @@ impl Protocol for Zmodem {
             let c = rz.files.clone();
             rz.files = Vec::new();
             c
-        } else { Vec::new() }
+        } else {
+            Vec::new()
+        }
     }
 
     async fn cancel(&mut self, com: &mut Box<dyn Com>) -> ComResult<()> {

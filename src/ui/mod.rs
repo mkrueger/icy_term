@@ -7,7 +7,7 @@ pub use buffer_view::*;
 pub mod terminal_window;
 pub use terminal_window::*;
 
-/* 
+/*
 pub mod hover_list;
 pub use hover_list::*;
 */

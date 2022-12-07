@@ -1,24 +1,34 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(unsafe_code)]
 
-use std::{sync::{Arc, Mutex}, env, fs::{self, File}, io::Write};
 use directories::ProjectDirs;
-use icy_engine::{BufferParser, AvatarParser};
+use icy_engine::{AvatarParser, BufferParser};
 use poll_promise::Promise;
 use rfd::FileDialog;
 use std::time::{Duration, SystemTime};
+use std::{
+    env,
+    fs::{self, File},
+    io::Write,
+    sync::{Arc, Mutex},
+};
 
-use eframe::{egui::{self, Key}};
+use eframe::egui::{self, Key};
 
-use crate::{address::{Address, start_read_book, store_phone_book}, com::{TelnetCom, RawCom, SSHCom, SendData}, TerminalResult, protocol::{FileDescriptor}};
 use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
-use crate::com::{Com};
-use crate::protocol::{TransferState};
+use crate::com::Com;
+use crate::protocol::TransferState;
+use crate::{
+    address::{start_read_book, store_phone_book, Address},
+    com::{RawCom, SSHCom, SendData, TelnetCom},
+    protocol::FileDescriptor,
+    TerminalResult,
+};
 
-use super::{BufferView, screen_modes::ScreenMode};
+use super::{screen_modes::ScreenMode, BufferView};
+use crate::com::Connection;
 use tokio::sync::mpsc;
-use crate::{com::{Connection}};
 
 #[derive(PartialEq, Eq)]
 pub enum MainWindowMode {
@@ -27,7 +37,7 @@ pub enum MainWindowMode {
     ShowSettings(bool),
     SelectProtocol(bool),
     FileTransfer(bool),
- //   AskDeleteEntry
+    //   AskDeleteEntry
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -62,7 +72,7 @@ impl Options {
         Options {
             connect_timeout: Duration::from_secs(10),
             scaling: Scaling::Linear,
-            post_processing: PostProcessing::CRT1
+            post_processing: PostProcessing::CRT1,
         }
     }
 
@@ -71,7 +81,7 @@ impl Options {
             let options_file = proj_dirs.config_dir().join("options.toml");
             if options_file.exists() {
                 let fs = fs::read_to_string(&options_file).expect("Can't read options");
-                if let Ok(options) = toml::from_str::<Options>(&fs.as_str()) { 
+                if let Ok(options) = toml::from_str::<Options>(&fs.as_str()) {
                     return options;
                 }
             }
@@ -98,7 +108,6 @@ impl Options {
         }
         Ok(())
     }
-
 }
 
 pub struct MainWindow {
@@ -106,25 +115,23 @@ pub struct MainWindow {
     pub buffer_parser: Box<dyn BufferParser>,
 
     pub connection_opt: Option<Connection>,
-    
+
     pub mode: MainWindowMode,
     pub addresses: Vec<Address>,
     pub handled_char: bool,
     cur_addr: usize,
     pub selected_bbs: usize,
-    
+
     pub options: Options,
     pub screen_mode: ScreenMode,
     pub auto_login: AutoLogin,
     auto_file_transfer: AutoFileTransfer,
     // protocols
-
     current_transfer: Option<Arc<Mutex<TransferState>>>,
     is_alt_pressed: bool,
 
     open_connection_promise: Option<Promise<Box<dyn Com>>>,
 }
-
 
 impl MainWindow {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
@@ -133,7 +140,7 @@ impl MainWindow {
             .as_ref()
             .expect("You need to run eframe with the glow backend");
         let options = Options::load_options();
-        let view  = BufferView::new(gl, &options);
+        let view = BufferView::new(gl, &options);
         let mut view = MainWindow {
             buffer_view: Arc::new(eframe::epaint::mutex::Mutex::new(view)),
             //address_list: HoverList::new(),
@@ -150,7 +157,7 @@ impl MainWindow {
             handled_char: false,
             is_alt_pressed: false,
             buffer_parser: Box::new(AvatarParser::new(true)),
-            open_connection_promise: None
+            open_connection_promise: None,
         };
         let args: Vec<String> = env::args().collect();
         if let Some(arg) = args.get(1) {
@@ -163,27 +170,30 @@ impl MainWindow {
         //view.update_address_list();
         /*unsafe {
             view.mode = MainWindowMode::ShowTerminal;
-            super::simulate::run_sim(&mut view); 
+            super::simulate::run_sim(&mut view);
         }*/
 
         view
     }
 
-
     pub fn println(&mut self, str: &str) -> TerminalResult<()> {
         for c in str.chars() {
-            self.buffer_view.lock().print_char(&mut self.buffer_parser, unsafe { char::from_u32_unchecked(c as u32) })?;
+            self.buffer_view
+                .lock()
+                .print_char(&mut self.buffer_parser, unsafe {
+                    char::from_u32_unchecked(c as u32)
+                })?;
         }
         Ok(())
     }
 
     pub fn handle_result<T>(&mut self, res: TerminalResult<T>, terminate_connection: bool) {
         if let Err(err) = res {
-//            self.hangup();
-//            self.buffer_view.lock().buf.clear();
-//            self.println(&format!("{}", err)).unwrap();
+            //            self.hangup();
+            //            self.buffer_view.lock().buf.clear();
+            //            self.println(&format!("{}", err)).unwrap();
             eprintln!("{}", err);
-            if terminate_connection { 
+            if terminate_connection {
                 self.open_connection_promise = None;
                 if let Some(con) = &mut self.connection_opt {
                     con.disconnect().unwrap_or_default();
@@ -206,7 +216,6 @@ impl MainWindow {
         }
     }
 
-
     pub fn output_string(&mut self, str: &str) {
         self.buffer_view.lock().selection_opt = None;
         if let Some(con) = &mut self.connection_opt {
@@ -227,54 +236,69 @@ impl MainWindow {
         }
     }
 
-    pub fn print_char(
-        &mut self,
-        c: u8,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let result = self.buffer_view.lock().print_char(&mut self.buffer_parser, unsafe { char::from_u32_unchecked(c as u32) })?;
+    pub fn print_char(&mut self, c: u8) -> Result<(), Box<dyn std::error::Error>> {
+        let result = self
+            .buffer_view
+            .lock()
+            .print_char(&mut self.buffer_parser, unsafe {
+                char::from_u32_unchecked(c as u32)
+            })?;
 
         match result {
-            icy_engine::CallbackAction::None => {},
+            icy_engine::CallbackAction::None => {}
             icy_engine::CallbackAction::SendString(result) => {
                 if let Some(con) = &mut self.connection_opt {
                     let r = con.send(result.as_bytes().to_vec());
                     self.handle_result(r, false);
                 }
-            },
+            }
             icy_engine::CallbackAction::PlayMusic(_music) => { /* play_music(music)*/ }
         }
         //if !self.update_sixels() {
-            self.buffer_view.lock().redraw_view();
+        self.buffer_view.lock().redraw_view();
         //}
         Ok(())
     }
 
-    fn start_transfer_thread(&mut self, protocol_type: crate::protocol::ProtocolType, download: bool, files_opt: Option<Vec<FileDescriptor>>)
-    {
+    fn start_transfer_thread(
+        &mut self,
+        protocol_type: crate::protocol::ProtocolType,
+        download: bool,
+        files_opt: Option<Vec<FileDescriptor>>,
+    ) {
         self.mode = MainWindowMode::FileTransfer(download);
         let state = Arc::new(Mutex::new(TransferState::new()));
         self.current_transfer = Some(state.clone());
-        let res = self.connection_opt.as_mut().unwrap().start_file_transfer(protocol_type, download, state, files_opt);
+        let res = self.connection_opt.as_mut().unwrap().start_file_transfer(
+            protocol_type,
+            download,
+            state,
+            files_opt,
+        );
         self.handle_result(res, true);
     }
 
     /*
-    
-                                let mut protocol = protocol_type.create();
-                            match protocol.initiate_send(com, files, &self.current_transfer.unwrap()) {
-                                Ok(state) => {
-                                    self.mode = MainWindowMode::FileTransfer(download);
-//                                    let a =(protocol, )));
-                                    
-self.current_transfer = Some(Arc::new(Mutex::new(state)));
-}
-                                Err(error) => {
-                                    eprintln!("{}", error);
-                                }
-                            }
 
-    */
-    pub(crate) fn initiate_file_transfer(&mut self, protocol_type: crate::protocol::ProtocolType, download: bool) {
+                                    let mut protocol = protocol_type.create();
+                                match protocol.initiate_send(com, files, &self.current_transfer.unwrap()) {
+                                    Ok(state) => {
+                                        self.mode = MainWindowMode::FileTransfer(download);
+    //                                    let a =(protocol, )));
+
+    self.current_transfer = Some(Arc::new(Mutex::new(state)));
+    }
+                                    Err(error) => {
+                                        eprintln!("{}", error);
+                                    }
+                                }
+
+        */
+    pub(crate) fn initiate_file_transfer(
+        &mut self,
+        protocol_type: crate::protocol::ProtocolType,
+        download: bool,
+    ) {
         self.mode = MainWindowMode::ShowTerminal;
         match self.connection_opt.as_mut() {
             Some(_) => {
@@ -295,7 +319,7 @@ self.current_transfer = Some(Arc::new(Mutex::new(state)));
             }
         }
     }
-        
+
     pub fn set_screen_mode(&mut self, mode: ScreenMode) {
         self.screen_mode = mode;
         mode.set_mode(self);
@@ -324,10 +348,11 @@ self.current_transfer = Some(Arc::new(Mutex::new(state)));
         self.buffer_view.lock().redraw_palette();
         self.buffer_view.lock().redraw_view();
         self.buffer_view.lock().clear();
-        self.println(&format!("Connect to {}...", &call_adr.address)).unwrap_or_default();
-      
-        let timeout  = self.options.connect_timeout;
-        let ct  = call_adr.connection_type;
+        self.println(&format!("Connect to {}...", &call_adr.address))
+            .unwrap_or_default();
+
+        let timeout = self.options.connect_timeout;
+        let ct = call_adr.connection_type;
         self.open_connection_promise = Some(Promise::spawn_async(async move {
             let mut com: Box<dyn Com> = match ct {
                 crate::address::ConnectionType::Telnet => Box::new(TelnetCom::new()),
@@ -343,29 +368,28 @@ self.current_transfer = Some(Arc::new(Mutex::new(state)));
         self.selected_bbs = i;
     }
 
-    pub fn delete_selected_address(&mut self)
-    {
+    pub fn delete_selected_address(&mut self) {
         if self.selected_bbs > 0 {
             self.addresses.remove(self.selected_bbs as usize);
             self.selected_bbs -= 1;
         }
-        let res  = store_phone_book(&self.addresses);
+        let res = store_phone_book(&self.addresses);
         self.handle_result(res, true);
     }
 
     pub fn update_state(&mut self) -> TerminalResult<()> {
-//        unsafe { super::simulate::run_sim(self); }
+        //        unsafe { super::simulate::run_sim(self); }
         let Some(con) = &mut self.connection_opt else { return Ok(()) };
 
         if con.is_data_available()? {
             if let Ok(vec) = con.read_buffer() {
-                for ch in vec { 
+                for ch in vec {
                     if let Some(adr) = self.addresses.get(self.cur_addr) {
-                        if let Err(err) = self.auto_login.try_login( con, adr, ch) {
+                        if let Err(err) = self.auto_login.try_login(con, adr, ch) {
                             eprintln!("{}", err);
                         }
                     }
-/*
+                    /*
                     match ch  {
                         b'\\' => print!("\\\\"),
                         b'\n' => print!("\\n"),
@@ -381,13 +405,18 @@ self.current_transfer = Some(Arc::new(Mutex::new(state)));
                             }
                         }
                     }*/
-                    
-                    let result = self.buffer_view.lock().print_char(&mut self.buffer_parser, unsafe { char::from_u32_unchecked(ch as u32) })?;
+
+                    let result = self
+                        .buffer_view
+                        .lock()
+                        .print_char(&mut self.buffer_parser, unsafe {
+                            char::from_u32_unchecked(ch as u32)
+                        })?;
                     match result {
-                        icy_engine::CallbackAction::None => {},
+                        icy_engine::CallbackAction::None => {}
                         icy_engine::CallbackAction::SendString(result) => {
                             con.send(result.as_bytes().to_vec())?;
-                        },
+                        }
                         icy_engine::CallbackAction::PlayMusic(_music) => { /* play_music(music)*/ }
                     }
                     if let Some((protocol_type, download)) =
@@ -410,7 +439,7 @@ self.current_transfer = Some(Arc::new(Mutex::new(state)));
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -478,7 +507,7 @@ self.current_transfer = Some(Arc::new(Mutex::new(state)));
         }
     }
 
-    pub(crate) fn show_settings(&mut self, in_phonebook:bool) {
+    pub(crate) fn show_settings(&mut self, in_phonebook: bool) {
         self.mode = MainWindowMode::ShowSettings(in_phonebook);
     }
 }
@@ -488,11 +517,17 @@ impl eframe::App for MainWindow {
         self.update_title(frame);
 
         if self.open_connection_promise.is_some() {
-            if self.open_connection_promise.as_ref().unwrap().ready().is_some() {
+            if self
+                .open_connection_promise
+                .as_ref()
+                .unwrap()
+                .ready()
+                .is_some()
+            {
                 if let Ok(handle) = self.open_connection_promise.take().unwrap().try_take() {
-                    self.open_connection_promise  = None;
+                    self.open_connection_promise = None;
                     let ctx = ctx.clone();
-                    
+
                     let (tx, rx) = mpsc::channel::<SendData>(32);
                     let (tx2, mut rx2) = mpsc::channel::<SendData>(32);
                     self.connection_opt = Some(Connection::new(rx, tx2.clone()));
@@ -554,7 +589,7 @@ impl eframe::App for MainWindow {
                                                             }
                                                             _ => {}
                                                         }
-                                                    }                    
+                                                    }
                                                 }
                                             }
                                             tx.send(SendData::EndTransfer).await.unwrap_or_default();
@@ -581,33 +616,33 @@ impl eframe::App for MainWindow {
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowPhonebook => {
-                super::view_phonebook(self, ctx, frame); 
-            },
+                super::view_phonebook(self, ctx, frame);
+            }
             MainWindowMode::ShowSettings(in_phonebook) => {
-                if in_phonebook { 
-                    super::view_phonebook(self, ctx, frame); 
-                } else { 
+                if in_phonebook {
+                    super::view_phonebook(self, ctx, frame);
+                } else {
                     let res = self.update_state();
                     self.update_terminal_window(ctx, frame);
                     self.handle_result(res, false);
                     ctx.request_repaint_after(Duration::from_millis(150));
                 }
-                super::show_settings(self, ctx, frame); 
-            },
+                super::show_settings(self, ctx, frame);
+            }
             MainWindowMode::SelectProtocol(download) => {
                 self.update_terminal_window(ctx, frame);
-                super::view_protocol_selector(self, ctx, frame, download); 
-            },
+                super::view_protocol_selector(self, ctx, frame, download);
+            }
             MainWindowMode::FileTransfer(download) => {
                 if self.connection_opt.as_mut().unwrap().should_end_transfer() {
                     /*  if guard.1.is_finished {
-                    for f in guard.0.get_received_files() {
-                        f.save_file_in_downloads(
-                            guard.1.recieve_state.as_mut().unwrap(),
-                        )
-                        .expect("error saving file.");
-                    }
-                } else */
+                        for f in guard.0.get_received_files() {
+                            f.save_file_in_downloads(
+                                guard.1.recieve_state.as_mut().unwrap(),
+                            )
+                            .expect("error saving file.");
+                        }
+                    } else */
                     self.mode = MainWindowMode::ShowTerminal;
                     self.auto_file_transfer.reset();
                 }
@@ -625,8 +660,8 @@ impl eframe::App for MainWindow {
                     self.mode = MainWindowMode::ShowTerminal;
                 }
                 ctx.request_repaint_after(Duration::from_millis(150));
-            },
-           // MainWindowMode::AskDeleteEntry => todo!(),
+            }
+            // MainWindowMode::AskDeleteEntry => todo!(),
         }
     }
 

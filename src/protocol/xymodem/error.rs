@@ -13,7 +13,9 @@ impl std::fmt::Display for TransmissionError {
         match self {
             TransmissionError::Cancel => write!(f, "transmission canceled"),
             TransmissionError::InvalidMode(m) => write!(f, "invalid x/y modem mode: {}", m),
-            TransmissionError::TooManyRetriesSendingHeader => write!(f, "too many retries sending ymodem header"),
+            TransmissionError::TooManyRetriesSendingHeader => {
+                write!(f, "too many retries sending ymodem header")
+            }
             TransmissionError::XModem1File => write!(f, "Only 1 file can be send with x-modem"),
         }
     }

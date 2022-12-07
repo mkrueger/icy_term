@@ -5,7 +5,7 @@ lazy_static::lazy_static! {
         "call.svg",
         include_bytes!("../../data/icons/call.svg"),
     )
-    .unwrap(); 
+    .unwrap();
 }
 
 lazy_static::lazy_static! {

@@ -3,17 +3,16 @@ use std::{
     io::{self, ErrorKind},
 };
 
+use crate::com::{Com, ComResult};
 use icy_engine::{get_crc16, get_crc32, update_crc16};
-use crate::{com::{Com, ComResult}};
 
-use crate::{
-    protocol::{frame_types::ZACK, XON}
-};
+use crate::protocol::{frame_types::ZACK, XON};
 
 use super::{
     append_zdle_encoded,
+    error::TransmissionError,
     frame_types::{self},
-    from_hex, get_hex, read_zdle_bytes, ZBIN, ZBIN32, ZDLE, ZHEX, ZPAD, error::TransmissionError,
+    from_hex, get_hex, read_zdle_bytes, ZBIN, ZBIN32, ZDLE, ZHEX, ZPAD,
 };
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -210,7 +209,7 @@ impl Header {
             frame_types::ZFREECNT => Ok(FrameType::ZFREECNT),
             frame_types::ZCOMMAND => Ok(FrameType::ZCOMMAND),
             frame_types::ZSTDERR => Ok(FrameType::ZSTDERR),
-            _ => Err(Box::new(TransmissionError::InvalidFrameType(ftype)))
+            _ => Err(Box::new(TransmissionError::InvalidFrameType(ftype))),
         }
     }
 
@@ -248,7 +247,10 @@ impl Header {
                 let crc16 = get_crc16(&header_data[0..5]);
                 let check_crc16 = u16::from_le_bytes(header_data[5..7].try_into().unwrap());
                 if crc16 != check_crc16 {
-                    return Err(Box::new(TransmissionError::CRC16Mismatch(crc16, check_crc16)));
+                    return Err(Box::new(TransmissionError::CRC16Mismatch(
+                        crc16,
+                        check_crc16,
+                    )));
                 }
                 Ok(Some(Header {
                     header_type: HeaderType::Bin,

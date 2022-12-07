@@ -89,13 +89,13 @@ mod tests {
         let mut result = false;
         for b in b"Name" {
             result = test.push_ch(*b)
-        };
+        }
         assert_eq!(true, result);
 
         let mut result = false;
         for b in b"name" {
             result = test.push_ch(*b)
-        };
+        }
         assert_eq!(false, result);
     }
 
@@ -106,19 +106,19 @@ mod tests {
         let mut result = false;
         for b in b"name" {
             result = test.push_ch(*b)
-        };
+        }
         assert_eq!(true, result);
 
         let mut result = false;
         for b in b"NaMe" {
             result = test.push_ch(*b)
-        };
+        }
         assert_eq!(true, result);
 
         let mut result = false;
         for b in b"Nmae" {
             result = test.push_ch(*b)
-        };
+        }
         assert_eq!(false, result);
     }
 
@@ -129,9 +129,8 @@ mod tests {
         let mut result = false;
         for b in b"namname" {
             result = test.push_ch(*b)
-        };
+        }
         assert_eq!(true, result);
-
     }
 
     #[test]
@@ -141,7 +140,7 @@ mod tests {
         let mut result = false;
         for b in b"n_a_m_e" {
             result = test.push_ch(*b)
-        };
+        }
         assert_eq!(false, result);
     }
 }

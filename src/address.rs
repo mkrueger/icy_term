@@ -1,7 +1,9 @@
-use crate::TerminalResult;
 use crate::ui::screen_modes::ScreenMode;
+use crate::TerminalResult;
 use directories::ProjectDirs;
-use icy_engine::{AnsiParser, AtasciiParser, AvatarParser, BufferParser, PETSCIIParser, ViewdataParser};
+use icy_engine::{
+    AnsiParser, AtasciiParser, AvatarParser, BufferParser, PETSCIIParser, ViewdataParser,
+};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use serde_derive::{Deserialize, Serialize};
 use std::path::Path;
@@ -33,7 +35,7 @@ impl Display for Terminal {
 pub enum ConnectionType {
     Telnet,
     Raw,
-    SSH
+    SSH,
 }
 
 impl Display for ConnectionType {
@@ -166,7 +168,7 @@ impl Address {
                 let mut parser = AnsiParser::new();
                 parser.ansi_music = self.ansi_music.clone().into();
                 Box::new(parser)
-            },
+            }
         }
     }
 
@@ -212,7 +214,6 @@ impl Address {
 }
 
 pub static mut READ_ADDRESSES: bool = false;
-
 
 pub fn start_read_book() -> Vec<Address> {
     let res = Address::read_phone_book();

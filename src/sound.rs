@@ -9,11 +9,14 @@ pub fn play_music(music: AnsiMusic) {
     let mut i = 0;
     let mut cur_style = icy_engine::MusicStyle::Normal;
 
-    while i <  music.music_actions.len() {
+    while i < music.music_actions.len() {
         let act = &music.music_actions[i];
         i += 1;
         match act {
-            icy_engine::MusicAction::SetStyle(style) => { cur_style = *style; println!("set style {:?}", style);},
+            icy_engine::MusicAction::SetStyle(style) => {
+                cur_style = *style;
+                println!("set style {:?}", style);
+            }
             icy_engine::MusicAction::PlayNote(freq, length) => {
                 let f = *freq;
 
@@ -22,7 +25,7 @@ pub fn play_music(music: AnsiMusic) {
                 let pause_length = match cur_style {
                     icy_engine::MusicStyle::Legato => duration / 4,
                     icy_engine::MusicStyle::Staccato => 0,
-                    _ => { duration / 8 }
+                    _ => duration / 8,
                 };
                 duration -= pause_length;
 
@@ -30,17 +33,17 @@ pub fn play_music(music: AnsiMusic) {
                     let stream = stream_setup_for(move |o| {
                         o.tick();
                         o.tone(f)
-                    }).unwrap();
+                    })
+                    .unwrap();
                     stream.play().unwrap();
                     std::thread::sleep(std::time::Duration::from_millis(duration));
                 }
                 std::thread::sleep(std::time::Duration::from_millis(pause_length));
-
-            },
+            }
             icy_engine::MusicAction::Pause(length) => {
                 let duration = 250000 / length;
                 std::thread::sleep(std::time::Duration::from_millis(duration as u64));
-            },
+            }
         }
     }
 }

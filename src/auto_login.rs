@@ -1,4 +1,7 @@
-use crate::{address::Address, auto_file_transfer::PatternRecognizer, iemsi::IEmsi, com::Connection, TerminalResult};
+use crate::{
+    address::Address, auto_file_transfer::PatternRecognizer, com::Connection, iemsi::IEmsi,
+    TerminalResult,
+};
 use std::{
     io::{self, ErrorKind},
     time::{Duration, SystemTime},
@@ -48,11 +51,16 @@ impl AutoLogin {
                 // wait until data came in
                 match self.first_char_recv {
                     Some(_) => {
-                        if SystemTime::now().duration_since(self.last_char_recv).unwrap().as_millis() < 500 {
+                        if SystemTime::now()
+                            .duration_since(self.last_char_recv)
+                            .unwrap()
+                            .as_millis()
+                            < 500
+                        {
                             return Ok(true);
                         }
                     }
-                    _ => return Ok(true)
+                    _ => return Ok(true),
                 }
                 self.cur_expr_idx += 2;
                 return Ok(true);
@@ -127,7 +135,7 @@ impl AutoLogin {
         Ok(())
     }
 
-    pub fn run_autologin(&mut self, con: &mut Connection,  adr: &Address) -> TerminalResult<()> {
+    pub fn run_autologin(&mut self, con: &mut Connection, adr: &Address) -> TerminalResult<()> {
         if self.logged_in && self.cur_expr_idx >= self.login_expr.len() || self.disabled {
             return Ok(());
         }
@@ -149,7 +157,9 @@ impl AutoLogin {
                     self.run_command(con, adr)?;
                 }
                 b'\\' => {
-                    while self.cur_expr_idx < self.login_expr.len() && self.login_expr[self.cur_expr_idx] == b'\\' {
+                    while self.cur_expr_idx < self.login_expr.len()
+                        && self.login_expr[self.cur_expr_idx] == b'\\'
+                    {
                         self.cur_expr_idx += 1; // escape
                         match self.login_expr[self.cur_expr_idx] {
                             b'e' => {
@@ -183,7 +193,6 @@ impl AutoLogin {
                         self.cur_expr_idx += 1; // escape
                     }
                     self.last_char_recv = SystemTime::now();
-
                 }
                 ch => {
                     con.send(vec![ch])?;

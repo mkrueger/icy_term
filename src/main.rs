@@ -2,8 +2,8 @@ mod ui;
 use std::error::Error;
 
 use eframe::egui;
-use ui::{*};
 use lazy_static::*;
+use ui::*;
 
 mod address;
 mod com;

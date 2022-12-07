@@ -1,18 +1,20 @@
 use std::{
-    sync::{Arc, Mutex}, fs,
+    fs,
+    sync::{Arc, Mutex},
 };
 
 use directories::UserDirs;
 use icy_engine::{get_crc32, update_crc32};
 
 use crate::{
+    com::{Com, ComResult},
     protocol::{
-        str_from_null_terminated_utf8_unchecked, FileDescriptor, FrameType,
-        Header, HeaderType, TransferState, Zmodem, ZCRCE, ZCRCG, ZCRCW,
-    }, com::{Com, ComResult}, 
+        str_from_null_terminated_utf8_unchecked, FileDescriptor, FrameType, Header, HeaderType,
+        TransferState, Zmodem, ZCRCE, ZCRCG, ZCRCW,
+    },
 };
 
-use super::{constants::*, read_zdle_bytes, error::TransmissionError};
+use super::{constants::*, error::TransmissionError, read_zdle_bytes};
 
 #[derive(Debug)]
 pub enum RevcState {
@@ -69,7 +71,11 @@ impl Rz {
         Zmodem::cancel(com).await
     }
 
-    pub async fn update(&mut self, com: &mut Box<dyn Com>, transfer_state: Arc<Mutex<TransferState>>) -> ComResult<()> {
+    pub async fn update(
+        &mut self,
+        com: &mut Box<dyn Com>,
+        transfer_state: Arc<Mutex<TransferState>>,
+    ) -> ComResult<()> {
         if let RevcState::Idle = self.state {
             return Ok(());
         }
@@ -97,7 +103,7 @@ impl Rz {
                 if self.read_header(com).await? {
                     return Ok(());
                 }
-              /*  let now = SystemTime::now();
+                /*  let now = SystemTime::now();
                  if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
                     self.send_zrinit(com).await?;
                     self.retries += 1;
@@ -105,7 +111,7 @@ impl Rz {
                 }*/
             }
             RevcState::AwaitZDATA => {
-              /*  let now = SystemTime::now();
+                /*  let now = SystemTime::now();
                 if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
                     self.request_zpos(com).await?;
                     self.retries += 1;
@@ -120,7 +126,8 @@ impl Rz {
                     Ok((block, is_last, expect_ack)) => {
                         if expect_ack {
                             Header::empty(self.get_header_type(), FrameType::ZACK)
-                                .write(com).await?;
+                                .write(com)
+                                .await?;
                         }
                         if let Some(fd) = self.files.get_mut(last) {
                             if let Some(data) = &mut fd.data {
@@ -141,7 +148,8 @@ impl Rz {
                                 FrameType::ZRPOS,
                                 fd.data.as_ref().unwrap().len() as u32,
                             )
-                            .write(com).await?;
+                            .write(com)
+                            .await?;
                             self.state = RevcState::AwaitZDATA;
                         }
                         return Ok(());
@@ -156,13 +164,12 @@ impl Rz {
     }
 
     async fn request_zpos(&mut self, com: &mut Box<dyn Com>) -> ComResult<usize> {
-        Header::from_number(self.get_header_type(), FrameType::ZRPOS, 0).write(com).await
+        Header::from_number(self.get_header_type(), FrameType::ZRPOS, 0)
+            .write(com)
+            .await
     }
 
-    async fn read_header(
-        &mut self,
-        com: &mut Box<dyn Com>
-    ) -> ComResult<bool> {
+    async fn read_header(&mut self, com: &mut Box<dyn Com>) -> ComResult<bool> {
         let result = Header::read(com, &mut self.can_count).await;
         if let Err(_) = result {
             if self.can_count >= 5 {
@@ -186,12 +193,16 @@ impl Rz {
                 FrameType::ZSINIT => {
                     let pck = read_subpacket(com, self.block_length, self.use_crc32).await;
                     if pck.is_err() {
-                        Header::empty(self.get_header_type(), FrameType::ZNAK).write(com).await?;
+                        Header::empty(self.get_header_type(), FrameType::ZNAK)
+                            .write(com)
+                            .await?;
                         return Ok(false);
                     }
                     // TODO: Atn sequence
                     self.sender_flags = res.f0();
-                    Header::empty(self.get_header_type(), FrameType::ZACK).write(com).await?;
+                    Header::empty(self.get_header_type(), FrameType::ZACK)
+                        .write(com)
+                        .await?;
                     return Ok(true);
                 }
 
@@ -209,7 +220,6 @@ impl Rz {
                             if self.files.len() == 0
                                 || self.files.last().unwrap().file_name != file_name
                             {
-                                
                                 let mut fd = FileDescriptor::new();
                                 fd.data = Some(Vec::new());
                                 fd.file_name = file_name;
@@ -255,7 +265,8 @@ impl Rz {
                                     FrameType::ZRPOS,
                                     data.len() as u32,
                                 )
-                                .write(com).await?;
+                                .write(com)
+                                .await?;
                                 return Ok(false);
                             }
                             self.state = RevcState::AwaitFileData;
@@ -271,7 +282,9 @@ impl Rz {
                     return Ok(true);
                 }
                 FrameType::ZFIN => {
-                    Header::empty(self.get_header_type(), FrameType::ZFIN).write(com).await?;
+                    Header::empty(self.get_header_type(), FrameType::ZFIN)
+                        .write(com)
+                        .await?;
                     //transfer_state.write("Transfer finished.".to_string());
                     self.state = RevcState::Idle;
                     return Ok(true);
@@ -279,12 +292,14 @@ impl Rz {
                 FrameType::ZCHALLENGE => {
                     // isn't specfied for receiver side.
                     Header::from_number(self.get_header_type(), FrameType::ZACK, res.number())
-                        .write(com).await?;
+                        .write(com)
+                        .await?;
                 }
                 FrameType::ZFREECNT => {
                     // 0 means unlimited space but sending free hd space to an unknown source is a security issue
                     Header::from_number(self.get_header_type(), FrameType::ZACK, 0)
-                        .write(com).await?;
+                        .write(com)
+                        .await?;
                 }
                 FrameType::ZCOMMAND => {
                     // just protocol it.
@@ -297,15 +312,17 @@ impl Rz {
                         );
                     }
                     Header::from_number(self.get_header_type(), FrameType::ZCOMPL, 0)
-                        .write(com).await?;
+                        .write(com)
+                        .await?;
                 }
                 FrameType::ZABORT | FrameType::ZFERR | FrameType::ZCAN => {
-                    Header::empty(self.get_header_type(), FrameType::ZFIN).write(com).await?;
+                    Header::empty(self.get_header_type(), FrameType::ZFIN)
+                        .write(com)
+                        .await?;
                     self.state = RevcState::Idle;
                 }
                 unk_frame => {
                     return Err(Box::new(TransmissionError::UnsupportedFrame(unk_frame)));
-
                 }
             }
         }
@@ -318,7 +335,7 @@ impl Rz {
 
             if let Some(user_dirs) = UserDirs::new() {
                 let dir = user_dirs.download_dir().unwrap();
-            
+
                 let mut file_name = dir.join(&fd.file_name);
                 let mut i = 1;
                 while file_name.exists() {
@@ -340,7 +357,9 @@ impl Rz {
     }
 
     pub async fn send_zrinit(&mut self, com: &mut Box<dyn Com>) -> ComResult<()> {
-        Header::from_flags(self.get_header_type(), FrameType::ZRINIT, 0, 0, 0, 0x23).write(com).await?;
+        Header::from_flags(self.get_header_type(), FrameType::ZRINIT, 0, 0, 0, 0x23)
+            .write(com)
+            .await?;
         Ok(())
     }
 }
