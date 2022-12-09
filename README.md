@@ -64,5 +64,12 @@ Now I want to make some small real world projects for each.
 
 With all my ansi & buffer routines I've already written it makes sense to make a terminal. I need one program as well - most terminal programs are a bit too old school. Time to change that. 
 
+# Build instructions
+
+* Install rust toolchain: https://www.rust-lang.org/tools/install
+* Running: "cargo run"
+* Building release version: "cargo build --release" - in target/release the icy_term executable is all you need
+
+Building redistrib
 # Bugs
 Please file some - I'm sure the protocols still have issues
