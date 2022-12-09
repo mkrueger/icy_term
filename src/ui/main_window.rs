@@ -19,6 +19,7 @@ use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
 use crate::com::Com;
 use crate::protocol::TransferState;
+use crate::sound::play_music;
 use crate::{
     address::{start_read_book, store_phone_book, Address},
     com::{RawCom, SSHCom, SendData, TelnetCom},
@@ -168,11 +169,11 @@ impl MainWindow {
         //view.address_list.selected_item = 1;
         // view.set_screen_mode(&ScreenMode::Viewdata);
         //view.update_address_list();
-        /*unsafe {
+/*
+        unsafe {
             view.mode = MainWindowMode::ShowTerminal;
             super::simulate::run_sim(&mut view);
         }*/
-
         view
     }
 
@@ -193,6 +194,14 @@ impl MainWindow {
             //            self.buffer_view.lock().buf.clear();
             //            self.println(&format!("{}", err)).unwrap();
             eprintln!("{}", err);
+            if let Some(con) = &mut self.connection_opt {
+                if con.is_disconnected() {
+                    self.connection_opt = None;
+                    self.open_connection_promise = None;
+                    self.output_string(&format!("\n{}", err));
+                }
+            }
+
             if terminate_connection {
                 self.open_connection_promise = None;
                 if let Some(con) = &mut self.connection_opt {
@@ -243,7 +252,6 @@ impl MainWindow {
             .print_char(&mut self.buffer_parser, unsafe {
                 char::from_u32_unchecked(c as u32)
             })?;
-
         match result {
             icy_engine::CallbackAction::None => {}
             icy_engine::CallbackAction::SendString(result) => {
@@ -252,7 +260,8 @@ impl MainWindow {
                     self.handle_result(r, false);
                 }
             }
-            icy_engine::CallbackAction::PlayMusic(_music) => { /* play_music(music)*/ }
+            icy_engine::CallbackAction::PlayMusic(music) => { play_music(music) }
+            icy_engine::CallbackAction::Beep => { crate::sound::beep() }
         }
         //if !self.update_sixels() {
         self.buffer_view.lock().redraw_view();
@@ -417,7 +426,8 @@ impl MainWindow {
                         icy_engine::CallbackAction::SendString(result) => {
                             con.send(result.as_bytes().to_vec())?;
                         }
-                        icy_engine::CallbackAction::PlayMusic(_music) => { /* play_music(music)*/ }
+                        icy_engine::CallbackAction::PlayMusic(music) => { play_music(music) }
+                        icy_engine::CallbackAction::Beep => { crate::sound::beep() }
                     }
                     if let Some((protocol_type, download)) =
                         self.auto_file_transfer.try_transfer(ch)

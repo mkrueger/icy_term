@@ -1,3 +1,4 @@
+#![warn(clippy::all, clippy::pedantic)]
 mod ui;
 use std::error::Error;
 

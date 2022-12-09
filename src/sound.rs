@@ -1,3 +1,5 @@
+use std::thread;
+
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     SizedSample,
@@ -8,14 +10,13 @@ use icy_engine::AnsiMusic;
 pub fn play_music(music: AnsiMusic) {
     let mut i = 0;
     let mut cur_style = icy_engine::MusicStyle::Normal;
-
+    
     while i < music.music_actions.len() {
         let act = &music.music_actions[i];
         i += 1;
         match act {
             icy_engine::MusicAction::SetStyle(style) => {
                 cur_style = *style;
-                println!("set style {:?}", style);
             }
             icy_engine::MusicAction::PlayNote(freq, length) => {
                 let f = *freq;
@@ -28,7 +29,6 @@ pub fn play_music(music: AnsiMusic) {
                     _ => duration / 8,
                 };
                 duration -= pause_length;
-
                 {
                     let stream = stream_setup_for(move |o| {
                         o.tick();
@@ -46,6 +46,18 @@ pub fn play_music(music: AnsiMusic) {
             }
         }
     }
+}
+
+pub fn beep() {
+    thread::spawn(||  {
+        let stream = stream_setup_for(move |o| {
+            o.tick();
+            o.tone(800.)
+        })
+        .unwrap();
+        stream.play().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    });
 }
 
 pub struct SampleRequestOptions {
@@ -97,11 +109,7 @@ pub fn host_device_setup(
     let device = host
         .default_output_device()
         .ok_or_else(|| anyhow::Error::msg("Default output device is not available"))?;
-    println!("Output device : {}", device.name()?);
-
     let config = device.default_output_config()?;
-    println!("Default output config : {:?}", config);
-
     Ok((host, device, config))
 }
 
