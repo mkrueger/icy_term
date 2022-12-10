@@ -4,7 +4,6 @@ use std::time::Duration;
 use async_trait::async_trait;
 
 use crate::address::Address;
-use crate::TerminalResult;
 
 use super::{Com, ComResult};
 
@@ -25,7 +24,7 @@ impl Com for TestCom {
         "Test_Com"
     }
 
-    async fn connect(&mut self, _addr: &Address, _timeout: Duration) -> TerminalResult<bool> {
+    async fn connect(&mut self, _addr: &Address, _timeout: Duration) -> ComResult<bool> {
         Ok(true)
     }
 

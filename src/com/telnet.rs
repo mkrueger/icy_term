@@ -1,5 +1,5 @@
 #[allow(dead_code)]
-use crate::{address::Address, TerminalResult};
+use crate::{address::Address};
 
 use super::{Com, ComResult, ConnectionError};
 use async_trait::async_trait;
@@ -409,7 +409,7 @@ impl Com for TelnetCom {
         "Telnet"
     }
 
-    async fn connect(&mut self, addr: &Address, timeout: Duration) -> TerminalResult<bool> {
+    async fn connect(&mut self, addr: &Address, timeout: Duration) -> ComResult<bool> {
         let mut adr = addr.address.clone();
         if !adr.contains(":") {
             adr.push_str(":23");

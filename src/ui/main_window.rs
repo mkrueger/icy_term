@@ -17,7 +17,7 @@ use eframe::egui::{self, Key};
 
 use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
-use crate::com::Com;
+use crate::com::{Com, ComResult};
 use crate::protocol::TransferState;
 use crate::sound::play_music;
 use crate::{
@@ -131,7 +131,7 @@ pub struct MainWindow {
     current_transfer: Option<Arc<Mutex<TransferState>>>,
     is_alt_pressed: bool,
 
-    open_connection_promise: Option<Promise<Box<dyn Com>>>,
+    open_connection_promise: Option<Promise<ComResult<Box<dyn Com>>>>,
 }
 
 impl MainWindow {
@@ -192,7 +192,7 @@ impl MainWindow {
         if let Err(err) = res {
             //            self.hangup();
             //            self.buffer_view.lock().buf.clear();
-            //            self.println(&format!("{}", err)).unwrap();
+           self.println(&format!("\n\r{}", err)).unwrap();
             eprintln!("{}", err);
             if let Some(con) = &mut self.connection_opt {
                 if con.is_disconnected() {
@@ -368,14 +368,11 @@ impl MainWindow {
                 crate::address::ConnectionType::Raw => Box::new(RawCom::new()),
                 crate::address::ConnectionType::SSH => Box::new(SSHCom::new()),
             };
-            let res = com.connect(&call_adr, timeout).await;
-            match res {
-                Ok(_) => {}
-                Err(err) => {
-                    eprintln!("{}", err);
-                }
+            if let Err(err) = com.connect(&call_adr, timeout).await {
+                Err(err)
+            } else {
+                Ok(com)
             }
-            com
         }));
     }
 
@@ -541,85 +538,92 @@ impl eframe::App for MainWindow {
                 .is_some()
             {
                 if let Ok(handle) = self.open_connection_promise.take().unwrap().try_take() {
-                    self.open_connection_promise = None;
-                    let ctx = ctx.clone();
 
-                    let (tx, rx) = mpsc::channel::<SendData>(32);
-                    let (tx2, mut rx2) = mpsc::channel::<SendData>(32);
-                    self.connection_opt = Some(Connection::new(rx, tx2.clone()));
+                match handle {
+                    Ok(handle) => {
+                        self.open_connection_promise = None;
+                        let ctx = ctx.clone();
+                        let (tx, rx) = mpsc::channel::<SendData>(32);
+                        let (tx2, mut rx2) = mpsc::channel::<SendData>(32);
+                        self.connection_opt = Some(Connection::new(rx, tx2.clone()));
 
-                    let mut handle = handle;
+                        let mut handle = handle;
 
-                    tokio::spawn(async move {
-                        let mut done = false;
-                        while !done {
-                            tokio::select! {
-                                Ok(v) = handle.read_data() => {
-                                    if let Err(err) = tx.send(SendData::Data(v)).await {
-                                        eprintln!("error while sending: {}", err);
-                                        done = true;
-                                    } else {
-                                        ctx.request_repaint();
+                        tokio::spawn(async move {
+                            let mut done = false;
+                            while !done {
+                                tokio::select! {
+                                    Ok(v) = handle.read_data() => {
+                                        if let Err(err) = tx.send(SendData::Data(v)).await {
+                                            eprintln!("error while sending: {}", err);
+                                            done = true;
+                                        } else {
+                                            ctx.request_repaint();
+                                        }
                                     }
-                                }
-                                result = rx2.recv() => {
-                                    match result {
-                                        Some(SendData::Data(buf)) => {
-                                            if let Err(err) = handle.send(&buf).await {
-                                                eprintln!("{}", err);
-                                                done = true;
-                                            }
-                                        },
-                                        Some(SendData::StartTransfer(protocol_type, download, transfer_state, files_opt)) => {
-                                          let mut protocol = protocol_type.create();
-                                           if let Err(err) = if download {
-                                                protocol.initiate_recv(&mut handle, transfer_state.clone()).await
-                                            } else {
-                                                protocol.initiate_send(&mut handle, files_opt.unwrap(), transfer_state.clone()).await
-                                            } {
-                                                eprintln!("{}", err);
-                                                break;
-                                            }
-                                            loop {
-                                                tokio::select! {
-                                                    v = protocol.update(&mut handle, transfer_state.clone()) => {
-                                                        match v {
-                                                            Ok(running) => {
-                                                                if !running {
+                                    result = rx2.recv() => {
+                                        match result {
+                                            Some(SendData::Data(buf)) => {
+                                                if let Err(err) = handle.send(&buf).await {
+                                                    eprintln!("{}", err);
+                                                    done = true;
+                                                }
+                                            },
+                                            Some(SendData::StartTransfer(protocol_type, download, transfer_state, files_opt)) => {
+                                            let mut protocol = protocol_type.create();
+                                            if let Err(err) = if download {
+                                                    protocol.initiate_recv(&mut handle, transfer_state.clone()).await
+                                                } else {
+                                                    protocol.initiate_send(&mut handle, files_opt.unwrap(), transfer_state.clone()).await
+                                                } {
+                                                    eprintln!("{}", err);
+                                                    break;
+                                                }
+                                                loop {
+                                                    tokio::select! {
+                                                        v = protocol.update(&mut handle, transfer_state.clone()) => {
+                                                            match v {
+                                                                Ok(running) => {
+                                                                    if !running {
+                                                                        break;
+                                                                    }
+                                                                }
+                                                                Err(err) => {
+                                                                    eprintln!("Err {}", err);
                                                                     break;
                                                                 }
                                                             }
-                                                            Err(err) => {
-                                                                eprintln!("Err {}", err);
-                                                                break;
-                                                            }
                                                         }
-                                                    }
-                                                    result = rx2.recv() => {
-                                                        let msg = result.unwrap();
-                                                        match msg {
-                                                            SendData::CancelTransfer => {
-                                                                protocol.cancel(&mut handle).await.unwrap_or_default();
-                                                                eprintln!("Cancel");
-                                                                break;
+                                                        result = rx2.recv() => {
+                                                            let msg = result.unwrap();
+                                                            match msg {
+                                                                SendData::CancelTransfer => {
+                                                                    protocol.cancel(&mut handle).await.unwrap_or_default();
+                                                                    eprintln!("Cancel");
+                                                                    break;
+                                                                }
+                                                                _ => {}
                                                             }
-                                                            _ => {}
                                                         }
                                                     }
                                                 }
+                                                tx.send(SendData::EndTransfer).await.unwrap_or_default();
                                             }
-                                            tx.send(SendData::EndTransfer).await.unwrap_or_default();
+                                            Some(SendData::Disconnect) => {
+                                                done = true;
+                                            }
+                                            _ => {}
                                         }
-                                        Some(SendData::Disconnect) => {
-                                            done = true;
-                                        }
-                                        _ => {}
                                     }
-                                }
-                            };
-                        }
-                        tx.send(SendData::Disconnect).await.unwrap_or_default();
-                    });
+                                };
+                            }
+                            tx.send(SendData::Disconnect).await.unwrap_or_default();
+                        });
+                    }
+                    Err(err) => {
+                        self.println(&format!("\n\r{}", err)).unwrap();
+                    }
+                }
                 }
             }
         }

@@ -28,7 +28,7 @@ pub trait Com: Sync + Send {
     fn get_name(&self) -> &'static str;
 
     async fn send<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize>;
-    async fn connect(&mut self, addr: &Address, timeout: Duration) -> TerminalResult<bool>;
+    async fn connect(&mut self, addr: &Address, timeout: Duration) -> ComResult<bool>;
     async fn read_data(&mut self) -> ComResult<Vec<u8>>;
     async fn read_u8(&mut self) -> ComResult<u8>;
     async fn read_exact(&mut self, len: usize) -> ComResult<Vec<u8>>;

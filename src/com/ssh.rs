@@ -1,4 +1,4 @@
-use crate::{address::Address, TerminalResult};
+use crate::{address::Address};
 
 use super::{Com, ComResult};
 #[allow(dead_code)]
@@ -24,7 +24,7 @@ impl Com for SSHCom {
     fn get_name(&self) -> &'static str {
         "Raw"
     }
-    async fn connect(&mut self, addr: &Address, timeout: Duration) -> TerminalResult<bool> {
+    async fn connect(&mut self, addr: &Address, timeout: Duration) -> ComResult<bool> {
         let r = tokio::time::timeout(timeout, TcpStream::connect(&addr.address)).await;
         match r {
             Ok(tcp_stream) => match tcp_stream {
