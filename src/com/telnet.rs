@@ -410,7 +410,11 @@ impl Com for TelnetCom {
     }
 
     async fn connect(&mut self, addr: &Address, timeout: Duration) -> TerminalResult<bool> {
-        let r = tokio::time::timeout(timeout, TcpStream::connect(&addr.address)).await;
+        let mut adr = addr.address.clone();
+        if !adr.contains(":") {
+            adr.push_str(":23");
+        }
+        let r = tokio::time::timeout(timeout, TcpStream::connect(&adr)).await;
         match r {
             Ok(tcp_stream) => match tcp_stream {
                 Ok(stream) => {

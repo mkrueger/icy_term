@@ -368,7 +368,13 @@ impl MainWindow {
                 crate::address::ConnectionType::Raw => Box::new(RawCom::new()),
                 crate::address::ConnectionType::SSH => Box::new(SSHCom::new()),
             };
-            com.connect(&call_adr, timeout).await.unwrap_or_default();
+            let res = com.connect(&call_adr, timeout).await;
+            match res {
+                Ok(_) => {}
+                Err(err) => {
+                    eprintln!("{}", err);
+                }
+            }
             com
         }));
     }
