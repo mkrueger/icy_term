@@ -1,7 +1,7 @@
 #[allow(dead_code)]
 use crate::{address::Address, TerminalResult};
 
-use super::{Com, ComResult};
+use super::{Com, ComResult, ConnectionError};
 use async_trait::async_trait;
 use std::{io::ErrorKind, time::Duration};
 use tokio::{
@@ -316,11 +316,12 @@ impl TelnetCom {
                 }
                 ParserState::Iac => match TelnetCmd::get(*b) {
                     Ok(TelnetCmd::AYT) => {
-                        self.tcp_stream
-                            .as_mut()
-                            .unwrap()
-                            .try_write(&TelnetCmd::NOP.to_bytes())?;
                         self.state = ParserState::Data;
+                        if let Some(stream) = self.tcp_stream.as_mut() {
+                            stream.try_write(&TelnetCmd::NOP.to_bytes())?;
+                        } else {
+                            return Err(Box::new(ConnectionError::ConnectionLost));
+                        }
                     }
                     Ok(TelnetCmd::SE) | Ok(TelnetCmd::NOP) | Ok(TelnetCmd::GA) => {
                         self.state = ParserState::Data;
@@ -351,20 +352,21 @@ impl TelnetCom {
                     }
                 },
                 ParserState::Will => {
-                    let opt = TelnetOption::get(*b)?;
-                    if opt != TelnetOption::TransmitBinary {
-                        self.tcp_stream
-                            .as_mut()
-                            .unwrap()
-                            .try_write(&TelnetCmd::DONT.to_bytes_opt(opt))?;
-                    } else {
-                        eprintln!("unsupported will option {:?}", opt);
-                        self.tcp_stream
-                            .as_mut()
-                            .unwrap()
-                            .try_write(&TelnetCmd::DO.to_bytes_opt(TelnetOption::TransmitBinary))?;
-                    }
                     self.state = ParserState::Data;
+                    let opt = TelnetOption::get(*b)?;
+                    if let Some(stream) = self.tcp_stream.as_mut() {
+                        match opt { 
+                            TelnetOption::TransmitBinary => {
+                                stream.try_write(&TelnetCmd::DO.to_bytes_opt(TelnetOption::TransmitBinary))?;
+                            }
+                            _ => {
+                                eprintln!("unsupported will option {:?}", opt);
+                                stream.try_write(&TelnetCmd::DONT.to_bytes_opt(opt))?;
+                            }
+                        }
+                    } else {
+                        return Err(Box::new(ConnectionError::ConnectionLost));
+                    }
                 }
                 ParserState::Wont => {
                     let opt = TelnetOption::get(*b)?;
@@ -372,19 +374,23 @@ impl TelnetCom {
                     self.state = ParserState::Data;
                 }
                 ParserState::Do => {
-                    let opt = TelnetOption::get(*b)?;
-                    if opt == TelnetOption::TransmitBinary {
-                        self.tcp_stream.as_mut().unwrap().try_write(
-                            &TelnetCmd::WILL.to_bytes_opt(TelnetOption::TransmitBinary),
-                        )?;
-                    } else {
-                        eprintln!("unsupported do option {:?}", opt);
-                        self.tcp_stream
-                            .as_mut()
-                            .unwrap()
-                            .try_write(&TelnetCmd::WONT.to_bytes_opt(opt))?;
-                    }
                     self.state = ParserState::Data;
+                    let opt = TelnetOption::get(*b)?;
+                    if let Some(stream) = self.tcp_stream.as_mut() {
+                        match opt { 
+                            TelnetOption::TransmitBinary => {
+                                stream.try_write(
+                                    &TelnetCmd::WILL.to_bytes_opt(TelnetOption::TransmitBinary),
+                                )?;
+                            }
+                            _ => {
+                                eprintln!("unsupported do option {:?}", opt);
+                                stream.try_write(&TelnetCmd::WONT.to_bytes_opt(opt))?;
+                            }
+                        }
+                    } else {
+                        return Err(Box::new(ConnectionError::ConnectionLost));
+                    }
                 }
                 ParserState::Dont => {
                     let opt = TelnetOption::get(*b)?;
@@ -421,7 +427,10 @@ impl Com for TelnetCom {
         let mut buf = [0; 1024 * 50];
         if let Some(stream) = self.tcp_stream.as_mut() {
             match stream.read(&mut buf).await {
-                Ok(bytes) => self.parse(&buf[0..bytes]),
+                Ok(bytes) => {
+//                    println!("read {} bytes: {:?}", bytes, &buf[0..bytes]);
+                    self.parse(&buf[0..bytes])
+                },
                 Err(error) => Err(Box::new(error)),
             }
         } else {
@@ -430,37 +439,46 @@ impl Com for TelnetCom {
     }
 
     async fn read_u8(&mut self) -> ComResult<u8> {
-        match self.tcp_stream.as_mut().unwrap().read_u8().await {
-            Ok(b) => {
-                if b == IAC {
-                    let b2 = self.tcp_stream.as_mut().unwrap().read_u8().await?;
-                    if b2 != IAC {
-                        return Err(Box::new(io::Error::new(
-                            ErrorKind::InvalidData,
-                            format!("expected iac, got {}", b2),
-                        )));
+        if let Some(stream) = self.tcp_stream.as_mut() {
+            match stream.read_u8().await {
+                Ok(b) => {
+                    if b == IAC {
+                        let b2 = stream.read_u8().await?;
+                        if b2 != IAC {
+                            return Err(Box::new(io::Error::new(
+                                ErrorKind::InvalidData,
+                                format!("expected iac, got {}", b2),
+                            )));
+                        }
+                        // IGNORE additional telnet commands
                     }
-                    // IGNORE additional telnet commands
+                    Ok(b)
                 }
-                Ok(b)
+                Err(err) => Err(Box::new(err)),
             }
-            Err(err) => Err(Box::new(err)),
+        } else {
+            return Err(Box::new(ConnectionError::ConnectionLost));
         }
     }
 
     async fn read_exact(&mut self, len: usize) -> ComResult<Vec<u8>> {
         let mut buf = Vec::new();
         buf.resize(len, 0);
-        match self.tcp_stream.as_mut().unwrap().read_exact(&mut buf).await {
-            Ok(_) => {
-                let mut buf = self.parse(&buf)?;
-                while buf.len() < len {
-                    buf.push(self.read_u8().await?);
+        if let Some(stream) = self.tcp_stream.as_mut() {
+            match stream.read_exact(&mut buf).await {
+                Ok(_) => {
+                    let mut buf = self.parse(&buf)?;
+                    while buf.len() < len {
+                        buf.push(self.read_u8().await?);
+                    }
+                    Ok(buf)
                 }
-                Ok(buf)
+                Err(err) => Err(Box::new(err)),
             }
-            Err(err) => Err(Box::new(err)),
+        } else {
+            return Err(Box::new(ConnectionError::ConnectionLost));
         }
+
     }
 
     fn disconnect(&mut self) -> ComResult<()> {
@@ -477,10 +495,13 @@ impl Com for TelnetCom {
                 data.push(*b);
             }
         }
-
-        match self.tcp_stream.as_mut().unwrap().write(&data).await {
-            Ok(bytes) => Ok(bytes),
-            Err(error) => Err(Box::new(error)),
+        if let Some(stream) = self.tcp_stream.as_mut() {
+            match stream.write(&data).await {
+                Ok(bytes) => Ok(bytes),
+                Err(error) => Err(Box::new(error)),
+            }
+        } else {
+            Err(Box::new(ConnectionError::ConnectionLost))
         }
     }
 }

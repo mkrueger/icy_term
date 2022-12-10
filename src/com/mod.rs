@@ -162,3 +162,32 @@ impl Connection {
         Ok(())
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+pub enum ConnectionError {
+    ConnectionLost,
+}
+
+impl std::fmt::Display for ConnectionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConnectionError::ConnectionLost => {
+                write!(f, "connection lost")
+            }
+        }
+    }
+}
+
+impl Error for ConnectionError {
+    fn description(&self) -> &str {
+        "use std::display"
+    }
+
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+
+    fn cause(&self) -> Option<&dyn Error> {
+        self.source()
+    }
+}
