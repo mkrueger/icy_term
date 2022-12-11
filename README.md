@@ -28,7 +28,7 @@ Features supported so far:
   - [ ] IEMSI/Autologin editor (you need to edit it as text for the moment)
   - [x] Better rendering engine (maybe switching the UI to OpenGL)
   - [x] Copy & Paste
-  - [ ] Internationalization
+  - [x] Internationalization
 
 # Screenshots
 

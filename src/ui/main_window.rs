@@ -507,22 +507,18 @@ impl MainWindow {
                     let minutes = sec / 60;
                     let hours = minutes / 60;
                     let cur = &self.addresses[self.cur_addr];
+                    let t = format!("{:02}:{:02}:{:02}", hours, minutes % 60, sec % 60);
+                    let s = if cur.system_name.len() > 0 {
+                        cur.system_name.clone()
+                    } else {
+                        cur.address.clone()
+                    };
 
-                    format!(
-                        "Connected {:02}:{:02}:{:02} to {}",
-                        hours,
-                        minutes % 60,
-                        sec % 60,
-                        if cur.system_name.len() > 0 {
-                            &cur.system_name
-                        } else {
-                            &cur.address
-                        }
-                    )
+                    fl!(crate::LANGUAGE_LOADER, "title-connected", version = crate::VERSION, time = t, name = s)
                 } else {
-                    "Offline".to_string()
+                    fl!(crate::LANGUAGE_LOADER, "title-offline", version = crate::VERSION)
                 };
-                frame.set_window_title(format!("iCY TERM {} - {}", crate::VERSION, str).as_str());
+                frame.set_window_title(str.as_str());
             }
         }
     }

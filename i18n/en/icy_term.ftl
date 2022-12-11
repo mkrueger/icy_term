@@ -1,4 +1,8 @@
 connect-to = Connect to { $address }...
+
+title-connected = iCY TERM { $version } - Connected { $time } to { $name }
+title-offline   = iCY TERM { $version } - Offline
+
 settings-heading = Settings
 settings-scaling = Scaling
 settings-post-processing = Post processing
