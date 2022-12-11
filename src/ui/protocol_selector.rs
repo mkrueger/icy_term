@@ -1,6 +1,5 @@
 use eframe::{
     egui::{self, RichText},
-    epaint::FontId,
 };
 use egui_extras::{Column, TableBody, TableBuilder};
 use i18n_embed_fl::fl;
@@ -17,7 +16,6 @@ fn create_button_row(
     title: &'static str,
     descr: String,
 ) {
-    let text_style = FontId::proportional(22.);
     body.row(30., |mut row| {
         row.col(|ui| {
             if ui
@@ -40,7 +38,6 @@ pub fn view_protocol_selector(
     download: bool,
 ) {
     let mut open = true;
-    let text_style = FontId::proportional(26.);
     let title = RichText::new(if download { 
         fl!(crate::LANGUAGE_LOADER, "protocol-select-download")
     } else {  

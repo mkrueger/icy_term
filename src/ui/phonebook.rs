@@ -76,7 +76,6 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                                     window.call_bbs(i + 1);
                                     return;
                                 }
-                                let text_style = FontId::proportional(row_height + 2.);
                                 let mut text =
                                     RichText::new(addr.system_name.clone());
                                 if i == window.selected_bbs {
@@ -90,7 +89,6 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                     },
                 );
             } else {
-                let text_style = FontId::proportional(22.);
                 ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-no_bbs")));
             }
 
@@ -134,15 +132,12 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                 }
             }
         } else {
-            let text_style = FontId::proportional(22.);
             ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-no_selection")));
         }
     });
 }
 
 fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address::Address) {
-    let text_style = FontId::proportional(22.);
-
     egui::Grid::new("some_unique_id")
         .spacing(Vec2::new(5., 8.))
         .show(ui, |ui| {

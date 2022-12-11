@@ -1,6 +1,5 @@
 use eframe::{
     egui::{self, RichText},
-    epaint::FontId,
 };
 use i18n_embed_fl::fl;
 
@@ -8,7 +7,6 @@ use super::main_window::{MainWindow, MainWindowMode, PostProcessing, Scaling};
 
 pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut eframe::Frame) {
     let mut open = true;
-    let text_style = FontId::proportional(26.);
     let title = RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-heading"));
 
     egui::Window::new(title)
@@ -16,8 +14,6 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
         .collapsible(false)
         .resizable(false)
         .show(ctx, |ui| {
-            let text_style = FontId::proportional(22.);
-
             ui.horizontal(|ui| {
                 ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-scaling")));
                 egui::ComboBox::from_id_source("settings_combobox_1")
