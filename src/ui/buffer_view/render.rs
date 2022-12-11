@@ -261,6 +261,9 @@ impl BufferView {
                 match self.post_processing {
                     crate::ui::main_window::PostProcessing::None => 0.0,
                     crate::ui::main_window::PostProcessing::CRT1 => 1.0,
+                    crate::ui::main_window::PostProcessing::CRT1CURVED => 2.0,
+                    crate::ui::main_window::PostProcessing::CRT2 => 3.,
+                    crate::ui::main_window::PostProcessing::CRT2CURVED =>4.,
                 },
             );
 

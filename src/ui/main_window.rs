@@ -57,10 +57,13 @@ impl Scaling {
 pub enum PostProcessing {
     None,
     CRT1,
+    CRT1CURVED,
+    CRT2,
+    CRT2CURVED,
 }
 
 impl PostProcessing {
-    pub const ALL: [PostProcessing; 2] = [PostProcessing::None, PostProcessing::CRT1];
+    pub const ALL: [PostProcessing; 5] = [PostProcessing::None, PostProcessing::CRT1, PostProcessing::CRT1CURVED, PostProcessing::CRT2, PostProcessing::CRT2CURVED];
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

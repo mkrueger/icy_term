@@ -185,20 +185,115 @@ float rand(vec2 co) {
 	return fract(sin(dot(co.xy , vec2(12.9898, 78.233))) * 43758.5453);
 }
 
-void scanlines1()
+void scanlines1(bool curved)
 {
     vec2 fragCoord = (gl_FragCoord.xy - u_position);
-    vec2 pos = fragCoord / u_resolution;
+    vec2 pos = curved ? warp(fragCoord / u_resolution) : fragCoord / u_resolution;
     vec4 unmodifiedColor = fetch(pos, vec2(0));
     color.rgb = tri(pos) * mask(fragCoord.xy);
 	color = toSrgb(color.rgb);
+}
+// Effect 2
+// https://www.shadertoy.com/view/XdyGzR
+#define CURVATURE 1.
+#define SCANLINES 1.
+#define CURVED_SCANLINES 1.
+#define BLURED 1.
+#define LIGHT 1.
+#define COLOR_CORRECTION 1.
+//#define ASPECT_RATIO 1.
+
+const float gamma = 1.;
+const float contrast = 1.;
+const float saturation = 1.;
+const float brightness = 1.;
+
+const float light = 9.;
+const float blur = 1.5;
+
+vec3 postEffects(in vec3 rgb, in vec2 xy) {
+    rgb = pow(rgb, vec3(gamma));
+    rgb = mix(vec3(.5), mix(vec3(dot(vec3(.2125, .7154, .0721), rgb*brightness)), rgb*brightness, saturation), contrast);
+
+    return rgb;
+}
+
+// Sigma 1. Size 3
+vec3 gaussian(in vec2 uv) {
+    float b = blur / (u_resolution.x / u_resolution.y);
+
+    uv+= .5;
+
+    vec3 col = texture(u_render_texture, vec2(uv.x - b/u_resolution.x, uv.y - b/u_resolution.y) ).rgb * 0.077847;
+    col += texture(u_render_texture, vec2(uv.x - b/u_resolution.x, uv.y) ).rgb * 0.123317;
+    col += texture(u_render_texture, vec2(uv.x - b/u_resolution.x, uv.y + b/u_resolution.y) ).rgb * 0.077847;
+
+    col += texture(u_render_texture, vec2(uv.x, uv.y - b/u_resolution.y) ).rgb * 0.123317;
+    col += texture(u_render_texture, vec2(uv.x, uv.y) ).rgb * 0.195346;
+    col += texture(u_render_texture, vec2(uv.x, uv.y + b/u_resolution.y) ).rgb * 0.123317;
+
+    col += texture(u_render_texture, vec2(uv.x + b/u_resolution.x, uv.y - b/u_resolution.y) ).rgb * 0.077847;
+    col += texture(u_render_texture, vec2(uv.x + b/u_resolution.x, uv.y) ).rgb * 0.123317;
+    col += texture(u_render_texture, vec2(uv.x + b/u_resolution.x, uv.y + b/u_resolution.y) ).rgb * 0.077847;
+
+    return col;
+}
+
+void scanlines2(bool curvature, bool blured, bool curved_scanlines, bool scanlines, float light, bool color_correction)
+{
+	vec2 st = ((gl_FragCoord.xy - u_position) / u_resolution.xy) - vec2(.5);
+    // Curvature/light
+    float d = length(st*.5 * st*.5);
+    vec2 uv = curvature ? st*d + st*.935 : st;
+
+    // Fudge aspect ratio
+#ifdef ASPECT_RATIO
+    uv.x *= u_resolution.x/u_resolution.y*.75;
+#endif
+    
+    // CRT color blur
+    vec3 col = blured ? gaussian(uv) : texture(u_render_texture, uv+.5).rgb;
+
+    // Light
+	if (light > 0.0) {
+    	float l = 1. - min(1., d*light);
+    	col *= l;
+	}
+
+    // Scanlines
+    float y = curved_scanlines ? uv.y : st.y;
+
+    float showScanlines = 1.;
+    if (u_resolution.y<360.) showScanlines = 0.;
+    
+	if (scanlines) {
+		float s = 1. - smoothstep(320., 1440., u_resolution.y) + 1.;
+		float j = cos(y*u_resolution.y*s)*.1; // values between .01 to .25 are ok.
+		col = abs(showScanlines-1.)*col + showScanlines*(col - col*j);
+		col *= 1. - ( .01 + ceil(mod( (st.x+.5)*u_resolution.x, 3.) ) * (.995-1.01) )*showScanlines;
+	}
+    // Border mask
+	if (curvature) {
+        float m = max(0.0, 1. - 2.*max(abs(uv.x), abs(uv.y) ) );
+        m = min(m*200., 1.);
+        col *= m;
+	}
+
+    // Color correction
+    color = color_correction ? postEffects(col, st) : max(vec3(.0), min(vec3(1.), col));
 }
 
 void main() {
     if (u_effect < 1.0) { 
         vec2 uv = (gl_FragCoord.xy - u_position) / u_resolution;
         color = texture(u_render_texture, uv).xyz;
+    } else if (u_effect < 2.0) { 
+        scanlines1(false);
+    }  else if (u_effect < 3.0) { 
+        scanlines1(true);
+    } else if (u_effect < 4.0) { 
+        scanlines2(false, true, true, true, 1.0, false);
     } else {
-        scanlines1();
+        scanlines2(true, true, true, true, 1.0, true);
     }
 }
