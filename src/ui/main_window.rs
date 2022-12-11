@@ -2,6 +2,8 @@
 #![allow(unsafe_code)]
 
 use directories::ProjectDirs;
+use eframe::epaint::FontId;
+use i18n_embed_fl::fl;
 use icy_engine::{AvatarParser, BufferParser};
 use poll_promise::Promise;
 use rfd::FileDialog;
@@ -178,12 +180,13 @@ impl MainWindow {
     }
 
     pub fn println(&mut self, str: &str) -> TerminalResult<()> {
-        for c in str.chars() {
+        for ch in str.chars() {
+            if ch as u32 > 255 {
+                continue;
+            } 
             self.buffer_view
                 .lock()
-                .print_char(&mut self.buffer_parser, unsafe {
-                    char::from_u32_unchecked(c as u32)
-                })?;
+                .print_char(&mut self.buffer_parser, ch)?;
         }
         Ok(())
     }
@@ -357,7 +360,8 @@ impl MainWindow {
         self.buffer_view.lock().redraw_palette();
         self.buffer_view.lock().redraw_view();
         self.buffer_view.lock().clear();
-        self.println(&format!("Connect to {}...", &call_adr.address))
+
+        self.println(&fl!(crate::LANGUAGE_LOADER, "connect-to", address = call_adr.address.clone()))
             .unwrap_or_default();
 
         let timeout = self.options.connect_timeout;
@@ -527,6 +531,19 @@ impl MainWindow {
 
 impl eframe::App for MainWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+
+        use egui::FontFamily::Proportional;
+        use egui::TextStyle::*;
+        let mut style: egui::Style = (*ctx.style()).clone();
+        style.text_styles = [
+            (Heading, FontId::new(26.0, Proportional)),
+            (Body, FontId::new(20.0, Proportional)),
+            (Monospace, FontId::new(20.0, Proportional)),
+            (Button, FontId::new(20.0, Proportional)),
+            (Small, FontId::new(14.0, Proportional)),
+        ].into();
+        ctx.set_style(style);
+        
         self.update_title(frame);
 
         if self.open_connection_promise.is_some() {

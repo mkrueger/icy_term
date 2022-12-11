@@ -3,6 +3,7 @@ use eframe::{
     epaint::FontId,
 };
 use egui_extras::{Column, TableBody, TableBuilder};
+use i18n_embed_fl::fl;
 
 use crate::protocol::ProtocolType;
 
@@ -14,20 +15,20 @@ fn create_button_row(
     protocol: ProtocolType,
     download: bool,
     title: &'static str,
-    descr: &'static str,
+    descr: String,
 ) {
     let text_style = FontId::proportional(22.);
     body.row(30., |mut row| {
         row.col(|ui| {
             if ui
-                .button(RichText::new(title).font(text_style.clone()))
+                .button(RichText::new(title))
                 .clicked()
             {
                 window.initiate_file_transfer(protocol, download);
             }
         });
         row.col(|ui| {
-            ui.label(RichText::new(descr).font(text_style.clone()));
+            ui.label(RichText::new(descr));
         });
     });
 }
@@ -40,11 +41,11 @@ pub fn view_protocol_selector(
 ) {
     let mut open = true;
     let text_style = FontId::proportional(26.);
-    let title = RichText::new(format!(
-        "Select {} protocol",
-        if download { "download" } else { "upload" }
-    ))
-    .font(text_style);
+    let title = RichText::new(if download { 
+        fl!(crate::LANGUAGE_LOADER, "protocol-select-download")
+    } else {  
+        fl!(crate::LANGUAGE_LOADER, "protocol-select-upload")
+    });
 
     egui::Window::new(title)
         .open(&mut open)
@@ -64,7 +65,7 @@ pub fn view_protocol_selector(
                     ProtocolType::ZModem,
                     download,
                     "Zmodem",
-                    "The standard protocol",
+                    fl!(crate::LANGUAGE_LOADER, "protocol-zmodem-description")
                 );
                 create_button_row(
                     window,
@@ -72,7 +73,7 @@ pub fn view_protocol_selector(
                     ProtocolType::ZedZap,
                     download,
                     "ZedZap",
-                    "8k Zmodem",
+                    fl!(crate::LANGUAGE_LOADER, "protocol-zmodem8k-description")
                 );
                 create_button_row(
                     window,
@@ -80,7 +81,7 @@ pub fn view_protocol_selector(
                     ProtocolType::XModem,
                     download,
                     "Xmodem",
-                    "Outdated protocol",
+                    fl!(crate::LANGUAGE_LOADER, "protocol-xmodem-description")
                 );
                 create_button_row(
                     window,
@@ -88,7 +89,7 @@ pub fn view_protocol_selector(
                     ProtocolType::XModem1k,
                     download,
                     "Xmodem 1k",
-                    "Rarely used anymore",
+                    fl!(crate::LANGUAGE_LOADER, "protocol-xmodem1k-description")
                 );
                 create_button_row(
                     window,
@@ -96,7 +97,7 @@ pub fn view_protocol_selector(
                     ProtocolType::XModem1kG,
                     download,
                     "Xmodem 1k-G",
-                    "Does that even exist?",
+                    fl!(crate::LANGUAGE_LOADER, "protocol-xmodem1kG-description")
                 );
                 create_button_row(
                     window,
@@ -104,7 +105,7 @@ pub fn view_protocol_selector(
                     ProtocolType::YModem,
                     download,
                     "Ymodem",
-                    "Ok but Zmodem is better",
+                    fl!(crate::LANGUAGE_LOADER, "protocol-ymodem-description")
                 );
                 create_button_row(
                     window,
@@ -112,7 +113,7 @@ pub fn view_protocol_selector(
                     ProtocolType::YModemG,
                     download,
                     "Ymodem-G",
-                    "A fast Ymodem variant",
+                    fl!(crate::LANGUAGE_LOADER, "protocol-ymodemg-description")
                 );
             });
         });

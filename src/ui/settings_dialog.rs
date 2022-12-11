@@ -2,13 +2,14 @@ use eframe::{
     egui::{self, RichText},
     epaint::FontId,
 };
+use i18n_embed_fl::fl;
 
 use super::main_window::{MainWindow, MainWindowMode, PostProcessing, Scaling};
 
 pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut eframe::Frame) {
     let mut open = true;
     let text_style = FontId::proportional(26.);
-    let title = RichText::new("Settings").font(text_style);
+    let title = RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-heading"));
 
     egui::Window::new(title)
         .open(&mut open)
@@ -18,15 +19,15 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
             let text_style = FontId::proportional(22.);
 
             ui.horizontal(|ui| {
-                ui.label(RichText::new("Scaling").font(text_style.clone()));
+                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-scaling")));
                 egui::ComboBox::from_id_source("settings_combobox_1")
                     .selected_text(
                         RichText::new(format!("{:?}", window.options.scaling))
-                            .font(text_style.clone()),
+                            ,
                     )
                     .show_ui(ui, |ui| {
                         for t in &Scaling::ALL {
-                            let label = RichText::new(format!("{:?}", t)).font(text_style.clone());
+                            let label = RichText::new(format!("{:?}", t));
                             let resp = ui.selectable_value(&mut window.options.scaling, *t, label);
                             if resp.changed() {
                                 window.handle_result(window.options.store_options(), false);
@@ -40,15 +41,15 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
             });
 
             ui.horizontal(|ui| {
-                ui.label(RichText::new("Post processing").font(text_style.clone()));
+                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-post-processing")));
                 egui::ComboBox::from_id_source("settings_combobox_2")
                     .selected_text(
                         RichText::new(format!("{:?}", window.options.post_processing))
-                            .font(text_style.clone()),
+                            ,
                     )
                     .show_ui(ui, |ui| {
                         for t in &PostProcessing::ALL {
-                            let label = RichText::new(format!("{:?}", t)).font(text_style.clone());
+                            let label = RichText::new(format!("{:?}", t));
                             let resp =
                                 ui.selectable_value(&mut window.options.post_processing, *t, label);
                             if resp.changed() {

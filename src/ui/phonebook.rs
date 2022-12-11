@@ -2,6 +2,7 @@ use eframe::{
     egui::{self, RichText, ScrollArea, TextEdit},
     epaint::{Color32, FontId, Vec2},
 };
+use i18n_embed_fl::fl;
 use rand::Rng;
 
 use crate::address::{self, store_phone_book, Address, Terminal};
@@ -20,6 +21,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                         super::CALL_SVG.texture_id(ctx),
                         img_size,
                     ))
+                    .on_hover_ui(|ui| { ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-call")).small()); })
                     .clicked()
                 {
                     window.call_bbs(0);
@@ -28,7 +30,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                 ui.add(
                     TextEdit::singleline(&mut window.addresses[0].address)
                         .desired_width(ui.available_width() - 50.)
-                        .hint_text("Quick connect to…")
+                        .hint_text(fl!(crate::LANGUAGE_LOADER, "phonebook-connect-to"))
                         .font(FontId::proportional(22.)),
                 );
 
@@ -37,6 +39,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                         super::SETTINGS_SVG.texture_id(ctx),
                         img_size,
                     ))
+                    .on_hover_ui(|ui| { ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-settings")).small()); })
                     .clicked()
                 {
                     window.show_settings(true);
@@ -67,6 +70,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                                         )
                                         .frame(false),
                                     )
+                                    .on_hover_ui(|ui| { ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-call")).small()); })
                                     .clicked()
                                 {
                                     window.call_bbs(i + 1);
@@ -74,7 +78,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                                 }
                                 let text_style = FontId::proportional(row_height + 2.);
                                 let mut text =
-                                    RichText::new(addr.system_name.clone()).font(text_style);
+                                    RichText::new(addr.system_name.clone());
                                 if i == window.selected_bbs {
                                     text = text.color(Color32::WHITE);
                                 }
@@ -87,7 +91,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                 );
             } else {
                 let text_style = FontId::proportional(22.);
-                ui.label(RichText::new("No BBSes").font(text_style));
+                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-no_bbs")));
             }
 
             ui.horizontal(|ui| {
@@ -98,6 +102,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                             super::DELETE_SVG.texture_id(ctx),
                             img_size,
                         ))
+                        .on_hover_ui(|ui| { ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-delete")).small()); })
                         .clicked()
                     {
                         window.delete_selected_address();
@@ -107,9 +112,10 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                             super::ADD_SVG.texture_id(ctx),
                             img_size,
                         ))
+                        .on_hover_ui(|ui| { ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-add")).small()); })
                         .clicked()
                     {
-                        window.addresses.push(Address::new("New BBS".to_string()));
+                        window.addresses.push(Address::new(fl!(crate::LANGUAGE_LOADER, "phonebook-new_bbs")));
                         window.selected_bbs = window.addresses.len() - 1;
                     }
                 });
@@ -129,7 +135,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
             }
         } else {
             let text_style = FontId::proportional(22.);
-            ui.label(RichText::new("No selection").font(text_style));
+            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-no_selection")));
         }
     });
 }
@@ -140,45 +146,45 @@ fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address::Address) {
     egui::Grid::new("some_unique_id")
         .spacing(Vec2::new(5., 8.))
         .show(ui, |ui| {
-            ui.label(RichText::new("Name").font(text_style.clone()));
+            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-name")));
             ui.add(
                 TextEdit::singleline(&mut adr.system_name)
                     .desired_width(f32::INFINITY)
-                    .font(text_style.clone()),
+                    ,
             );
             ui.end_row();
 
-            ui.label(RichText::new("Address").font(text_style.clone()));
+            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-address")));
             ui.horizontal(|ui| {
-                ui.add(TextEdit::singleline(&mut adr.address).font(text_style.clone()));
+                ui.add(TextEdit::singleline(&mut adr.address));
 
                 egui::ComboBox::from_id_source("combobox1")
                     .selected_text(
                         RichText::new(format!("{:?}", adr.connection_type))
-                            .font(text_style.clone()),
+                            ,
                     )
                     .show_ui(ui, |ui| {
                         for ct in &address::ConnectionType::ALL {
-                            let label = RichText::new(format!("{:?}", ct)).font(text_style.clone());
+                            let label = RichText::new(format!("{:?}", ct));
                             ui.selectable_value(&mut adr.connection_type, *ct, label);
                         }
                     });
             });
             ui.end_row();
 
-            ui.label(RichText::new("User").font(text_style.clone()));
+            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-user")));
             ui.add(
                 TextEdit::singleline(&mut adr.user_name)
                     .desired_width(f32::INFINITY)
-                    .font(text_style.clone()),
+                    ,
             );
             ui.end_row();
 
-            ui.label(RichText::new("Password").font(text_style.clone()));
+            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-password")));
             ui.horizontal(|ui| {
-                ui.add(TextEdit::singleline(&mut adr.password).font(text_style.clone()));
+                ui.add(TextEdit::singleline(&mut adr.password));
                 if ui
-                    .button(RichText::new("Generate").font(text_style.clone()))
+                    .button(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-generate")))
                     .clicked()
                 {
                     let mut rng = rand::thread_rng();
@@ -193,46 +199,46 @@ fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address::Address) {
             });
             ui.end_row();
 
-            ui.label(RichText::new("Screen Mode").font(text_style.clone()));
+            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-screen_mode")));
             ui.horizontal(|ui| {
                 egui::ComboBox::from_id_source("combobox2")
                     .selected_text(
-                        RichText::new(format!("{:?}", adr.screen_mode)).font(text_style.clone()),
+                        RichText::new(format!("{:?}", adr.screen_mode)),
                     )
                     .show_ui(ui, |ui| {
                         for mode in &DEFAULT_MODES {
                             let label =
-                                RichText::new(format!("{:?}", mode)).font(text_style.clone());
+                                RichText::new(format!("{:?}", mode));
                             ui.selectable_value(&mut adr.screen_mode, Some(*mode), label);
                         }
                     });
-                ui.label(RichText::new("Terminal type").font(text_style.clone()));
+                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-terminal_type")));
                 egui::ComboBox::from_id_source("combobox3")
                     .selected_text(
-                        RichText::new(format!("{:?}", adr.terminal_type)).font(text_style.clone()),
+                        RichText::new(format!("{:?}", adr.terminal_type)),
                     )
                     .show_ui(ui, |ui| {
                         for t in &Terminal::ALL {
-                            let label = RichText::new(format!("{:?}", t)).font(text_style.clone());
+                            let label = RichText::new(format!("{:?}", t));
                             ui.selectable_value(&mut adr.terminal_type, *t, label);
                         }
                     });
             });
             ui.end_row();
 
-            ui.label(RichText::new("Autologin String").font(text_style.clone()));
+            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-autologin")));
             ui.add(
                 TextEdit::singleline(&mut adr.auto_login)
                     .desired_width(f32::INFINITY)
-                    .font(text_style.clone()),
+                    ,
             );
             ui.end_row();
 
-            ui.label(RichText::new("Comment").font(text_style.clone()));
+            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-comment")));
             ui.add(
                 TextEdit::singleline(&mut adr.comment)
                     .desired_width(f32::INFINITY)
-                    .font(text_style.clone()),
+                    ,
             );
             ui.end_row();
         });

@@ -2,9 +2,10 @@ use std::cmp::max;
 
 use clipboard::{ClipboardContext, ClipboardProvider};
 use eframe::{
-    egui::{self, CursorIcon, PointerButton, ScrollArea},
+    egui::{self, CursorIcon, PointerButton, ScrollArea, RichText},
     epaint::{Color32, Rect, Vec2},
 };
+use i18n_embed_fl::fl;
 
 use super::main_window::{MainWindow, MainWindowMode};
 
@@ -25,6 +26,7 @@ impl MainWindow {
                             super::UPLOAD_SVG.texture_id(ctx),
                             img_size,
                         ))
+                        .on_hover_ui(|ui| { ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-upload")).small()); })
                         .clicked()
                     {
                         self.mode = MainWindowMode::SelectProtocol(false);
@@ -34,6 +36,7 @@ impl MainWindow {
                             super::DOWNLOAD_SVG.texture_id(ctx),
                             img_size,
                         ))
+                        .on_hover_ui(|ui| { ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-download")).small()); })
                         .clicked()
                     {
                         self.mode = MainWindowMode::SelectProtocol(true);
@@ -45,6 +48,7 @@ impl MainWindow {
                                 super::KEY_SVG.texture_id(ctx),
                                 img_size,
                             ))
+                            .on_hover_ui(|ui| { ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-autologin")).small()); })
                             .clicked()
                         {
                             self.send_login();
@@ -55,6 +59,7 @@ impl MainWindow {
                             super::CALL_END_SVG.texture_id(ctx),
                             img_size,
                         ))
+                        .on_hover_ui(|ui| { ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-hangup")).small()); })
                         .clicked()
                     {
                         self.hangup();
@@ -65,6 +70,7 @@ impl MainWindow {
                             super::SETTINGS_SVG.texture_id(ctx),
                             img_size,
                         ))
+                        .on_hover_ui(|ui| { ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-settings")).small()); })
                         .clicked()
                     {
                         self.show_settings(false);
