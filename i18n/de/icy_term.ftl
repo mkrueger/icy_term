@@ -30,6 +30,8 @@ terminal-download = Download
 terminal-hangup = Auflegen
 terminal-autologin = Username/Passwort senden
 terminal-settings = { settings-heading  }
+terminal-menu-copy = Kopieren
+terminal-menu-paste = Einfügen
 
 protocol-select-download = Download-Protokoll wählen
 protocol-select-upload = Upload-Protokoll wählen

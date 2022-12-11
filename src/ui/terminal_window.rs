@@ -289,13 +289,13 @@ impl MainWindow {
 
 fn terminal_context_menu(ui: &mut egui::Ui) {
     ui.input_mut().events.clear();
-
-    if ui.button("Copy").clicked() {
+    
+    if ui.button(fl!(crate::LANGUAGE_LOADER, "terminal-menu-copy")).clicked() {
         ui.input_mut().events.push(egui::Event::Copy);
         ui.close_menu();
     }
 
-    if ui.button("Paste").clicked() {
+    if ui.button(fl!(crate::LANGUAGE_LOADER, "terminal-menu-paste")).clicked() {
         let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
         if let Ok(text) = ctx.get_contents() {
             ui.input_mut().events.push(egui::Event::Paste(text));
