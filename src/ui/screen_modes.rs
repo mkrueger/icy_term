@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use icy_engine::{
     AnsiParser, AtasciiParser, AvatarParser, BitFont, PETSCIIParser, Palette, ViewdataParser,
-    ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, VIEWDATA_PALETTE,
+    ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, VIEWDATA_PALETTE, Size,
 };
 use serde_derive::{Deserialize, Serialize};
 
@@ -72,25 +72,23 @@ impl ScreenMode {
         }
     }
 
-    pub fn as_window_size(&self) -> [u16; 2] {
+    pub fn get_window_size(&self) -> Size<u16> {
         match self {
-            ScreenMode::DOS(w, h) => [*w as u16, *h as u16],
-            ScreenMode::C64 => [40, 25],
-            ScreenMode::C128(w) => [*w as u16, 25],
-            ScreenMode::Atari => [40, 24],
-            ScreenMode::AtariXep80 => [80, 25],
-            ScreenMode::VT500 => [80, 25],
-            ScreenMode::Viewdata => [40, 24],
+            ScreenMode::DOS(w, h) => Size::new(*w as u16, *h as u16),
+            ScreenMode::C64 => Size::new(40, 25),
+            ScreenMode::C128(w) => Size::new(*w as u16, 25),
+            ScreenMode::Atari => Size::new(40, 24),
+            ScreenMode::AtariXep80 => Size::new(80, 25),
+            ScreenMode::VT500 => Size::new(80, 25),
+            ScreenMode::Viewdata => Size::new(40, 24),
         }
     }
 
     pub fn set_mode(&self, main_window: &mut MainWindow) {
         let buf = &mut main_window.buffer_view.lock().buf;
+        buf.set_buffer_size(self.get_window_size());
         match self {
             ScreenMode::DOS(w, h) => {
-                buf.set_buffer_width(*w);
-                buf.set_buffer_height(*h);
-
                 buf.font_table.clear();
                 buf.font_table.push(
                     BitFont::from_name(if *h >= 50 { "IBM VGA50" } else { "IBM VGA" }).unwrap(),
@@ -100,8 +98,6 @@ impl ScreenMode {
                 buf.palette = Palette::new();
             }
             ScreenMode::C64 => {
-                buf.set_buffer_width(40);
-                buf.set_buffer_height(25);
                 buf.font_table.clear();
                 buf.font_table
                     .push(BitFont::from_name("C64 PETSCII unshifted").unwrap());
@@ -113,8 +109,6 @@ impl ScreenMode {
                 };
             }
             ScreenMode::C128(col) => {
-                buf.set_buffer_width(*col);
-                buf.set_buffer_height(25);
                 buf.font_table.clear();
                 buf.font_table
                     .push(BitFont::from_name("C64 PETSCII unshifted").unwrap());
@@ -126,8 +120,6 @@ impl ScreenMode {
                 };
             }
             ScreenMode::Atari => {
-                buf.set_buffer_width(40);
-                buf.set_buffer_height(24);
                 buf.font_table.clear();
                 buf.font_table
                     .push(BitFont::from_name("Atari ATASCII").unwrap());
@@ -138,8 +130,6 @@ impl ScreenMode {
                 };
             }
             ScreenMode::AtariXep80 => {
-                buf.set_buffer_width(80);
-                buf.set_buffer_height(25);
                 buf.font_table.clear();
                 buf.font_table
                     .push(BitFont::from_name("Atari ATASCII").unwrap());
@@ -149,16 +139,12 @@ impl ScreenMode {
                 };
             }
             ScreenMode::VT500 => {
-                buf.set_buffer_width(80);
-                buf.set_buffer_height(25);
                 buf.font_table.clear();
                 buf.font_table.push(BitFont::from_name("IBM VGA").unwrap());
                 main_window.buffer_parser = Box::new(AnsiParser::new());
                 buf.palette = Palette::new();
             }
             ScreenMode::Viewdata => {
-                buf.set_buffer_width(40);
-                buf.set_buffer_height(24);
                 buf.font_table.clear();
                 buf.font_table.push(BitFont::from_name("Viewdata").unwrap());
                 main_window.buffer_parser = Box::new(ViewdataParser::new());

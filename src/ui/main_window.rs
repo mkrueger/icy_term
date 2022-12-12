@@ -369,11 +369,11 @@ impl MainWindow {
 
         let timeout = self.options.connect_timeout;
         let ct = call_adr.connection_type;
-        let window_size = self.screen_mode.as_window_size();
+        let window_size = self.screen_mode.get_window_size();
 
         self.open_connection_promise = Some(Promise::spawn_async(async move {
             let mut com: Box<dyn Com> = match ct {
-                crate::address::ConnectionType::Telnet => Box::new(TelnetCom::new(window_size[0], window_size[1])),
+                crate::address::ConnectionType::Telnet => Box::new(TelnetCom::new(window_size)),
                 crate::address::ConnectionType::Raw => Box::new(RawCom::new()),
                 crate::address::ConnectionType::SSH => Box::new(SSHCom::new()),
             };

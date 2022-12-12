@@ -3,6 +3,7 @@ use crate::{address::Address};
 
 use super::{Com, ComResult, ConnectionError};
 use async_trait::async_trait;
+use icy_engine::Size;
 use std::{io::ErrorKind, time::Duration};
 use tokio::{
     io::{self, AsyncReadExt, AsyncWriteExt},
@@ -13,7 +14,7 @@ use tokio::{
 pub struct TelnetCom {
     tcp_stream: Option<TcpStream>,
     state: ParserState,
-    window_size: [u16; 2],  // width, height
+    window_size: Size<u16>,  // width, height
 }
 
 #[derive(Debug)]
@@ -28,6 +29,7 @@ enum ParserState {
 
 pub const IAC: u8 = 0xFF;
 
+#[repr(u8)]
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 enum TelnetCmd {
@@ -297,11 +299,11 @@ impl TelnetOption {
 
 #[allow(dead_code)]
 impl TelnetCom {
-    pub fn new(cols: u16, rows: u16) -> Self {
+    pub fn new(window_size: Size<u16>) -> Self {
         Self {
             tcp_stream: None,
             state: ParserState::Data,
-            window_size: [cols, rows],
+            window_size,
         }
     }
 
@@ -388,9 +390,9 @@ impl TelnetCom {
                             TelnetOption::NegotiateAboutWindowSize => {
                                 // NAWS: send our current window size
                                 let mut buf: Vec<u8> = TelnetCmd::SB.to_bytes_opt(TelnetOption::NegotiateAboutWindowSize).to_vec();
-                                buf.extend(self.window_size[0].to_be_bytes().to_vec().iter().cloned());
-                                buf.extend(self.window_size[1].to_be_bytes().to_vec().iter().cloned());
-                                buf.extend(TelnetCmd::SE.to_bytes().to_vec().iter().cloned());
+                                buf.extend(self.window_size.width.to_be_bytes());
+                                buf.extend(self.window_size.height.to_be_bytes());
+                                buf.push(TelnetCmd::SE as u8);
 
                                 stream.try_write(&buf)?;
                             }
