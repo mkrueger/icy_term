@@ -230,7 +230,6 @@ impl MainWindow {
                                     }
                                 }
                             }
-                            egui::Event::KeyRepeat { key, modifiers }
                             | egui::Event::Key {
                                 key,
                                 pressed: true,

@@ -88,7 +88,7 @@ impl ScreenMode {
         let buf = &mut main_window.buffer_view.lock().buf;
         buf.set_buffer_size(self.get_window_size());
         match self {
-            ScreenMode::DOS(w, h) => {
+            ScreenMode::DOS(_, h) => {
                 buf.font_table.clear();
                 buf.font_table.push(
                     BitFont::from_name(if *h >= 50 { "IBM VGA50" } else { "IBM VGA" }).unwrap(),
@@ -107,8 +107,8 @@ impl ScreenMode {
                 buf.palette = Palette {
                     colors: C64_DEFAULT_PALETTE.to_vec(),
                 };
-            }
-            ScreenMode::C128(col) => {
+            } 
+            ScreenMode::C128(_) => {
                 buf.font_table.clear();
                 buf.font_table
                     .push(BitFont::from_name("C64 PETSCII unshifted").unwrap());
