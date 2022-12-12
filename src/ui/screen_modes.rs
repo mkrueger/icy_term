@@ -72,6 +72,18 @@ impl ScreenMode {
         }
     }
 
+    pub fn as_window_size(&self) -> [u16; 2] {
+        match self {
+            ScreenMode::DOS(w, h) => [*w as u16, *h as u16],
+            ScreenMode::C64 => [40, 25],
+            ScreenMode::C128(w) => [*w as u16, 25],
+            ScreenMode::Atari => [40, 24],
+            ScreenMode::AtariXep80 => [80, 25],
+            ScreenMode::VT500 => [80, 25],
+            ScreenMode::Viewdata => [40, 24],
+        }
+    }
+
     pub fn set_mode(&self, main_window: &mut MainWindow) {
         let buf = &mut main_window.buffer_view.lock().buf;
         match self {
