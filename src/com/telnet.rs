@@ -13,6 +13,7 @@ use tokio::{
 pub struct TelnetCom {
     tcp_stream: Option<TcpStream>,
     state: ParserState,
+    window_size: [u16; 2],  // width, height
 }
 
 #[derive(Debug)]
@@ -296,10 +297,11 @@ impl TelnetOption {
 
 #[allow(dead_code)]
 impl TelnetCom {
-    pub fn new() -> Self {
+    pub fn new(cols: u16, rows: u16) -> Self {
         Self {
             tcp_stream: None,
             state: ParserState::Data,
+            window_size: [cols, rows],
         }
     }
 
@@ -382,6 +384,15 @@ impl TelnetCom {
                                 stream.try_write(
                                     &TelnetCmd::WILL.to_bytes_opt(TelnetOption::TransmitBinary),
                                 )?;
+                            },
+                            TelnetOption::NegotiateAboutWindowSize => {
+                                // NAWS: send our current window size
+                                let mut buf: Vec<u8> = TelnetCmd::SB.to_bytes_opt(TelnetOption::NegotiateAboutWindowSize).to_vec();
+                                buf.extend(self.window_size[0].to_be_bytes().to_vec().iter().cloned());
+                                buf.extend(self.window_size[1].to_be_bytes().to_vec().iter().cloned());
+                                buf.extend(TelnetCmd::SE.to_bytes().to_vec().iter().cloned());
+
+                                stream.try_write(&buf)?;
                             }
                             _ => {
                                 eprintln!("unsupported do option {:?}", opt);
