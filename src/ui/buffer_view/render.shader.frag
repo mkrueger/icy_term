@@ -5,6 +5,9 @@ uniform sampler2D u_render_texture;
 uniform vec2      u_resolution;
 uniform vec2      u_position;
 uniform float     u_effect;
+uniform vec4      u_draw_rect;
+uniform vec4      u_draw_area;
+uniform vec2      u_size;
 
 out vec3 color;
 
@@ -73,7 +76,7 @@ vec3 toSrgb(vec3 c) {
 // Also zero's off screen.
 vec4 fetch(vec2 pos, vec2 off)
 {
-	pos = floor(pos * u_resolution + off) / u_resolution;
+	pos = floor(pos * u_size + off) / u_size;
 	if (max(abs(pos.x - 0.5), abs(pos.y - 0.5)) > 0.5)
 		return vec4(vec3(0.0), 0.0);
    	
@@ -93,7 +96,7 @@ vec4 fetch(vec2 pos, vec2 off)
 
 // Distance in emulated pixels to nearest texel.
 vec2 dist(vec2 pos) {
-	pos = pos * u_resolution;
+	pos = pos * u_size;
 	return -((pos - floor(pos)) - vec2(0.5));
 }
 
@@ -185,12 +188,11 @@ float rand(vec2 co) {
 	return fract(sin(dot(co.xy , vec2(12.9898, 78.233))) * 43758.5453);
 }
 
-void scanlines1(bool curved)
+void scanlines1(vec2 coord, bool curved)
 {
-    vec2 fragCoord = (gl_FragCoord.xy - u_position);
-    vec2 pos = curved ? warp(fragCoord / u_resolution) : fragCoord / u_resolution;
+    vec2 pos = curved ? warp(coord) : coord;
     vec4 unmodifiedColor = fetch(pos, vec2(0));
-    color.rgb = tri(pos) * mask(fragCoord.xy);
+    color.rgb = tri(pos) * mask(gl_FragCoord.xy - u_position);
 	color = toSrgb(color.rgb);
 }
 // Effect 2
@@ -220,35 +222,35 @@ vec3 postEffects(in vec3 rgb, in vec2 xy) {
 
 // Sigma 1. Size 3
 vec3 gaussian(in vec2 uv) {
-    float b = blur / (u_resolution.x / u_resolution.y);
+    float b = blur / (u_size.x / u_size.y);
 
     uv+= .5;
 
-    vec3 col = texture(u_render_texture, vec2(uv.x - b/u_resolution.x, uv.y - b/u_resolution.y) ).rgb * 0.077847;
-    col += texture(u_render_texture, vec2(uv.x - b/u_resolution.x, uv.y) ).rgb * 0.123317;
-    col += texture(u_render_texture, vec2(uv.x - b/u_resolution.x, uv.y + b/u_resolution.y) ).rgb * 0.077847;
+    vec3 col = texture(u_render_texture, vec2(uv.x - b/u_size.x, uv.y - b/u_size.y) ).rgb * 0.077847;
+    col += texture(u_render_texture, vec2(uv.x - b/u_size.x, uv.y) ).rgb * 0.123317;
+    col += texture(u_render_texture, vec2(uv.x - b/u_size.x, uv.y + b/u_size.y) ).rgb * 0.077847;
 
-    col += texture(u_render_texture, vec2(uv.x, uv.y - b/u_resolution.y) ).rgb * 0.123317;
+    col += texture(u_render_texture, vec2(uv.x, uv.y - b/u_size.y) ).rgb * 0.123317;
     col += texture(u_render_texture, vec2(uv.x, uv.y) ).rgb * 0.195346;
-    col += texture(u_render_texture, vec2(uv.x, uv.y + b/u_resolution.y) ).rgb * 0.123317;
+    col += texture(u_render_texture, vec2(uv.x, uv.y + b/u_size.y) ).rgb * 0.123317;
 
-    col += texture(u_render_texture, vec2(uv.x + b/u_resolution.x, uv.y - b/u_resolution.y) ).rgb * 0.077847;
-    col += texture(u_render_texture, vec2(uv.x + b/u_resolution.x, uv.y) ).rgb * 0.123317;
-    col += texture(u_render_texture, vec2(uv.x + b/u_resolution.x, uv.y + b/u_resolution.y) ).rgb * 0.077847;
+    col += texture(u_render_texture, vec2(uv.x + b/u_size.x, uv.y - b/u_size.y) ).rgb * 0.077847;
+    col += texture(u_render_texture, vec2(uv.x + b/u_size.x, uv.y) ).rgb * 0.123317;
+    col += texture(u_render_texture, vec2(uv.x + b/u_size.x, uv.y + b/u_size.y) ).rgb * 0.077847;
 
     return col;
 }
 
-void scanlines2(bool curvature, bool blured, bool curved_scanlines, bool scanlines, float light, bool color_correction)
+void scanlines2(vec2 coord, bool curvature, bool blured, bool curved_scanlines, bool scanlines, float light, bool color_correction)
 {
-	vec2 st = ((gl_FragCoord.xy - u_position) / u_resolution.xy) - vec2(.5);
+	vec2 st = coord - vec2(.5);
     // Curvature/light
     float d = length(st*.5 * st*.5);
     vec2 uv = curvature ? st*d + st*.935 : st;
 
     // Fudge aspect ratio
 #ifdef ASPECT_RATIO
-    uv.x *= u_resolution.x/u_resolution.y*.75;
+    uv.x *= u_size.x/u_size.y*.75;
 #endif
     
     // CRT color blur
@@ -264,13 +266,13 @@ void scanlines2(bool curvature, bool blured, bool curved_scanlines, bool scanlin
     float y = curved_scanlines ? uv.y : st.y;
 
     float showScanlines = 1.;
-    if (u_resolution.y<360.) showScanlines = 0.;
+    if (u_size.y<360.) showScanlines = 0.;
     
 	if (scanlines) {
-		float s = 1. - smoothstep(320., 1440., u_resolution.y) + 1.;
-		float j = cos(y*u_resolution.y*s)*.1; // values between .01 to .25 are ok.
+		float s = 1. - smoothstep(320., 1440., u_size.y) + 1.;
+		float j = cos(y*u_size.y*s)*.1; // values between .01 to .25 are ok.
 		col = abs(showScanlines-1.)*col + showScanlines*(col - col*j);
-		col *= 1. - ( .01 + ceil(mod( (st.x+.5)*u_resolution.x, 3.) ) * (.995-1.01) )*showScanlines;
+		col *= 1. - ( .01 + ceil(mod( (st.x+.5)*u_size.x, 3.) ) * (.995-1.01) )*showScanlines;
 	}
     // Border mask
 	if (curvature) {
@@ -284,16 +286,25 @@ void scanlines2(bool curvature, bool blured, bool curved_scanlines, bool scanlin
 }
 
 void main() {
-    if (u_effect < 1.0) { 
-        vec2 uv = (gl_FragCoord.xy - u_position) / u_resolution;
-        color = texture(u_render_texture, uv).xyz;
-    } else if (u_effect < 2.0) { 
-        scanlines1(false);
-    }  else if (u_effect < 3.0) { 
-        scanlines1(true);
-    } else if (u_effect < 4.0) { 
-        scanlines2(false, true, true, true, 1.0, false);
-    } else {
-        scanlines2(true, true, true, true, 1.0, true);
-    }
-}
+	vec2 uv   = (gl_FragCoord.xy - u_draw_rect.xy) / u_draw_rect.zw;
+	vec2 from = u_draw_area.xy / u_draw_rect.zw;
+	vec2 to   = u_draw_area.zw / u_draw_rect.zw;
+
+	if (from.x <= uv.x && uv.x < to.x && 
+		from.y <= uv.y && uv.y < to.y) {
+
+		if (u_effect < 1.0) { 
+			color = texture(u_render_texture, (uv - from) / (to - from)).xyz;
+		} else if (u_effect < 2.0) { 
+			scanlines1((uv - from) / (to - from), false);
+		}  else if (u_effect < 3.0) { 
+			scanlines1((uv - from) / (to - from), true);
+		} else if (u_effect < 4.0) { 
+			scanlines2((uv - from) / (to - from), false, false, true, true, 1.0, false);
+		} else {
+			scanlines2((uv - from) / (to - from), true, false, true, true, 1.0, true);
+		}
+	} else {
+		color = vec3(0.25, 0.27, 0.29);
+	}
+}    

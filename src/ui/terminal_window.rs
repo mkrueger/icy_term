@@ -13,8 +13,8 @@ impl MainWindow {
     pub fn update_terminal_window(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let button_frame = egui::containers::Frame::none()
             .fill(Color32::from_rgb(0x20, 0x22, 0x25))
-            .inner_margin(egui::style::Margin::same(8.0));
-        let top_margin_height = 42.;
+            .inner_margin(egui::style::Margin::same(6.0));
+        let top_margin_height = 38.;
         egui::TopBottomPanel::top("button_bar")
             .frame(button_frame)
             .show(ctx, |ui| {
@@ -87,44 +87,46 @@ impl MainWindow {
     }
 
     fn custom_painting(&mut self, ui: &mut egui::Ui, top_margin_height: f32) -> egui::Response {
-        let size = ui.available_size();
-        let buffer_view = self.buffer_view.clone();
-        let buf_w = buffer_view.lock().buf.get_buffer_width();
-        let buf_h = buffer_view.lock().buf.get_buffer_height();
-        // let h = max(buf_h, buffer_view.lock().buf.get_real_buffer_height());
-
-        let font_dimensions = buffer_view.lock().buf.get_font_dimensions();
-
-        let mut scale_x = (size.x - 4.0) / font_dimensions.width as f32 / buf_w as f32;
-        let mut scale_y = size.y / font_dimensions.height as f32 / buf_h as f32;
-
-        if scale_x < scale_y {
-            scale_y = scale_x;
-        } else {
-            scale_x = scale_y;
-        }
-
-        let char_size = Vec2::new(
-            font_dimensions.width as f32 * scale_x,
-            font_dimensions.height as f32 * scale_y,
-        );
-
-        let rect_w = buf_w as f32 * char_size.x;
-        let rect_h = buf_h as f32 * char_size.y;
 
         let output = ScrollArea::vertical()
             .auto_shrink([false; 2])
             .stick_to_bottom(true)
             .show_viewport(ui, |ui, viewport| {
-                let (draw_area, mut response) = ui.allocate_at_least(size, egui::Sense::click());
+                let (id, rect) = ui.allocate_space(Vec2::new(ui.available_size().x, ui.available_size().y + 3.));
+                let mut response = ui.interact(rect, id, egui::Sense::click());
 
-                let rect = Rect::from_min_size(
-                    draw_area.left_top()
+                let size = rect.size();
+                let buffer_view = self.buffer_view.clone();
+                let buf_w = buffer_view.lock().buf.get_buffer_width();
+                let buf_h = buffer_view.lock().buf.get_buffer_height();
+                // let h = max(buf_h, buffer_view.lock().buf.get_real_buffer_height());
+        
+                let font_dimensions = buffer_view.lock().buf.get_font_dimensions();
+        
+                let mut scale_x = size.x / font_dimensions.width as f32 / buf_w as f32;
+                let mut scale_y = size.y / font_dimensions.height as f32 / buf_h as f32;
+        
+                if scale_x < scale_y {
+                    scale_y = scale_x;
+                } else {
+                    scale_x = scale_y;
+                }
+        
+                let char_size = Vec2::new(
+                    font_dimensions.width as f32 * scale_x,
+                    font_dimensions.height as f32 * scale_y,
+                );
+        
+                let rect_w = buf_w as f32 * char_size.x;
+                let rect_h = buf_h as f32 * char_size.y;
+
+                let terminal_rect = Rect::from_min_size(
+                    rect.left_top()
                         + Vec2::new(
-                            (-4.0 + draw_area.width() - rect_w) / 2.,
+                            3. + (rect.width() - rect_w) / 2.,
                             (-top_margin_height
                                 + viewport.top()
-                                + (draw_area.height() - rect_h) / 2.)
+                                + (rect.height() - rect_h) / 2.)
                                 .floor(),
                         )
                         .ceil(),
@@ -136,7 +138,6 @@ impl MainWindow {
 
                 let first_line = (viewport.top() / char_size.y) as i32;
                 let scroll_back_line = max(0, max_lines - first_line);
-
                 if scroll_back_line != buffer_view.lock().scroll_back_line {
                     buffer_view.lock().scroll_back_line = scroll_back_line;
                     buffer_view.lock().redraw_view();
@@ -144,9 +145,9 @@ impl MainWindow {
                 let callback = egui::PaintCallback {
                     rect,
                     callback: std::sync::Arc::new(egui_glow::CallbackFn::new(
-                        move |_info, painter| {
+                        move |info, painter| {
                             buffer_view.lock().update_buffer(painter.gl());
-                            buffer_view.lock().paint(painter.gl(), rect);
+                            buffer_view.lock().paint(painter.gl(), info, terminal_rect);
                         },
                     )),
                 };
@@ -186,10 +187,10 @@ impl MainWindow {
                                 pressed: true,
                                 modifiers,
                             } => {
-                                if rect.contains(*pos) {
+                                if terminal_rect.contains(*pos) {
                                     let buffer_view = self.buffer_view.clone();
                                     let click_pos =
-                                        (*pos - rect.min - Vec2::new(0., top_margin_height))
+                                        (*pos - terminal_rect.min - Vec2::new(0., top_margin_height))
                                             / char_size
                                             + Vec2::new(0.0, first_line as f32);
                                     buffer_view.lock().selection_opt =
@@ -221,7 +222,7 @@ impl MainWindow {
                                 if let Some(sel) = &mut l.selection_opt {
                                     if !sel.locked {
                                         let click_pos =
-                                            (*pos - rect.min - Vec2::new(0., top_margin_height))
+                                            (*pos - terminal_rect.min - Vec2::new(0., top_margin_height))
                                                 / char_size
                                                 + Vec2::new(0.0, first_line as f32);
                                         sel.set_lead(click_pos);
@@ -269,7 +270,7 @@ impl MainWindow {
                     if response.hovered() {
                         let hover_pos_opt = ui.input().pointer.hover_pos();
                         if let Some(hover_pos) = hover_pos_opt {
-                            if rect.contains(hover_pos) {
+                            if terminal_rect.contains(hover_pos) {
                                 ui.output().cursor_icon = CursorIcon::Text;
                             }
                         }

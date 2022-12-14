@@ -41,8 +41,9 @@ static LANGUAGE_LOADER: Lazy<FluentLanguageLoader> = Lazy::new(|| {
 async fn main() {
 
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(1280., 841.)),
-        multisampling: 0,
+        initial_window_size: Some(egui::vec2(1284. + 8., 839.)),
+        multisampling: 0, 
+
         renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
