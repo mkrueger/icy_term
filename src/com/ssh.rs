@@ -14,7 +14,10 @@ pub struct SSHCom {
 
 impl SSHCom {
     pub fn new() -> Self {
-        Self  { session: None, cur_data: None }
+        Self {
+            session: None,
+            cur_data: None,
+        }
     }
 }
 
@@ -47,7 +50,7 @@ impl Com for SSHCom {
         unsafe {
             match tcp_stream.as_mut().unwrap().read() {
                 Ok(data) => Ok(data),
-                Err(err) => Err(Box::new(err))
+                Err(err) => Err(Box::new(err)),
             }
         }
     }
@@ -89,8 +92,8 @@ impl Com for SSHCom {
     async fn send<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize> {
         unsafe {
             match tcp_stream.as_mut().unwrap().write(buf) {
-                Ok(_) =>Ok(buf.len()),
-                Err(err) => Err(Box::new(err))
+                Ok(_) => Ok(buf.len()),
+                Err(err) => Err(Box::new(err)),
             }
         }
     }
