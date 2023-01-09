@@ -1,6 +1,4 @@
-use eframe::{
-    egui::{self, RichText},
-};
+use eframe::egui::{self, RichText};
 use i18n_embed_fl::fl;
 
 use super::main_window::{MainWindow, MainWindowMode, PostProcessing, Scaling};
@@ -15,12 +13,12 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
         .resizable(false)
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-scaling")));
+                ui.label(RichText::new(fl!(
+                    crate::LANGUAGE_LOADER,
+                    "settings-scaling"
+                )));
                 egui::ComboBox::from_id_source("settings_combobox_1")
-                    .selected_text(
-                        RichText::new(format!("{:?}", window.options.scaling))
-                            ,
-                    )
+                    .selected_text(RichText::new(format!("{:?}", window.options.scaling)))
                     .show_ui(ui, |ui| {
                         for t in &Scaling::ALL {
                             let label = RichText::new(format!("{:?}", t));
@@ -37,12 +35,15 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
             });
 
             ui.horizontal(|ui| {
-                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-post-processing")));
+                ui.label(RichText::new(fl!(
+                    crate::LANGUAGE_LOADER,
+                    "settings-post-processing"
+                )));
                 egui::ComboBox::from_id_source("settings_combobox_2")
-                    .selected_text(
-                        RichText::new(format!("{:?}", window.options.post_processing))
-                            ,
-                    )
+                    .selected_text(RichText::new(format!(
+                        "{:?}",
+                        window.options.post_processing
+                    )))
                     .show_ui(ui, |ui| {
                         for t in &PostProcessing::ALL {
                             let label = RichText::new(format!("{:?}", t));
@@ -68,7 +69,7 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
                 } else {
                     window.mode = MainWindowMode::ShowTerminal;
                 }
-            },
+            }
             _ => {}
         }
     }

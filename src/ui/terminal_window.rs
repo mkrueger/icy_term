@@ -2,7 +2,7 @@ use std::cmp::max;
 
 use clipboard::{ClipboardContext, ClipboardProvider};
 use eframe::{
-    egui::{self, CursorIcon, PointerButton, ScrollArea, RichText},
+    egui::{self, CursorIcon, PointerButton, RichText, ScrollArea},
     epaint::{Color32, Rect, Vec2},
 };
 use i18n_embed_fl::fl;
@@ -26,7 +26,12 @@ impl MainWindow {
                             super::UPLOAD_SVG.texture_id(ctx),
                             img_size,
                         ))
-                        .on_hover_ui(|ui| { ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-upload")).small()); })
+                        .on_hover_ui(|ui| {
+                            ui.label(
+                                RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-upload"))
+                                    .small(),
+                            );
+                        })
                         .clicked()
                     {
                         self.mode = MainWindowMode::SelectProtocol(false);
@@ -36,7 +41,12 @@ impl MainWindow {
                             super::DOWNLOAD_SVG.texture_id(ctx),
                             img_size,
                         ))
-                        .on_hover_ui(|ui| { ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-download")).small()); })
+                        .on_hover_ui(|ui| {
+                            ui.label(
+                                RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-download"))
+                                    .small(),
+                            );
+                        })
                         .clicked()
                     {
                         self.mode = MainWindowMode::SelectProtocol(true);
@@ -48,7 +58,15 @@ impl MainWindow {
                                 super::KEY_SVG.texture_id(ctx),
                                 img_size,
                             ))
-                            .on_hover_ui(|ui| { ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-autologin")).small()); })
+                            .on_hover_ui(|ui| {
+                                ui.label(
+                                    RichText::new(fl!(
+                                        crate::LANGUAGE_LOADER,
+                                        "terminal-autologin"
+                                    ))
+                                    .small(),
+                                );
+                            })
                             .clicked()
                         {
                             self.send_login();
@@ -56,24 +74,36 @@ impl MainWindow {
                     }
                     if ui
                         .add(egui::ImageButton::new(
-                            super::CALL_END_SVG.texture_id(ctx),
-                            img_size,
-                        ))
-                        .on_hover_ui(|ui| { ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-hangup")).small()); })
-                        .clicked()
-                    {
-                        self.hangup();
-                    }
-
-                    if ui
-                        .add(egui::ImageButton::new(
                             super::SETTINGS_SVG.texture_id(ctx),
                             img_size,
                         ))
-                        .on_hover_ui(|ui| { ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-settings")).small()); })
+                        .on_hover_ui(|ui| {
+                            ui.label(
+                                RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-settings"))
+                                    .small(),
+                            );
+                        })
                         .clicked()
                     {
                         self.show_settings(false);
+                    }
+                    let size = ui.available_size_before_wrap();
+                    ui.add_space(size.x - 30.0);
+
+                    if ui
+                        .add(egui::ImageButton::new(
+                            super::CALL_END_SVG.texture_id(ctx),
+                            img_size,
+                        ))
+                        .on_hover_ui(|ui| {
+                            ui.label(
+                                RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-hangup"))
+                                    .small(),
+                            );
+                        })
+                        .clicked()
+                    {
+                        self.hangup();
                     }
                 });
             });
@@ -87,12 +117,12 @@ impl MainWindow {
     }
 
     fn custom_painting(&mut self, ui: &mut egui::Ui, top_margin_height: f32) -> egui::Response {
-
         let output = ScrollArea::vertical()
             .auto_shrink([false; 2])
             .stick_to_bottom(true)
             .show_viewport(ui, |ui, viewport| {
-                let (id, rect) = ui.allocate_space(Vec2::new(ui.available_size().x, ui.available_size().y + 3.));
+                let (id, rect) =
+                    ui.allocate_space(Vec2::new(ui.available_size().x, ui.available_size().y + 3.));
                 let mut response = ui.interact(rect, id, egui::Sense::click());
 
                 let size = rect.size();
@@ -100,23 +130,23 @@ impl MainWindow {
                 let buf_w = buffer_view.lock().buf.get_buffer_width();
                 let buf_h = buffer_view.lock().buf.get_buffer_height();
                 // let h = max(buf_h, buffer_view.lock().buf.get_real_buffer_height());
-        
+
                 let font_dimensions = buffer_view.lock().buf.get_font_dimensions();
-        
+
                 let mut scale_x = size.x / font_dimensions.width as f32 / buf_w as f32;
                 let mut scale_y = size.y / font_dimensions.height as f32 / buf_h as f32;
-        
+
                 if scale_x < scale_y {
                     scale_y = scale_x;
                 } else {
                     scale_x = scale_y;
                 }
-        
+
                 let char_size = Vec2::new(
                     font_dimensions.width as f32 * scale_x,
                     font_dimensions.height as f32 * scale_y,
                 );
-        
+
                 let rect_w = buf_w as f32 * char_size.x;
                 let rect_h = buf_h as f32 * char_size.y;
 
@@ -124,9 +154,7 @@ impl MainWindow {
                     rect.left_top()
                         + Vec2::new(
                             3. + (rect.width() - rect_w) / 2.,
-                            (-top_margin_height
-                                + viewport.top()
-                                + (rect.height() - rect_h) / 2.)
+                            (-top_margin_height + viewport.top() + (rect.height() - rect_h) / 2.)
                                 .floor(),
                         )
                         .ceil(),
@@ -189,10 +217,11 @@ impl MainWindow {
                             } => {
                                 if terminal_rect.contains(*pos) {
                                     let buffer_view = self.buffer_view.clone();
-                                    let click_pos =
-                                        (*pos - terminal_rect.min - Vec2::new(0., top_margin_height))
-                                            / char_size
-                                            + Vec2::new(0.0, first_line as f32);
+                                    let click_pos = (*pos
+                                        - terminal_rect.min
+                                        - Vec2::new(0., top_margin_height))
+                                        / char_size
+                                        + Vec2::new(0.0, first_line as f32);
                                     buffer_view.lock().selection_opt =
                                         Some(crate::ui::Selection::new(click_pos));
                                     buffer_view
@@ -221,17 +250,18 @@ impl MainWindow {
                                 let mut l = buffer_view.lock();
                                 if let Some(sel) = &mut l.selection_opt {
                                     if !sel.locked {
-                                        let click_pos =
-                                            (*pos - terminal_rect.min - Vec2::new(0., top_margin_height))
-                                                / char_size
-                                                + Vec2::new(0.0, first_line as f32);
+                                        let click_pos = (*pos
+                                            - terminal_rect.min
+                                            - Vec2::new(0., top_margin_height))
+                                            / char_size
+                                            + Vec2::new(0.0, first_line as f32);
                                         sel.set_lead(click_pos);
                                         sel.block_selection = ui.input().modifiers.alt;
                                         l.redraw_view();
                                     }
                                 }
                             }
-                            | egui::Event::Key {
+                            egui::Event::Key {
                                 key,
                                 pressed: true,
                                 modifiers,
@@ -289,13 +319,19 @@ impl MainWindow {
 
 fn terminal_context_menu(ui: &mut egui::Ui) {
     ui.input_mut().events.clear();
-    
-    if ui.button(fl!(crate::LANGUAGE_LOADER, "terminal-menu-copy")).clicked() {
+
+    if ui
+        .button(fl!(crate::LANGUAGE_LOADER, "terminal-menu-copy"))
+        .clicked()
+    {
         ui.input_mut().events.push(egui::Event::Copy);
         ui.close_menu();
     }
 
-    if ui.button(fl!(crate::LANGUAGE_LOADER, "terminal-menu-paste")).clicked() {
+    if ui
+        .button(fl!(crate::LANGUAGE_LOADER, "terminal-menu-paste"))
+        .clicked()
+    {
         let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
         if let Ok(text) = ctx.get_contents() {
             ui.input_mut().events.push(egui::Event::Paste(text));

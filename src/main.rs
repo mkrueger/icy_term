@@ -6,9 +6,10 @@ use eframe::egui;
 use lazy_static::*;
 use ui::*;
 pub type TerminalResult<T> = Result<T, Box<dyn Error>>;
-use i18n_embed::{DesktopLanguageRequester, fluent::{
-    FluentLanguageLoader, fluent_language_loader
-}};
+use i18n_embed::{
+    fluent::{fluent_language_loader, FluentLanguageLoader},
+    DesktopLanguageRequester,
+};
 use rust_embed::RustEmbed;
 
 mod address;
@@ -31,7 +32,7 @@ struct Localizations;
 
 use once_cell::sync::Lazy;
 static LANGUAGE_LOADER: Lazy<FluentLanguageLoader> = Lazy::new(|| {
-    let loader  = fluent_language_loader!();
+    let loader = fluent_language_loader!();
     let requested_languages = DesktopLanguageRequester::requested_languages();
     let _result = i18n_embed::select(&loader, &Localizations, &requested_languages);
     loader
@@ -39,10 +40,9 @@ static LANGUAGE_LOADER: Lazy<FluentLanguageLoader> = Lazy::new(|| {
 
 #[tokio::main]
 async fn main() {
-
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1284. + 8., 839.)),
-        multisampling: 0, 
+        multisampling: 0,
 
         renderer: eframe::Renderer::Glow,
         ..Default::default()

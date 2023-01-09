@@ -1,5 +1,5 @@
 #[allow(dead_code)]
-use crate::{address::Address};
+use crate::address::Address;
 
 use super::{Com, ComResult, ConnectionError};
 use async_trait::async_trait;
@@ -14,7 +14,7 @@ use tokio::{
 pub struct TelnetCom {
     tcp_stream: Option<TcpStream>,
     state: ParserState,
-    window_size: Size<u16>,  // width, height
+    window_size: Size<u16>, // width, height
 }
 
 #[derive(Debug)]
@@ -359,9 +359,11 @@ impl TelnetCom {
                     self.state = ParserState::Data;
                     let opt = TelnetOption::get(*b)?;
                     if let Some(stream) = self.tcp_stream.as_mut() {
-                        match opt { 
+                        match opt {
                             TelnetOption::TransmitBinary => {
-                                stream.try_write(&TelnetCmd::DO.to_bytes_opt(TelnetOption::TransmitBinary))?;
+                                stream.try_write(
+                                    &TelnetCmd::DO.to_bytes_opt(TelnetOption::TransmitBinary),
+                                )?;
                             }
                             _ => {
                                 eprintln!("unsupported will option {:?}", opt);
@@ -381,15 +383,17 @@ impl TelnetCom {
                     self.state = ParserState::Data;
                     let opt = TelnetOption::get(*b)?;
                     if let Some(stream) = self.tcp_stream.as_mut() {
-                        match opt { 
+                        match opt {
                             TelnetOption::TransmitBinary => {
                                 stream.try_write(
                                     &TelnetCmd::WILL.to_bytes_opt(TelnetOption::TransmitBinary),
                                 )?;
-                            },
+                            }
                             TelnetOption::NegotiateAboutWindowSize => {
                                 // NAWS: send our current window size
-                                let mut buf: Vec<u8> = TelnetCmd::SB.to_bytes_opt(TelnetOption::NegotiateAboutWindowSize).to_vec();
+                                let mut buf: Vec<u8> = TelnetCmd::SB
+                                    .to_bytes_opt(TelnetOption::NegotiateAboutWindowSize)
+                                    .to_vec();
                                 buf.extend(self.window_size.width.to_be_bytes());
                                 buf.extend(self.window_size.height.to_be_bytes());
                                 buf.push(TelnetCmd::SE as u8);
@@ -445,9 +449,9 @@ impl Com for TelnetCom {
         if let Some(stream) = self.tcp_stream.as_mut() {
             match stream.read(&mut buf).await {
                 Ok(bytes) => {
-//                    println!("read {} bytes: {:?}", bytes, &buf[0..bytes]);
+                    //                    println!("read {} bytes: {:?}", bytes, &buf[0..bytes]);
                     self.parse(&buf[0..bytes])
-                },
+                }
                 Err(error) => Err(Box::new(error)),
             }
         } else {
@@ -495,7 +499,6 @@ impl Com for TelnetCom {
         } else {
             return Err(Box::new(ConnectionError::ConnectionLost));
         }
-
     }
 
     fn disconnect(&mut self) -> ComResult<()> {

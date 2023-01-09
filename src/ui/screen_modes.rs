@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
 use icy_engine::{
-    AnsiParser, AtasciiParser, AvatarParser, BitFont, PETSCIIParser, Palette, ViewdataParser,
-    ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, VIEWDATA_PALETTE, Size,
+    AnsiParser, AtasciiParser, AvatarParser, BitFont, PETSCIIParser, Palette, Size, ViewdataParser,
+    ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, VIEWDATA_PALETTE,
 };
 use serde_derive::{Deserialize, Serialize};
 
@@ -107,7 +107,7 @@ impl ScreenMode {
                 buf.palette = Palette {
                     colors: C64_DEFAULT_PALETTE.to_vec(),
                 };
-            } 
+            }
             ScreenMode::C128(_) => {
                 buf.font_table.clear();
                 buf.font_table

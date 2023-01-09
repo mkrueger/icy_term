@@ -45,7 +45,11 @@ impl Display for ConnectionType {
 }
 
 impl ConnectionType {
-    pub const ALL: [ConnectionType; 2] = [ConnectionType::Telnet, ConnectionType::Raw];
+    pub const ALL: [ConnectionType; 3] = [
+        ConnectionType::Telnet,
+        ConnectionType::Raw,
+        ConnectionType::SSH,
+    ];
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

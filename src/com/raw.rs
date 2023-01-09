@@ -1,4 +1,4 @@
-use crate::{address::Address};
+use crate::address::Address;
 
 use super::{Com, ComResult};
 #[allow(dead_code)]

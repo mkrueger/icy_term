@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 use eframe::egui::{self, ProgressBar, RichText};
-use eframe::epaint::{Color32};
+use eframe::epaint::Color32;
 use egui_extras::{Column, TableBuilder};
 use gabi::BytesConfig;
 use i18n_embed_fl::fl;
@@ -17,8 +17,11 @@ pub fn view_file_transfer(
     download: bool,
 ) -> bool {
     let mut open = true;
-    let title = RichText::new(if download { fl!(crate::LANGUAGE_LOADER, "transfer-download") } else { fl!(crate::LANGUAGE_LOADER, "transfer-upload") });
-    
+    let title = RichText::new(if download {
+        fl!(crate::LANGUAGE_LOADER, "transfer-download")
+    } else {
+        fl!(crate::LANGUAGE_LOADER, "transfer-upload")
+    });
 
     egui::Window::new(title)
         .open(&mut open)
@@ -77,63 +80,59 @@ pub fn view_file_transfer(
             table.body(|mut body| {
                 body.row(row_height, |mut row| {
                     row.col(|ui| {
-                        ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-protocol")));
-                        ui.label(
-                            RichText::new(state.protocol_name.clone())
-                                
-                                .color(Color32::WHITE),
-                        );
+                        ui.label(RichText::new(fl!(
+                            crate::LANGUAGE_LOADER,
+                            "transfer-protocol"
+                        )));
+                        ui.label(RichText::new(state.protocol_name.clone()).color(Color32::WHITE));
                     });
 
                     row.col(|ui| {
-                        ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-total-errors")));
+                        ui.label(RichText::new(fl!(
+                            crate::LANGUAGE_LOADER,
+                            "transfer-total-errors"
+                        )));
                         ui.label(
-                            RichText::new(transfer_info.errors.to_string())
-                            
-                                .color(Color32::WHITE),
+                            RichText::new(transfer_info.errors.to_string()).color(Color32::WHITE),
                         );
                     });
                 });
 
                 body.row(row_height, |mut row| {
                     row.col(|ui| {
-                        ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-checksize")));
-                        ui.label(
-                            RichText::new(check)
-                                
-                                .color(Color32::WHITE),
-                        );
+                        ui.label(RichText::new(fl!(
+                            crate::LANGUAGE_LOADER,
+                            "transfer-checksize"
+                        )));
+                        ui.label(RichText::new(check).color(Color32::WHITE));
                     });
 
                     row.col(|ui| {
-                        ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-elapsedtime")));
-                        ui.label(
-                            RichText::new(elapsed_time)
-                                
-                                .color(Color32::WHITE),
-                        );
+                        ui.label(RichText::new(fl!(
+                            crate::LANGUAGE_LOADER,
+                            "transfer-elapsedtime"
+                        )));
+                        ui.label(RichText::new(elapsed_time).color(Color32::WHITE));
                     });
                 });
 
                 body.row(row_height, |mut row| {
                     row.col(|ui| {
                         ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-state")));
-                        ui.label(
-                            RichText::new(current_state)
-                                
-                                .color(Color32::WHITE),
-                        );
+                        ui.label(RichText::new(current_state).color(Color32::WHITE));
                     });
 
                     row.col(|ui| {
-                        ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-timeleft")));
+                        ui.label(RichText::new(fl!(
+                            crate::LANGUAGE_LOADER,
+                            "transfer-timeleft"
+                        )));
                         ui.label(
                             RichText::new(format!(
                                 "{:02}:{:02}",
                                 time_left.as_secs() / 60,
                                 time_left.as_secs() % 60
                             ))
-                            
                             .color(Color32::WHITE),
                         );
                     });
@@ -142,25 +141,18 @@ pub fn view_file_transfer(
 
             ui.horizontal(|ui| {
                 ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-file")));
-                ui.label(
-                    RichText::new(file_name)
-                        
-                        .color(Color32::WHITE),
-                );
+                ui.label(RichText::new(file_name).color(Color32::WHITE));
             });
             ui.add(
                 ProgressBar::new(
                     transfer_info.bytes_transfered as f32 / transfer_info.file_size as f32,
                 )
-                .text(
-                    RichText::new(format!(
-                        "{}% {}/{}",
-                        (transfer_info.bytes_transfered * 100) / max(1, transfer_info.file_size),
-                        bb.bytes(transfer_info.bytes_transfered as u64),
-                        bb.bytes(transfer_info.file_size as u64)
-                    ))
-                    ,
-                ),
+                .text(RichText::new(format!(
+                    "{}% {}/{}",
+                    (transfer_info.bytes_transfered * 100) / max(1, transfer_info.file_size),
+                    bb.bytes(transfer_info.bytes_transfered as u64),
+                    bb.bytes(transfer_info.file_size as u64)
+                ))),
             );
             ui.horizontal(|ui| {
                 ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-rate")));

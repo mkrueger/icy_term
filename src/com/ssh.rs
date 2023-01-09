@@ -1,70 +1,97 @@
-use crate::{address::Address};
-
 use super::{Com, ComResult};
+use crate::address::Address;
 #[allow(dead_code)]
 use async_trait::async_trait;
-use std::time::Duration;
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpStream,
-};
+use ssh_rs::{ssh, SessionBroker, SessionConnector, ShellBrocker};
+use std::{collections::VecDeque, net::TcpStream, time::Duration};
+
+static mut tcp_stream: Option<ShellBrocker> = None;
 
 pub struct SSHCom {
-    tcp_stream: Option<TcpStream>,
+    session: Option<SessionConnector<TcpStream>>,
+    cur_data: Option<VecDeque<u8>>,
 }
 
 impl SSHCom {
     pub fn new() -> Self {
-        Self { tcp_stream: None }
+        Self  { session: None, cur_data: None }
     }
 }
 
 #[async_trait]
 impl Com for SSHCom {
     fn get_name(&self) -> &'static str {
-        "Raw"
+        "SSH"
     }
+
     async fn connect(&mut self, addr: &Address, timeout: Duration) -> ComResult<bool> {
-        let r = tokio::time::timeout(timeout, TcpStream::connect(&addr.address)).await;
-        match r {
-            Ok(tcp_stream) => match tcp_stream {
-                Ok(stream) => {
-                    self.tcp_stream = Some(stream);
-                    Ok(true)
+        match ssh::create_session()
+            .username(&addr.user_name)
+            .password(&addr.password)
+            .connect(&addr.address)
+        {
+            Ok(session) => {
+                let mut broker = session.run_backend();
+                let shell = broker.open_shell().unwrap();
+
+                unsafe {
+                    tcp_stream = Some(shell);
                 }
-                Err(err) => Err(Box::new(err)),
-            },
+                Ok(true)
+            }
             Err(err) => Err(Box::new(err)),
         }
     }
 
     async fn read_data(&mut self) -> ComResult<Vec<u8>> {
-        let mut buf = [0; 1024 * 50];
-        match self.tcp_stream.as_mut().unwrap().read(&mut buf).await {
-            Ok(bytes) => Ok(buf[0..bytes].into()),
-            Err(err) => Err(Box::new(err)),
+        unsafe {
+            match tcp_stream.as_mut().unwrap().read() {
+                Ok(data) => Ok(data),
+                Err(err) => Err(Box::new(err))
+            }
         }
     }
 
     async fn read_u8(&mut self) -> ComResult<u8> {
-        match self.tcp_stream.as_mut().unwrap().read_u8().await {
-            Ok(b) => Ok(b),
-            Err(err) => Err(Box::new(err)),
+        if self.cur_data.is_none() {
+            let data = self.read_data().await?;
+            self.cur_data = Some(VecDeque::from_iter(data));
         }
+
+        if let Some(d) = &mut self.cur_data {
+            let result = d.pop_front();
+            if d.len() == 0 {
+                self.cur_data = None
+            }
+
+            return Ok(result.unwrap());
+        }
+        Ok(0)
     }
 
     async fn read_exact(&mut self, len: usize) -> ComResult<Vec<u8>> {
-        let mut buf = Vec::new();
-        buf.resize(len, 0);
-        match self.tcp_stream.as_mut().unwrap().read_exact(&mut buf).await {
-            Ok(_) => Ok(buf),
-            Err(err) => Err(Box::new(err)),
+        if self.cur_data.is_none() {
+            let data = self.read_data().await?;
+            self.cur_data = Some(VecDeque::from_iter(data));
         }
+
+        if let Some(d) = &mut self.cur_data {
+            let result = d.drain(..len).collect();
+
+            if d.len() == 0 {
+                self.cur_data = None
+            }
+            return Ok(result);
+        }
+        Ok(Vec::new())
     }
+
     async fn send<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize> {
-        match self.tcp_stream.as_mut().unwrap().write(&buf).await {
-            Ok(bytes) => Ok(bytes),
-            Err(err) => Err(Box::new(err)),
+        unsafe {
+            match tcp_stream.as_mut().unwrap().write(buf) {
+                Ok(_) =>Ok(buf.len()),
+                Err(err) => Err(Box::new(err))
+            }
         }
     }
 

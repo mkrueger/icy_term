@@ -10,7 +10,7 @@ use icy_engine::AnsiMusic;
 pub fn play_music(music: AnsiMusic) {
     let mut i = 0;
     let mut cur_style = icy_engine::MusicStyle::Normal;
-    
+
     while i < music.music_actions.len() {
         let act = &music.music_actions[i];
         i += 1;
@@ -49,7 +49,7 @@ pub fn play_music(music: AnsiMusic) {
 }
 
 pub fn beep() {
-    thread::spawn(||  {
+    thread::spawn(|| {
         let stream = stream_setup_for(move |o| {
             o.tick();
             o.tone(800.)
