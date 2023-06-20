@@ -2,7 +2,7 @@ use std::cmp::max;
 
 use clipboard::{ClipboardContext, ClipboardProvider};
 use eframe::{
-    egui::{self, CursorIcon, PointerButton, RichText, ScrollArea},
+    egui::{self, CursorIcon, PointerButton, RichText, ScrollArea, scroll_area::ScrollAreaOutput, Response},
     epaint::{Color32, Rect, Vec2},
 };
 use i18n_embed_fl::fl;
@@ -183,8 +183,9 @@ impl MainWindow {
                 response = response.context_menu(terminal_context_menu);
 
                 if matches!(self.mode, MainWindowMode::ShowTerminal) {
-                    let events = ui.input().events.clone();
-                    for e in &events {
+                    let events = ui.input(|i| i.events.clone());
+                    for e in events {
+                        // println!("{:?}", e);
                         match e {
                             egui::Event::PointerButton {
                                 button: PointerButton::Middle,
@@ -195,12 +196,12 @@ impl MainWindow {
                                 let buffer_view = self.buffer_view.clone();
                                 let mut l = buffer_view.lock();
                                 if let Some(txt) = l.get_copy_text(&self.buffer_parser) {
-                                    ui.output().copied_text = txt;
+                                    ui.output_mut(|o| o.copied_text = txt);
                                 }
                             }
                             egui::Event::Cut => {}
                             egui::Event::Paste(text) => {
-                                self.output_string(text);
+                                self.output_string(&text);
                             }
                             egui::Event::CompositionEnd(text) | egui::Event::Text(text) => {
                                 for c in text.chars() {
@@ -215,9 +216,9 @@ impl MainWindow {
                                 pressed: true,
                                 modifiers,
                             } => {
-                                if terminal_rect.contains(*pos) {
+                                if terminal_rect.contains(pos) {
                                     let buffer_view = self.buffer_view.clone();
-                                    let click_pos = (*pos
+                                    let click_pos = (pos
                                         - terminal_rect.min
                                         - Vec2::new(0., top_margin_height))
                                         / char_size
@@ -250,13 +251,13 @@ impl MainWindow {
                                 let mut l = buffer_view.lock();
                                 if let Some(sel) = &mut l.selection_opt {
                                     if !sel.locked {
-                                        let click_pos = (*pos
+                                        let click_pos = (pos
                                             - terminal_rect.min
                                             - Vec2::new(0., top_margin_height))
                                             / char_size
                                             + Vec2::new(0.0, first_line as f32);
                                         sel.set_lead(click_pos);
-                                        sel.block_selection = ui.input().modifiers.alt;
+                                        sel.block_selection = ui.input(|i| i.modifiers.alt);
                                         l.redraw_view();
                                     }
                                 }
@@ -265,10 +266,11 @@ impl MainWindow {
                                 key,
                                 pressed: true,
                                 modifiers,
+                                ..
                             } => {
                                 let im = self.screen_mode.get_input_mode();
                                 let key_map = im.cur_map();
-                                let mut key_code = *key as u32;
+                                let mut key_code = key as u32;
                                 if modifiers.ctrl || modifiers.command {
                                     key_code |= super::CTRL_MOD;
                                 }
@@ -289,7 +291,7 @@ impl MainWindow {
                                             }
                                         }
                                         response.mark_changed();
-                                        ui.input_mut().consume_key(*modifiers, *key);
+                                        ui.input_mut(|i| i.consume_key(modifiers, key));
                                         break;
                                     }
                                 }
@@ -298,10 +300,10 @@ impl MainWindow {
                         }
                     }
                     if response.hovered() {
-                        let hover_pos_opt = ui.input().pointer.hover_pos();
+                        let hover_pos_opt = ui.input(|i| i.pointer.hover_pos());
                         if let Some(hover_pos) = hover_pos_opt {
                             if terminal_rect.contains(hover_pos) {
-                                ui.output().cursor_icon = CursorIcon::Text;
+                                ui.output_mut(|o| o.cursor_icon = CursorIcon::Text);
                             }
                         }
                     }
@@ -318,13 +320,13 @@ impl MainWindow {
 }
 
 fn terminal_context_menu(ui: &mut egui::Ui) {
-    ui.input_mut().events.clear();
+    ui.input_mut(|i| i.events.clear());
 
     if ui
         .button(fl!(crate::LANGUAGE_LOADER, "terminal-menu-copy"))
         .clicked()
     {
-        ui.input_mut().events.push(egui::Event::Copy);
+        ui.input_mut(|i| i.events.push(egui::Event::Copy));
         ui.close_menu();
     }
 
@@ -334,7 +336,7 @@ fn terminal_context_menu(ui: &mut egui::Ui) {
     {
         let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
         if let Ok(text) = ctx.get_contents() {
-            ui.input_mut().events.push(egui::Event::Paste(text));
+            ui.input_mut(|i| i.events.push(egui::Event::Paste(text)));
         }
         ui.close_menu();
     }

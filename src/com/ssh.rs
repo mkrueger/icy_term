@@ -2,7 +2,7 @@ use super::{Com, ComResult};
 use crate::address::Address;
 #[allow(dead_code)]
 use async_trait::async_trait;
-use ssh_rs::{ssh, SessionBroker, SessionConnector, ShellBrocker};
+use ssh_rs::{ssh, SessionConnector, ShellBrocker};
 use std::{collections::VecDeque, net::TcpStream, time::Duration};
 
 static mut tcp_stream: Option<ShellBrocker> = None;
@@ -27,7 +27,7 @@ impl Com for SSHCom {
         "SSH"
     }
 
-    async fn connect(&mut self, addr: &Address, timeout: Duration) -> ComResult<bool> {
+    async fn connect(&mut self, addr: &Address, _timeout: Duration) -> ComResult<bool> {
         match ssh::create_session()
             .username(&addr.user_name)
             .password(&addr.password)

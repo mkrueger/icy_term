@@ -1,6 +1,6 @@
 [package]
 name = "icy_term"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 description = "A terminal program supporting CP437, PetScii and ViewData"
 
@@ -12,10 +12,10 @@ resources = []
 copyright = "Copyright (c) Mike Krüger 2022. All rights reserved."
 
 [dependencies]
-eframe = "0.20.1"
-egui_extras = { version="0.20.0", features = ["svg"] }
-egui_glow = "0.20.1"
-glow = "0.11.2"
+eframe = "0.22.0"
+egui_extras = { version="0.22.0", features = ["svg"] }
+egui_glow = "0.22.0"
+glow = "0.12.2"
 
 #sound
 cpal = { git = "https://github.com/RustAudio/cpal.git" }
@@ -23,13 +23,13 @@ anyhow = "1.0"
 icy_engine = { git = "https://github.com/mkrueger/icy_engine.git" }
 tokio = { version = "1.21.2", features = ["full"] }
 
-directories = "4.0.1"
-rfd = "0.10.0"
+directories = "5.0.1"
+rfd = "0.11.4"
 walkdir = "2"
-toml = "0.5.9"
+toml = "0.7.4"
 lazy_static = "1.4.0"
-open = "3.0.3"
-notify = "5.0.0"
+open = "5.0.0"
+notify = "6.0.0"
 gabi = "0.2.6"
 clipboard = "0.5.0"
 serde = "1.0.147"

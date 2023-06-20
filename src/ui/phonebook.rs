@@ -94,7 +94,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                                     return;
                                 }
                                 let mut text = RichText::new(addr.system_name.clone());
-                                if i == window.selected_bbs {
+                                if i + 1 == window.selected_bbs {
                                     text = text.color(Color32::WHITE);
                                 }
                                 if ui.button(text).clicked() {
