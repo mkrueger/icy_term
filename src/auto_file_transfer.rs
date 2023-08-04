@@ -1,4 +1,4 @@
-use crate::protocol::ProtocolType;
+use crate::protocol::TransferType;
 
 pub struct PatternRecognizer {
     pattern: Vec<u8>,
@@ -25,24 +25,22 @@ impl PatternRecognizer {
 
     pub fn push_ch(&mut self, ch: u8) -> bool {
         let p = self.pattern[self.cur_idx];
-        if p == ch || self.ignore_case && ch >= b'a' && ch <= b'z' && ch - b'a' + b'A' == p {
+        if p == ch || self.ignore_case && ch.is_ascii_lowercase() && ch - b'a' + b'A' == p {
             self.cur_idx += 1;
             if self.cur_idx >= self.pattern.len() {
                 self.cur_idx = 0;
                 return true;
             }
-        } else {
-            if self.cur_idx > 0 {
-                self.cur_idx = 0;
-                return self.push_ch(ch);
-            }
+        } else if self.cur_idx > 0 {
+            self.cur_idx = 0;
+            return self.push_ch(ch);
         }
         false
     }
 }
 
 fn to_upper(ch: u8) -> u8 {
-    if (b'a'..b'z').contains(&ch) {
+    if ch.is_ascii_lowercase() {
         ch - b'a' + b'A'
     } else {
         ch
@@ -67,12 +65,12 @@ impl AutoFileTransfer {
         self.zmodem_ul.reset();
     }
 
-    pub fn try_transfer(&mut self, ch: u8) -> Option<(ProtocolType, bool)> {
+    pub fn try_transfer(&mut self, ch: u8) -> Option<(TransferType, bool)> {
         if self.zmodem_dl.push_ch(ch) {
-            return Some((ProtocolType::ZModem, true));
+            return Some((TransferType::ZModem, true));
         }
         if self.zmodem_ul.push_ch(ch) {
-            return Some((ProtocolType::ZModem, false));
+            return Some((TransferType::ZModem, false));
         }
         None
     }
@@ -88,15 +86,15 @@ mod tests {
 
         let mut result = false;
         for b in b"Name" {
-            result = test.push_ch(*b)
+            result = test.push_ch(*b);
         }
-        assert_eq!(true, result);
+        assert!(result);
 
         let mut result = false;
         for b in b"name" {
-            result = test.push_ch(*b)
+            result = test.push_ch(*b);
         }
-        assert_eq!(false, result);
+        assert!(!result);
     }
 
     #[test]
@@ -105,21 +103,21 @@ mod tests {
 
         let mut result = false;
         for b in b"name" {
-            result = test.push_ch(*b)
+            result = test.push_ch(*b);
         }
-        assert_eq!(true, result);
+        assert!(result);
 
         let mut result = false;
         for b in b"NaMe" {
-            result = test.push_ch(*b)
+            result = test.push_ch(*b);
         }
-        assert_eq!(true, result);
+        assert!(result);
 
         let mut result = false;
         for b in b"Nmae" {
-            result = test.push_ch(*b)
+            result = test.push_ch(*b);
         }
-        assert_eq!(false, result);
+        assert!(!result);
     }
 
     #[test]
@@ -128,9 +126,9 @@ mod tests {
 
         let mut result = false;
         for b in b"namname" {
-            result = test.push_ch(*b)
+            result = test.push_ch(*b);
         }
-        assert_eq!(true, result);
+        assert!(result);
     }
 
     #[test]
@@ -139,8 +137,8 @@ mod tests {
 
         let mut result = false;
         for b in b"n_a_m_e" {
-            result = test.push_ch(*b)
+            result = test.push_ch(*b);
         }
-        assert_eq!(false, result);
+        assert!(!result);
     }
 }

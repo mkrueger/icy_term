@@ -1,3 +1,4 @@
+#![allow(clippy::float_cmp)]
 use eframe::epaint::{PaintCallbackInfo, Rect, Vec2};
 use glow::NativeTexture;
 use icy_engine::Buffer;
@@ -6,12 +7,12 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::ui::main_window::Scaling;
+use crate::ui::main_window_mod::Scaling;
 
-use super::BufferView;
+use super::ViewState;
 
-impl BufferView {
-    pub fn paint(&self, gl: &glow::Context, info: PaintCallbackInfo, rect: Rect) {
+impl ViewState {
+    pub fn paint(&self, gl: &glow::Context, info: &PaintCallbackInfo, rect: Rect) {
         use glow::HasContext as _;
         unsafe {
             gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.framebuffer));
@@ -85,8 +86,8 @@ impl BufferView {
             );
 
             match &self.selection_opt {
-                Some(sel) => {
-                    if sel.is_empty() {
+                Some(selection) => {
+                    if selection.is_empty() {
                         gl.uniform_4_f32(
                             gl.get_uniform_location(self.program, "u_selection")
                                 .as_ref(),
@@ -101,29 +102,29 @@ impl BufferView {
                             -1.0,
                         );
                     } else {
-                        if sel.anchor.y.floor() < sel.lead.y.floor()
-                            || sel.anchor.y.floor() == sel.lead.y.floor()
-                                && sel.anchor.x < sel.lead.x
+                        if selection.anchor.y.floor() < selection.lead.y.floor()
+                            || selection.anchor.y.floor() == selection.lead.y.floor()
+                                && selection.anchor.x < selection.lead.x
                         {
                             gl.uniform_4_f32(
                                 gl.get_uniform_location(self.program, "u_selection")
                                     .as_ref(),
-                                sel.anchor.x.floor(),
-                                sel.anchor.y.floor() - sbl,
-                                sel.lead.x.floor(),
-                                sel.lead.y.floor() - sbl,
+                                selection.anchor.x.floor(),
+                                selection.anchor.y.floor() - sbl,
+                                selection.lead.x.floor(),
+                                selection.lead.y.floor() - sbl,
                             );
                         } else {
                             gl.uniform_4_f32(
                                 gl.get_uniform_location(self.program, "u_selection")
                                     .as_ref(),
-                                sel.lead.x.floor(),
-                                sel.lead.y.floor() - sbl,
-                                sel.anchor.x.floor(),
-                                sel.anchor.y.floor() - sbl,
+                                selection.lead.x.floor(),
+                                selection.lead.y.floor() - sbl,
+                                selection.anchor.x.floor(),
+                                selection.anchor.y.floor() - sbl,
                             );
                         }
-                        if sel.block_selection {
+                        if selection.block_selection {
                             gl.uniform_1_f32(
                                 gl.get_uniform_location(self.program, "u_selection_attr")
                                     .as_ref(),
@@ -232,9 +233,7 @@ impl BufferView {
                     gl.draw_arrays(glow::TRIANGLES, 0, 3);
                     gl.draw_arrays(glow::TRIANGLES, 3, 3);
 
-                    let tmp = render_texture;
-                    render_texture = sixel_render_texture;
-                    sixel_render_texture = tmp;
+                    std::mem::swap(&mut render_texture, &mut sixel_render_texture);
                 }
             }
 
@@ -261,11 +260,11 @@ impl BufferView {
                 gl.get_uniform_location(self.draw_program, "u_effect")
                     .as_ref(),
                 match self.post_processing {
-                    crate::ui::main_window::PostProcessing::None => 0.0,
-                    crate::ui::main_window::PostProcessing::CRT1 => 1.0,
-                    crate::ui::main_window::PostProcessing::CRT1CURVED => 2.0,
-                    crate::ui::main_window::PostProcessing::CRT2 => 3.,
-                    crate::ui::main_window::PostProcessing::CRT2CURVED => 4.,
+                    crate::ui::main_window_mod::PostProcessing::None => 0.0,
+                    crate::ui::main_window_mod::PostProcessing::CRT1 => 1.0,
+                    crate::ui::main_window_mod::PostProcessing::CRT1CURVED => 2.0,
+                    crate::ui::main_window_mod::PostProcessing::CRT2 => 3.,
+                    crate::ui::main_window_mod::PostProcessing::CRT2CURVED => 4.,
                 },
             );
 
@@ -441,8 +440,7 @@ impl BufferView {
 }
 
 fn conv_color(c: u32, colors: u32) -> u8 {
-    let r = ((255 * c) / colors) as u8;
-    r
+    ((255 * c) / colors) as u8
 }
 
 pub fn create_palette_texture(gl: &glow::Context, buf: &Buffer, palette_texture: NativeTexture) {
@@ -460,8 +458,8 @@ pub fn create_palette_texture(gl: &glow::Context, buf: &Buffer, palette_texture:
         gl.tex_image_2d(
             glow::TEXTURE_2D,
             0,
-            glow::RGB as i32,
-            buf.palette.colors.len() as i32,
+            i32::try_from(glow::RGB).unwrap(),
+            i32::try_from(buf.palette.colors.len()).unwrap(),
             1,
             0,
             glow::RGBA,
@@ -497,7 +495,9 @@ pub fn create_font_texture(gl: &glow::Context, buf: &Buffer, font_texture: Nativ
                 let mut po = offset + y * line_width;
 
                 for x in 0..w {
-                    if scan_line & (128 >> x) != 0 {
+                    if scan_line & (128 >> x) == 0 {
+                        po += 4;
+                    } else {
                         // unroll
                         font_data[po] = 0xFF;
                         po += 1;
@@ -507,8 +507,6 @@ pub fn create_font_texture(gl: &glow::Context, buf: &Buffer, font_texture: Nativ
                         po += 1;
                         font_data[po] = 0xFF;
                         po += 1;
-                    } else {
-                        po += 4;
                     }
                 }
             }
@@ -562,7 +560,7 @@ pub fn create_buffer_texture(
                 is_double_height = true;
             }
             if ch.attribute.is_concealed() {
-                buffer_data.push(' ' as u8);
+                buffer_data.push(b' ');
             } else {
                 buffer_data.push(ch.ch as u8);
             }
@@ -572,12 +570,12 @@ pub fn create_buffer_texture(
                 buffer_data.push(conv_color(ch.attribute.get_foreground(), colors));
             }
             buffer_data.push(conv_color(ch.attribute.get_background(), colors));
-            if buf.font_table.len() > 0 {
+            if buf.font_table.is_empty() {
+                buffer_data.push(0);
+            } else {
                 buffer_data.push(
                     (255.0 * ch.get_font_page() as f32 / (buf.font_table.len() - 1) as f32) as u8,
                 );
-            } else {
-                buffer_data.push(0);
             }
         }
 
@@ -587,10 +585,10 @@ pub fn create_buffer_texture(
                     .get_char_xy(x, first_line - scroll_back_line + y)
                     .unwrap_or_default();
 
-                if !ch.attribute.is_double_height() {
-                    buffer_data.push(' ' as u8);
-                } else {
+                if ch.attribute.is_double_height() {
                     buffer_data.push(ch.ch as u8);
+                } else {
+                    buffer_data.push(b' ');
                 }
 
                 if ch.attribute.is_bold() {
@@ -601,13 +599,13 @@ pub fn create_buffer_texture(
 
                 buffer_data.push(conv_color(ch.attribute.get_background(), colors));
 
-                if buf.font_table.len() > 0 {
+                if buf.font_table.is_empty() {
+                    buffer_data.push(0);
+                } else {
                     buffer_data.push(
                         (255.0 * ch.get_font_page() as f32 / (buf.font_table.len() - 1) as f32)
                             as u8,
                     );
-                } else {
-                    buffer_data.push(0);
                 }
             }
         }
@@ -629,18 +627,16 @@ pub fn create_buffer_texture(
 
             let mut attr = if ch.attribute.is_double_underlined() {
                 3
-            } else if ch.attribute.is_underlined() {
-                1
             } else {
-                0
+                u8::from(ch.attribute.is_underlined())
             };
             if ch.attribute.is_crossed_out() {
-                attr |= 4
+                attr |= 4;
             }
 
             if ch.attribute.is_double_height() {
                 is_double_height = true;
-                attr |= 8
+                attr |= 8;
             }
 
             buffer_data.push(attr);
@@ -656,13 +652,11 @@ pub fn create_buffer_texture(
                     .unwrap_or_default();
                 let mut attr = if ch.attribute.is_double_underlined() {
                     3
-                } else if ch.attribute.is_underlined() {
-                    1
                 } else {
-                    0
+                    u8::from(ch.attribute.is_underlined())
                 };
                 if ch.attribute.is_crossed_out() {
-                    attr |= 4
+                    attr |= 4;
                 }
 
                 if ch.attribute.is_double_height() {

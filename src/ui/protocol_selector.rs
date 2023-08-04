@@ -2,14 +2,14 @@ use eframe::egui::{self, RichText};
 use egui_extras::{Column, TableBody, TableBuilder};
 use i18n_embed_fl::fl;
 
-use crate::protocol::ProtocolType;
+use crate::protocol::TransferType;
 
-use super::main_window::{MainWindow, MainWindowMode};
+use super::main_window_mod::{MainWindow, MainWindowMode};
 
 fn create_button_row(
     window: &mut MainWindow,
     body: &mut TableBody,
-    protocol: ProtocolType,
+    protocol: TransferType,
     download: bool,
     title: &'static str,
     descr: String,
@@ -26,7 +26,7 @@ fn create_button_row(
     });
 }
 
-pub fn view_protocol_selector(
+pub fn view_selector(
     window: &mut MainWindow,
     ctx: &egui::Context,
     _frame: &mut eframe::Frame,
@@ -54,7 +54,7 @@ pub fn view_protocol_selector(
                 create_button_row(
                     window,
                     &mut body,
-                    ProtocolType::ZModem,
+                    TransferType::ZModem,
                     download,
                     "Zmodem",
                     fl!(crate::LANGUAGE_LOADER, "protocol-zmodem-description"),
@@ -62,7 +62,7 @@ pub fn view_protocol_selector(
                 create_button_row(
                     window,
                     &mut body,
-                    ProtocolType::ZedZap,
+                    TransferType::ZedZap,
                     download,
                     "ZedZap",
                     fl!(crate::LANGUAGE_LOADER, "protocol-zmodem8k-description"),
@@ -70,7 +70,7 @@ pub fn view_protocol_selector(
                 create_button_row(
                     window,
                     &mut body,
-                    ProtocolType::XModem,
+                    TransferType::XModem,
                     download,
                     "Xmodem",
                     fl!(crate::LANGUAGE_LOADER, "protocol-xmodem-description"),
@@ -78,7 +78,7 @@ pub fn view_protocol_selector(
                 create_button_row(
                     window,
                     &mut body,
-                    ProtocolType::XModem1k,
+                    TransferType::XModem1k,
                     download,
                     "Xmodem 1k",
                     fl!(crate::LANGUAGE_LOADER, "protocol-xmodem1k-description"),
@@ -86,7 +86,7 @@ pub fn view_protocol_selector(
                 create_button_row(
                     window,
                     &mut body,
-                    ProtocolType::XModem1kG,
+                    TransferType::XModem1kG,
                     download,
                     "Xmodem 1k-G",
                     fl!(crate::LANGUAGE_LOADER, "protocol-xmodem1kG-description"),
@@ -94,7 +94,7 @@ pub fn view_protocol_selector(
                 create_button_row(
                     window,
                     &mut body,
-                    ProtocolType::YModem,
+                    TransferType::YModem,
                     download,
                     "Ymodem",
                     fl!(crate::LANGUAGE_LOADER, "protocol-ymodem-description"),
@@ -102,7 +102,7 @@ pub fn view_protocol_selector(
                 create_button_row(
                     window,
                     &mut body,
-                    ProtocolType::YModemG,
+                    TransferType::YModemG,
                     download,
                     "Ymodem-G",
                     fl!(crate::LANGUAGE_LOADER, "protocol-ymodemg-description"),

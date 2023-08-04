@@ -8,7 +8,7 @@ use std::{
 
 use super::{constants::DEFAULT_BLOCK_LENGTH, get_checksum, Checksum, XYModemConfiguration};
 use crate::{
-    com::{Com, ComResult},
+    com::{Com, TermComResult},
     protocol::{
         str_from_null_terminated_utf8_unchecked,
         xymodem::constants::{ACK, CPMEOF, EOT, EXT_BLOCK_LENGTH, NAK, SOH, STX},
@@ -26,7 +26,7 @@ pub enum RecvState {
     ReadBlockStart(u8, usize),
 }
 
-/// specification: http://pauillac.inria.fr/~doligez/zmodem/ymodem.txt
+/// specification: <http://pauillac.inria.fr/~doligez/zmodem/ymodem.txt>
 pub struct Ry {
     configuration: XYModemConfiguration,
     pub bytes_send: usize,
@@ -51,21 +51,17 @@ impl Ry {
     }
 
     pub fn is_finished(&self) -> bool {
-        if let RecvState::None = self.recv_state {
-            true
-        } else {
-            false
-        }
+        matches!(self.recv_state, RecvState::None)
     }
 
     pub async fn update(
         &mut self,
         com: &mut Box<dyn Com>,
         state: &Arc<Mutex<TransferState>>,
-    ) -> ComResult<()> {
+    ) -> TermComResult<()> {
         if let Ok(transfer_state) = &mut state.lock() {
             let transfer_info = &mut transfer_state.recieve_state;
-            if self.files.len() > 0 {
+            if !self.files.is_empty() {
                 let cur_file = self.files.len() - 1;
                 let f = &self.files[cur_file];
                 transfer_info.file_name = f.file_name.clone();
@@ -146,11 +142,11 @@ impl Ry {
                 }
 
                 let mut fd = FileDescriptor::new();
-                fd.file_name = str_from_null_terminated_utf8_unchecked(&block).to_string();
+                fd.file_name = str_from_null_terminated_utf8_unchecked(block);
                 let num =
                     str_from_null_terminated_utf8_unchecked(&block[(fd.file_name.len() + 1)..])
                         .to_string();
-                if let Ok(file_size) = usize::from_str_radix(&num, 10) {
+                if let Ok(file_size) = num.parse::<usize>() {
                     fd.size = file_size;
                 }
                 self.files.push(fd);
@@ -173,7 +169,7 @@ impl Ry {
                         while self.data.ends_with(&[CPMEOF]) {
                             self.data.pop();
                         }
-                        if self.files.len() == 0 {
+                        if self.files.is_empty() {
                             self.files.push(FileDescriptor::new());
                         }
 
@@ -256,7 +252,7 @@ impl Ry {
                     return Ok(());
                 }
                 let block = &block[2..];
-                if !self.check_crc(&block) {
+                if !self.check_crc(block) {
                     //println!("\t\t\t\t\t\trecv crc mismatch");
                     self.errors += 1;
                     com.send(&[NAK]).await?;
@@ -273,19 +269,19 @@ impl Ry {
         Ok(())
     }
 
-    pub async fn cancel(&mut self, com: &mut Box<dyn Com>) -> ComResult<()> {
+    pub async fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
         self.recv_state = RecvState::None;
         super::cancel(com).await
     }
 
-    pub async fn recv(&mut self, com: &mut Box<dyn Com>) -> ComResult<()> {
+    pub async fn recv(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
         self.await_data(com).await?;
         self.data = Vec::new();
         self.recv_state = RecvState::StartReceive(0);
         Ok(())
     }
 
-    async fn await_data(&mut self, com: &mut Box<dyn Com>) -> ComResult<usize> {
+    async fn await_data(&mut self, com: &mut Box<dyn Com>) -> TermComResult<usize> {
         if self.configuration.is_streaming() {
             com.send(&[b'G']).await?;
         } else if self.configuration.use_crc() {

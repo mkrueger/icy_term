@@ -1,7 +1,6 @@
-#[allow(dead_code)]
-use crate::address::Address;
+use crate::address_mod::Address;
 
-use super::{Com, ComResult, ConnectionError};
+use super::{Com, ConnectionError, TermComResult};
 use async_trait::async_trait;
 use icy_engine::Size;
 use std::{io::ErrorKind, time::Duration};
@@ -11,7 +10,7 @@ use tokio::{
 };
 
 #[derive(Debug)]
-pub struct TelnetCom {
+pub struct ComTelnetImpl {
     tcp_stream: Option<TcpStream>,
     state: ParserState,
     window_size: Size<u16>, // width, height
@@ -37,7 +36,7 @@ enum TelnetCmd {
     SE = 0xF0,
 
     /// No operation.
-    NOP = 0xF1,
+    Nop = 0xF1,
 
     /// The data stream portion of a Synch.
     /// This should always be accompanied
@@ -54,7 +53,7 @@ enum TelnetCmd {
     AO = 0xF5,
 
     // The function Are You There
-    AYT = 0xF6,
+    Ayt = 0xF6,
 
     // The function Erase character
     EC = 0xF7,
@@ -70,11 +69,11 @@ enum TelnetCmd {
 
     ///  (option code)
     /// Indicates the desire to begin performing, or confirmation that you are now performing, the indicated option.
-    WILL = 0xFB,
+    Will = 0xFB,
 
     /// (option code)
     /// Indicates the refusal to perform, or continue performing, the indicated option.
-    WONT = 0xFC,
+    Wont = 0xFC,
 
     /// (option code)
     /// Indicates the request that the other party perform, or confirmation that you are expecting
@@ -85,51 +84,54 @@ enum TelnetCmd {
     /// Indicates the demand that the other party stop performing,
     /// or confirmation that you are no longer expecting the other party
     /// to perform, the indicated option.
-    DONT = 0xFE,
+    Dont = 0xFE,
 
     /// Data Byte 255.
-    IAC = 0xFF,
+    Iac = 0xFF,
 }
 
 #[allow(dead_code)]
 impl TelnetCmd {
-    pub fn get(byte: u8) -> ComResult<TelnetCmd> {
+    pub fn get(byte: u8) -> TermComResult<TelnetCmd> {
         let cmd = match byte {
             0xF0 => TelnetCmd::SE,
-            0xF1 => TelnetCmd::NOP,
+            0xF1 => TelnetCmd::Nop,
             0xF2 => TelnetCmd::DataMark,
             0xF3 => TelnetCmd::Break,
             0xF4 => TelnetCmd::IP,
             0xF5 => TelnetCmd::AO,
-            0xF6 => TelnetCmd::AYT,
+            0xF6 => TelnetCmd::Ayt,
             0xF7 => TelnetCmd::EC,
             0xF8 => TelnetCmd::EL,
             0xF9 => TelnetCmd::GA,
             0xFA => TelnetCmd::SB,
-            0xFB => TelnetCmd::WILL,
-            0xFC => TelnetCmd::WONT,
+            0xFB => TelnetCmd::Will,
+            0xFC => TelnetCmd::Wont,
             0xFD => TelnetCmd::DO,
-            0xFE => TelnetCmd::DONT,
-            0xFF => TelnetCmd::IAC,
+            0xFE => TelnetCmd::Dont,
+            0xFF => TelnetCmd::Iac,
             _ => {
                 return Err(Box::new(io::Error::new(
                     ErrorKind::InvalidData,
-                    format!("unknown IAC: {}/x{:02X}", byte, byte),
+                    format!("unknown IAC: {byte}/x{byte:02X}"),
                 )));
             }
         };
         Ok(cmd)
     }
-    pub fn to_bytes(&self) -> [u8; 2] {
-        [IAC, *self as u8]
+
+    pub fn to_bytes(self) -> [u8; 2] {
+        [IAC, self as u8]
     }
 
-    pub fn to_bytes_opt(&self, opt: TelnetOption) -> [u8; 3] {
-        [IAC, *self as u8, opt as u8]
+    pub fn to_bytes_opt(self, opt: TelnetOption) -> [u8; 3] {
+        [IAC, self as u8, opt as u8]
     }
 }
 
-/// http://www.iana.org/assignments/telnet-options/telnet-options.xhtml
+/**
+<http://www.iana.org/assignments/telnet-options/telnet-options.xhtml>
+*/
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum TelnetOption {
     /// https://www.rfc-editor.org/rfc/rfc856
@@ -173,9 +175,9 @@ enum TelnetOption {
     ///https://www.rfc-editor.org/rfc/RFC1043][RFC732
     DataEntryTerminal = 20,
     ///https://www.rfc-editor.org/rfc/RFC736][RFC734
-    SUPDUP = 21,
+    SupDup = 21,
     ///https://www.rfc-editor.org/rfc/RFC749
-    SUPDUPOutput = 22,
+    SupDupOutput = 22,
     ///https://www.rfc-editor.org/rfc/RFC779
     SendLocation = 23,
     /// https://www.rfc-editor.org/rfc/rfc1091
@@ -234,7 +236,7 @@ enum TelnetOption {
 
 #[allow(dead_code)]
 impl TelnetOption {
-    pub fn get(byte: u8) -> ComResult<TelnetOption> {
+    pub fn get(byte: u8) -> TermComResult<TelnetOption> {
         let cmd = match byte {
             0 => TelnetOption::TransmitBinary,
             1 => TelnetOption::Echo,
@@ -256,8 +258,8 @@ impl TelnetOption {
             18 => TelnetOption::Logout,
             19 => TelnetOption::ByteMacro,
             20 => TelnetOption::DataEntryTerminal,
-            21 => TelnetOption::SUPDUP,
-            22 => TelnetOption::SUPDUPOutput,
+            21 => TelnetOption::SupDup,
+            22 => TelnetOption::SupDupOutput,
             23 => TelnetOption::SendLocation,
             24 => TelnetOption::TerminalType,
             25 => TelnetOption::EndOfRecord,
@@ -289,7 +291,7 @@ impl TelnetOption {
             _ => {
                 return Err(Box::new(io::Error::new(
                     ErrorKind::InvalidData,
-                    format!("unknown option: {}/x{:02X}", byte, byte),
+                    format!("unknown option: {byte}/x{byte:02X}"),
                 )));
             }
         };
@@ -298,7 +300,7 @@ impl TelnetOption {
 }
 
 #[allow(dead_code)]
-impl TelnetCom {
+impl ComTelnetImpl {
     pub fn new(window_size: Size<u16>) -> Self {
         Self {
             tcp_stream: None,
@@ -307,7 +309,7 @@ impl TelnetCom {
         }
     }
 
-    fn parse(&mut self, data: &[u8]) -> ComResult<Vec<u8>> {
+    fn parse(&mut self, data: &[u8]) -> TermComResult<Vec<u8>> {
         let mut buf = Vec::with_capacity(data.len());
         for b in data {
             match self.state {
@@ -319,39 +321,39 @@ impl TelnetCom {
                     }
                 }
                 ParserState::Iac => match TelnetCmd::get(*b) {
-                    Ok(TelnetCmd::AYT) => {
+                    Ok(TelnetCmd::Ayt) => {
                         self.state = ParserState::Data;
                         if let Some(stream) = self.tcp_stream.as_mut() {
-                            stream.try_write(&TelnetCmd::NOP.to_bytes())?;
+                            stream.try_write(&TelnetCmd::Nop.to_bytes())?;
                         } else {
                             return Err(Box::new(ConnectionError::ConnectionLost));
                         }
                     }
-                    Ok(TelnetCmd::SE) | Ok(TelnetCmd::NOP) | Ok(TelnetCmd::GA) => {
+                    Ok(TelnetCmd::SE | TelnetCmd::Nop | TelnetCmd::GA) => {
                         self.state = ParserState::Data;
                     }
-                    Ok(TelnetCmd::IAC) => {
+                    Ok(TelnetCmd::Iac) => {
                         buf.push(0xFF);
                         self.state = ParserState::Data;
                     }
-                    Ok(TelnetCmd::WILL) => {
+                    Ok(TelnetCmd::Will) => {
                         self.state = ParserState::Will;
                     }
-                    Ok(TelnetCmd::WONT) => {
+                    Ok(TelnetCmd::Wont) => {
                         self.state = ParserState::Wont;
                     }
                     Ok(TelnetCmd::DO) => {
                         self.state = ParserState::Do;
                     }
-                    Ok(TelnetCmd::DONT) => {
+                    Ok(TelnetCmd::Dont) => {
                         self.state = ParserState::Dont;
                     }
                     Err(err) => {
-                        eprintln!("{}", err);
+                        eprintln!("{err}");
                         self.state = ParserState::Data;
                     }
                     cmd => {
-                        eprintln!("unsupported IAC: {:?}", cmd);
+                        eprintln!("unsupported IAC: {cmd:?}");
                         self.state = ParserState::Data;
                     }
                 },
@@ -359,16 +361,13 @@ impl TelnetCom {
                     self.state = ParserState::Data;
                     let opt = TelnetOption::get(*b)?;
                     if let Some(stream) = self.tcp_stream.as_mut() {
-                        match opt {
-                            TelnetOption::TransmitBinary => {
-                                stream.try_write(
-                                    &TelnetCmd::DO.to_bytes_opt(TelnetOption::TransmitBinary),
-                                )?;
-                            }
-                            _ => {
-                                eprintln!("unsupported will option {:?}", opt);
-                                stream.try_write(&TelnetCmd::DONT.to_bytes_opt(opt))?;
-                            }
+                        if let TelnetOption::TransmitBinary = opt {
+                            stream.try_write(
+                                &TelnetCmd::DO.to_bytes_opt(TelnetOption::TransmitBinary),
+                            )?;
+                        } else {
+                            eprintln!("unsupported will option {opt:?}");
+                            stream.try_write(&TelnetCmd::Dont.to_bytes_opt(opt))?;
                         }
                     } else {
                         return Err(Box::new(ConnectionError::ConnectionLost));
@@ -376,7 +375,7 @@ impl TelnetCom {
                 }
                 ParserState::Wont => {
                     let opt = TelnetOption::get(*b)?;
-                    eprintln!("Won't {:?}", opt);
+                    eprintln!("Won't {opt:?}");
                     self.state = ParserState::Data;
                 }
                 ParserState::Do => {
@@ -386,7 +385,7 @@ impl TelnetCom {
                         match opt {
                             TelnetOption::TransmitBinary => {
                                 stream.try_write(
-                                    &TelnetCmd::WILL.to_bytes_opt(TelnetOption::TransmitBinary),
+                                    &TelnetCmd::Will.to_bytes_opt(TelnetOption::TransmitBinary),
                                 )?;
                             }
                             TelnetOption::NegotiateAboutWindowSize => {
@@ -401,8 +400,8 @@ impl TelnetCom {
                                 stream.try_write(&buf)?;
                             }
                             _ => {
-                                eprintln!("unsupported do option {:?}", opt);
-                                stream.try_write(&TelnetCmd::WONT.to_bytes_opt(opt))?;
+                                eprintln!("unsupported do option {opt:?}");
+                                stream.try_write(&TelnetCmd::Wont.to_bytes_opt(opt))?;
                             }
                         }
                     } else {
@@ -411,7 +410,7 @@ impl TelnetCom {
                 }
                 ParserState::Dont => {
                     let opt = TelnetOption::get(*b)?;
-                    eprintln!("Don't {:?}", opt);
+                    eprintln!("Don't {opt:?}");
                     self.state = ParserState::Data;
                 }
             }
@@ -421,17 +420,17 @@ impl TelnetCom {
 }
 
 #[async_trait]
-impl Com for TelnetCom {
+impl Com for ComTelnetImpl {
     fn get_name(&self) -> &'static str {
         "Telnet"
     }
 
-    async fn connect(&mut self, addr: &Address, timeout: Duration) -> ComResult<bool> {
-        let mut adr = addr.address.clone();
-        if !adr.contains(":") {
-            adr.push_str(":23");
+    async fn connect(&mut self, addr: &Address, timeout: Duration) -> TermComResult<bool> {
+        let mut addr_copy = addr.address.clone();
+        if !addr_copy.contains(':') {
+            addr_copy.push_str(":23");
         }
-        let r = tokio::time::timeout(timeout, TcpStream::connect(&adr)).await;
+        let r = tokio::time::timeout(timeout, TcpStream::connect(&addr_copy)).await;
         match r {
             Ok(tcp_stream) => match tcp_stream {
                 Ok(stream) => {
@@ -444,7 +443,7 @@ impl Com for TelnetCom {
         }
     }
 
-    async fn read_data(&mut self) -> ComResult<Vec<u8>> {
+    async fn read_data(&mut self) -> TermComResult<Vec<u8>> {
         let mut buf = [0; 1024 * 50];
         if let Some(stream) = self.tcp_stream.as_mut() {
             match stream.read(&mut buf).await {
@@ -459,7 +458,7 @@ impl Com for TelnetCom {
         }
     }
 
-    async fn read_u8(&mut self) -> ComResult<u8> {
+    async fn read_u8(&mut self) -> TermComResult<u8> {
         if let Some(stream) = self.tcp_stream.as_mut() {
             match stream.read_u8().await {
                 Ok(b) => {
@@ -468,7 +467,7 @@ impl Com for TelnetCom {
                         if b2 != IAC {
                             return Err(Box::new(io::Error::new(
                                 ErrorKind::InvalidData,
-                                format!("expected iac, got {}", b2),
+                                format!("expected iac, got {b2}"),
                             )));
                         }
                         // IGNORE additional telnet commands
@@ -482,7 +481,7 @@ impl Com for TelnetCom {
         }
     }
 
-    async fn read_exact(&mut self, len: usize) -> ComResult<Vec<u8>> {
+    async fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
         let mut buf = Vec::new();
         buf.resize(len, 0);
         if let Some(stream) = self.tcp_stream.as_mut() {
@@ -501,12 +500,12 @@ impl Com for TelnetCom {
         }
     }
 
-    fn disconnect(&mut self) -> ComResult<()> {
+    fn disconnect(&mut self) -> TermComResult<()> {
         // self.tcp_stream.shutdown(std::net::Shutdown::Both)
         Ok(())
     }
 
-    async fn send<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize> {
+    async fn send<'a>(&mut self, buf: &'a [u8]) -> TermComResult<usize> {
         let mut data = Vec::with_capacity(buf.len());
         for b in buf {
             if *b == IAC {

@@ -1,5 +1,5 @@
-pub mod main_window;
-pub use main_window::*;
+pub mod main_window_mod;
+pub use main_window_mod::*;
 
 pub mod buffer_view;
 pub use buffer_view::*;
@@ -14,8 +14,8 @@ pub use hover_list::*;
 pub mod screen_modes;
 pub use screen_modes::*;
 
-pub mod phonebook;
-pub use phonebook::*;
+pub mod phonebook_mod;
+pub use phonebook_mod::*;
 
 pub mod protocol_selector;
 pub use protocol_selector::*;

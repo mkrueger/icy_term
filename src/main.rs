@@ -1,10 +1,20 @@
 #![warn(clippy::all, clippy::pedantic)]
+#![allow(
+    non_upper_case_globals,
+    clippy::too_many_lines,
+    clippy::cast_precision_loss,
+    clippy::struct_excessive_bools,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_wrap,
+    clippy::cast_lossless
+)]
 mod ui;
 use std::error::Error;
 
 use eframe::egui;
-use lazy_static::*;
-use ui::*;
+use lazy_static::lazy_static;
+use ui::MainWindow;
 pub type TerminalResult<T> = Result<T, Box<dyn Error>>;
 use i18n_embed::{
     fluent::{fluent_language_loader, FluentLanguageLoader},
@@ -12,12 +22,12 @@ use i18n_embed::{
 };
 use rust_embed::RustEmbed;
 
-mod address;
+mod address_mod;
 mod com;
 
 mod auto_file_transfer;
 mod auto_login;
-mod iemsi;
+mod iemsi_mod;
 mod protocol;
 mod sound;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -51,5 +61,6 @@ async fn main() {
         &DEFAULT_TITLE,
         options,
         Box::new(|cc| Box::new(MainWindow::new(cc))),
-    );
+    )
+    .unwrap();
 }

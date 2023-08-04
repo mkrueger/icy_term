@@ -1,7 +1,7 @@
 use eframe::egui::{self, RichText};
 use i18n_embed_fl::fl;
 
-use super::main_window::{MainWindow, MainWindowMode, PostProcessing, Scaling};
+use super::main_window_mod::{MainWindow, MainWindowMode, PostProcessing, Scaling};
 
 pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut eframe::Frame) {
     let mut open = true;
@@ -21,7 +21,7 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
                     .selected_text(RichText::new(format!("{:?}", window.options.scaling)))
                     .show_ui(ui, |ui| {
                         for t in &Scaling::ALL {
-                            let label = RichText::new(format!("{:?}", t));
+                            let label = RichText::new(format!("{t:?}"));
                             let resp = ui.selectable_value(&mut window.options.scaling, *t, label);
                             if resp.changed() {
                                 window.handle_result(window.options.store_options(), false);
@@ -46,7 +46,7 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
                     )))
                     .show_ui(ui, |ui| {
                         for t in &PostProcessing::ALL {
-                            let label = RichText::new(format!("{:?}", t));
+                            let label = RichText::new(format!("{t:?}"));
                             let resp =
                                 ui.selectable_value(&mut window.options.post_processing, *t, label);
                             if resp.changed() {
@@ -62,15 +62,12 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
         });
 
     if !open {
-        match window.mode {
-            MainWindowMode::ShowSettings(show_phonebook) => {
-                if show_phonebook {
-                    window.mode = MainWindowMode::ShowPhonebook;
-                } else {
-                    window.mode = MainWindowMode::ShowTerminal;
-                }
+        if let MainWindowMode::ShowSettings(show_phonebook) = window.mode {
+            if show_phonebook {
+                window.mode = MainWindowMode::ShowPhonebook;
+            } else {
+                window.mode = MainWindowMode::ShowTerminal;
             }
-            _ => {}
         }
     }
 }

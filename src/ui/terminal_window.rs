@@ -2,12 +2,12 @@ use std::cmp::max;
 
 use clipboard::{ClipboardContext, ClipboardProvider};
 use eframe::{
-    egui::{self, CursorIcon, PointerButton, RichText, ScrollArea, scroll_area::ScrollAreaOutput, Response},
+    egui::{self, CursorIcon, PointerButton, RichText, ScrollArea},
     epaint::{Color32, Rect, Vec2},
 };
 use i18n_embed_fl::fl;
 
-use super::main_window::{MainWindow, MainWindowMode};
+use super::main_window_mod::{MainWindow, MainWindowMode};
 
 impl MainWindow {
     pub fn update_terminal_window(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -21,7 +21,7 @@ impl MainWindow {
                 let img_size = Vec2::new(22., 22.);
 
                 ui.horizontal(|ui| {
-                    if ui
+                    let r = ui
                         .add(egui::ImageButton::new(
                             super::UPLOAD_SVG.texture_id(ctx),
                             img_size,
@@ -31,12 +31,13 @@ impl MainWindow {
                                 RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-upload"))
                                     .small(),
                             );
-                        })
-                        .clicked()
-                    {
+                        });
+
+                    if r.clicked() {
                         self.mode = MainWindowMode::SelectProtocol(false);
                     }
-                    if ui
+
+                    let r = ui
                         .add(egui::ImageButton::new(
                             super::DOWNLOAD_SVG.texture_id(ctx),
                             img_size,
@@ -46,14 +47,14 @@ impl MainWindow {
                                 RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-download"))
                                     .small(),
                             );
-                        })
-                        .clicked()
-                    {
+                        });
+
+                    if r.clicked() {
                         self.mode = MainWindowMode::SelectProtocol(true);
                     }
 
                     if !self.auto_login.logged_in {
-                        if ui
+                        let r = ui
                             .add(egui::ImageButton::new(
                                 super::KEY_SVG.texture_id(ctx),
                                 img_size,
@@ -66,13 +67,14 @@ impl MainWindow {
                                     ))
                                     .small(),
                                 );
-                            })
-                            .clicked()
-                        {
+                            });
+
+                        if r.clicked() {
                             self.send_login();
                         }
                     }
-                    if ui
+
+                    let r = ui
                         .add(egui::ImageButton::new(
                             super::SETTINGS_SVG.texture_id(ctx),
                             img_size,
@@ -82,15 +84,15 @@ impl MainWindow {
                                 RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-settings"))
                                     .small(),
                             );
-                        })
-                        .clicked()
-                    {
+                        });
+
+                    if r.clicked() {
                         self.show_settings(false);
                     }
                     let size = ui.available_size_before_wrap();
                     ui.add_space(size.x - 30.0);
 
-                    if ui
+                    let r = ui
                         .add(egui::ImageButton::new(
                             super::CALL_END_SVG.texture_id(ctx),
                             img_size,
@@ -100,9 +102,8 @@ impl MainWindow {
                                 RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-hangup"))
                                     .small(),
                             );
-                        })
-                        .clicked()
-                    {
+                        });
+                    if r.clicked() {
                         self.hangup();
                     }
                 });
@@ -175,7 +176,7 @@ impl MainWindow {
                     callback: std::sync::Arc::new(egui_glow::CallbackFn::new(
                         move |info, painter| {
                             buffer_view.lock().update_buffer(painter.gl());
-                            buffer_view.lock().paint(painter.gl(), info, terminal_rect);
+                            buffer_view.lock().paint(painter.gl(), &info, terminal_rect);
                         },
                     )),
                 };
@@ -195,11 +196,10 @@ impl MainWindow {
                             | egui::Event::Copy => {
                                 let buffer_view = self.buffer_view.clone();
                                 let mut l = buffer_view.lock();
-                                if let Some(txt) = l.get_copy_text(&self.buffer_parser) {
+                                if let Some(txt) = l.get_copy_text(&*self.buffer_parser) {
                                     ui.output_mut(|o| o.copied_text = txt);
                                 }
                             }
-                            egui::Event::Cut => {}
                             egui::Event::Paste(text) => {
                                 self.output_string(&text);
                             }
@@ -286,7 +286,7 @@ impl MainWindow {
                                         } else {
                                             for c in *m {
                                                 if let Err(err) = self.print_char(*c) {
-                                                    eprintln!("{}", err);
+                                                    eprintln!("{err}");
                                                 }
                                             }
                                         }

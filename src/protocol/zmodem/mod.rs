@@ -6,23 +6,23 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 pub use constants::*;
-mod header;
-pub use header::*;
+mod header_mod;
+pub use header_mod::*;
 use icy_engine::{get_crc32, update_crc32};
 
 mod sz;
-use sz::*;
+use sz::Sz;
 
 mod rz;
-use rz::*;
+use rz::Rz;
 
-mod error;
+mod error_mod;
 mod tests;
 
-use self::error::TransmissionError;
+use self::error_mod::TransmissionError;
 
 use super::{FileDescriptor, Protocol, TransferState};
-use crate::com::{Com, ComResult};
+use crate::com::{Com, TermComResult};
 
 pub struct Zmodem {
     block_length: usize,
@@ -47,7 +47,7 @@ impl Zmodem {
         }
     }
 
-    pub async fn cancel(com: &mut Box<dyn Com>) -> ComResult<()> {
+    pub async fn cancel(com: &mut Box<dyn Com>) -> TermComResult<()> {
         com.send(&ABORT_SEQ).await?;
         Ok(())
     }
@@ -105,7 +105,7 @@ pub fn append_zdle_encoded(v: &mut Vec<u8>, data: &[u8]) {
     }
 }
 
-pub async fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> ComResult<Vec<u8>> {
+pub async fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> TermComResult<Vec<u8>> {
     let mut data = Vec::new();
     loop {
         let c = com.read_u8().await?;
@@ -126,7 +126,7 @@ pub async fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> ComResult
                     ZRUB1 => data.push(0xFF),
 
                     _ => {
-                        Header::empty(HeaderType::Bin32, FrameType::ZNAK)
+                        Header::empty(HeaderType::Bin32, ZFrameType::Nak)
                             .write(com)
                             .await?;
                         return Err(Box::new(TransmissionError::InvalidSubpacket(c2)));
@@ -148,22 +148,23 @@ pub async fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> ComResult
 
 fn get_hex(n: u8) -> u8 {
     if n < 10 {
-        return b'0' + n as u8;
+        b'0' + n
+    } else {
+        b'a' + (n - 10)
     }
-    return b'a' + (n - 10) as u8;
 }
 
-fn from_hex(n: u8) -> ComResult<u8> {
-    if b'0' <= n && n <= b'9' {
+fn from_hex(n: u8) -> TermComResult<u8> {
+    if n.is_ascii_digit() {
         return Ok(n - b'0');
     }
-    if b'A' <= n && n <= b'F' {
+    if (b'A'..=b'F').contains(&n) {
         return Ok(10 + n - b'A');
     }
-    if b'a' <= n && n <= b'f' {
+    if (b'a'..=b'f').contains(&n) {
         return Ok(10 + n - b'a');
     }
-    return Err(Box::new(TransmissionError::HexNumberExpected));
+    Err(Box::new(TransmissionError::HexNumberExpected))
 }
 
 #[async_trait]
@@ -172,7 +173,7 @@ impl Protocol for Zmodem {
         &mut self,
         com: &mut Box<dyn Com>,
         transfer_state: Arc<Mutex<TransferState>>,
-    ) -> ComResult<bool> {
+    ) -> TermComResult<bool> {
         if let Some(rz) = &mut self.rz {
             rz.update(com, transfer_state.clone()).await?;
             if !rz.is_active() {
@@ -194,10 +195,10 @@ impl Protocol for Zmodem {
         com: &mut Box<dyn Com>,
         files: Vec<FileDescriptor>,
         transfer_state: Arc<Mutex<TransferState>>,
-    ) -> ComResult<()> {
+    ) -> TermComResult<()> {
         transfer_state.lock().unwrap().protocol_name = self.get_name().to_string();
         let mut sz = Sz::new(self.block_length);
-        sz.send(com, files).await?;
+        sz.send(com, files);
         self.sz = Some(sz);
         Ok(())
     }
@@ -206,7 +207,7 @@ impl Protocol for Zmodem {
         &mut self,
         com: &mut Box<dyn Com>,
         transfer_state: Arc<Mutex<TransferState>>,
-    ) -> ComResult<()> {
+    ) -> TermComResult<()> {
         transfer_state.lock().unwrap().protocol_name = self.get_name().to_string();
         let mut rz = Rz::new(self.block_length);
         rz.recv(com).await?;
@@ -224,7 +225,7 @@ impl Protocol for Zmodem {
         }
     }
 
-    async fn cancel(&mut self, com: &mut Box<dyn Com>) -> ComResult<()> {
+    async fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
         com.send(&ABORT_SEQ).await?;
         Ok(())
     }

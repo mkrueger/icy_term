@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
-#![allow(unsafe_code)]
+#![allow(unsafe_code, clippy::wildcard_imports)]
 
 use directories::ProjectDirs;
 use eframe::epaint::FontId;
@@ -19,17 +19,17 @@ use eframe::egui::{self, Key};
 
 use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
-use crate::com::{Com, ComResult};
+use crate::com::{Com, TermComResult};
 use crate::protocol::TransferState;
 use crate::sound::play_music;
 use crate::{
-    address::{start_read_book, store_phone_book, Address},
-    com::{RawCom, SSHCom, SendData, TelnetCom},
+    address_mod::{start_read_book, store_phone_book, Address},
+    com::{ComRawImpl, ComTelnetImpl, SSHCom, SendData},
     protocol::FileDescriptor,
     TerminalResult,
 };
 
-use super::{screen_modes::ScreenMode, BufferView};
+use super::{screen_modes::ScreenMode, ViewState};
 use crate::com::Connection;
 use tokio::sync::mpsc;
 
@@ -93,7 +93,7 @@ impl Options {
             let options_file = proj_dirs.config_dir().join("options.toml");
             if options_file.exists() {
                 let fs = fs::read_to_string(&options_file).expect("Can't read options");
-                if let Ok(options) = toml::from_str::<Options>(&fs.as_str()) {
+                if let Ok(options) = toml::from_str::<Options>(fs.as_str()) {
                     return options;
                 }
             }
@@ -123,7 +123,7 @@ impl Options {
 }
 
 pub struct MainWindow {
-    pub buffer_view: Arc<eframe::epaint::mutex::Mutex<BufferView>>,
+    pub buffer_view: Arc<eframe::epaint::mutex::Mutex<ViewState>>,
     pub buffer_parser: Box<dyn BufferParser>,
 
     pub connection_opt: Option<Connection>,
@@ -142,7 +142,7 @@ pub struct MainWindow {
     current_transfer: Option<Arc<Mutex<TransferState>>>,
     is_alt_pressed: bool,
 
-    open_connection_promise: Option<Promise<ComResult<Box<dyn Com>>>>,
+    open_connection_promise: Option<Promise<TermComResult<Box<dyn Com>>>>,
 }
 
 impl MainWindow {
@@ -152,7 +152,7 @@ impl MainWindow {
             .as_ref()
             .expect("You need to run eframe with the glow backend");
         let options = Options::load_options();
-        let view = BufferView::new(gl, &options);
+        let view = ViewState::new(gl, &options);
         let mut view = MainWindow {
             buffer_view: Arc::new(eframe::epaint::mutex::Mutex::new(view)),
             //address_list: HoverList::new(),
@@ -162,9 +162,9 @@ impl MainWindow {
             selected_bbs: 0,
             connection_opt: None,
             options,
-            auto_login: AutoLogin::new(String::new()),
+            auto_login: AutoLogin::new(""),
             auto_file_transfer: AutoFileTransfer::new(),
-            screen_mode: ScreenMode::DOS(80, 25),
+            screen_mode: ScreenMode::Dos(80, 25),
             current_transfer: None,
             handled_char: false,
             is_alt_pressed: false,
@@ -204,13 +204,13 @@ impl MainWindow {
         if let Err(err) = res {
             //            self.hangup();
             //            self.buffer_view.lock().buf.clear();
-            self.println(&format!("\n\r{}", err)).unwrap();
-            eprintln!("{}", err);
+            self.println(&format!("\n\r{err}")).unwrap();
+            eprintln!("{err}");
             if let Some(con) = &mut self.connection_opt {
                 if con.is_disconnected() {
                     self.connection_opt = None;
                     self.open_connection_promise = None;
-                    self.output_string(&format!("\n{}", err));
+                    self.output_string(&format!("\n{err}"));
                 }
             }
 
@@ -230,10 +230,8 @@ impl MainWindow {
         if let Some(con) = &mut self.connection_opt {
             let r = con.send(vec![translated_char as u8]);
             self.handle_result(r, false);
-        } else {
-            if let Err(err) = self.print_char(translated_char as u8) {
-                eprintln!("{}", err);
-            }
+        } else if let Err(err) = self.print_char(translated_char as u8) {
+            eprintln!("{err}");
         }
     }
 
@@ -251,7 +249,7 @@ impl MainWindow {
             for ch in str.chars() {
                 let translated_char = self.buffer_parser.from_unicode(ch);
                 if let Err(err) = self.print_char(translated_char as u8) {
-                    eprintln!("{}", err);
+                    eprintln!("{err}");
                 }
             }
         }
@@ -272,7 +270,7 @@ impl MainWindow {
                     self.handle_result(r, false);
                 }
             }
-            icy_engine::CallbackAction::PlayMusic(music) => play_music(music),
+            icy_engine::CallbackAction::PlayMusic(music) => play_music(&music),
             icy_engine::CallbackAction::Beep => crate::sound::beep(),
         }
         //if !self.update_sixels() {
@@ -283,7 +281,7 @@ impl MainWindow {
 
     fn start_transfer_thread(
         &mut self,
-        protocol_type: crate::protocol::ProtocolType,
+        protocol_type: crate::protocol::TransferType,
         download: bool,
         files_opt: Option<Vec<FileDescriptor>>,
     ) {
@@ -317,13 +315,15 @@ impl MainWindow {
         */
     pub(crate) fn initiate_file_transfer(
         &mut self,
-        protocol_type: crate::protocol::ProtocolType,
+        protocol_type: crate::protocol::TransferType,
         download: bool,
     ) {
         self.mode = MainWindowMode::ShowTerminal;
         match self.connection_opt.as_mut() {
             Some(_) => {
-                if !download {
+                if download {
+                    self.start_transfer_thread(protocol_type, download, None);
+                } else {
                     let files = FileDialog::new().pick_files();
                     if let Some(path) = files {
                         let fd = FileDescriptor::from_paths(&path);
@@ -331,8 +331,6 @@ impl MainWindow {
                             self.start_transfer_thread(protocol_type, download, Some(files));
                         }
                     }
-                } else {
-                    self.start_transfer_thread(protocol_type, download, None);
                 }
             }
             None => {
@@ -349,19 +347,19 @@ impl MainWindow {
     pub fn call_bbs(&mut self, i: usize) {
         self.mode = MainWindowMode::ShowTerminal;
         let mut adr = self.addresses[i].address.clone();
-        if !adr.contains(":") {
+        if !adr.contains(':') {
             adr.push_str(":23");
         }
 
         let call_adr = self.addresses[i].clone();
-        self.auto_login = AutoLogin::new(call_adr.auto_login.clone());
+        self.auto_login = AutoLogin::new(&call_adr.auto_login);
         self.auto_login.disabled = self.is_alt_pressed;
         self.buffer_view.lock().buf.clear();
         self.cur_addr = i;
         if let Some(mode) = &call_adr.screen_mode {
             self.set_screen_mode(*mode);
         } else {
-            self.set_screen_mode(ScreenMode::DOS(80, 25));
+            self.set_screen_mode(ScreenMode::Dos(80, 25));
         }
         self.buffer_parser = self.addresses[i].get_terminal_parser();
 
@@ -383,9 +381,11 @@ impl MainWindow {
 
         self.open_connection_promise = Some(Promise::spawn_async(async move {
             let mut com: Box<dyn Com> = match ct {
-                crate::address::ConnectionType::Telnet => Box::new(TelnetCom::new(window_size)),
-                crate::address::ConnectionType::Raw => Box::new(RawCom::new()),
-                crate::address::ConnectionType::SSH => Box::new(SSHCom::new()),
+                crate::address_mod::ConnectionType::Telnet => {
+                    Box::new(ComTelnetImpl::new(window_size))
+                }
+                crate::address_mod::ConnectionType::Raw => Box::new(ComRawImpl::new()),
+                crate::address_mod::ConnectionType::Ssh => Box::new(SSHCom::new()),
             };
             if let Err(err) = com.connect(&call_adr, timeout).await {
                 Err(err)
@@ -401,7 +401,7 @@ impl MainWindow {
 
     pub fn delete_selected_address(&mut self) {
         if self.selected_bbs > 0 {
-            self.addresses.remove(self.selected_bbs as usize);
+            self.addresses.remove(self.selected_bbs);
             self.selected_bbs -= 1;
         }
         let res = store_phone_book(&self.addresses);
@@ -413,50 +413,46 @@ impl MainWindow {
         let Some(con) = &mut self.connection_opt else { return Ok(()) };
 
         if con.is_data_available()? {
-            if let Ok(vec) = con.read_buffer() {
-                for ch in vec {
-                    if let Some(adr) = self.addresses.get(self.cur_addr) {
-                        if let Err(err) = self.auto_login.try_login(con, adr, ch) {
-                            eprintln!("{}", err);
+            for ch in con.read_buffer() {
+                if let Some(adr) = self.addresses.get(self.cur_addr) {
+                    if let Err(err) = self.auto_login.try_login(con, adr, ch) {
+                        eprintln!("{err}");
+                    }
+                }
+                /*
+                match ch  {
+                    b'\\' => print!("\\\\"),
+                    b'\n' => print!("\\n"),
+                    b'\r' => print!("\\r"),
+                    b'\"' => print!("\\\""),
+                    _ => {
+                        if ch < b' ' || ch == b'\x7F' {
+                            print!("\\x{:02X}", ch as u8);
+                        } else if ch > b'\x7F' {
+                            print!("\\u{{{:02X}}}", ch as u8);
+                        } else {
+                            print!("{}", char::from_u32(ch as u32).unwrap());
                         }
                     }
-                    /*
-                    match ch  {
-                        b'\\' => print!("\\\\"),
-                        b'\n' => print!("\\n"),
-                        b'\r' => print!("\\r"),
-                        b'\"' => print!("\\\""),
-                        _ => {
-                            if ch < b' ' || ch == b'\x7F' {
-                                print!("\\x{:02X}", ch as u8);
-                            } else if ch > b'\x7F' {
-                                print!("\\u{{{:02X}}}", ch as u8);
-                            } else {
-                                print!("{}", char::from_u32(ch as u32).unwrap());
-                            }
-                        }
-                    }*/
+                }*/
 
-                    let result = self
-                        .buffer_view
-                        .lock()
-                        .print_char(&mut self.buffer_parser, unsafe {
-                            char::from_u32_unchecked(ch as u32)
-                        })?;
-                    match result {
-                        icy_engine::CallbackAction::None => {}
-                        icy_engine::CallbackAction::SendString(result) => {
-                            con.send(result.as_bytes().to_vec())?;
-                        }
-                        icy_engine::CallbackAction::PlayMusic(music) => play_music(music),
-                        icy_engine::CallbackAction::Beep => crate::sound::beep(),
+                let result = self
+                    .buffer_view
+                    .lock()
+                    .print_char(&mut self.buffer_parser, unsafe {
+                        char::from_u32_unchecked(ch as u32)
+                    })?;
+                match result {
+                    icy_engine::CallbackAction::None => {}
+                    icy_engine::CallbackAction::SendString(result) => {
+                        con.send(result.as_bytes().to_vec())?;
                     }
-                    if let Some((protocol_type, download)) =
-                        self.auto_file_transfer.try_transfer(ch)
-                    {
-                        self.initiate_file_transfer(protocol_type, download);
-                        return Ok(());
-                    }
+                    icy_engine::CallbackAction::PlayMusic(music) => play_music(&music),
+                    icy_engine::CallbackAction::Beep => crate::sound::beep(),
+                }
+                if let Some((protocol_type, download)) = self.auto_file_transfer.try_transfer(ch) {
+                    self.initiate_file_transfer(protocol_type, download);
+                    return Ok(());
                 }
             }
         }
@@ -467,7 +463,7 @@ impl MainWindow {
         if let Some(adr) = self.addresses.get(self.cur_addr) {
             if let Some(con) = &mut self.connection_opt {
                 if let Err(err) = self.auto_login.run_autologin(con, adr) {
-                    eprintln!("{}", err);
+                    eprintln!("{err}");
                 }
             }
         }
@@ -506,42 +502,39 @@ impl MainWindow {
     }
 
     fn update_title(&self, frame: &mut eframe::Frame) {
-        match self.mode {
-            MainWindowMode::ShowPhonebook => {
-                frame.set_window_title(&crate::DEFAULT_TITLE);
-            }
-            _ => {
-                let str = if let Some(con) = &self.connection_opt {
-                    let d = SystemTime::now()
-                        .duration_since(con.get_connection_time())
-                        .unwrap();
-                    let sec = d.as_secs();
-                    let minutes = sec / 60;
-                    let hours = minutes / 60;
-                    let cur = &self.addresses[self.cur_addr];
-                    let t = format!("{:02}:{:02}:{:02}", hours, minutes % 60, sec % 60);
-                    let s = if cur.system_name.len() > 0 {
-                        cur.system_name.clone()
-                    } else {
-                        cur.address.clone()
-                    };
-
-                    fl!(
-                        crate::LANGUAGE_LOADER,
-                        "title-connected",
-                        version = crate::VERSION,
-                        time = t,
-                        name = s
-                    )
+        if let MainWindowMode::ShowPhonebook = self.mode {
+            frame.set_window_title(&crate::DEFAULT_TITLE);
+        } else {
+            let str = if let Some(con) = &self.connection_opt {
+                let d = SystemTime::now()
+                    .duration_since(con.get_connection_time())
+                    .unwrap();
+                let sec = d.as_secs();
+                let minutes = sec / 60;
+                let hours = minutes / 60;
+                let cur = &self.addresses[self.cur_addr];
+                let t = format!("{:02}:{:02}:{:02}", hours, minutes % 60, sec % 60);
+                let s = if cur.system_name.is_empty() {
+                    cur.address.clone()
                 } else {
-                    fl!(
-                        crate::LANGUAGE_LOADER,
-                        "title-offline",
-                        version = crate::VERSION
-                    )
+                    cur.system_name.clone()
                 };
-                frame.set_window_title(str.as_str());
-            }
+
+                fl!(
+                    crate::LANGUAGE_LOADER,
+                    "title-connected",
+                    version = crate::VERSION,
+                    time = t,
+                    name = s
+                )
+            } else {
+                fl!(
+                    crate::LANGUAGE_LOADER,
+                    "title-offline",
+                    version = crate::VERSION
+                )
+            };
+            frame.set_window_title(str.as_str());
         }
     }
 
@@ -553,7 +546,7 @@ impl MainWindow {
 impl eframe::App for MainWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         use egui::FontFamily::Proportional;
-        use egui::TextStyle::*;
+        use egui::TextStyle::{Body, Button, Heading, Monospace, Small};
         let mut style: egui::Style = (*ctx.style()).clone();
         style.text_styles = [
             (Heading, FontId::new(26.0, Proportional)),
@@ -567,99 +560,94 @@ impl eframe::App for MainWindow {
 
         self.update_title(frame);
 
-        if self.open_connection_promise.is_some() {
-            if self
+        if self.open_connection_promise.is_some()
+            && self
                 .open_connection_promise
                 .as_ref()
                 .unwrap()
                 .ready()
                 .is_some()
-            {
-                if let Ok(handle) = self.open_connection_promise.take().unwrap().try_take() {
-                    match handle {
-                        Ok(handle) => {
-                            self.open_connection_promise = None;
-                            let ctx = ctx.clone();
-                            let (tx, rx) = mpsc::channel::<SendData>(32);
-                            let (tx2, mut rx2) = mpsc::channel::<SendData>(32);
-                            self.connection_opt = Some(Connection::new(rx, tx2.clone()));
+        {
+            if let Ok(handle) = self.open_connection_promise.take().unwrap().try_take() {
+                match handle {
+                    Ok(handle) => {
+                        self.open_connection_promise = None;
+                        let ctx = ctx.clone();
+                        let (tx, rx) = mpsc::channel::<SendData>(32);
+                        let (tx2, mut rx2) = mpsc::channel::<SendData>(32);
+                        self.connection_opt = Some(Connection::new(rx, tx2));
 
-                            let mut handle = handle;
+                        let mut handle = handle;
 
-                            tokio::spawn(async move {
-                                let mut done = false;
-                                while !done {
-                                    tokio::select! {
-                                        Ok(v) = handle.read_data() => {
-                                            if let Err(err) = tx.send(SendData::Data(v)).await {
-                                                eprintln!("error while sending: {}", err);
-                                                done = true;
-                                            } else {
-                                                ctx.request_repaint();
-                                            }
+                        tokio::spawn(async move {
+                            let mut done = false;
+                            while !done {
+                                tokio::select! {
+                                    Ok(v) = handle.read_data() => {
+                                        if let Err(err) = tx.send(SendData::Data(v)).await {
+                                            eprintln!("error while sending: {err}");
+                                            done = true;
+                                        } else {
+                                            ctx.request_repaint();
                                         }
-                                        result = rx2.recv() => {
-                                            match result {
-                                                Some(SendData::Data(buf)) => {
-                                                    if let Err(err) = handle.send(&buf).await {
-                                                        eprintln!("{}", err);
-                                                        done = true;
-                                                    }
-                                                },
-                                                Some(SendData::StartTransfer(protocol_type, download, transfer_state, files_opt)) => {
-                                                let mut protocol = protocol_type.create();
-                                                if let Err(err) = if download {
-                                                        protocol.initiate_recv(&mut handle, transfer_state.clone()).await
-                                                    } else {
-                                                        protocol.initiate_send(&mut handle, files_opt.unwrap(), transfer_state.clone()).await
-                                                    } {
-                                                        eprintln!("{}", err);
-                                                        break;
-                                                    }
-                                                    loop {
-                                                        tokio::select! {
-                                                            v = protocol.update(&mut handle, transfer_state.clone()) => {
-                                                                match v {
-                                                                    Ok(running) => {
-                                                                        if !running {
-                                                                            break;
-                                                                        }
-                                                                    }
-                                                                    Err(err) => {
-                                                                        eprintln!("Err {}", err);
+                                    }
+                                    result = rx2.recv() => {
+                                        match result {
+                                            Some(SendData::Data(buf)) => {
+                                                if let Err(err) = handle.send(&buf).await {
+                                                    eprintln!("{err}");
+                                                    done = true;
+                                                }
+                                            },
+                                            Some(SendData::StartTransfer(protocol_type, download, transfer_state, files_opt)) => {
+                                            let mut protocol = protocol_type.create();
+                                            if let Err(err) = if download {
+                                                    protocol.initiate_recv(&mut handle, transfer_state.clone()).await
+                                                } else {
+                                                    protocol.initiate_send(&mut handle, files_opt.unwrap(), transfer_state.clone()).await
+                                                } {
+                                                    eprintln!("{err}");
+                                                    break;
+                                                }
+                                                loop {
+                                                    tokio::select! {
+                                                        v = protocol.update(&mut handle, transfer_state.clone()) => {
+                                                            match v {
+                                                                Ok(running) => {
+                                                                    if !running {
                                                                         break;
                                                                     }
                                                                 }
-                                                            }
-                                                            result = rx2.recv() => {
-                                                                let msg = result.unwrap();
-                                                                match msg {
-                                                                    SendData::CancelTransfer => {
-                                                                        protocol.cancel(&mut handle).await.unwrap_or_default();
-                                                                        eprintln!("Cancel");
-                                                                        break;
-                                                                    }
-                                                                    _ => {}
+                                                                Err(err) => {
+                                                                    eprintln!("Err {err}");
+                                                                    break;
                                                                 }
                                                             }
                                                         }
+                                                        result = rx2.recv() => {
+                                                            if let Some(SendData::CancelTransfer) = result {
+                                                                protocol.cancel(&mut handle).await.unwrap_or_default();
+                                                                eprintln!("Cancel");
+                                                                break;
+                                                            }
+                                                        }
                                                     }
-                                                    tx.send(SendData::EndTransfer).await.unwrap_or_default();
                                                 }
-                                                Some(SendData::Disconnect) => {
-                                                    done = true;
-                                                }
-                                                _ => {}
+                                                tx.send(SendData::EndTransfer).await.unwrap_or_default();
                                             }
+                                            Some(SendData::Disconnect) => {
+                                                done = true;
+                                            }
+                                            _ => {}
                                         }
-                                    };
-                                }
-                                tx.send(SendData::Disconnect).await.unwrap_or_default();
-                            });
-                        }
-                        Err(err) => {
-                            self.println(&format!("\n\r{}", err)).unwrap();
-                        }
+                                    }
+                                };
+                            }
+                            tx.send(SendData::Disconnect).await.unwrap_or_default();
+                        });
+                    }
+                    Err(err) => {
+                        self.println(&format!("\n\r{err}")).unwrap();
                     }
                 }
             }
@@ -688,7 +676,7 @@ impl eframe::App for MainWindow {
             }
             MainWindowMode::SelectProtocol(download) => {
                 self.update_terminal_window(ctx, frame);
-                super::view_protocol_selector(self, ctx, frame, download);
+                super::view_selector(self, ctx, frame, download);
             }
             MainWindowMode::FileTransfer(download) => {
                 if self.connection_opt.as_mut().unwrap().should_end_transfer() {
@@ -707,7 +695,7 @@ impl eframe::App for MainWindow {
                 self.update_terminal_window(ctx, frame);
                 if let Some(a) = &mut self.current_transfer {
                     // self.print_result(&r);
-                    if !super::view_file_transfer(ctx, frame, a, download) {
+                    if !super::view_filetransfer(ctx, frame, a, download) {
                         self.mode = MainWindowMode::ShowTerminal;
                         let res = self.connection_opt.as_mut().unwrap().cancel_transfer();
                         self.handle_result(res, true);

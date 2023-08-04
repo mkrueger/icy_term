@@ -1,7 +1,8 @@
+#![allow(clippy::many_single_char_names, clippy::collapsible_match)]
 use glow::{HasContext, NativeTexture};
 use icy_engine::{Position, SixelReadStatus};
 
-use super::BufferView;
+use super::ViewState;
 
 pub struct SixelCacheEntry {
     pub status: SixelReadStatus,
@@ -23,11 +24,11 @@ impl SixelCacheEntry {
     }
 }
 
-impl BufferView {
+impl ViewState {
     pub fn update_sixels(&mut self, gl: &glow::Context) -> bool {
         let buffer = &self.buf;
-        let l = buffer.layers[0].sixels.len();
-        if l == 0 {
+        let sixel_len = buffer.layers[0].sixels.len();
+        if sixel_len == 0 {
             for sx in &self.sixel_cache {
                 if let Some(tex) = sx.texture_opt {
                     unsafe {
@@ -40,7 +41,7 @@ impl BufferView {
 
         let mut res = false;
         let mut i = 0;
-        while i < l {
+        while i < sixel_len {
             let sixel = &buffer.layers[0].sixels[i];
 
             if sixel.width() == 0 || sixel.height() == 0 {
@@ -52,7 +53,7 @@ impl BufferView {
             let current_line = match sixel.read_status {
                 SixelReadStatus::Position(_, y) => y * 6,
                 SixelReadStatus::Error | SixelReadStatus::Finished => sixel.height() as i32,
-                _ => 0,
+                SixelReadStatus::NotStarted => 0,
             };
 
             if let Some(entry) = self.sixel_cache.get(i) {
@@ -81,14 +82,10 @@ impl BufferView {
                     }
                     entry.data_opt.take().unwrap()
                 } else {
-                    let mut data = Vec::with_capacity(data_len);
-                    data.resize(data_len, 0);
-                    data
+                    vec![0; data_len]
                 }
             } else {
-                let mut data = Vec::with_capacity(data_len);
-                data.resize(data_len, 0);
-                data
+                vec![0; data_len]
             };
 
             let mut i = old_line as usize * sixel.width() as usize * 4;
@@ -97,8 +94,8 @@ impl BufferView {
                 for x in 0..sixel.width() {
                     let column = &sixel.picture[x as usize];
                     let data = if let Some(col) = column.get(y as usize) {
-                        if let Some(col) = col {
-                            let (r, g, b) = col.get_rgb();
+                        if let Some(c) = col {
+                            let (r, g, b) = c.get_rgb();
                             [r, g, b, 0xFF]
                         } else {
                             // todo: bg color may differ here

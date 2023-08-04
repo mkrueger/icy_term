@@ -27,20 +27,22 @@ impl Terminal {
 
 impl Display for Terminal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ConnectionType {
     Telnet,
+    #[serde(rename = "RAW")]
     Raw,
-    SSH,
+    #[serde(rename = "SSH")]
+    Ssh,
 }
 
 impl Display for ConnectionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -48,7 +50,7 @@ impl ConnectionType {
     pub const ALL: [ConnectionType; 3] = [
         ConnectionType::Telnet,
         ConnectionType::Raw,
-        ConnectionType::SSH,
+        ConnectionType::Ssh,
     ];
 }
 
@@ -137,7 +139,7 @@ name = 'Atari'
 impl Address {
     pub fn new(system_name: String) -> Self {
         Self {
-            system_name: system_name,
+            system_name,
             user_name: String::new(),
             password: String::new(),
             comment: String::new(),
@@ -154,39 +156,40 @@ impl Address {
 
     pub fn get_terminal_parser(&self) -> Box<dyn BufferParser> {
         match self.screen_mode {
-            Some(ScreenMode::C64) | Some(ScreenMode::C128(_)) => {
+            Some(ScreenMode::C64 | ScreenMode::C128(_)) => {
                 return Box::new(PETSCIIParser::new());
             }
-            Some(ScreenMode::Atari) | Some(ScreenMode::AtariXep80) => {
+            Some(ScreenMode::Atari | ScreenMode::AtariXep80) => {
                 return Box::new(AtasciiParser::new());
             }
-            Some(ScreenMode::Viewdata) => {
+            Some(ScreenMode::ViewData) => {
                 return Box::new(ViewdataParser::new());
             }
             _ => {}
         }
 
-        match self.terminal_type {
-            Terminal::Avatar => Box::new(AvatarParser::new(true)),
-            _ => {
-                let mut parser = AnsiParser::new();
-                parser.ansi_music = self.ansi_music.clone().into();
-                Box::new(parser)
-            }
+        if let Terminal::Avatar = self.terminal_type {
+            Box::new(AvatarParser::new(true))
+        } else {
+            let mut parser = AnsiParser::new();
+            parser.ansi_music = self.ansi_music.clone().into();
+            Box::new(parser)
         }
     }
 
     pub fn get_phonebook_file() -> Option<PathBuf> {
         if let Some(proj_dirs) = ProjectDirs::from("com", "GitHub", "icy_term") {
             if !proj_dirs.config_dir().exists() {
-                fs::create_dir_all(proj_dirs.config_dir()).expect(&format!(
-                    "Can't create configuration directory {:?}",
-                    proj_dirs.config_dir()
-                ));
+                fs::create_dir_all(proj_dirs.config_dir()).unwrap_or_else(|_| {
+                    panic!(
+                        "Can't create configuration directory {:?}",
+                        proj_dirs.config_dir()
+                    )
+                });
             }
             let phonebook = proj_dirs.config_dir().join("phonebook.toml");
             if !phonebook.exists() {
-                fs::write(&phonebook, &TEMPLATE).expect("Can't create phonebook");
+                fs::write(&phonebook, TEMPLATE).expect("Can't create phonebook");
             }
             return Some(phonebook);
         }
@@ -198,7 +201,7 @@ impl Address {
         res.push(Address::new(String::new()));
         if let Some(phonebook) = Address::get_phonebook_file() {
             let fs = fs::read_to_string(&phonebook).expect("Can't read phonebook");
-            match toml::from_str::<AddressBook>(&fs.as_str()) {
+            match toml::from_str::<AddressBook>(fs.as_str()) {
                 Ok(addresses) => {
                     res.extend_from_slice(&addresses.addresses);
                     return res;
@@ -223,10 +226,9 @@ pub fn start_read_book() -> Vec<Address> {
     let res = Address::read_phone_book();
 
     if let Some(phonebook) = Address::get_phonebook_file() {
-        let p = phonebook.clone();
         thread::spawn(move || loop {
-            if let Some(path) = p.parent() {
-                if let Err(_) = watch(path) {
+            if let Some(path) = phonebook.parent() {
+                if watch(path).is_err() {
                     return;
                 }
             }
@@ -238,9 +240,9 @@ pub fn start_read_book() -> Vec<Address> {
 pub fn store_phone_book(addr: &Vec<Address>) -> TerminalResult<()> {
     if let Some(file_name) = Address::get_phonebook_file() {
         let mut addresses = Vec::new();
-        for i in 1..addr.len() {
+        (1..addr.len()).for_each(|i| {
             addresses.push(addr[i].clone());
-        }
+        });
         let phonebook = AddressBook { addresses };
 
         match toml::to_string_pretty(&phonebook) {
@@ -276,7 +278,7 @@ fn watch<P: AsRef<Path>>(path: P) -> notify::Result<()> {
             Ok(_) => unsafe {
                 READ_ADDRESSES = true;
             },
-            Err(e) => println!("watch error: {:?}", e),
+            Err(e) => println!("watch error: {e:}"),
         }
     }
 

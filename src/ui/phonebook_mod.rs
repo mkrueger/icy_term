@@ -5,9 +5,9 @@ use eframe::{
 use i18n_embed_fl::fl;
 use rand::Rng;
 
-use crate::address::{self, store_phone_book, Address, Terminal};
+use crate::address_mod::{self, store_phone_book, Address, Terminal};
 
-use super::{main_window::MainWindow, DEFAULT_MODES};
+use super::{main_window_mod::MainWindow, DEFAULT_MODES};
 
 pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut eframe::Frame) {
     egui::TopBottomPanel::top("top_panel")
@@ -16,7 +16,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
                 let img_size = Vec2::new(24., 24.);
-                if ui
+                let r = ui
                     .add(egui::ImageButton::new(
                         super::CALL_SVG.texture_id(ctx),
                         img_size,
@@ -25,9 +25,9 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                         ui.label(
                             RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-call")).small(),
                         );
-                    })
-                    .clicked()
-                {
+                    });
+
+                if r.clicked() {
                     window.call_bbs(0);
                 }
 
@@ -38,7 +38,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                         .font(FontId::proportional(22.)),
                 );
 
-                if ui
+                let r = ui
                     .add(egui::ImageButton::new(
                         super::SETTINGS_SVG.texture_id(ctx),
                         img_size,
@@ -48,9 +48,9 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                             RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-settings"))
                                 .small(),
                         );
-                    })
-                    .clicked()
-                {
+                    });
+
+                if r.clicked() {
                     window.show_settings(true);
                 }
             });
@@ -71,7 +71,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                             let img_size = Vec2::new(row_height, row_height);
 
                             ui.horizontal(|ui| {
-                                if ui
+                                let r = ui
                                     .add(
                                         egui::ImageButton::new(
                                             super::CALL_SVG.texture_id(ctx),
@@ -87,9 +87,9 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                                             ))
                                             .small(),
                                         );
-                                    })
-                                    .clicked()
-                                {
+                                    });
+
+                                if r.clicked() {
                                     window.call_bbs(i + 1);
                                     return;
                                 }
@@ -114,7 +114,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
             ui.horizontal(|ui| {
                 ui.horizontal(|ui| {
                     let img_size = Vec2::new(22., 22.);
-                    if ui
+                    let r = ui
                         .add(egui::ImageButton::new(
                             super::DELETE_SVG.texture_id(ctx),
                             img_size,
@@ -124,12 +124,13 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                                 RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-delete"))
                                     .small(),
                             );
-                        })
-                        .clicked()
-                    {
+                        });
+
+                    if r.clicked() {
                         window.delete_selected_address();
                     }
-                    if ui
+
+                    let r = ui
                         .add(egui::ImageButton::new(
                             super::ADD_SVG.texture_id(ctx),
                             img_size,
@@ -138,9 +139,8 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
                             ui.label(
                                 RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-add")).small(),
                             );
-                        })
-                        .clicked()
-                    {
+                        });
+                    if r.clicked() {
                         window.addresses.push(Address::new(fl!(
                             crate::LANGUAGE_LOADER,
                             "phonebook-new_bbs"
@@ -159,7 +159,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
             });
             if sav != window.addresses[window.selected_bbs] {
                 if let Err(err) = store_phone_book(&window.addresses) {
-                    eprintln!("{}", err);
+                    eprintln!("{err}");
                 }
             }
         } else {
@@ -171,7 +171,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut
     });
 }
 
-fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address::Address) {
+fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address_mod::Address) {
     egui::Grid::new("some_unique_id")
         .spacing(Vec2::new(5., 8.))
         .show(ui, |ui| {
@@ -189,8 +189,8 @@ fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address::Address) {
                 egui::ComboBox::from_id_source("combobox1")
                     .selected_text(RichText::new(format!("{:?}", adr.connection_type)))
                     .show_ui(ui, |ui| {
-                        for ct in &address::ConnectionType::ALL {
-                            let label = RichText::new(format!("{:?}", ct));
+                        for ct in &address_mod::ConnectionType::ALL {
+                            let label = RichText::new(format!("{ct:?}"));
                             ui.selectable_value(&mut adr.connection_type, *ct, label);
                         }
                     });
@@ -235,7 +235,7 @@ fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address::Address) {
                     .selected_text(RichText::new(format!("{:?}", adr.screen_mode)))
                     .show_ui(ui, |ui| {
                         for mode in &DEFAULT_MODES {
-                            let label = RichText::new(format!("{:?}", mode));
+                            let label = RichText::new(format!("{mode:?}"));
                             ui.selectable_value(&mut adr.screen_mode, Some(*mode), label);
                         }
                     });
@@ -247,7 +247,7 @@ fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address::Address) {
                     .selected_text(RichText::new(format!("{:?}", adr.terminal_type)))
                     .show_ui(ui, |ui| {
                         for t in &Terminal::ALL {
-                            let label = RichText::new(format!("{:?}", t));
+                            let label = RichText::new(format!("{t:?}"));
                             ui.selectable_value(&mut adr.terminal_type, *t, label);
                         }
                     });

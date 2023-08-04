@@ -3,9 +3,9 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-use crate::address::Address;
+use crate::address_mod::Address;
 
-use super::{Com, ComResult};
+use super::{Com, TermComResult};
 
 #[derive(Debug)]
 pub struct TestCom {
@@ -24,27 +24,27 @@ impl Com for TestCom {
         "Test_Com"
     }
 
-    async fn connect(&mut self, _addr: &Address, _timeout: Duration) -> ComResult<bool> {
+    async fn connect(&mut self, _addr: &Address, _timeout: Duration) -> TermComResult<bool> {
         Ok(true)
     }
 
-    async fn read_data(&mut self) -> ComResult<Vec<u8>> {
+    async fn read_data(&mut self) -> TermComResult<Vec<u8>> {
         todo!();
     }
 
-    async fn send<'a>(&mut self, _buf: &'a [u8]) -> ComResult<usize> {
+    async fn send<'a>(&mut self, _buf: &'a [u8]) -> TermComResult<usize> {
         todo!();
     }
 
-    async fn read_u8(&mut self) -> ComResult<u8> {
+    async fn read_u8(&mut self) -> TermComResult<u8> {
         todo!();
     }
 
-    async fn read_exact(&mut self, _len: usize) -> ComResult<Vec<u8>> {
+    async fn read_exact(&mut self, _len: usize) -> TermComResult<Vec<u8>> {
         todo!();
     }
 
-    fn disconnect(&mut self) -> ComResult<()> {
+    fn disconnect(&mut self) -> TermComResult<()> {
         // nothing
         Ok(())
     }

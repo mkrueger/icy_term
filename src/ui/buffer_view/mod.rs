@@ -7,31 +7,31 @@ use icy_engine::{Buffer, BufferParser, CallbackAction, Caret, EngineResult, Posi
 pub mod render;
 pub use render::*;
 
-pub mod sixel;
-pub use sixel::*;
+pub mod sixels;
+pub use sixels::*;
 
 pub mod selection;
 pub use selection::*;
 
-use super::main_window::{Options, PostProcessing, Scaling};
+use super::main_window_mod::{Options, PostProcessing, Scaling};
 
 #[derive(Clone, Copy)]
 pub enum BufferInputMode {
     CP437,
-    PETSCII,
-    ATASCII,
+    PETscii,
+    ATAscii,
     VT500,
-    VIEWDATA,
+    ViewData,
 }
 
 impl BufferInputMode {
     pub fn cur_map<'a>(&self) -> &'a [(u32, &[u8])] {
         match self {
             super::BufferInputMode::CP437 => super::ANSI_KEY_MAP,
-            super::BufferInputMode::PETSCII => super::C64_KEY_MAP,
-            super::BufferInputMode::ATASCII => super::ATASCII_KEY_MAP,
+            super::BufferInputMode::PETscii => super::C64_KEY_MAP,
+            super::BufferInputMode::ATAscii => super::ATASCII_KEY_MAP,
             super::BufferInputMode::VT500 => super::VT500_KEY_MAP,
-            super::BufferInputMode::VIEWDATA => super::VIDEOTERM_KEY_MAP,
+            super::BufferInputMode::ViewData => super::VIDEOTERM_KEY_MAP,
         }
     }
 }
@@ -65,7 +65,7 @@ impl Blink {
     }
 }
 
-pub struct BufferView {
+pub struct ViewState {
     pub buf: Buffer,
     sixel_cache: Vec<SixelCacheEntry>,
     pub caret: Caret,
@@ -105,13 +105,12 @@ pub struct BufferView {
     sixel_render_texture: NativeTexture,
 }
 
-impl BufferView {
+impl ViewState {
     pub fn new(gl: &glow::Context, options: &Options) -> Self {
+        use glow::HasContext as _;
         let mut buf = Buffer::create(80, 25);
         buf.layers[0].is_transparent = false;
         buf.is_terminal_buffer = true;
-
-        use glow::HasContext as _;
 
         unsafe {
             let sixel_shader = gl.create_program().expect("Cannot create program");
@@ -513,7 +512,7 @@ void main() {
         self.caret.ff(&mut self.buf);
     }
 
-    pub fn get_copy_text(&mut self, buffer_parser: &Box<dyn BufferParser>) -> Option<String> {
+    pub fn get_copy_text(&mut self, buffer_parser: &dyn BufferParser) -> Option<String> {
         let Some(selection) = &self.selection_opt else {
             return None;
         };
@@ -541,7 +540,12 @@ void main() {
             } else {
                 (selection.lead_pos, selection.anchor_pos)
             };
-            if start.y != end.y {
+            if start.y == end.y {
+                for x in start.x..=end.x {
+                    let ch = self.buf.get_char(Position::new(x, start.y)).unwrap();
+                    res.push(buffer_parser.to_unicode(ch.ch));
+                }
+            } else {
                 for x in start.x..self.buf.get_line_length(start.y) {
                     let ch = self.buf.get_char(Position::new(x, start.y)).unwrap();
                     res.push(buffer_parser.to_unicode(ch.ch));
@@ -556,11 +560,6 @@ void main() {
                 }
                 for x in 0..=end.x {
                     let ch = self.buf.get_char(Position::new(x, end.y)).unwrap();
-                    res.push(buffer_parser.to_unicode(ch.ch));
-                }
-            } else {
-                for x in start.x..=end.x {
-                    let ch = self.buf.get_char(Position::new(x, start.y)).unwrap();
                     res.push(buffer_parser.to_unicode(ch.ch));
                 }
             }

@@ -7,7 +7,7 @@ use cpal::{
 use cpal::{FromSample, Sample};
 use icy_engine::AnsiMusic;
 
-pub fn play_music(music: AnsiMusic) {
+pub fn play_music(music: &AnsiMusic) {
     let mut i = 0;
     let mut cur_style = icy_engine::MusicStyle::Normal;
 
@@ -21,7 +21,7 @@ pub fn play_music(music: AnsiMusic) {
             icy_engine::MusicAction::PlayNote(freq, length) => {
                 let f = *freq;
 
-                let mut duration = 250000 as u64 / *length as u64;
+                let mut duration = 250_000_u64 / u64::from(*length);
 
                 let pause_length = match cur_style {
                     icy_engine::MusicStyle::Legato => duration / 4,
@@ -41,8 +41,8 @@ pub fn play_music(music: AnsiMusic) {
                 std::thread::sleep(std::time::Duration::from_millis(pause_length));
             }
             icy_engine::MusicAction::Pause(length) => {
-                let duration = 250000 / length;
-                std::thread::sleep(std::time::Duration::from_millis(duration as u64));
+                let duration = 250_000 / length;
+                std::thread::sleep(std::time::Duration::from_millis(u64::from(duration)));
             }
         }
     }
@@ -130,12 +130,12 @@ where
         sample_clock,
         nchannels,
     };
-    let err_fn = |err| eprintln!("Error building output sound stream: {}", err);
+    let err_fn = |err| eprintln!("Error building output sound stream: {err}");
 
     let stream = device.build_output_stream(
         config,
         move |output: &mut [T], _: &cpal::OutputCallbackInfo| {
-            on_window(output, &mut request, on_sample)
+            on_window(output, &mut request, on_sample);
         },
         err_fn,
         None,

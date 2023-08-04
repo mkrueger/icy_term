@@ -1,4 +1,6 @@
+#![allow(clippy::unused_self, clippy::wildcard_imports)]
 use std::{
+    cmp::Ordering,
     fs,
     sync::{Arc, Mutex},
 };
@@ -7,14 +9,14 @@ use directories::UserDirs;
 use icy_engine::{get_crc32, update_crc32};
 
 use crate::{
-    com::{Com, ComResult},
+    com::{Com, TermComResult},
     protocol::{
-        str_from_null_terminated_utf8_unchecked, FileDescriptor, FrameType, Header, HeaderType,
-        TransferState, Zmodem, ZCRCE, ZCRCG, ZCRCW,
+        str_from_null_terminated_utf8_unchecked, FileDescriptor, Header, HeaderType, TransferState,
+        ZFrameType, Zmodem, ZCRCE, ZCRCG, ZCRCW,
     },
 };
 
-use super::{constants::*, error::TransmissionError, read_zdle_bytes};
+use super::{constants::*, error_mod::TransmissionError, read_zdle_bytes};
 
 #[derive(Debug)]
 pub enum RevcState {
@@ -52,11 +54,7 @@ impl Rz {
     }
 
     pub fn is_active(&self) -> bool {
-        if let RevcState::Idle = self.state {
-            false
-        } else {
-            true
-        }
+        !matches!(self.state, RevcState::Idle)
     }
 
     fn get_header_type(&self) -> HeaderType {
@@ -66,7 +64,7 @@ impl Rz {
         HeaderType::Hex
     }
 
-    async fn cancel(&mut self, com: &mut Box<dyn Com>) -> ComResult<()> {
+    async fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
         self.state = RevcState::Idle;
         Zmodem::cancel(com).await
     }
@@ -75,7 +73,7 @@ impl Rz {
         &mut self,
         com: &mut Box<dyn Com>,
         transfer_state: Arc<Mutex<TransferState>>,
-    ) -> ComResult<()> {
+    ) -> TermComResult<()> {
         if let RevcState::Idle = self.state {
             return Ok(());
         }
@@ -86,7 +84,7 @@ impl Rz {
         if let Ok(transfer_state) = &mut transfer_state.lock() {
             let transfer_info = &mut transfer_state.recieve_state;
 
-            if self.files.len() > 0 {
+            if !self.files.is_empty() {
                 let cur_file = self.files.len() - 1;
                 let fd = &self.files[cur_file];
                 transfer_info.file_name = fd.file_name.clone();
@@ -94,7 +92,7 @@ impl Rz {
                 transfer_info.bytes_transfered = fd.data.as_ref().unwrap().len();
             }
             transfer_info.errors = self.errors;
-            transfer_info.check_size = format!("Crc32");
+            transfer_info.check_size = "Crc32".to_string();
             transfer_info.update_bps();
         }
 
@@ -122,38 +120,35 @@ impl Rz {
             RevcState::AwaitFileData => {
                 let pck = read_subpacket(com, self.block_length, self.use_crc32).await;
                 let last = self.files.len() - 1;
-                match pck {
-                    Ok((block, is_last, expect_ack)) => {
-                        if expect_ack {
-                            Header::empty(self.get_header_type(), FrameType::ZACK)
-                                .write(com)
-                                .await?;
-                        }
-                        if let Some(fd) = self.files.get_mut(last) {
-                            if let Some(data) = &mut fd.data {
-                                data.extend_from_slice(&block);
-                            }
-                        }
-                        if is_last {
-                            self.state = RevcState::AwaitEOF;
-                        }
-                    }
-                    Err(_) => {
-                        self.errors += 1;
-                        //transfer_info.write(err.to_string());
-
-                        if let Some(fd) = self.files.get(last) {
-                            Header::from_number(
-                                self.get_header_type(),
-                                FrameType::ZRPOS,
-                                fd.data.as_ref().unwrap().len() as u32,
-                            )
+                if let Ok((block, is_last, expect_ack)) = pck {
+                    if expect_ack {
+                        Header::empty(self.get_header_type(), ZFrameType::Ack)
                             .write(com)
                             .await?;
-                            self.state = RevcState::AwaitZDATA;
-                        }
-                        return Ok(());
                     }
+                    if let Some(fd) = self.files.get_mut(last) {
+                        if let Some(data) = &mut fd.data {
+                            data.extend_from_slice(&block);
+                        }
+                    }
+                    if is_last {
+                        self.state = RevcState::AwaitEOF;
+                    }
+                } else {
+                    self.errors += 1;
+                    //transfer_info.write(err.to_string());
+
+                    if let Some(fd) = self.files.get(last) {
+                        Header::from_number(
+                            self.get_header_type(),
+                            ZFrameType::RPos,
+                            u32::try_from(fd.data.as_ref().unwrap().len()).unwrap(),
+                        )
+                        .write(com)
+                        .await?;
+                        self.state = RevcState::AwaitZDATA;
+                    }
+                    return Ok(());
                 }
             }
             _ => {
@@ -163,15 +158,15 @@ impl Rz {
         Ok(())
     }
 
-    async fn request_zpos(&mut self, com: &mut Box<dyn Com>) -> ComResult<usize> {
-        Header::from_number(self.get_header_type(), FrameType::ZRPOS, 0)
+    async fn request_zpos(&mut self, com: &mut Box<dyn Com>) -> TermComResult<usize> {
+        Header::from_number(self.get_header_type(), ZFrameType::RPos, 0)
             .write(com)
             .await
     }
 
-    async fn read_header(&mut self, com: &mut Box<dyn Com>) -> ComResult<bool> {
+    async fn read_header(&mut self, com: &mut Box<dyn Com>) -> TermComResult<bool> {
         let result = Header::read(com, &mut self.can_count).await;
-        if let Err(_) = result {
+        if result.is_err() {
             if self.can_count >= 5 {
                 //transfer_state.write("Received cancel...".to_string());
                 self.cancel(com).await?;
@@ -190,66 +185,61 @@ impl Rz {
             // println!("\t\t\t\t\t\tRECV header {}", res);
             self.use_crc32 = res.header_type == HeaderType::Bin32;
             match res.frame_type {
-                FrameType::ZSINIT => {
+                ZFrameType::Sinit => {
                     let pck = read_subpacket(com, self.block_length, self.use_crc32).await;
                     if pck.is_err() {
-                        Header::empty(self.get_header_type(), FrameType::ZNAK)
+                        Header::empty(self.get_header_type(), ZFrameType::Nak)
                             .write(com)
                             .await?;
                         return Ok(false);
                     }
                     // TODO: Atn sequence
                     self.sender_flags = res.f0();
-                    Header::empty(self.get_header_type(), FrameType::ZACK)
+                    Header::empty(self.get_header_type(), ZFrameType::Ack)
                         .write(com)
                         .await?;
                     return Ok(true);
                 }
 
-                FrameType::ZRQINIT => {
+                ZFrameType::RQInit => {
                     self.state = RevcState::SendZRINIT;
                     return Ok(true);
                 }
-                FrameType::ZFILE => {
+                ZFrameType::File => {
                     let pck = read_subpacket(com, self.block_length, self.use_crc32).await;
 
-                    match pck {
-                        Ok((block, _, _)) => {
-                            let file_name =
-                                str_from_null_terminated_utf8_unchecked(&block).to_string();
-                            if self.files.len() == 0
-                                || self.files.last().unwrap().file_name != file_name
-                            {
-                                let mut fd = FileDescriptor::new();
-                                fd.data = Some(Vec::new());
-                                fd.file_name = file_name;
-                                //transfer_state.write(format!("Got file header for '{}'", fd.file_name));
-                                let mut file_size = 0;
-                                for b in &block[(fd.file_name.len() + 1)..] {
-                                    if *b < b'0' || *b > b'9' {
-                                        break;
-                                    }
-                                    file_size = file_size * 10 + (*b - b'0') as usize;
+                    if let Ok((block, _, _)) = pck {
+                        let file_name = str_from_null_terminated_utf8_unchecked(&block).to_string();
+                        if self.files.is_empty()
+                            || self.files.last().unwrap().file_name != file_name
+                        {
+                            let mut fd = FileDescriptor::new();
+                            fd.data = Some(Vec::new());
+                            fd.file_name = file_name;
+                            //transfer_state.write(format!("Got file header for '{}'", fd.file_name));
+                            let mut file_size = 0;
+                            for b in &block[(fd.file_name.len() + 1)..] {
+                                if *b < b'0' || *b > b'9' {
+                                    break;
                                 }
-                                fd.size = file_size;
-                                self.files.push(fd);
+                                file_size = file_size * 10 + (*b - b'0') as usize;
                             }
-
-                            self.state = RevcState::AwaitZDATA;
-                            self.request_zpos(com).await?;
-
-                            return Ok(true);
+                            fd.size = file_size;
+                            self.files.push(fd);
                         }
-                        Err(_) => {
-                            self.errors += 1;
-                            //transfer_state.write(format!("Got no ZFILE subpacket: {}", err));
-                            return Ok(false);
-                        }
+
+                        self.state = RevcState::AwaitZDATA;
+                        self.request_zpos(com).await?;
+
+                        return Ok(true);
                     }
+                    self.errors += 1;
+                    //transfer_state.write(format!("Got no ZFILE subpacket: {}", err));
+                    return Ok(false);
                 }
-                FrameType::ZDATA => {
+                ZFrameType::Data => {
                     let offset = res.number();
-                    if self.files.len() == 0 {
+                    if self.files.is_empty() {
                         self.cancel(com).await?;
                         return Err(Box::new(TransmissionError::ZDataBeforeZFILE));
                     }
@@ -257,66 +247,67 @@ impl Rz {
                     let last = self.files.len() - 1;
                     if let Some(fd) = self.files.get_mut(last) {
                         if let Some(data) = &mut fd.data {
-                            if data.len() > offset as usize {
-                                data.resize(offset as usize, 0);
-                            } else if data.len() < offset as usize {
-                                Header::from_number(
-                                    header_type,
-                                    FrameType::ZRPOS,
-                                    data.len() as u32,
-                                )
-                                .write(com)
-                                .await?;
-                                return Ok(false);
+                            match data.len().cmp(&(offset as usize)) {
+                                Ordering::Greater => data.resize(offset as usize, 0),
+                                Ordering::Less => {
+                                    Header::from_number(
+                                        header_type,
+                                        ZFrameType::RPos,
+                                        data.len() as u32,
+                                    )
+                                    .write(com)
+                                    .await?;
+                                    return Ok(false);
+                                }
+                                Ordering::Equal => {}
                             }
                             self.state = RevcState::AwaitFileData;
                         }
                     }
                     return Ok(true);
                 }
-                FrameType::ZEOF => {
+                ZFrameType::Eof => {
                     self.send_zrinit(com).await?;
                     self.save_last_file()?;
                     //transfer_state.write("Got eof".to_string());
                     self.state = RevcState::SendZRINIT;
                     return Ok(true);
                 }
-                FrameType::ZFIN => {
-                    Header::empty(self.get_header_type(), FrameType::ZFIN)
+                ZFrameType::Fin => {
+                    Header::empty(self.get_header_type(), ZFrameType::Fin)
                         .write(com)
                         .await?;
                     //transfer_state.write("Transfer finished.".to_string());
                     self.state = RevcState::Idle;
                     return Ok(true);
                 }
-                FrameType::ZCHALLENGE => {
+                ZFrameType::Challenge => {
                     // isn't specfied for receiver side.
-                    Header::from_number(self.get_header_type(), FrameType::ZACK, res.number())
+                    Header::from_number(self.get_header_type(), ZFrameType::Ack, res.number())
                         .write(com)
                         .await?;
                 }
-                FrameType::ZFREECNT => {
+                ZFrameType::FreeCnt => {
                     // 0 means unlimited space but sending free hd space to an unknown source is a security issue
-                    Header::from_number(self.get_header_type(), FrameType::ZACK, 0)
+                    Header::from_number(self.get_header_type(), ZFrameType::Ack, 0)
                         .write(com)
                         .await?;
                 }
-                FrameType::ZCOMMAND => {
+                ZFrameType::Command => {
                     // just protocol it.
                     let package = read_subpacket(com, self.block_length, self.use_crc32).await;
                     if let Ok((block, _, _)) = &package {
-                        let cmd = str_from_null_terminated_utf8_unchecked(&block).to_string();
+                        let cmd = str_from_null_terminated_utf8_unchecked(block);
                         eprintln!(
-                            "Remote wanted to execute {} on the system. (did not execute)",
-                            cmd
+                            "Remote wanted to execute {cmd} on the system. (did not execute)"
                         );
                     }
-                    Header::from_number(self.get_header_type(), FrameType::ZCOMPL, 0)
+                    Header::from_number(self.get_header_type(), ZFrameType::Compl, 0)
                         .write(com)
                         .await?;
                 }
-                FrameType::ZABORT | FrameType::ZFERR | FrameType::ZCAN => {
-                    Header::empty(self.get_header_type(), FrameType::ZFIN)
+                ZFrameType::Abort | ZFrameType::FErr | ZFrameType::Can => {
+                    Header::empty(self.get_header_type(), ZFrameType::Fin)
                         .write(com)
                         .await?;
                     self.state = RevcState::Idle;
@@ -329,8 +320,8 @@ impl Rz {
         Ok(false)
     }
 
-    fn save_last_file(&mut self) -> ComResult<()> {
-        if self.files.len() > 0 {
+    fn save_last_file(&mut self) -> TermComResult<()> {
+        if !self.files.is_empty() {
             let fd = self.files.last().unwrap();
 
             if let Some(user_dirs) = UserDirs::new() {
@@ -349,15 +340,15 @@ impl Rz {
         Ok(())
     }
 
-    pub async fn recv(&mut self, com: &mut Box<dyn Com>) -> ComResult<()> {
+    pub async fn recv(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
         self.state = RevcState::Await;
         self.retries = 0;
         self.send_zrinit(com).await?;
         Ok(())
     }
 
-    pub async fn send_zrinit(&mut self, com: &mut Box<dyn Com>) -> ComResult<()> {
-        Header::from_flags(self.get_header_type(), FrameType::ZRINIT, 0, 0, 0, 0x23)
+    pub async fn send_zrinit(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+        Header::from_flags(self.get_header_type(), ZFrameType::RIinit, 0, 0, 0, 0x23)
             .write(com)
             .await?;
         Ok(())
@@ -368,7 +359,7 @@ pub async fn read_subpacket(
     com: &mut Box<dyn Com>,
     block_length: usize,
     use_crc32: bool,
-) -> ComResult<(Vec<u8>, bool, bool)> {
+) -> TermComResult<(Vec<u8>, bool, bool)> {
     let mut data = Vec::with_capacity(block_length);
     loop {
         let c = com.read_u8().await?;
@@ -425,9 +416,9 @@ pub async fn read_subpacket(
 async fn check_crc(
     com: &mut Box<dyn Com>,
     use_crc32: bool,
-    data: &Vec<u8>,
+    data: &[u8],
     zcrc_byte: u8,
-) -> ComResult<bool> {
+) -> TermComResult<bool> {
     if use_crc32 {
         let mut crc = get_crc32(data);
         crc = !update_crc32(!crc, zcrc_byte);

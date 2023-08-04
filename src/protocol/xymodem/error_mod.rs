@@ -12,7 +12,7 @@ impl std::fmt::Display for TransmissionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TransmissionError::Cancel => write!(f, "transmission canceled"),
-            TransmissionError::InvalidMode(m) => write!(f, "invalid x/y modem mode: {}", m),
+            TransmissionError::InvalidMode(m) => write!(f, "invalid x/y modem mode: {m}"),
             TransmissionError::TooManyRetriesSendingHeader => {
                 write!(f, "too many retries sending ymodem header")
             }

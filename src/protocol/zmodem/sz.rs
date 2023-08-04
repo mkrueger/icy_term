@@ -1,3 +1,5 @@
+#![allow(clippy::unused_self)]
+
 use std::{
     cmp::min,
     sync::{Arc, Mutex},
@@ -5,10 +7,10 @@ use std::{
 };
 
 use crate::{
-    com::{Com, ComResult},
+    com::{Com, TermComResult},
     protocol::{
-        zfile_flag, zmodem::error::TransmissionError, FileDescriptor, FrameType, Header,
-        HeaderType, TransferState, Zmodem, ZCRCE, ZCRCG,
+        zfile_flag, zmodem::error_mod::TransmissionError, FileDescriptor, Header, HeaderType,
+        TransferState, ZFrameType, Zmodem, ZCRCE, ZCRCG,
     },
 };
 
@@ -56,28 +58,28 @@ impl Sz {
     }
 
     fn _can_fdx(&self) -> bool {
-        self.receiver_capabilities | super::zrinit_flag::CANFDX != 0
+        self.receiver_capabilities & super::zrinit_flag::CANFDX != 0
     }
     fn _can_receive_data_during_io(&self) -> bool {
-        self.receiver_capabilities | super::zrinit_flag::CANOVIO != 0
+        self.receiver_capabilities & super::zrinit_flag::CANOVIO != 0
     }
     fn _can_send_break(&self) -> bool {
-        self.receiver_capabilities | super::zrinit_flag::CANBRK != 0
+        self.receiver_capabilities & super::zrinit_flag::CANBRK != 0
     }
     fn _can_decrypt(&self) -> bool {
-        self.receiver_capabilities | super::zrinit_flag::CANCRY != 0
+        self.receiver_capabilities & super::zrinit_flag::CANCRY != 0
     }
     fn _can_lzw(&self) -> bool {
-        self.receiver_capabilities | super::zrinit_flag::CANLZW != 0
+        self.receiver_capabilities & super::zrinit_flag::CANLZW != 0
     }
     fn _can_use_crc32(&self) -> bool {
-        self.receiver_capabilities | super::zrinit_flag::CANFC32 != 0
+        self.receiver_capabilities & super::zrinit_flag::CANFC32 != 0
     }
     fn _can_esc_control(&self) -> bool {
-        self.receiver_capabilities | super::zrinit_flag::ESCCTL != 0
+        self.receiver_capabilities & super::zrinit_flag::ESCCTL != 0
     }
     fn _can_esc_8thbit(&self) -> bool {
-        self.receiver_capabilities | super::zrinit_flag::ESC8 != 0
+        self.receiver_capabilities & super::zrinit_flag::ESC8 != 0
     }
 
     fn get_header_type(&self) -> HeaderType {
@@ -104,11 +106,7 @@ impl Sz {
     }
 
     pub fn is_active(&self) -> bool {
-        if let SendState::Finished = self.state {
-            false
-        } else {
-            true
-        }
+        !matches!(self.state, SendState::Finished)
     }
 
     fn next_file(&mut self) {
@@ -119,7 +117,7 @@ impl Sz {
         &mut self,
         com: &mut Box<dyn Com>,
         transfer_state: Arc<Mutex<TransferState>>,
-    ) -> ComResult<()> {
+    ) -> TermComResult<()> {
         if let SendState::Finished = self.state {
             return Ok(());
         }
@@ -131,10 +129,11 @@ impl Sz {
 
         if let Ok(transfer_state) = &mut transfer_state.lock() {
             let transfer_info = &mut transfer_state.send_state;
-            if self.cur_file >= 0 && self.cur_file < self.files.len() as i32 {
-                let fd = &self.files[self.cur_file as usize];
-                transfer_info.file_name = fd.file_name.clone();
-                transfer_info.file_size = fd.size;
+            if self.cur_file >= 0 {
+                if let Some(fd) = self.files.get(usize::try_from(self.cur_file).unwrap()) {
+                    transfer_info.file_name = fd.file_name.clone();
+                    transfer_info.file_size = fd.size;
+                }
             }
             transfer_info.bytes_transfered = self.cur_file_pos;
             transfer_info.errors = self.errors;
@@ -165,7 +164,7 @@ impl Sz {
                 }
                 Header::from_number(
                     self.get_header_type(),
-                    FrameType::ZDATA,
+                    ZFrameType::Data,
                     self.cur_file_pos as u32,
                 )
                 .write(com)
@@ -198,7 +197,7 @@ impl Sz {
                     p.extend_from_slice(
                         &Header::from_number(
                             self.get_header_type(),
-                            FrameType::ZEOF,
+                            ZFrameType::Eof,
                             end_pos as u32,
                         )
                         .build(),
@@ -213,15 +212,15 @@ impl Sz {
                     let ack = Header::read(com, &mut self.can_count).await?;
                     if let Some(header) = ack {
                         match header.frame_type {
-                            FrameType::ZACK => { /* ok */ }
-                            FrameType::ZNAK => {
+                            ZFrameType::Ack => { /* ok */ }
+                            ZFrameType::Nak => {
                                 self.cur_file_pos = old_pos; /* resend */
                             }
-                            FrameType::ZRPOS => {
+                            ZFrameType::RPos => {
                                 self.cur_file_pos = header.number() as usize;
                             }
                             _ => {
-                                eprintln!("unexpected header {:?}", header);
+                                eprintln!("unexpected header {header:?}");
                                 // cancel
                                 self.state = SendState::Finished;
                                 Zmodem::cancel(com).await?;
@@ -245,7 +244,7 @@ impl Sz {
         Ok(())
     }
 
-    async fn read_next_header(&mut self, com: &mut Box<dyn Com>) -> ComResult<()> {
+    async fn read_next_header(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
         let err = Header::read(com, &mut self.can_count).await;
         if self.can_count >= 5 {
             // transfer_info.write("Received cancel...".to_string());
@@ -253,7 +252,7 @@ impl Sz {
             return Ok(());
         }
         if let Err(err) = err {
-            println!("{}", err);
+            println!("{err}");
             if self.errors > 3 {
                 self.state = SendState::Finished;
                 Zmodem::cancel(com).await?;
@@ -267,7 +266,7 @@ impl Sz {
         if let Some(res) = res {
             println!("Recv header {} {:?}", res, self.state);
             match res.frame_type {
-                FrameType::ZRINIT => {
+                ZFrameType::RIinit => {
                     if self.transfered_file {
                         self.next_file();
                         self.transfered_file = false;
@@ -313,12 +312,12 @@ impl Sz {
                     return Ok(());
                 }
 
-                FrameType::ZNAK => {
+                ZFrameType::Nak => {
                     // transfer_info
                     //     .write("Package error, resending file header...".to_string());
                 }
 
-                FrameType::ZRPOS => {
+                ZFrameType::RPos => {
                     self.cur_file_pos = res.number() as usize;
                     self.state = SendState::SendZDATA;
 
@@ -334,13 +333,13 @@ impl Sz {
                     }
                 }
 
-                FrameType::ZFIN => {
+                ZFrameType::Fin => {
                     self.state = SendState::Finished;
                     com.send(b"OO").await?;
                     return Ok(());
                 }
 
-                FrameType::ZSKIP => {
+                ZFrameType::Skip => {
                     // transfer_state.lock().unwrap().current_state = "Skipped… next file";
                     //transfer_info.write("Skip file".to_string());
                     self.next_file();
@@ -348,16 +347,16 @@ impl Sz {
                     return Ok(());
                 }
 
-                FrameType::ZACK => {
+                ZFrameType::Ack => {
                     self.state = SendState::SendDataPackages;
                 }
-                FrameType::ZCHALLENGE => {
-                    Header::from_number(self.get_header_type(), FrameType::ZACK, res.number())
+                ZFrameType::Challenge => {
+                    Header::from_number(self.get_header_type(), ZFrameType::Ack, res.number())
                         .write(com)
                         .await?;
                 }
-                FrameType::ZABORT | FrameType::ZFERR | FrameType::ZCAN => {
-                    Header::empty(self.get_header_type(), FrameType::ZFIN)
+                ZFrameType::Abort | ZFrameType::FErr | ZFrameType::Can => {
+                    Header::empty(self.get_header_type(), ZFrameType::Fin)
                         .write(com)
                         .await?;
                     self.state = SendState::Finished;
@@ -370,7 +369,7 @@ impl Sz {
         Ok(())
     }
 
-    async fn send_zfile(&mut self, com: &mut Box<dyn Com>) -> ComResult<()> {
+    async fn send_zfile(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
         if self.cur_file < 0 {
             return Ok(());
         }
@@ -379,7 +378,7 @@ impl Sz {
         b.extend_from_slice(
             &Header::from_flags(
                 self.get_header_type(),
-                FrameType::ZFILE,
+                ZFrameType::File,
                 0,
                 0,
                 zfile_flag::ZMNEW,
@@ -387,21 +386,21 @@ impl Sz {
             )
             .build(),
         );
-
-        let f = &self.files[self.cur_file as usize];
-        self.data = f.get_data()?;
+        let cur_file_size = usize::try_from(self.cur_file).unwrap();
+        let f = &self.files[cur_file_size];
+        self.data = f.get_data();
         let data = if f.date > 0 {
             let bytes_left = self
                 .files
                 .iter()
-                .skip(self.cur_file as usize + 1)
+                .skip(cur_file_size + 1)
                 .fold(0, |b, f| b + f.size);
             format!(
                 "{}\0{} {} 0 0 {} {}\0",
                 f.file_name,
                 f.size,
                 f.date,
-                self.files.len() - self.cur_file as usize,
+                self.files.len() - cur_file_size,
                 bytes_left
             )
             .into_bytes()
@@ -418,11 +417,7 @@ impl Sz {
         Ok(())
     }
 
-    pub async fn send(
-        &mut self,
-        _com: &mut Box<dyn Com>,
-        files: Vec<FileDescriptor>,
-    ) -> ComResult<()> {
+    pub fn send(&mut self, _com: &mut Box<dyn Com>, files: Vec<FileDescriptor>) {
         //println!("initiate zmodem send {}", files.len());
         self.state = SendState::SendZRQInit;
         self.files = files;
@@ -430,21 +425,20 @@ impl Sz {
         self.cur_file_pos = 0;
         self.retries = 0;
         //        com.write(b"rz\r")?;
-        Ok(())
     }
 
-    pub async fn send_zrqinit(&mut self, com: &mut Box<dyn Com>) -> ComResult<()> {
+    pub async fn send_zrqinit(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
         self.cur_file = -1;
         self.transfered_file = true;
-        Header::empty(self.get_header_type(), FrameType::ZRQINIT)
+        Header::empty(self.get_header_type(), ZFrameType::RQInit)
             .write(com)
             .await?;
         Ok(())
     }
 
-    pub async fn send_zfin(&mut self, com: &mut Box<dyn Com>, size: u32) -> ComResult<()> {
+    pub async fn send_zfin(&mut self, com: &mut Box<dyn Com>, size: u32) -> TermComResult<()> {
         println!("send zfin!");
-        Header::from_number(self.get_header_type(), FrameType::ZFIN, size)
+        Header::from_number(self.get_header_type(), ZFrameType::Fin, size)
             .write(com)
             .await?;
         self.state = SendState::Await;

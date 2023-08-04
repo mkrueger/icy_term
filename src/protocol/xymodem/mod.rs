@@ -1,17 +1,17 @@
 use async_trait::async_trait;
 
-use crate::com::{Com, ComResult};
+use crate::com::{Com, TermComResult};
 use std::sync::{Arc, Mutex};
 
 mod constants;
-mod error;
+mod error_mod;
 mod ry;
 mod sy;
 mod tests;
 
 use self::{
     constants::{CAN, DEFAULT_BLOCK_LENGTH, EXT_BLOCK_LENGTH},
-    error::TransmissionError,
+    error_mod::TransmissionError,
 };
 
 use super::{FileDescriptor, TransferState};
@@ -30,7 +30,7 @@ pub enum XYModemVariant {
     YModemG,
 }
 
-/// specification: http://pauillac.inria.fr/~doligez/zmodem/ymodem.txt
+/// specification: <http://pauillac.inria.fr/~doligez/zmodem/ymodem.txt>
 pub struct XYmodem {
     config: XYModemConfiguration,
 
@@ -54,7 +54,7 @@ impl super::Protocol for XYmodem {
         &mut self,
         com: &mut Box<dyn Com>,
         transfer_state: Arc<Mutex<TransferState>>,
-    ) -> ComResult<bool> {
+    ) -> TermComResult<bool> {
         if let Some(ry) = &mut self.ry {
             ry.update(com, &transfer_state).await?;
             transfer_state.lock().unwrap().is_finished = ry.is_finished();
@@ -76,7 +76,7 @@ impl super::Protocol for XYmodem {
         _com: &mut Box<dyn Com>,
         files: Vec<FileDescriptor>,
         transfer_state: Arc<Mutex<TransferState>>,
-    ) -> ComResult<()> {
+    ) -> TermComResult<()> {
         if !self.config.is_ymodem() && files.len() != 1 {
             return Err(Box::new(TransmissionError::XModem1File));
         }
@@ -84,10 +84,10 @@ impl super::Protocol for XYmodem {
         let mut sy = sy::Sy::new(self.config);
         // read data for x-modem transfer
         if !self.config.is_ymodem() {
-            sy.data = files[0].get_data()?;
+            sy.data = files[0].get_data();
         }
 
-        sy.send(files)?;
+        sy.send(files);
         self.sy = Some(sy);
         transfer_state.lock().unwrap().protocol_name = self.config.get_protocol_name().to_string();
         Ok(())
@@ -97,7 +97,7 @@ impl super::Protocol for XYmodem {
         &mut self,
         com: &mut Box<dyn Com>,
         transfer_state: Arc<Mutex<TransferState>>,
-    ) -> ComResult<()> {
+    ) -> TermComResult<()> {
         let mut ry = ry::Ry::new(self.config);
         ry.recv(com).await?;
         self.ry = Some(ry);
@@ -123,12 +123,12 @@ impl super::Protocol for XYmodem {
         }
     }
 
-    async fn cancel(&mut self, com: &mut Box<dyn Com>) -> ComResult<()> {
+    async fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
         cancel(com).await
     }
 }
 
-async fn cancel(com: &mut Box<dyn Com>) -> ComResult<()> {
+async fn cancel(com: &mut Box<dyn Com>) -> TermComResult<()> {
     com.send(&[CAN, CAN, CAN, CAN, CAN, CAN]).await?;
     Ok(())
 }
@@ -182,21 +182,21 @@ impl XYModemConfiguration {
         } else {
             "1k"
         };
-        format!("{}/{}", checksum, block)
+        format!("{checksum}/{block}")
     }
 
     fn is_ymodem(&self) -> bool {
-        match self.variant {
-            XYModemVariant::YModem | XYModemVariant::YModemG => true,
-            _ => false,
-        }
+        matches!(
+            self.variant,
+            XYModemVariant::YModem | XYModemVariant::YModemG
+        )
     }
 
     fn is_streaming(&self) -> bool {
-        match self.variant {
-            XYModemVariant::XModem1kG | XYModemVariant::YModemG => true,
-            _ => false,
-        }
+        matches!(
+            self.variant,
+            XYModemVariant::XModem1kG | XYModemVariant::YModemG
+        )
     }
 
     fn use_crc(&self) -> bool {

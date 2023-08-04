@@ -1,11 +1,12 @@
-use super::{Com, ComResult};
-use crate::address::Address;
-#[allow(dead_code)]
+#![allow(dead_code)]
+
+use super::{Com, TermComResult};
+use crate::address_mod::Address;
 use async_trait::async_trait;
 use ssh_rs::{ssh, SessionConnector, ShellBrocker};
 use std::{collections::VecDeque, net::TcpStream, time::Duration};
 
-static mut tcp_stream: Option<ShellBrocker> = None;
+static mut TCP_STREAM: Option<ShellBrocker> = None;
 
 pub struct SSHCom {
     session: Option<SessionConnector<TcpStream>>,
@@ -27,7 +28,7 @@ impl Com for SSHCom {
         "SSH"
     }
 
-    async fn connect(&mut self, addr: &Address, _timeout: Duration) -> ComResult<bool> {
+    async fn connect(&mut self, addr: &Address, _timeout: Duration) -> TermComResult<bool> {
         match ssh::create_session()
             .username(&addr.user_name)
             .password(&addr.password)
@@ -38,7 +39,7 @@ impl Com for SSHCom {
                 let shell = broker.open_shell().unwrap();
 
                 unsafe {
-                    tcp_stream = Some(shell);
+                    TCP_STREAM = Some(shell);
                 }
                 Ok(true)
             }
@@ -46,16 +47,16 @@ impl Com for SSHCom {
         }
     }
 
-    async fn read_data(&mut self) -> ComResult<Vec<u8>> {
+    async fn read_data(&mut self) -> TermComResult<Vec<u8>> {
         unsafe {
-            match tcp_stream.as_mut().unwrap().read() {
+            match TCP_STREAM.as_mut().unwrap().read() {
                 Ok(data) => Ok(data),
                 Err(err) => Err(Box::new(err)),
             }
         }
     }
 
-    async fn read_u8(&mut self) -> ComResult<u8> {
+    async fn read_u8(&mut self) -> TermComResult<u8> {
         if self.cur_data.is_none() {
             let data = self.read_data().await?;
             self.cur_data = Some(VecDeque::from_iter(data));
@@ -63,8 +64,8 @@ impl Com for SSHCom {
 
         if let Some(d) = &mut self.cur_data {
             let result = d.pop_front();
-            if d.len() == 0 {
-                self.cur_data = None
+            if d.is_empty() {
+                self.cur_data = None;
             }
 
             return Ok(result.unwrap());
@@ -72,7 +73,7 @@ impl Com for SSHCom {
         Ok(0)
     }
 
-    async fn read_exact(&mut self, len: usize) -> ComResult<Vec<u8>> {
+    async fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
         if self.cur_data.is_none() {
             let data = self.read_data().await?;
             self.cur_data = Some(VecDeque::from_iter(data));
@@ -81,24 +82,24 @@ impl Com for SSHCom {
         if let Some(d) = &mut self.cur_data {
             let result = d.drain(..len).collect();
 
-            if d.len() == 0 {
-                self.cur_data = None
+            if d.is_empty() {
+                self.cur_data = None;
             }
             return Ok(result);
         }
         Ok(Vec::new())
     }
 
-    async fn send<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize> {
+    async fn send<'a>(&mut self, buf: &'a [u8]) -> TermComResult<usize> {
         unsafe {
-            match tcp_stream.as_mut().unwrap().write(buf) {
+            match TCP_STREAM.as_mut().unwrap().write(buf) {
                 Ok(_) => Ok(buf.len()),
                 Err(err) => Err(Box::new(err)),
             }
         }
     }
 
-    fn disconnect(&mut self) -> ComResult<()> {
+    fn disconnect(&mut self) -> TermComResult<()> {
         Ok(())
     }
 }

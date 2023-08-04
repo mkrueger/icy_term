@@ -8,7 +8,7 @@ use async_trait::async_trait;
 pub use xymodem::*;
 
 pub mod zmodem;
-use crate::com::{Com, ComResult};
+use crate::com::{Com, TermComResult};
 pub use zmodem::*;
 
 #[derive(Debug, Clone)]
@@ -33,7 +33,7 @@ impl FileDescriptor {
         }
     }
 
-    pub fn from_paths(paths: &Vec<PathBuf>) -> ComResult<Vec<FileDescriptor>> {
+    pub fn from_paths(paths: &Vec<PathBuf>) -> TermComResult<Vec<FileDescriptor>> {
         let mut res = Vec::new();
         for p in paths {
             let fd = FileDescriptor::create(p)?;
@@ -42,10 +42,10 @@ impl FileDescriptor {
         Ok(res)
     }
 
-    pub fn create(path: &PathBuf) -> ComResult<Self> {
+    pub fn create(path: &PathBuf) -> TermComResult<Self> {
         let data = fs::metadata(path)?;
-        let size = data.len() as usize;
-        let date = data
+        let size = usize::try_from(data.len()).unwrap();
+        let date_duration = data
             .modified()?
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap();
@@ -55,7 +55,7 @@ impl FileDescriptor {
             file_name: path.file_name().unwrap().to_str().unwrap().to_string(),
             path: path.clone(),
             size,
-            date: date.as_secs(),
+            date: date_duration.as_secs(),
             data: None,
         })
     }
@@ -72,17 +72,17 @@ impl FileDescriptor {
         }
     }
 
-    pub fn get_data(&self) -> ComResult<Vec<u8>> {
+    pub fn get_data(&self) -> std::vec::Vec<u8> {
         if let Some(data) = &self.data {
-            Ok(data.clone())
+            data.clone()
         } else {
             let res = std::fs::read(&self.path);
 
             match res {
-                Ok(res) => Ok(res),
+                Ok(res) => res,
                 Err(err) => {
-                    eprintln!("error {}", err);
-                    Ok(Vec::new())
+                    eprintln!("error {err}");
+                    Vec::new()
                 }
             }
         }
@@ -131,10 +131,9 @@ impl TransferInformation {
             self.bytes_transferred_timed = self.bytes_transfered;
         }
 
-        let length = length.as_secs() as usize;
-
+        let length = length.as_secs();
         if length > 0 {
-            self.bps = self.bps / 2 + (bytes / length) as u64;
+            self.bps = self.bps / 2 + bytes as u64 / length;
         }
 
         let length = SystemTime::now().duration_since(self.time).unwrap();
@@ -182,28 +181,28 @@ pub trait Protocol: Send {
         &mut self,
         com: &mut Box<dyn Com>,
         transfer_state: Arc<Mutex<TransferState>>,
-    ) -> ComResult<bool>;
+    ) -> TermComResult<bool>;
 
     async fn initiate_send(
         &mut self,
         com: &mut Box<dyn Com>,
         files: Vec<FileDescriptor>,
         transfer_state: Arc<Mutex<TransferState>>,
-    ) -> ComResult<()>;
+    ) -> TermComResult<()>;
 
     async fn initiate_recv(
         &mut self,
         com: &mut Box<dyn Com>,
         transfer_state: Arc<Mutex<TransferState>>,
-    ) -> ComResult<()>;
+    ) -> TermComResult<()>;
 
     fn get_received_files(&mut self) -> Vec<FileDescriptor>;
 
-    async fn cancel(&mut self, com: &mut Box<dyn Com>) -> ComResult<()>;
+    async fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()>;
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum ProtocolType {
+pub enum TransferType {
     ZModem,
     ZedZap,
     XModem,
@@ -213,16 +212,16 @@ pub enum ProtocolType {
     YModemG,
 }
 
-impl ProtocolType {
-    pub fn create(&self) -> Box<dyn Protocol> {
+impl TransferType {
+    pub fn create(self) -> Box<dyn Protocol> {
         match self {
-            ProtocolType::ZModem => Box::new(Zmodem::new(1024)),
-            ProtocolType::ZedZap => Box::new(Zmodem::new(8 * 1024)),
-            ProtocolType::XModem => Box::new(XYmodem::new(XYModemVariant::XModem)),
-            ProtocolType::XModem1k => Box::new(XYmodem::new(XYModemVariant::XModem1k)),
-            ProtocolType::XModem1kG => Box::new(XYmodem::new(XYModemVariant::XModem1kG)),
-            ProtocolType::YModem => Box::new(XYmodem::new(XYModemVariant::YModem)),
-            ProtocolType::YModemG => Box::new(XYmodem::new(XYModemVariant::YModemG)),
+            TransferType::ZModem => Box::new(Zmodem::new(1024)),
+            TransferType::ZedZap => Box::new(Zmodem::new(8 * 1024)),
+            TransferType::XModem => Box::new(XYmodem::new(XYModemVariant::XModem)),
+            TransferType::XModem1k => Box::new(XYmodem::new(XYModemVariant::XModem1k)),
+            TransferType::XModem1kG => Box::new(XYmodem::new(XYModemVariant::XModem1kG)),
+            TransferType::YModem => Box::new(XYmodem::new(XYModemVariant::YModem)),
+            TransferType::YModemG => Box::new(XYmodem::new(XYModemVariant::YModemG)),
         }
     }
 }
@@ -234,7 +233,7 @@ pub fn str_from_null_terminated_utf8_unchecked(s: &[u8]) -> String {
         if *b == 0 {
             break;
         }
-        res.push(char::from_u32(*b as u32).unwrap());
+        res.push(char::from_u32(u32::from(*b)).unwrap());
     }
     res
 }

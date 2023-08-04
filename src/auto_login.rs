@@ -1,5 +1,5 @@
 use crate::{
-    address::Address, auto_file_transfer::PatternRecognizer, com::Connection, iemsi::IEmsi,
+    address_mod::Address, auto_file_transfer::PatternRecognizer, com::Connection, iemsi_mod::IEmsi,
     TerminalResult,
 };
 use std::{
@@ -23,7 +23,7 @@ pub struct AutoLogin {
 }
 
 impl AutoLogin {
-    pub fn new(login_expr: String) -> Self {
+    pub fn new(login_expr: &str) -> Self {
         Self {
             logged_in: false,
             disabled: false,
@@ -40,11 +40,13 @@ impl AutoLogin {
     }
 
     pub fn run_command(&mut self, con: &mut Connection, adr: &Address) -> TerminalResult<bool> {
-        match self.login_expr[self.cur_expr_idx + 1] {
+        let ch = *self.login_expr.get(self.cur_expr_idx + 1).unwrap();
+        match ch {
             b'D' => {
                 // Delay for x seconds. !D4= Delay for 4 seconds
                 let ch = self.login_expr[self.cur_expr_idx + 2];
-                self.continue_time = self.last_char_recv + Duration::from_secs((ch - b'0') as u64);
+                self.continue_time =
+                    self.last_char_recv + Duration::from_secs(u64::from(ch - b'0'));
                 self.cur_expr_idx += 3;
             }
             b'E' => {
@@ -80,13 +82,13 @@ impl AutoLogin {
             b'F' => {
                 // Send first name of active user
                 self.cur_expr_idx += 2;
-                con.send((adr.user_name.clone() + "\r").as_bytes().to_vec())?;
+                con.send((adr.user_name.clone() + "first\r").as_bytes().to_vec())?;
                 // TODO
             }
             b'L' => {
                 // Send last name of active user
                 self.cur_expr_idx += 2;
-                con.send((adr.user_name.clone() + "\r").as_bytes().to_vec())?;
+                con.send((adr.user_name.clone() + "last\r").as_bytes().to_vec())?;
                 // TODO
             }
             b'P' => {
@@ -103,7 +105,7 @@ impl AutoLogin {
                 }
             }
             ch => {
-                con.send(vec![ch as u8])?;
+                con.send(vec![ch])?;
                 self.cur_expr_idx += 1;
             }
         }
@@ -115,15 +117,13 @@ impl AutoLogin {
         if self.logged_in || self.disabled {
             return Ok(());
         }
-        if adr.user_name.len() == 0 || adr.password.len() == 0 {
+        if adr.user_name.is_empty() || adr.password.is_empty() {
             self.logged_in = true;
             return Ok(());
         }
 
-        if self.first_char_recv.is_none() {
-            if (b'A'..b'Z').contains(&ch) || (b'a'..b'z').contains(&ch) {
-                self.first_char_recv = Some(SystemTime::now());
-            }
+        if self.first_char_recv.is_none() && (ch.is_ascii_uppercase() || ch.is_ascii_lowercase()) {
+            self.first_char_recv = Some(SystemTime::now());
         }
 
         self.last_char_recv = SystemTime::now();
@@ -139,12 +139,12 @@ impl AutoLogin {
         if self.logged_in && self.cur_expr_idx >= self.login_expr.len() || self.disabled {
             return Ok(());
         }
-        if adr.user_name.len() == 0 || adr.password.len() == 0 {
+        if adr.user_name.is_empty() || adr.password.is_empty() {
             self.logged_in = true;
             return Ok(());
         }
 
-        if adr.auto_login.len() == 0 {
+        if adr.auto_login.is_empty() {
             return Ok(());
         }
 
@@ -152,7 +152,7 @@ impl AutoLogin {
             return Ok(());
         }
         if self.cur_expr_idx < self.login_expr.len() {
-            match self.login_expr[self.cur_expr_idx] {
+            match self.login_expr.get(self.cur_expr_idx).unwrap() {
                 b'!' => {
                     self.run_command(con, adr)?;
                 }
@@ -161,7 +161,8 @@ impl AutoLogin {
                         && self.login_expr[self.cur_expr_idx] == b'\\'
                     {
                         self.cur_expr_idx += 1; // escape
-                        match self.login_expr[self.cur_expr_idx] {
+                        let ch = self.login_expr.get(self.cur_expr_idx).unwrap();
+                        match ch {
                             b'e' => {
                                 println!("send esc!");
                                 con.send(vec![0x1B])?;
@@ -179,13 +180,13 @@ impl AutoLogin {
                                 con.send(vec![b'\t'])?;
                             }
                             ch => {
-                                println!("send char {}!", ch);
+                                println!("send char {ch}!");
                                 self.cur_expr_idx += 1; // escape
                                 return Err(Box::new(io::Error::new(
                                     ErrorKind::InvalidData,
                                     format!(
                                         "invalid escape sequence in autologin string: {:?}",
-                                        char::from_u32(ch as u32)
+                                        char::from_u32(u32::from(*ch))
                                     ),
                                 )));
                             }
@@ -195,7 +196,7 @@ impl AutoLogin {
                     self.last_char_recv = SystemTime::now();
                 }
                 ch => {
-                    con.send(vec![ch])?;
+                    con.send(vec![*ch])?;
                     self.cur_expr_idx += 1;
                 }
             }

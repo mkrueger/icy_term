@@ -10,7 +10,7 @@ use i18n_embed_fl::fl;
 
 use crate::protocol::TransferState;
 
-pub fn view_file_transfer(
+pub fn view_filetransfer(
     ctx: &egui::Context,
     _frame: &mut eframe::Frame,
     transfer_state: &Arc<Mutex<TransferState>>,
@@ -156,7 +156,7 @@ pub fn view_file_transfer(
             );
             ui.horizontal(|ui| {
                 ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-rate")));
-                let bps = bb.bytes(bps as u64).to_string();
+                let bps = bb.bytes(bps).to_string();
                 ui.label(
                     RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-bps", bps = bps))
                         .color(Color32::WHITE),

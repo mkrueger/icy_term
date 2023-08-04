@@ -5,10 +5,10 @@ use std::{
 };
 
 #[cfg(test)]
-pub mod test_com;
+pub mod tests;
 use async_trait::async_trait;
 #[cfg(test)]
-pub use test_com::*;
+pub use tests::*;
 
 pub mod telnet;
 pub use telnet::*;
@@ -20,20 +20,20 @@ pub mod ssh;
 pub use ssh::*;
 use tokio::sync::mpsc;
 
-use crate::{address::Address, TerminalResult};
-pub type ComResult<T> = Result<T, Box<dyn Error + Send + Sync>>;
+use crate::{address_mod::Address, TerminalResult};
+pub type TermComResult<T> = Result<T, Box<dyn Error + Send + Sync>>;
 
 #[async_trait]
 pub trait Com: Sync + Send {
     fn get_name(&self) -> &'static str;
 
-    async fn send<'a>(&mut self, buf: &'a [u8]) -> ComResult<usize>;
-    async fn connect(&mut self, addr: &Address, timeout: Duration) -> ComResult<bool>;
-    async fn read_data(&mut self) -> ComResult<Vec<u8>>;
-    async fn read_u8(&mut self) -> ComResult<u8>;
-    async fn read_exact(&mut self, len: usize) -> ComResult<Vec<u8>>;
+    async fn send<'a>(&mut self, buf: &'a [u8]) -> TermComResult<usize>;
+    async fn connect(&mut self, addr: &Address, timeout: Duration) -> TermComResult<bool>;
+    async fn read_data(&mut self) -> TermComResult<Vec<u8>>;
+    async fn read_u8(&mut self) -> TermComResult<u8>;
+    async fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>>;
 
-    fn disconnect(&mut self) -> ComResult<()>;
+    fn disconnect(&mut self) -> TermComResult<()>;
 }
 
 #[derive(Debug)]
@@ -42,7 +42,7 @@ pub enum SendData {
     Disconnect,
 
     StartTransfer(
-        crate::protocol::ProtocolType,
+        crate::protocol::TransferType,
         bool,
         std::sync::Arc<std::sync::Mutex<crate::protocol::TransferState>>,
         Option<Vec<crate::protocol::FileDescriptor>>,
@@ -85,7 +85,7 @@ impl Connection {
 
     pub fn send(&mut self, vec: Vec<u8>) -> TerminalResult<()> {
         if let Err(err) = self.tx.try_send(SendData::Data(vec)) {
-            eprintln!("{}", err);
+            eprintln!("{err}");
             self.is_disconnected = true;
             self.disconnect()?;
         }
@@ -124,11 +124,11 @@ impl Connection {
 
     pub fn is_data_available(&mut self) -> TerminalResult<bool> {
         self.fill_buffer()?;
-        Ok(self.buf.len() > 0)
+        Ok(!self.buf.is_empty())
     }
 
-    pub fn read_buffer(&mut self) -> TerminalResult<Vec<u8>> {
-        Ok(self.buf.drain(0..self.buf.len()).collect())
+    pub fn read_buffer(&mut self) -> Vec<u8> {
+        self.buf.drain(0..self.buf.len()).collect()
     }
 
     pub fn disconnect(&self) -> TerminalResult<()> {
@@ -147,7 +147,7 @@ impl Connection {
 
     pub(crate) fn start_file_transfer(
         &mut self,
-        protocol_type: crate::protocol::ProtocolType,
+        protocol_type: crate::protocol::TransferType,
         download: bool,
         state: std::sync::Arc<std::sync::Mutex<crate::protocol::TransferState>>,
         files_opt: Option<Vec<crate::protocol::FileDescriptor>>,
