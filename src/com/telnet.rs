@@ -365,6 +365,8 @@ impl ComTelnetImpl {
                             stream.try_write(
                                 &TelnetCmd::DO.to_bytes_opt(TelnetOption::TransmitBinary),
                             )?;
+                        } else if let TelnetOption::Echo = opt {
+                            stream.try_write(&TelnetCmd::DO.to_bytes_opt(TelnetOption::Echo))?;
                         } else {
                             eprintln!("unsupported will option {opt:?}");
                             stream.try_write(&TelnetCmd::Dont.to_bytes_opt(opt))?;

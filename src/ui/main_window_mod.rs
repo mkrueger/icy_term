@@ -419,8 +419,8 @@ impl MainWindow {
                         eprintln!("{err}");
                     }
                 }
-                /*
-                match ch  {
+
+                /* match ch  {
                     b'\\' => print!("\\\\"),
                     b'\n' => print!("\\n"),
                     b'\r' => print!("\\r"),
@@ -441,14 +441,18 @@ impl MainWindow {
                     .lock()
                     .print_char(&mut self.buffer_parser, unsafe {
                         char::from_u32_unchecked(ch as u32)
-                    })?;
+                    });
+
                 match result {
-                    icy_engine::CallbackAction::None => {}
-                    icy_engine::CallbackAction::SendString(result) => {
+                    Ok(icy_engine::CallbackAction::None) => {}
+                    Ok(icy_engine::CallbackAction::SendString(result)) => {
                         con.send(result.as_bytes().to_vec())?;
                     }
-                    icy_engine::CallbackAction::PlayMusic(music) => play_music(&music),
-                    icy_engine::CallbackAction::Beep => crate::sound::beep(),
+                    Ok(icy_engine::CallbackAction::PlayMusic(music)) => play_music(&music),
+                    Ok(icy_engine::CallbackAction::Beep) => crate::sound::beep(),
+                    Err(err) => {
+                        eprintln!("{err}");
+                    }
                 }
                 if let Some((protocol_type, download)) = self.auto_file_transfer.try_transfer(ch) {
                     self.initiate_file_transfer(protocol_type, download);
