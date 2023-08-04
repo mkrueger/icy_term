@@ -246,8 +246,8 @@ impl BufferView {
                 info.clip_rect.left() as i32,
                 (info.screen_size_px[1] as f32 - info.clip_rect.max.y * info.pixels_per_point)
                     as i32,
-                info.viewport.width() as i32,
-                info.viewport.height() as i32,
+                (info.viewport.width() * info.pixels_per_point) as i32,
+                (info.viewport.height() * info.pixels_per_point) as i32,
             );
             gl.use_program(Some(self.draw_program));
             gl.active_texture(glow::TEXTURE0);
@@ -272,38 +272,38 @@ impl BufferView {
             gl.uniform_2_f32(
                 gl.get_uniform_location(self.draw_program, "u_resolution")
                     .as_ref(),
-                rect.width(),
-                rect.height(),
+                rect.width() * info.pixels_per_point,
+                rect.height() * info.pixels_per_point,
             );
             gl.uniform_2_f32(
                 gl.get_uniform_location(self.draw_program, "u_position")
                     .as_ref(),
-                rect.left(),
-                rect.top(),
+                rect.left() * info.pixels_per_point,
+                rect.top() * info.pixels_per_point,
             );
 
             gl.uniform_4_f32(
                 gl.get_uniform_location(self.draw_program, "u_draw_rect")
                     .as_ref(),
-                info.clip_rect.left(),
-                info.clip_rect.top(),
-                info.clip_rect.width(),
-                info.clip_rect.height(),
+                info.clip_rect.left() * info.pixels_per_point,
+                info.clip_rect.top() * info.pixels_per_point,
+                info.clip_rect.width() * info.pixels_per_point,
+                info.clip_rect.height() * info.pixels_per_point,
             );
 
             gl.uniform_4_f32(
                 gl.get_uniform_location(self.draw_program, "u_draw_area")
                     .as_ref(),
-                rect.left() - 3.,
-                rect.top() - info.clip_rect.top() - 4.,
-                rect.right() - 3.,
-                rect.bottom() - info.clip_rect.top() - 4.,
+                (rect.left() - 3.) * info.pixels_per_point,
+                (rect.top() - info.clip_rect.top() - 4.) * info.pixels_per_point,
+                (rect.right() - 3.) * info.pixels_per_point,
+                (rect.bottom() - info.clip_rect.top() - 4.) * info.pixels_per_point,
             );
             gl.uniform_2_f32(
                 gl.get_uniform_location(self.draw_program, "u_size")
                     .as_ref(),
-                rect.width(),
-                rect.height(),
+                rect.width() * info.pixels_per_point,
+                rect.height() * info.pixels_per_point,
             );
 
             gl.bind_vertex_array(Some(self.vertex_array));
