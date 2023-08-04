@@ -9,6 +9,8 @@
     clippy::cast_possible_wrap,
     clippy::cast_lossless
 )]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
+
 mod ui;
 use std::error::Error;
 
@@ -53,7 +55,6 @@ async fn main() {
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1284. + 8., 839.)),
         multisampling: 0,
-
         renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
