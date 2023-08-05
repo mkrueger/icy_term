@@ -343,6 +343,14 @@ impl MainWindow {
         mode.set_mode(self);
     }
 
+    pub fn show_terminal(&mut self) {
+        self.mode = MainWindowMode::ShowTerminal;
+    }
+
+    pub fn show_phonebook(&mut self) {
+        self.mode = MainWindowMode::ShowPhonebook;
+    }
+
     pub fn call_bbs(&mut self, i: usize) {
         self.mode = MainWindowMode::ShowTerminal;
         let mut adr = self.addresses[i].address.clone();
@@ -657,18 +665,15 @@ impl eframe::App for MainWindow {
         }
 
         match self.mode {
-            MainWindowMode::ShowTerminal => {
+            MainWindowMode::ShowTerminal | MainWindowMode::ShowPhonebook => {
                 let res = self.update_state();
                 self.update_terminal_window(ctx, frame);
                 self.handle_result(res, false);
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
-            MainWindowMode::ShowPhonebook => {
-                super::view_phonebook(self, ctx, frame);
-            }
             MainWindowMode::ShowSettings(in_phonebook) => {
                 if in_phonebook {
-                    super::view_phonebook(self, ctx, frame);
+                    super::view_phonebook(self, ctx);
                 } else {
                     let res = self.update_state();
                     self.update_terminal_window(ctx, frame);

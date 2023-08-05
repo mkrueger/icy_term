@@ -13,6 +13,7 @@ use super::{main_window_mod::MainWindow, BufferInputMode};
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "name", content = "par")]
 pub enum ScreenMode {
+    NotSet,
     #[serde(rename = "DOS")]
     Dos(i32, i32),
     C64,
@@ -59,6 +60,7 @@ impl Display for ScreenMode {
             ScreenMode::AtariXep80 => write!(f, "Atari XEP80"),
             ScreenMode::VT500 => write!(f, "VT500"),
             ScreenMode::ViewData => write!(f, "Viewdata"),
+            ScreenMode::NotSet => panic!(),
         }
     }
 }
@@ -71,6 +73,7 @@ impl ScreenMode {
             ScreenMode::Atari | ScreenMode::AtariXep80 => BufferInputMode::ATAscii,
             ScreenMode::VT500 => BufferInputMode::VT500,
             ScreenMode::ViewData => BufferInputMode::ViewData,
+            ScreenMode::NotSet => panic!(),
         }
     }
 
@@ -83,6 +86,7 @@ impl ScreenMode {
             ScreenMode::C128(w) => Size::new(u16::try_from(*w).unwrap(), 25),
             ScreenMode::Atari | ScreenMode::ViewData => Size::new(40, 24),
             ScreenMode::AtariXep80 | ScreenMode::VT500 => Size::new(80, 25),
+            ScreenMode::NotSet => panic!(),
         }
     }
 
@@ -134,6 +138,7 @@ impl ScreenMode {
                     colors: VIEWDATA_PALETTE.to_vec(),
                 };
             }
+            ScreenMode::NotSet => panic!(),
         }
         buf.clear();
     }

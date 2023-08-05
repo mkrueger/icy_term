@@ -15,11 +15,14 @@ impl MainWindow {
             .fill(Color32::from_rgb(0x20, 0x22, 0x25))
             .inner_margin(egui::style::Margin::same(6.0));
         let top_margin_height = 38.;
+        let show_pb = matches!(self.mode, MainWindowMode::ShowPhonebook);
         egui::TopBottomPanel::top("button_bar")
             .frame(button_frame)
             .show(ctx, |ui| {
                 let img_size = Vec2::new(22., 22.);
-
+                if show_pb {
+                    ui.set_enabled(false);
+                }
                 ui.horizontal(|ui| {
                     let r = ui
                         .add(egui::ImageButton::new(
@@ -73,6 +76,21 @@ impl MainWindow {
                             self.send_login();
                         }
                     }
+                    let r = ui
+                        .add(egui::ImageButton::new(
+                            super::CALL_SVG.texture_id(ctx),
+                            img_size,
+                        ))
+                        .on_hover_ui(|ui| {
+                            ui.label(
+                                RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-call"))
+                                    .small(),
+                            );
+                        });
+
+                    if r.clicked() {
+                        self.show_phonebook();
+                    }
 
                     let r = ui
                         .add(egui::ImageButton::new(
@@ -114,7 +132,13 @@ impl MainWindow {
             .fill(Color32::from_rgb(0x40, 0x44, 0x4b));
         egui::CentralPanel::default()
             .frame(frame_no_margins)
-            .show(ctx, |ui| self.custom_painting(ui, top_margin_height));
+            .show(ctx, |ui| {
+                self.custom_painting(ui, top_margin_height);
+            });
+
+        if show_pb {
+            super::view_phonebook(self, ctx);
+        }
     }
 
     fn custom_painting(&mut self, ui: &mut egui::Ui, top_margin_height: f32) -> egui::Response {
