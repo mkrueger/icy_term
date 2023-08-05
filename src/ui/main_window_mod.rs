@@ -224,7 +224,7 @@ impl MainWindow {
     }
 
     pub fn output_char(&mut self, ch: char) {
-        let translated_char = self.buffer_parser.from_unicode(ch);
+        let translated_char = self.buffer_parser.convert_from_unicode(ch);
         self.buffer_view.lock().selection_opt = None;
         if let Some(con) = &mut self.connection_opt {
             let r = con.send(vec![translated_char as u8]);
@@ -239,14 +239,14 @@ impl MainWindow {
         if let Some(con) = &mut self.connection_opt {
             let mut v = Vec::new();
             for ch in str.chars() {
-                let translated_char = self.buffer_parser.from_unicode(ch);
+                let translated_char = self.buffer_parser.convert_from_unicode(ch);
                 v.push(translated_char as u8);
             }
             let r = con.send(v);
             self.handle_result(r, false);
         } else {
             for ch in str.chars() {
-                let translated_char = self.buffer_parser.from_unicode(ch);
+                let translated_char = self.buffer_parser.convert_from_unicode(ch);
                 if let Err(err) = self.print_char(translated_char as u8) {
                     eprintln!("{err}");
                 }
@@ -493,7 +493,7 @@ impl MainWindow {
 
     pub fn send_login(&mut self) {
         let adr = self.addresses.get(self.cur_addr).unwrap();
-        let mut cr = [self.buffer_parser.from_unicode('\r') as u8].to_vec();
+        let mut cr = [self.buffer_parser.convert_from_unicode('\r') as u8].to_vec();
         for (k, v) in self.screen_mode.get_input_mode().cur_map() {
             if *k == Key::Enter as u32 {
                 cr = v.to_vec();
