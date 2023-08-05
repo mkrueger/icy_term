@@ -109,7 +109,7 @@ impl ScreenMode {
                     .push(BitFont::from_name("C64 PETSCII unshifted").unwrap());
                 buf.font_table
                     .push(BitFont::from_name("C64 PETSCII shifted").unwrap());
-                main_window.buffer_parser = Box::new(PETSCIIParser::new());
+                main_window.buffer_parser = Box::new(PETSCIIParser::default());
                 buf.palette = Palette {
                     colors: C64_DEFAULT_PALETTE.to_vec(),
                 };
@@ -119,7 +119,7 @@ impl ScreenMode {
                 buf.font_table
                     .push(BitFont::from_name("Atari ATASCII").unwrap());
 
-                main_window.buffer_parser = Box::new(AtasciiParser::new());
+                main_window.buffer_parser = Box::new(AtasciiParser::default());
                 buf.palette = Palette {
                     colors: ATARI_DEFAULT_PALETTE.to_vec(),
                 };

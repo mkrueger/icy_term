@@ -157,10 +157,10 @@ impl Address {
     pub fn get_terminal_parser(&self) -> Box<dyn BufferParser> {
         match self.screen_mode {
             Some(ScreenMode::C64 | ScreenMode::C128(_)) => {
-                return Box::new(PETSCIIParser::new());
+                return Box::new(PETSCIIParser::default());
             }
             Some(ScreenMode::Atari | ScreenMode::AtariXep80) => {
-                return Box::new(AtasciiParser::new());
+                return Box::new(AtasciiParser::default());
             }
             Some(ScreenMode::ViewData) => {
                 return Box::new(ViewdataParser::new());
