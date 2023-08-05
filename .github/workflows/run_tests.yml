@@ -19,7 +19,9 @@ jobs:
         args: --all -- --check
     - run: rustup component add clippy
     - name: Install gtk
-      run: sudo apt-get build-essential libgtk2.0-dev 
+      run: |
+        sudo apt-get update
+        sudo apt-get install build-essential libgtk-3-dev libasound2-dev
     - name: Run tests
       uses: actions-rs/cargo@v1
       with:

@@ -1,0 +1,26 @@
+name: Build
+on:
+  workflow_run:
+    workflows: ["Run Tests"]
+    branches: [main]
+    types: 
+      - completed
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  build_windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build bundle
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --release
+    - name: 'Upload Artifact'
+      uses: actions/upload-artifact@v3
+      with:
+        name: icy_term
+        path: |
+          target/release/icy_term.exe
+          build/file_id.diz
