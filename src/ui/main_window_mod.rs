@@ -1,4 +1,3 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(unsafe_code, clippy::wildcard_imports)]
 
 use directories::ProjectDirs;
@@ -225,7 +224,7 @@ impl MainWindow {
     }
 
     pub fn output_char(&mut self, ch: char) {
-        let translated_char = self.buffer_parser.from_unicode(ch);
+        let translated_char = self.buffer_parser.convert_from_unicode(ch);
         self.buffer_view.lock().selection_opt = None;
         if let Some(con) = &mut self.connection_opt {
             let r = con.send(vec![translated_char as u8]);
@@ -240,14 +239,14 @@ impl MainWindow {
         if let Some(con) = &mut self.connection_opt {
             let mut v = Vec::new();
             for ch in str.chars() {
-                let translated_char = self.buffer_parser.from_unicode(ch);
+                let translated_char = self.buffer_parser.convert_from_unicode(ch);
                 v.push(translated_char as u8);
             }
             let r = con.send(v);
             self.handle_result(r, false);
         } else {
             for ch in str.chars() {
-                let translated_char = self.buffer_parser.from_unicode(ch);
+                let translated_char = self.buffer_parser.convert_from_unicode(ch);
                 if let Err(err) = self.print_char(translated_char as u8) {
                     eprintln!("{err}");
                 }
@@ -342,6 +341,14 @@ impl MainWindow {
     pub fn set_screen_mode(&mut self, mode: ScreenMode) {
         self.screen_mode = mode;
         mode.set_mode(self);
+    }
+
+    pub fn show_terminal(&mut self) {
+        self.mode = MainWindowMode::ShowTerminal;
+    }
+
+    pub fn show_phonebook(&mut self) {
+        self.mode = MainWindowMode::ShowPhonebook;
     }
 
     pub fn call_bbs(&mut self, i: usize) {
@@ -486,7 +493,7 @@ impl MainWindow {
 
     pub fn send_login(&mut self) {
         let adr = self.addresses.get(self.cur_addr).unwrap();
-        let mut cr = [self.buffer_parser.from_unicode('\r') as u8].to_vec();
+        let mut cr = [self.buffer_parser.convert_from_unicode('\r') as u8].to_vec();
         for (k, v) in self.screen_mode.get_input_mode().cur_map() {
             if *k == Key::Enter as u32 {
                 cr = v.to_vec();
@@ -658,18 +665,15 @@ impl eframe::App for MainWindow {
         }
 
         match self.mode {
-            MainWindowMode::ShowTerminal => {
+            MainWindowMode::ShowTerminal | MainWindowMode::ShowPhonebook => {
                 let res = self.update_state();
                 self.update_terminal_window(ctx, frame);
                 self.handle_result(res, false);
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
-            MainWindowMode::ShowPhonebook => {
-                super::view_phonebook(self, ctx, frame);
-            }
             MainWindowMode::ShowSettings(in_phonebook) => {
                 if in_phonebook {
-                    super::view_phonebook(self, ctx, frame);
+                    super::view_phonebook(self, ctx);
                 } else {
                     let res = self.update_state();
                     self.update_terminal_window(ctx, frame);

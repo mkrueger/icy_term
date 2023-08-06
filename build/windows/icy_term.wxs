@@ -1,0 +1,51 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+   <Package Name="IcyTerm" UpgradeCode="87c21c74-dbd5-4584-89d5-46d9cd0c40a7" Language="1033" Codepage="1252" Version="0.13.0-dev" Manufacturer="IcyTerm" InstallerVersion="200">
+      <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+      <Icon Id="IcyTermIco" SourceFile=".\build\windows\app.ico" />
+      <WixVariable Id="WixUILicenseRtf" Value=".\build\windows\license.rtf" />
+      <Property Id="ARPPRODUCTICON" Value="IcyTermIco" />
+      <MediaTemplate EmbedCab="yes" />
+      <ui:WixUI Id="WixUI_Minimal" />
+      <Feature Id="ProductFeature" Title="ConsoleApp" Level="1">
+         <ComponentRef Id="IcyTermExe" />
+         <ComponentRef Id="IcyTermShortcut" />
+         <ComponentRef Id="ModifyPathEnv" />
+         <ComponentRef Id="ContextMenu" />
+      </Feature>
+      <!-- Application binaries -->
+      <DirectoryRef Id="IcyTermProgramFiles">
+         <Component Id="IcyTermExe">
+            <File Id="IcyTermExeFile" Source=".\target\release\icy_term.exe" Name="icy_term.exe" KeyPath="yes" />
+         </Component>
+      </DirectoryRef>
+      <DirectoryRef Id="IcyTermProgramMenu">
+         <!-- Application shortcut -->
+         <Component Id="IcyTermShortcut" Guid="aa36e61a-23cd-4383-b744-2f78e912f0dc">
+            <Shortcut Id="IcyTermShortcutFile" Name="IcyTerm" Description="A cross-platform CP437, Petscii, Atascii, ViewData terminal emulator" Target="[IcyTermProgramFiles]icy_term.exe" />
+            <RemoveFolder Id="IcyTermProgramMenu" On="uninstall" />
+            <RegistryValue Root="HKCU" Key="Software\Microsoft\IcyTerm" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+         </Component>
+      </DirectoryRef>
+      <DirectoryRef Id="IcyTermProgramFiles">
+         <!-- Add to PATH -->
+         <Component Id="ModifyPathEnv" Guid="edf0b679-9eb6-46f7-a5d1-5160f30acb34" KeyPath="yes">
+            <Environment Id="PathEnv" Value="[IcyTermProgramFiles]" Name="PATH" Permanent="no" Part="first" Action="set" System="yes" />
+         </Component>
+      </DirectoryRef>
+      <StandardDirectory Id="ProgramFiles64Folder">
+         <Directory Id="IcyTermProgramFiles" Name="IcyTerm" />
+      </StandardDirectory>
+      <StandardDirectory Id="ProgramMenuFolder">
+         <Directory Id="IcyTermProgramMenu" Name="IcyTerm" />
+      </StandardDirectory>
+      <!-- Add context menu -->
+      <Component Id="ContextMenu" Guid="449f9121-f7b9-41fe-82da-52349ea8ff91" Directory="TARGETDIR">
+         <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\Open IcyTerm here\command">
+            <RegistryValue Type="string" Value="[IcyTermProgramFiles]icy_term.exe" KeyPath="yes" />
+         </RegistryKey>
+         <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\Open IcyTerm here">
+            <RegistryValue Type="string" Name="Icon" Value="[IcyTermProgramFiles]icy_term.exe" />
+         </RegistryKey>
+      </Component>
+   </Package>
+</Wix>
