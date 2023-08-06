@@ -27,22 +27,21 @@ jobs:
        command: install
        args: cargo-get
    - name: Build bundle
-     uses: actions-rs/cargo@v1
-     with:
-       command: deb
-   - name: Get version
-     id: get-version
+     id: build-bundle
      run: |
        echo "VERSION=$(cargo get version)" >> $GITHUB_OUTPUT
+       echo "DEB=$(cargo deb)" >> $GITHUB_OUTPUT
    - name: 'Upload Artifact'
      uses: actions/upload-artifact@v3
      env:
-      VERSION: ${{ steps.get-version.outputs.VERSION }}
+      VERSION: ${{ steps.build-bundle.outputs.VERSION }}
+      DEB: ${{ steps.build-bundle.outputs.DEB }}
      with:
        name: icy_term_linux${{ env.VERSION }}
        path: |
-         target/debaian/icy_term_${{ env.VERSION }}_amd64.deb
+         ${{ env.DEB }}
          build/file_id.diz
+
   build_windows:
     runs-on: windows-latest
     steps:
@@ -60,22 +59,25 @@ jobs:
       env:
         PFX_CONTENT: ${{ secrets.WINDOWS_CERT }}
       run: |
-        $pfxPath = Join-Path -Path $env:RUNNER_TEMP -ChildPath "cert.pfx";
         $encodedBytes = [System.Convert]::FromBase64String($env:PFX_CONTENT);
-        Set-Content $pfxPath -Value $encodedBytes
-        echo "PFX_PATH=$pfxPath" >> $GITHUB_ENV
-        $Env:version=cargo pkgid | foreach-object { $_ -replace '(.*)#','' }
+        Set-Content "./cert.pfx" -Value $encodedBytes
+        $version=cargo pkgid | foreach-object { $_ -replace '(.*)#','' }
         echo "VERSION=$version" >> $GITHUB_ENV
     - name: Build MSI installer.
+      env:
+        VERSION: ${{ steps.create-pfx.outputs.VERSION }}
       run: |
+        echo "Building ${{ env.VERSION }} installer…"
         wix extension add WixToolset.UI.wixext WixToolset.Util.wixext
-        wix build -arch "x64" -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -d "PATH=${{ env.PFX_PATH }}"  -out "./icy_term-_${{ env.VERSION }}-installer.msi" "build/windows/icy_term.wxs"
+        wix build -arch "x64" -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -d "PATH=./cert.pfx"  -out "./icy_term-${{ env.VERSION }}-installer.msi" "build/windows/icy_term.wxs"
     - name: Delete PFX certificate
-      run: del "${{ env.PFX_PATH }}"
+      run: del "./cert.pfx"
     - name: 'Upload Artifact'
       uses: actions/upload-artifact@v3
+      env:
+        VERSION: ${{ steps.create-pfx.outputs.VERSION }}
       with:
         name: icy_term_${{ env.VERSION }}_windows
         path: |
-          icy_term-_${{ env.VERSION }}-installer.msi
+          icy_term-${{ env.VERSION }}-installer.msi
           build/file_id.diz
