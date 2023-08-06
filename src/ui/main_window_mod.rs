@@ -417,7 +417,9 @@ impl MainWindow {
 
     pub fn update_state(&mut self) -> TerminalResult<()> {
         //        unsafe { super::simulate::run_sim(self); }
-        let Some(con) = &mut self.connection_opt else { return Ok(()) };
+        let Some(con) = &mut self.connection_opt else {
+            return Ok(());
+        };
 
         if con.is_data_available()? {
             for ch in con.read_buffer() {

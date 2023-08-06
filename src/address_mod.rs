@@ -167,7 +167,7 @@ impl Address {
             }
             _ => {}
         }
- 
+
         if let Terminal::Avatar = self.terminal_type {
             Box::new(AvatarParser::new(true))
         } else {

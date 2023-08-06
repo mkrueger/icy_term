@@ -61,3 +61,15 @@ winres = "0.1"
 
 [profile.release]
 strip = "symbols"
+
+[package.metadata.deb]
+section="Network"
+copyright = "Copyright (c) Mike Krüger 2022. All rights reserved."
+license-file="build/windows/license.rtf"
+depends = "libasound2"
+assets = [
+    ["target/release/icy_term", "/usr/bin/", "755"],
+    ["build/linux/icy_term.desktop", "/usr/share/applications/", "644"],
+    ["build/linux/128x128.png", "/usr/share/icons/hicolor/128x128/apps/icy_term.png",       "644"],
+    ["build/linux/256x256.png", "/usr/share/icons/hicolor/256x256/apps/icy_term.png",     "644"],
+]
