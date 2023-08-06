@@ -29,8 +29,11 @@ jobs:
    - name: Build bundle
      id: build-bundle
      run: |
-       echo "VERSION=$(cargo get version)" >> $GITHUB_OUTPUT
-       echo "DEB=$(cargo deb)" >> $GITHUB_OUTPUT
+       $version=$(cargo get version)
+       echo "VERSION=$version" >> $GITHUB_OUTPUT
+       $deb=$(cargo deb)
+       mv $deb icy_term_${version}_amd64.deb
+       sed "s/#VERSION/$version/g" <build/file_id.diz  >file_id.diz
    - name: 'Upload Artifact'
      uses: actions/upload-artifact@v3
      env:
@@ -39,8 +42,8 @@ jobs:
      with:
        name: icy_term_linux${{ env.VERSION }}
        path: |
-         ${{ env.DEB }}
-         build/file_id.diz
+         icy_term_${{ env.VERSION }}_amd64.deb
+         file_id.diz
 
   build_windows:
     runs-on: windows-latest
