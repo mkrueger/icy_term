@@ -47,7 +47,6 @@ impl Com for ComRawImpl {
             Err(err) => Err(Box::new(err)),
         }
     }
-
     async fn read_u8(&mut self) -> TermComResult<u8> {
         match self.tcp_stream.as_mut().unwrap().read_u8().await {
             Ok(b) => Ok(b),

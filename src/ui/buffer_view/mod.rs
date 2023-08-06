@@ -152,14 +152,22 @@ void main() {
                         shader_source, /*&format!("{}\n{}", shader_version, shader_source)*/
                     );
                     gl.compile_shader(shader);
-                    assert!(gl.get_shader_compile_status(shader), "{}", gl.get_shader_info_log(shader));
+                    assert!(
+                        gl.get_shader_compile_status(shader),
+                        "{}",
+                        gl.get_shader_info_log(shader)
+                    );
                     gl.attach_shader(sixel_shader, shader);
                     shader
                 })
                 .collect();
 
             gl.link_program(sixel_shader);
-            assert!(gl.get_program_link_status(sixel_shader), "{}", gl.get_program_info_log(sixel_shader));
+            assert!(
+                gl.get_program_link_status(sixel_shader),
+                "{}",
+                gl.get_program_info_log(sixel_shader)
+            );
 
             for shader in shaders {
                 gl.detach_shader(sixel_shader, shader);
@@ -205,14 +213,22 @@ void main() {
                         shader_source, /*&format!("{}\n{}", shader_version, shader_source)*/
                     );
                     gl.compile_shader(shader);
-                    assert!(gl.get_shader_compile_status(shader), "{}", gl.get_shader_info_log(shader));
+                    assert!(
+                        gl.get_shader_compile_status(shader),
+                        "{}",
+                        gl.get_shader_info_log(shader)
+                    );
                     gl.attach_shader(draw_program, shader);
                     shader
                 })
                 .collect();
 
             gl.link_program(draw_program);
-            assert!(gl.get_program_link_status(draw_program), "{}", gl.get_program_info_log(draw_program));
+            assert!(
+                gl.get_program_link_status(draw_program),
+                "{}",
+                gl.get_program_info_log(draw_program)
+            );
 
             for shader in shaders {
                 gl.detach_shader(draw_program, shader);
@@ -259,14 +275,22 @@ void main() {
                         shader_source, /*&format!("{}\n{}", shader_version, shader_source)*/
                     );
                     gl.compile_shader(shader);
-                    assert!(gl.get_shader_compile_status(shader), "{}", gl.get_shader_info_log(shader));
+                    assert!(
+                        gl.get_shader_compile_status(shader),
+                        "{}",
+                        gl.get_shader_info_log(shader)
+                    );
                     gl.attach_shader(program, shader);
                     shader
                 })
                 .collect();
 
             gl.link_program(program);
-            assert!(gl.get_program_link_status(program), "{}", gl.get_program_info_log(program));
+            assert!(
+                gl.get_program_link_status(program),
+                "{}",
+                gl.get_program_info_log(program)
+            );
 
             for shader in shaders {
                 gl.detach_shader(program, shader);

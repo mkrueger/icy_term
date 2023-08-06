@@ -392,12 +392,12 @@ impl MainWindow {
 
         self.open_connection_promise = Some(Promise::spawn_async(async move {
             let mut com: Box<dyn Com> = match ct {
-                crate::address_mod::ConnectionType::Ssh |
-                crate::address_mod::ConnectionType::Telnet => {
+                crate::address_mod::ConnectionType::Ssh
+                | crate::address_mod::ConnectionType::Telnet => {
                     Box::new(ComTelnetImpl::new(window_size))
                 }
                 crate::address_mod::ConnectionType::Raw => Box::new(ComRawImpl::new()),
-//                crate::address_mod::ConnectionType::Ssh => Box::new(SSHCom::new()),
+                //                crate::address_mod::ConnectionType::Ssh => Box::new(SSHCom::new()),
             };
             if let Err(err) = com.connect(&call_adr, timeout).await {
                 Err(err)
