@@ -65,13 +65,12 @@ jobs:
         wix extension add WixToolset.UI.wixext WixToolset.Util.wixext
         wix build -arch "x64" -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -d "PATH=${{ env.PFX_PATH }}"  -out "./icy_term-_${{ env.VERSION }}-installer.msi" "build/windows/icy_term.wxs"
     - name: Delete PFX certificate
-      shell: pwsh
       env:
         PFX_PATH: ${{ steps.create-pfx.outputs.PFX_PATH }}
-        VERSION: ${{ steps.create-pfx.outputs.VERSION }}
-      run: |
-        Remove-Item -Path $env:PFX_PATH;      
+      run: del ${{ env.PFX_PATH }}
     - name: 'Upload Artifact'
+      env:
+        VERSION: ${{ steps.create-pfx.outputs.VERSION }}
       uses: actions/upload-artifact@v3
       with:
         name: icy_term_${{ env.VERSION }}_windows

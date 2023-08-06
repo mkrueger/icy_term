@@ -157,17 +157,17 @@ impl Address {
     pub fn get_terminal_parser(&self) -> Box<dyn BufferParser> {
         match self.screen_mode {
             Some(ScreenMode::C64 | ScreenMode::C128(_)) => {
-                return Box::new(PETSCIIParser::default());
+                return Box::<PETSCIIParser>::default();
             }
             Some(ScreenMode::Atari | ScreenMode::AtariXep80) => {
-                return Box::new(AtasciiParser::default());
+                return Box::<AtasciiParser>::default();
             }
             Some(ScreenMode::ViewData) => {
                 return Box::new(ViewdataParser::new());
             }
             _ => {}
         }
-
+ 
         if let Terminal::Avatar = self.terminal_type {
             Box::new(AvatarParser::new(true))
         } else {
