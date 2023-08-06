@@ -51,8 +51,7 @@ jobs:
     - name: Crate msi installer
       run: |
         wix extension add WixToolset.UI.wixext WixToolset.Util.wixext
-        wix build -arch "x64" -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext \
-        -out "./icy_term-$VERSION-installer.msi" "build/windows/icy_term.wxs"
+        wix build -arch "x64" -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -out "./icy_term-$VERSION-installer.msi" "build/windows/icy_term.wxs"
     - name: 'Upload Artifact'
       uses: actions/upload-artifact@v3
       with:
