@@ -36,7 +36,7 @@ serde = "1.0.147"
 serde_derive = "1.0.145"
 async-trait = "0.1.58"
 rand = "0.8"
-poll-promise = { version = "0.2.0", features = ["tokio"] }
+poll-promise = { git = "https://github.com/EmbarkStudios/poll-promise", features = ["tokio"] }
 
 i18n-embed = { version = "0.13.4", features = ["fluent-system", "desktop-requester"]} 
 i18n-embed-fl = "0.6.4"
