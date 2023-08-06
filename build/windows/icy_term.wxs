@@ -6,7 +6,7 @@
       <WixVariable Id="WixUILicenseRtf" Value=".\build\windows\license.rtf" />
       <MediaTemplate EmbedCab="yes" />
       <ui:WixUI Id="WixUI_Minimal" />
-      <Binary Id="MyCertificate.Binary" SourceFile="$(var.PATH)" />
+<!--      <Binary Id="MyCertificate.Binary" SourceFile="$(var.PATH)" /> -->
       <Feature Id="ProductFeature" Title="ConsoleApp" Level="1">
          <ComponentRef Id="IcyTermExe" />
          <ComponentRef Id="IcyTermShortcut" />
