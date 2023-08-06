@@ -62,7 +62,7 @@ jobs:
         $encodedBytes = [System.Convert]::FromBase64String($env:PFX_CONTENT);
         Set-Content "./cert.pfx" -Value $encodedBytes
         $version=cargo pkgid | foreach-object { $_ -replace '(.*)#','' }
-        echo "VERSION=$version" >> $GITHUB_ENV
+        echo "VERSION=$version" >> $env:GITHUB_ENV
     - name: Build MSI installer.
       env:
         VERSION: ${{ steps.create-pfx.outputs.VERSION }}
