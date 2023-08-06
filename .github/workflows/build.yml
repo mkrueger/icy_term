@@ -12,6 +12,9 @@ jobs:
    runs-on: ubuntu-latest
    steps:
    - uses: actions/checkout@v3
+   - uses: actions-rs/toolchain@v1
+     with:
+       toolchain: stable
    - name: Install gtk
      run: |
        sudo apt-get update
@@ -66,13 +69,14 @@ jobs:
         Set-Content "./cert.pfx" -Value $encodedBytes
         $version=cargo pkgid | foreach-object { $_ -replace '(.*)#','' }
         echo "VERSION=$version" >> $env:GITHUB_ENV
+        get-content .\build\file_id.diz | %{$_ -replace "#VERSION","$version"} >file_id.diz        
     - name: Build MSI installer.
       env:
         VERSION: ${{ steps.create-pfx.outputs.VERSION }}
       run: |
         echo "Building ${{ env.VERSION }} installer…"
         wix extension add WixToolset.UI.wixext WixToolset.Util.wixext
-        wix build -arch "x64" -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -d "PATH=./cert.pfx"  -out "./icy_term-${{ env.VERSION }}-installer.msi" "build/windows/icy_term.wxs"
+        wix build -arch "x64" -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -d "PATH=./cert.pfx" -d "VERSION=${{ env.VERSION }}"  -out "./icy_term-${{ env.VERSION }}-installer.msi" "build/windows/icy_term.wxs"
     - name: Delete PFX certificate
       run: del "./cert.pfx"
     - name: 'Upload Artifact'
@@ -83,4 +87,88 @@ jobs:
         name: icy_term_${{ env.VERSION }}_windows
         path: |
           icy_term-${{ env.VERSION }}-installer.msi
-          build/file_id.diz
+          file_id.diz
+  
+  build_mac:
+    strategy:
+      matrix:
+        target: [aarch64-apple-darwin x86_64-apple-darwin]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Install cargo deb
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-deb
+      - name: Install cargo get
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-get
+      - name: Build dmg
+        uses: actions-rs/cargo@v1
+        with:
+          command: bundle
+          args: --release --target ${{ matrix.target }}
+      - name: Install the Apple certificate and provisioning profile
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          # create variables
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          # import certificate and provisioning profile from secrets
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
+
+          # create temporary keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # import certificate to keychain
+          security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # apply provisioning profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+      - name: Sign dmg
+        id: sign-bundle
+        run: |
+          $version=$(cargo get version)
+          echo "VERSION=$version" >> $GITHUB_OUTPUT
+          sed "s/#VERSION/$version/g" <build/file_id.diz  >file_id.diz
+          codesign --force --deep --verbose --sign "mkrueger@posteo.de" "target/${{ matrix.target }}/release/bundle/osx/Icy Term.app/"
+          create-dmg \
+            --volname "Icy Term Installer" \
+            --volicon "target/$ARCH/release/bundle/osx/Icy Term.app/Contents/Resources/Icy Term.icns" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --hide-extension "Icy Term.app" \
+            --app-drop-link 600 185 \
+            "IcyTerm-$version-${{ matrix.target }}.dmg" \
+            "target/${{ matrix.target }}/release/bundle/osx/Icy Term.app/"
+      - name: Clean up keychain and provisioning profile
+        run: |
+          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
+          rm ~/Library/MobileDevice/Provisioning\ Profiles/build_pp.mobileprovision       
+      - name: 'Upload Artifact'
+        env:
+          VERSION: ${{ steps.sign-bundle.outputs.VERSION }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: icy_term_osx_${{ env.VERSION }}_${{ matrix.target }}
+          path: |
+            IcyTerm-${{ env.VERSION }}-${{ matrix.target }}.dmg
+            file_id.diz
