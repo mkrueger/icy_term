@@ -35,7 +35,7 @@ jobs:
    - name: 'Upload Artifact'
      uses: actions/upload-artifact@v3
      with:
-       name: icy_term_linux${{ env.VERSION }}
+       name: icy_term_linux_${{ env.VERSION }}
        path: |
          icy_term_*_amd64.deb
          file_id.diz
@@ -44,11 +44,9 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Build bundle
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: --release
+    - name: Build exe
+      run: |
+        cargo build --release
     - name: Install WiX
       run: dotnet tool install --global wix --version 4.0.1
     - name: Create PFX certificate
@@ -67,7 +65,7 @@ jobs:
       run: |
         echo "Building ${{ env.VERSION }} installer…"
         wix extension add WixToolset.UI.wixext WixToolset.Util.wixext
-        wix build -arch "x64" -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -d "PATH=./cert.pfx;VERSION=${{ env.VERSION }}"  -out "./icy_term-${{ env.VERSION }}-installer.msi" "build/windows/icy_term.wxs"
+        wix build -arch "x64" -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -d "PATH=./cert.pfx" -d "VERSION=${{ env.VERSION }}"  -out "./icy_term-${{ env.VERSION }}-installer.msi" "build/windows/icy_term.wxs"
     - name: Delete PFX certificate
       run: del "./cert.pfx"
     - name: 'Upload Artifact'
@@ -93,9 +91,10 @@ jobs:
           rustup target add ${{ matrix.target }}
           cargo install cargo-bundle
           cargo install cargo-get
+          brew install create-dmg
       - name: Build dmg
         run: |
-          cargo bundle --target ${{ matrix.target }}
+          cargo bundle --release --target ${{ matrix.target }}
       - name: Install the Apple certificate and provisioning profile
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE }}
@@ -127,13 +126,13 @@ jobs:
       - name: Sign dmg
         id: sign-bundle
         run: |
-          export $version=$(cargo get version)
+          export version="$(cargo get version)"
           echo "VERSION=$version" >> $GITHUB_OUTPUT
           sed "s/#VERSION/$version/g" <build/file_id.diz  >file_id.diz
           codesign --force --deep --verbose --sign "mkrueger@posteo.de" "target/${{ matrix.target }}/release/bundle/osx/Icy Term.app/"
           create-dmg \
             --volname "Icy Term Installer" \
-            --volicon "target/$ARCH/release/bundle/osx/Icy Term.app/Contents/Resources/Icy Term.icns" \
+            --volicon "target/${{ matrix.target }}/release/bundle/osx/Icy Term.app/Contents/Resources/Icy Term.icns" \
             --window-pos 200 120 \
             --window-size 800 400 \
             --icon-size 100 \
@@ -144,7 +143,7 @@ jobs:
       - name: Clean up keychain and provisioning profile
         run: |
           security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
-          rm ~/Library/MobileDevice/Provisioning\ Profiles/build_pp.mobileprovision       
+          # rm ~/Library/MobileDevice/Provisioning\ Profiles/build_pp.mobileprovision       
       - name: 'Upload Artifact'
         env:
           VERSION: ${{ steps.sign-bundle.outputs.VERSION }}
