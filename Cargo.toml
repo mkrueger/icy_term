@@ -2,7 +2,10 @@
 name = "icy_term"
 version = "0.5.0"
 edition = "2021"
+authors = ["Mike Krüger <mkrueger@posteo.de>"]
 description = "A terminal program supporting CP437, PetScii and ViewData"
+license = "Apache-2.0"
+repository = "https://github.com/mkrueger/icy_term"
 
 [package.metadata.bundle]
 name = "Icy Term"
