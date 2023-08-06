@@ -56,8 +56,7 @@ impl Com for ComRawImpl {
     }
 
     async fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
-        let mut buf = Vec::new();
-        buf.resize(len, 0);
+        let mut buf = vec![0; len];
         match self.tcp_stream.as_mut().unwrap().read_exact(&mut buf).await {
             Ok(_b) => Ok(buf),
             Err(err) => Err(Box::new(err)),

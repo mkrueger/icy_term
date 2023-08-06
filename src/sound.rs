@@ -151,7 +151,7 @@ where
 {
     for frame in output.chunks_mut(request.nchannels) {
         let value: T = T::from_sample(on_sample(request));
-        for sample in frame.iter_mut() {
+        for sample in &mut *frame {
             *sample = value;
         }
     }

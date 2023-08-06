@@ -20,10 +20,9 @@ use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
 use crate::com::{Com, TermComResult};
 use crate::protocol::TransferState;
-use crate::sound::play_music;
 use crate::{
     address_mod::{start_read_book, store_phone_book, Address},
-    com::{ComRawImpl, ComTelnetImpl, SSHCom, SendData},
+    com::{ComRawImpl, ComTelnetImpl, SendData},
     protocol::FileDescriptor,
     TerminalResult,
 };
@@ -269,8 +268,13 @@ impl MainWindow {
                     self.handle_result(r, false);
                 }
             }
-            icy_engine::CallbackAction::PlayMusic(music) => play_music(&music),
-            icy_engine::CallbackAction::Beep => crate::sound::beep(),
+            icy_engine::CallbackAction::PlayMusic(_music) => {
+                //play_music(&music),
+            }
+            icy_engine::CallbackAction::Beep => {
+                //crate::sound::beep()
+                println!("beep.");
+            }
         }
         //if !self.update_sixels() {
         self.buffer_view.lock().redraw_view();
@@ -388,11 +392,12 @@ impl MainWindow {
 
         self.open_connection_promise = Some(Promise::spawn_async(async move {
             let mut com: Box<dyn Com> = match ct {
+                crate::address_mod::ConnectionType::Ssh |
                 crate::address_mod::ConnectionType::Telnet => {
                     Box::new(ComTelnetImpl::new(window_size))
                 }
                 crate::address_mod::ConnectionType::Raw => Box::new(ComRawImpl::new()),
-                crate::address_mod::ConnectionType::Ssh => Box::new(SSHCom::new()),
+//                crate::address_mod::ConnectionType::Ssh => Box::new(SSHCom::new()),
             };
             if let Err(err) = com.connect(&call_adr, timeout).await {
                 Err(err)
@@ -457,8 +462,13 @@ impl MainWindow {
                     Ok(icy_engine::CallbackAction::SendString(result)) => {
                         con.send(result.as_bytes().to_vec())?;
                     }
-                    Ok(icy_engine::CallbackAction::PlayMusic(music)) => play_music(&music),
-                    Ok(icy_engine::CallbackAction::Beep) => crate::sound::beep(),
+                    Ok(icy_engine::CallbackAction::PlayMusic(_music)) => {
+                        // play_music(&music)
+                    }
+                    Ok(icy_engine::CallbackAction::Beep) => {
+                        // crate::sound::beep()
+                        println!("beep.");
+                    }
                     Err(err) => {
                         eprintln!("{err}");
                     }

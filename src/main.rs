@@ -31,7 +31,6 @@ mod auto_file_transfer;
 mod auto_login;
 mod iemsi_mod;
 mod protocol;
-mod sound;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 lazy_static! {

@@ -484,8 +484,7 @@ impl Com for ComTelnetImpl {
     }
 
     async fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
-        let mut buf = Vec::new();
-        buf.resize(len, 0);
+        let mut buf = vec![0; len];
         if let Some(stream) = self.tcp_stream.as_mut() {
             match stream.read_exact(&mut buf).await {
                 Ok(_) => {
