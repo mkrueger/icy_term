@@ -6,6 +6,9 @@
       <Property Id="ARPPRODUCTICON" Value="IcyTermIco" />
       <MediaTemplate EmbedCab="yes" />
       <ui:WixUI Id="WixUI_Minimal" />
+      <Binary 
+         Id="MyCertificate.Binary" 
+         SourceFile="$(var.ProjectDir)cert.pfx" />
       <Feature Id="ProductFeature" Title="ConsoleApp" Level="1">
          <ComponentRef Id="IcyTermExe" />
          <ComponentRef Id="IcyTermShortcut" />
