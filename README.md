@@ -30,6 +30,11 @@ Features supported so far:
   - [x] Copy & Paste
   - [x] Internationalization
 
+# Get binaries
+
+Get the latest release here:
+https://github.com/mkrueger/game_cheetah/releases/latest
+
 # Screenshots
 
 Code page 437 (aka "DOS") support:
