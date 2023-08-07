@@ -10,7 +10,7 @@ repository = "https://github.com/mkrueger/icy_term"
 [package.metadata.bundle]
 name = "Icy Term"
 identifier = "com.github.icy_term"
-icon = [ "assets/128x128@2x.png" ]
+icon = [ "build/mac/128x128@2x.png" ]
 resources = []
 copyright = "Copyright (c) Mike Krüger 2022. All rights reserved."
 
@@ -64,7 +64,7 @@ strip = "symbols"
 [package.metadata.deb]
 section="Network"
 copyright = "Copyright (c) Mike Krüger 2022. All rights reserved."
-license-file="build/windows/license.rtf"
+license-file="build/license.rtf"
 depends = "libasound2"
 assets = [
     ["target/release/icy_term", "/usr/bin/", "755"],

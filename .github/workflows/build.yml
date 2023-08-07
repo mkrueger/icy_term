@@ -6,6 +6,7 @@ on:
     types: 
       - completed
 env:
+  APP_NAME: icy_term
   CARGO_TERM_COLOR: always
 jobs:
   build_linux:
@@ -26,15 +27,15 @@ jobs:
        export VERSION=$(cargo get version)
        echo "VERSION=$VERSION" >> $GITHUB_ENV
        export DEB=$(cargo deb)
-       echo "Copy $DEB to icy_term_${VERSION}_amd64.deb"
-       mv $DEB icy_term_${VERSION}_amd64.deb
+       echo "Copy $DEB to ${{ env.APP_NAME }}_${VERSION}_amd64.deb"
+       mv $DEB ${{ env.APP_NAME }}_${VERSION}_amd64.deb
        sed "s/#VERSION/$VERSION/g" <build/file_id.diz  >file_id.diz
    - name: 'Upload Artifact'
      uses: actions/upload-artifact@v3
      with:
-       name: icy_term_linux_${{ env.VERSION }}
+       name: ${{ env.APP_NAME }}_linux_${{ env.VERSION }}
        path: |
-         icy_term_*_amd64.deb
+         ${{ env.APP_NAME }}_${{ env.VERSION }}_amd64.deb
          file_id.diz
 
   build_windows:
@@ -62,15 +63,15 @@ jobs:
       run: |
         echo "Building ${{ env.VERSION }} installer…"
         wix extension add WixToolset.UI.wixext WixToolset.Util.wixext
-        wix build -arch "x64" -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -d "PATH=./cert.pfx" -d "VERSION=${{ env.VERSION }}"  -out "./icy_term-${{ env.VERSION }}-installer.msi" "build/windows/icy_term.wxs"
+        wix build -arch "x64" -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -d "PATH=./cert.pfx" -d "VERSION=${{ env.VERSION }}"  -out "./${{ env.APP_NAME }}-${{ env.VERSION }}-installer.msi" "build/windows/installer.wxs"
     - name: Delete PFX certificate
       run: del "./cert.pfx"
     - name: 'Upload Artifact'
       uses: actions/upload-artifact@v3
       with:
-        name: icy_term_${{ env.VERSION }}_windows
+        name: ${{ env.APP_NAME }}_${{ env.VERSION }}_windows
         path: |
-          icy_term-${{ env.VERSION }}-installer.msi
+          ${{ env.APP_NAME }}-${{ env.VERSION }}-installer.msi
           file_id.diz
   
   build_mac:
@@ -123,17 +124,19 @@ jobs:
           export version="$(cargo get version)"
           echo "VERSION=$version" >> $GITHUB_ENV
           sed "s/#VERSION/$version/g" <build/file_id.diz  >file_id.diz
-          codesign --force --deep --verbose --sign "mkrueger@posteo.de" "target/${{ matrix.target }}/release/bundle/osx/Icy Term.app/"
+          export MAC_APP=$(cat Cargo.toml | grep "name"  | awk -F"\"" '{print $2}' | head -n 2 | tail -n 1)
+
+          codesign --force --deep --verbose --sign "mkrueger@posteo.de" "target/${{ matrix.target }}/release/bundle/osx/${MAC_APP}.app/"
           create-dmg \
-            --volname "Icy Term Installer" \
-            --volicon "target/${{ matrix.target }}/release/bundle/osx/Icy Term.app/Contents/Resources/Icy Term.icns" \
+            --volname "${MAC_APP} Installer" \
+            --volicon "target/${{ matrix.target }}/release/bundle/osx/${MAC_APP}.app/Contents/Resources/${MAC_APP}.icns" \
             --window-pos 200 120 \
             --window-size 800 400 \
             --icon-size 100 \
-            --hide-extension "Icy Term.app" \
+            --hide-extension "${MAC_APP}.app" \
             --app-drop-link 600 185 \
-            "IcyTerm-$version-${{ matrix.target }}.dmg" \
-            "target/${{ matrix.target }}/release/bundle/osx/Icy Term.app/"
+            "${{ env.APP_NAME }}-$version-${{ matrix.target }}.dmg" \
+            "target/${{ matrix.target }}/release/bundle/osx/${MAC_APP}.app/"
       - name: Clean up keychain and provisioning profile
         run: |
           security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
@@ -141,7 +144,7 @@ jobs:
       - name: 'Upload Artifact'
         uses: actions/upload-artifact@v3
         with:
-          name: icy_term_osx_${{ env.VERSION }}_${{ matrix.target }}
+          name: ${{ env.APP_NAME }}_osx_${{ env.VERSION }}_${{ matrix.target }}
           path: |
-            IcyTerm-${{ env.VERSION }}-${{ matrix.target }}.dmg
+            ${{ env.APP_NAME }}-${{ env.VERSION }}-${{ matrix.target }}.dmg
             file_id.diz
