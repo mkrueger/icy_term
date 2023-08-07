@@ -12,9 +12,6 @@ jobs:
    runs-on: ubuntu-latest
    steps:
    - uses: actions/checkout@v3
-   - uses: actions-rs/toolchain@v1
-     with:
-       toolchain: stable
    - name: Install gtk
      run: |
        sudo apt-get update
@@ -83,9 +80,6 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
       - name: Install cargo bundle & get
         run: |
           rustup target add ${{ matrix.target }}
@@ -127,7 +121,7 @@ jobs:
         id: sign-bundle
         run: |
           export version="$(cargo get version)"
-          echo "VERSION=$version" >> $GITHUB_OUTPUT
+          echo "VERSION=$version" >> $GITHUB_ENV
           sed "s/#VERSION/$version/g" <build/file_id.diz  >file_id.diz
           codesign --force --deep --verbose --sign "mkrueger@posteo.de" "target/${{ matrix.target }}/release/bundle/osx/Icy Term.app/"
           create-dmg \
@@ -145,8 +139,6 @@ jobs:
           security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
           # rm ~/Library/MobileDevice/Provisioning\ Profiles/build_pp.mobileprovision       
       - name: 'Upload Artifact'
-        env:
-          VERSION: ${{ steps.sign-bundle.outputs.VERSION }}
         uses: actions/upload-artifact@v3
         with:
           name: icy_term_osx_${{ env.VERSION }}_${{ matrix.target }}
