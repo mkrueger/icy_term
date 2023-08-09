@@ -434,9 +434,9 @@ impl MainWindow {
                     }
                 }
 
-                /* match ch  {
+                 /*match ch  {
                     b'\\' => print!("\\\\"),
-                    b'\n' => print!("\\n"),
+                    b'\n' => println!("\\n"),
                     b'\r' => print!("\\r"),
                     b'\"' => print!("\\\""),
                     _ => {

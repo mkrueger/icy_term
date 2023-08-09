@@ -94,8 +94,8 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
                 render_list(window, ui);
             });
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
-            show_content(window, ui);
+            egui::CentralPanel::default().show_inside(ui, |ui| {
+                show_content(window, ui);
         });
     });
 

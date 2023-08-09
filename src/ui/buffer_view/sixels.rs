@@ -22,11 +22,18 @@ impl SixelCacheEntry {
             size: self.size,
         }
     }
+
+    fn reset(&mut self)  {
+        self.status = SixelReadStatus::default();
+        self.old_line = 0;
+        self.data_opt = None;
+        self.texture_opt = None;
+    }
 }
 
 impl ViewState {
     pub fn update_sixels(&mut self, gl: &glow::Context) -> bool {
-        let buffer = &self.buf;
+        let buffer = &mut self.buf;
         let sixel_len = buffer.layers[0].sixels.len();
         if sixel_len == 0 {
             for sx in &self.sixel_cache {
@@ -42,6 +49,11 @@ impl ViewState {
         let mut res = false;
         let mut i = 0;
         while i < sixel_len {
+            let reset_entry = matches!(buffer.layers[0].sixels[i].read_status, SixelReadStatus::Updated);
+            if reset_entry {
+                buffer.layers[0].sixels[i].read_status = SixelReadStatus::Finished;
+            }
+
             let sixel = &buffer.layers[0].sixels[i];
 
             if sixel.width() == 0 || sixel.height() == 0 {
@@ -52,11 +64,20 @@ impl ViewState {
             let mut old_line = 0;
             let current_line = match sixel.read_status {
                 SixelReadStatus::Position(_, y) => y * 6,
-                SixelReadStatus::Error | SixelReadStatus::Finished => sixel.height() as i32,
+                SixelReadStatus::Error | SixelReadStatus::Finished | SixelReadStatus::Updated => sixel.height() as i32,
                 SixelReadStatus::NotStarted => 0,
             };
 
-            if let Some(entry) = self.sixel_cache.get(i) {
+            if let Some(entry) = self.sixel_cache.get_mut(i) {
+                if reset_entry {
+                    if let Some(texture) = entry.texture_opt {
+                        unsafe {
+                            gl.delete_texture(texture);
+                        }
+                    }
+                    entry.reset();
+                }
+    
                 old_line = entry.old_line;
                 if let SixelReadStatus::Position(_, _) = sixel.read_status {
                     if old_line + 5 * 6 >= current_line {
@@ -88,7 +109,7 @@ impl ViewState {
                 vec![0; data_len]
             };
 
-            let mut i = old_line as usize * sixel.width() as usize * 4;
+            let mut j = old_line as usize * sixel.width() as usize * 4;
 
             for y in old_line..current_line {
                 for x in 0..sixel.width() {
@@ -98,21 +119,20 @@ impl ViewState {
                             let (r, g, b) = c.get_rgb();
                             [r, g, b, 0xFF]
                         } else {
-                            // todo: bg color may differ here
-                            [0, 0, 0, 0xFF]
+                            [0, 0, 0, 0]
                         }
                     } else {
-                        [0, 0, 0, 0xFF]
+                        [0, 0, 0, 0]
                     };
-                    if i >= v.len() {
+                    if j >= v.len() {
                         v.extend_from_slice(&data);
                     } else {
-                        v[i] = data[0];
-                        v[i + 1] = data[1];
-                        v[i + 2] = data[2];
-                        v[i + 3] = data[3];
+                        v[j] = data[0];
+                        v[j + 1] = data[1];
+                        v[j + 2] = data[2];
+                        v[j + 3] = data[3];
                     }
-                    i += 4;
+                    j += 4;
                 }
             }
             let (texture_opt, data_opt, clear) = match sixel.read_status {
@@ -199,7 +219,6 @@ impl ViewState {
                             gl.delete_texture(*texture);
                         }
                     }
-
                     self.buf.layers[0].sixels.remove(i);
                 }
                 if i == 0 {
