@@ -236,7 +236,7 @@ impl ViewState {
                     std::mem::swap(&mut render_texture, &mut sixel_render_texture);
                 }
             }
-            
+
             // draw Framebuffer
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
             gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);

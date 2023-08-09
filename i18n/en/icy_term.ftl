@@ -29,7 +29,6 @@ terminal-upload = Upload
 terminal-download = Download
 terminal-hangup = Hangup
 terminal-autologin = Send user name/password
-terminal-settings = { settings-heading  }
 terminal-menu-copy = Copy
 terminal-menu-paste = Paste
 
@@ -54,3 +53,7 @@ transfer-timeleft = Time left:
 transfer-file = File:
 transfer-rate = transfer rate:
 transfer-bps = { $bps } per second
+
+menu-item-discuss=Forum
+menu-item-report-bug=Report a bug
+menu-item-settings={ settings-heading }

@@ -23,7 +23,7 @@ impl SixelCacheEntry {
         }
     }
 
-    fn reset(&mut self)  {
+    fn reset(&mut self) {
         self.status = SixelReadStatus::default();
         self.old_line = 0;
         self.data_opt = None;
@@ -49,7 +49,10 @@ impl ViewState {
         let mut res = false;
         let mut i = 0;
         while i < sixel_len {
-            let reset_entry = matches!(buffer.layers[0].sixels[i].read_status, SixelReadStatus::Updated);
+            let reset_entry = matches!(
+                buffer.layers[0].sixels[i].read_status,
+                SixelReadStatus::Updated
+            );
             if reset_entry {
                 buffer.layers[0].sixels[i].read_status = SixelReadStatus::Finished;
             }
@@ -64,7 +67,9 @@ impl ViewState {
             let mut old_line = 0;
             let current_line = match sixel.read_status {
                 SixelReadStatus::Position(_, y) => y * 6,
-                SixelReadStatus::Error | SixelReadStatus::Finished | SixelReadStatus::Updated => sixel.height() as i32,
+                SixelReadStatus::Error | SixelReadStatus::Finished | SixelReadStatus::Updated => {
+                    sixel.height() as i32
+                }
                 SixelReadStatus::NotStarted => 0,
             };
 
@@ -77,7 +82,7 @@ impl ViewState {
                     }
                     entry.reset();
                 }
-    
+
                 old_line = entry.old_line;
                 if let SixelReadStatus::Position(_, _) = sixel.read_status {
                     if old_line + 5 * 6 >= current_line {

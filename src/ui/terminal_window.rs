@@ -3,7 +3,7 @@ use std::cmp::max;
 use clipboard::{ClipboardContext, ClipboardProvider};
 use eframe::{
     egui::{self, CursorIcon, PointerButton, RichText, ScrollArea},
-    epaint::{Color32, Rect, Vec2},
+    epaint::{Color32, Rect, Vec2, FontId, FontFamily},
 };
 use i18n_embed_fl::fl;
 
@@ -76,7 +76,7 @@ impl MainWindow {
                             self.send_login();
                         }
                     }
-                    let r = ui
+                    let r: egui::Response = ui
                         .add(egui::ImageButton::new(
                             super::CALL_SVG.texture_id(ctx),
                             img_size,
@@ -92,23 +92,8 @@ impl MainWindow {
                         self.show_phonebook();
                     }
 
-                    let r = ui
-                        .add(egui::ImageButton::new(
-                            super::SETTINGS_SVG.texture_id(ctx),
-                            img_size,
-                        ))
-                        .on_hover_ui(|ui| {
-                            ui.label(
-                                RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-settings"))
-                                    .small(),
-                            );
-                        });
-
-                    if r.clicked() {
-                        self.show_settings(false);
-                    }
                     let size = ui.available_size_before_wrap();
-                    ui.add_space(size.x - 30.0);
+                    ui.add_space(size.x - 70.0);
 
                     let r = ui
                         .add(egui::ImageButton::new(
@@ -124,6 +109,31 @@ impl MainWindow {
                     if r.clicked() {
                         self.hangup();
                     }
+
+                    ui.menu_button(RichText::new("…").font(FontId::new(24.0, FontFamily::Proportional)), |ui| {
+                        let r = ui.hyperlink_to(
+                            fl!(crate::LANGUAGE_LOADER, "menu-item-discuss"),
+                            "https://github.com/mkrueger/icy_term/discussions",
+                        );
+                        if r.clicked() {
+                            ui.close_menu();
+                        }
+                        let r = ui.hyperlink_to(
+                            fl!(crate::LANGUAGE_LOADER, "menu-item-report-bug"),
+                            "https://github.com/mkrueger/icy_term/issues/new",
+                        );
+                        if r.clicked() {
+                            ui.close_menu();
+                        }
+                        ui.separator();
+                        if ui
+                            .button(fl!(crate::LANGUAGE_LOADER, "menu-item-settings"))
+                            .clicked()
+                        {
+                            self.show_settings(false);
+                            ui.close_menu();
+                        }
+                    });
                 });
             });
 
@@ -207,7 +217,7 @@ impl MainWindow {
                 ui.painter().add(callback);
                 response = response.context_menu(terminal_context_menu);
 
-                if matches!(self.mode, MainWindowMode::ShowTerminal) {
+                if matches!(self.mode, MainWindowMode::ShowTerminal) && ui.is_enabled() {
                     let events = ui.input(|i| i.events.clone());
                     for e in events {
                         // println!("{:?}", e);
@@ -271,18 +281,20 @@ impl MainWindow {
                             }
 
                             egui::Event::PointerMoved(pos) => {
-                                let buffer_view = self.buffer_view.clone();
-                                let mut l = buffer_view.lock();
-                                if let Some(sel) = &mut l.selection_opt {
-                                    if !sel.locked {
-                                        let click_pos = (pos
-                                            - terminal_rect.min
-                                            - Vec2::new(0., top_margin_height))
-                                            / char_size
-                                            + Vec2::new(0.0, first_line as f32);
-                                        sel.set_lead(click_pos);
-                                        sel.block_selection = ui.input(|i| i.modifiers.alt);
-                                        l.redraw_view();
+                                if terminal_rect.contains(pos) {
+                                    let buffer_view = self.buffer_view.clone();
+                                    let mut l = buffer_view.lock();
+                                    if let Some(sel) = &mut l.selection_opt {
+                                        if !sel.locked {
+                                            let click_pos = (pos
+                                                - terminal_rect.min
+                                                - Vec2::new(0., top_margin_height))
+                                                / char_size
+                                                + Vec2::new(0.0, first_line as f32);
+                                            sel.set_lead(click_pos);
+                                            sel.block_selection = ui.input(|i| i.modifiers.alt);
+                                            l.redraw_view();
+                                        }
                                     }
                                 }
                             }
