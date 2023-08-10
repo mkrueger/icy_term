@@ -47,22 +47,29 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
             .exact_width(350.0 + 16.0)
             .show_inside(ui, |ui| {
                 ui.with_layout(Layout::left_to_right(egui::Align::TOP), |ui| {
-
                     ui.horizontal(|ui| {
-                        let selected = matches!(window.phonebook_filter, PhonebookFilter::Favourites);
-                        let r: egui::Response = ui.selectable_label(
-                            selected,
-                            RichText::new("★").font(FontId::new(28.0, FontFamily::Proportional)),
-                        ).on_hover_ui(|ui| {
-                            ui.label(
-                                RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-starred-items")).small(),
-                            );
-                        });
+                        let selected =
+                            matches!(window.phonebook_filter, PhonebookFilter::Favourites);
+                        let r: egui::Response = ui
+                            .selectable_label(
+                                selected,
+                                RichText::new("★")
+                                    .font(FontId::new(28.0, FontFamily::Proportional)),
+                            )
+                            .on_hover_ui(|ui| {
+                                ui.label(
+                                    RichText::new(fl!(
+                                        crate::LANGUAGE_LOADER,
+                                        "phonebook-starred-items"
+                                    ))
+                                    .small(),
+                                );
+                            });
 
                         if r.clicked() {
                             window.phonebook_filter = if selected {
                                 PhonebookFilter::All
-                            } else { 
+                            } else {
                                 PhonebookFilter::Favourites
                             };
                         }
@@ -76,13 +83,20 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
                                 ))),
                         );
 
-                        let r: egui::Response = ui.button(
-                            RichText::new("✖").font(FontId::new(20.0, FontFamily::Proportional)),
-                        ).on_hover_ui(|ui| {
-                            ui.label(
-                                RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-clear-filter")).small(),
-                            );
-                        });
+                        let r: egui::Response = ui
+                            .button(
+                                RichText::new("✖")
+                                    .font(FontId::new(20.0, FontFamily::Proportional)),
+                            )
+                            .on_hover_ui(|ui| {
+                                ui.label(
+                                    RichText::new(fl!(
+                                        crate::LANGUAGE_LOADER,
+                                        "phonebook-clear-filter"
+                                    ))
+                                    .small(),
+                                );
+                            });
                         if r.clicked() {
                             window.phonebook_filter_string = String::new();
                         }
@@ -288,34 +302,37 @@ fn render_list(window: &mut MainWindow, ui: &mut egui::Ui) {
             .cloned()
             .collect()
     } else {
-        window.addresses           
-        .iter()
-        .filter(|a| filter_bbs(window, a))
-        .cloned()
-        .collect()
+        window
+            .addresses
+            .iter()
+            .filter(|a| filter_bbs(window, a))
+            .cloned()
+            .collect()
     };
 
     ScrollArea::vertical().show_rows(ui, row_height, addresses.len(), |ui, range| {
         for i in range.start..range.end {
             let addr = &addresses[i];
             ui.with_layout(ui.layout().with_cross_justify(true), |ui| {
-                let show_quick_connect = window.phonebook_filter_string.is_empty() && matches!(window.phonebook_filter, PhonebookFilter::All);
+                let show_quick_connect = window.phonebook_filter_string.is_empty()
+                    && matches!(window.phonebook_filter, PhonebookFilter::All);
                 let selected = match window.selected_bbs {
                     Some(uuid) => addr.uuid == uuid,
-                    None => i == 0 && show_quick_connect 
+                    None => i == 0 && show_quick_connect,
                 };
-                let r = ui.add(
-                    if i == 0 && show_quick_connect {
-                        let mut addr = AddressRow::new(selected, Address::new(fl!(crate::LANGUAGE_LOADER, "phonebook-connect-to-address")));
-                        addr.centered = true;
-                        addr
-                    } else {
-                        AddressRow::new(selected, addr.clone())
-                    }
-                );
+                let r = ui.add(if i == 0 && show_quick_connect {
+                    let mut addr = AddressRow::new(
+                        selected,
+                        Address::new(fl!(crate::LANGUAGE_LOADER, "phonebook-connect-to-address")),
+                    );
+                    addr.centered = true;
+                    addr
+                } else {
+                    AddressRow::new(selected, addr.clone())
+                });
 
                 if r.clicked() {
-                    if i == 0 && show_quick_connect { 
+                    if i == 0 && show_quick_connect {
                         window.select_bbs(None);
                     } else {
                         window.select_bbs(Some(addr.uuid));
@@ -334,8 +351,8 @@ fn filter_bbs(window: &MainWindow, a: &Address) -> bool {
         return true;
     }
     let lower = window.phonebook_filter_string.to_lowercase();
-    a.system_name.to_lowercase().contains(lower.as_str()) ||
-    a.address.to_lowercase().contains(lower.as_str())
+    a.system_name.to_lowercase().contains(lower.as_str())
+        || a.address.to_lowercase().contains(lower.as_str())
 }
 
 fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address_mod::Address) {
@@ -386,7 +403,7 @@ fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address_mod::Address) {
         ui.label("✆");
         ui.label(adr.number_of_calls.to_string());
         ui.add_space(16.);
-/* 
+        /*
         ui.label("⮉");
         ui.label(adr.upladed_bytes.to_string());
         ui.add_space(16.);
@@ -584,13 +601,21 @@ pub struct AddressRow {
 
 impl AddressRow {
     pub fn new(selected: bool, addr: Address) -> Self {
-        Self { selected, centered: false, addr }
+        Self {
+            selected,
+            centered: false,
+            addr,
+        }
     }
 }
 
 impl egui::Widget for AddressRow {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
-        let Self { selected, centered, addr } = self;
+        let Self {
+            selected,
+            centered,
+            addr,
+        } = self;
 
         let button_padding = ui.spacing().button_padding;
         let total_extra = button_padding + button_padding + Vec2::new(0.0, 8.0);
@@ -609,8 +634,7 @@ impl egui::Widget for AddressRow {
         if !centered {
             rt = rt.color(Color32::WHITE);
         }
-        let name_text =
-            WidgetText::from(rt);
+        let name_text = WidgetText::from(rt);
         let name_text = name_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
         let name_text_size = name_text.size();
 
@@ -644,7 +668,11 @@ impl egui::Widget for AddressRow {
                 );
             }
             if centered {
-                let text_pos = rect.left_top() + Vec2::new((rect.width() - name_text_size.x) / 2.0, rect.height() / 2.0 - name_text_size.y / 2.0);
+                let text_pos = rect.left_top()
+                    + Vec2::new(
+                        (rect.width() - name_text_size.x) / 2.0,
+                        rect.height() / 2.0 - name_text_size.y / 2.0,
+                    );
                 name_text.paint_with_visuals(ui.painter(), text_pos, &visuals);
             } else {
                 let text_pos = rect.left_top() + button_padding;
@@ -654,7 +682,8 @@ impl egui::Widget for AddressRow {
                 addr_text.paint_with_visuals(ui.painter(), text_pos, &visuals);
 
                 if addr.is_favored {
-                    let text_pos = rect.right_top() - button_padding - Vec2::new(star_text_size.x, -2.);
+                    let text_pos =
+                        rect.right_top() - button_padding - Vec2::new(star_text_size.x, -2.);
                     star_text.paint_with_visuals(ui.painter(), text_pos, &visuals);
                 }
             }

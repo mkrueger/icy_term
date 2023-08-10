@@ -130,9 +130,13 @@ fn parse_value(options: &mut Options, value: &Value) {
                             match str.as_str() {
                                 "None" => options.post_processing = PostProcessing::None,
                                 "CRT1" => options.post_processing = PostProcessing::CRT1,
-                                "CRT1CURVED" => options.post_processing = PostProcessing::CRT1CURVED,
+                                "CRT1CURVED" => {
+                                    options.post_processing = PostProcessing::CRT1CURVED
+                                }
                                 "CRT2" => options.post_processing = PostProcessing::CRT2,
-                                "CRT2CURVED" => options.post_processing = PostProcessing::CRT2CURVED,
+                                "CRT2CURVED" => {
+                                    options.post_processing = PostProcessing::CRT2CURVED
+                                }
                                 _ => {}
                             }
                         }

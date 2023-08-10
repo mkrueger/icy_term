@@ -8,7 +8,6 @@ use icy_engine::{
     ViewdataParser,
 };
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
-use toml::value::Datetime;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
@@ -18,6 +17,7 @@ use std::{
     path::PathBuf,
     thread,
 };
+use toml::value::Datetime;
 use toml::Value;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,18 +68,14 @@ impl Display for Protocol {
 }
 
 impl Protocol {
-    pub const ALL: [Protocol; 3] = [
-        Protocol::Telnet,
-        Protocol::Raw,
-        Protocol::Ssh,
-    ];
+    pub const ALL: [Protocol; 3] = [Protocol::Telnet, Protocol::Raw, Protocol::Ssh];
 }
 
 #[derive(Debug, Clone)]
 pub struct AddressBook {
     pub addresses: Vec<Address>,
 }
-/* 
+/*
 pub struct LastCall {
     pub uuid: Option<uuid::Uuid>,
 
@@ -284,7 +280,6 @@ pub fn start_read_book() -> Vec<Address> {
 
 pub fn store_phone_book(addresses: &[Address]) -> TerminalResult<()> {
     if let Some(file_name) = Address::get_phonebook_file() {
-
         let mut file = File::create(file_name)?;
         file.write_all(b"version = \"1.0\"\n")?;
 
@@ -294,7 +289,6 @@ pub fn store_phone_book(addresses: &[Address]) -> TerminalResult<()> {
     }
     Ok(())
 }
-
 
 fn watch<P: AsRef<Path>>(path: P) -> notify::Result<()> {
     let (tx, rx) = std::sync::mpsc::channel();
@@ -329,7 +323,6 @@ fn parse_addresses(addresses: &mut Vec<Address>, value: &Value) {
 
         if let Some(Value::Array(values)) = table.get("addresses") {
             for value in values {
-
                 if version.is_some() {
                     addresses.push(parse_address(value));
                 } else {
@@ -339,7 +332,6 @@ fn parse_addresses(addresses: &mut Vec<Address>, value: &Value) {
         }
     }
 }
-
 
 fn parse_address(value: &Value) -> Address {
     let mut result = Address::new(String::new());
@@ -400,7 +392,7 @@ fn parse_address(value: &Value) -> Address {
                 _ => {}
             }
         }
-    
+
         if let Some(Value::String(name)) = table.get("screen_mode") {
             match name.to_lowercase().as_str() {
                 "vga(80, 25)" => result.screen_mode = ScreenMode::Vga(80, 25),
@@ -419,7 +411,7 @@ fn parse_address(value: &Value) -> Address {
 fn escape(value: &str) -> String {
     value
         .replace('\\', "\\\\")
-         .replace('"', "\\\"")
+        .replace('"', "\\\"")
         .replace('\t', "\\t")
         .replace('\n', "\\n")
         .replace('\r', "\\r")
@@ -442,8 +434,8 @@ fn store_address(file: &mut File, addr: &Address) -> TerminalResult<()> {
     if let Some(last_call) = addr.last_call {
         file.write_all(format!("last_call = \"{}\"\n", last_call.to_rfc3339()).as_bytes())?;
     }
-    file.write_all(format!("created = \"{}\"\n", addr.created .to_rfc3339()).as_bytes())?;
-    
+    file.write_all(format!("created = \"{}\"\n", addr.created.to_rfc3339()).as_bytes())?;
+
     Ok(())
 }
 

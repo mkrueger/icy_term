@@ -293,7 +293,7 @@ impl MainWindow {
 
         &mut self.addresses[0]
     }
-    
+
     pub fn call_bbs_uuid(&mut self, uuid: Option<uuid::Uuid>) {
         if uuid.is_none() {
             self.call_bbs(0);
@@ -310,7 +310,7 @@ impl MainWindow {
     }
 
     pub fn call_bbs(&mut self, i: usize) {
-            self.mode = MainWindowMode::ShowTerminal;
+        self.mode = MainWindowMode::ShowTerminal;
         let mut adr = self.addresses[i].address.clone();
         if !adr.contains(':') {
             adr.push_str(":23");
@@ -345,8 +345,7 @@ impl MainWindow {
 
         self.open_connection_promise = Some(Promise::spawn_async(async move {
             let mut com: Box<dyn Com> = match ct {
-                crate::address_mod::Protocol::Ssh
-                | crate::address_mod::Protocol::Telnet => {
+                crate::address_mod::Protocol::Ssh | crate::address_mod::Protocol::Telnet => {
                     Box::new(ComTelnetImpl::new(window_size))
                 }
                 crate::address_mod::Protocol::Raw => Box::new(ComRawImpl::new()),
