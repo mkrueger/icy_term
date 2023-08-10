@@ -25,6 +25,7 @@ impl Com for ComRawImpl {
     fn get_name(&self) -> &'static str {
         "Raw"
     }
+    fn set_terminal_type(&mut self, _terminal: crate::address_mod::Terminal) {}
 
     async fn connect(&mut self, addr: &Address, timeout: Duration) -> TermComResult<bool> {
         let r = tokio::time::timeout(timeout, TcpStream::connect(&addr.address)).await;

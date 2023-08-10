@@ -29,7 +29,7 @@ impl BufferInputMode {
             super::BufferInputMode::CP437 => super::ANSI_KEY_MAP,
             super::BufferInputMode::PETscii => super::C64_KEY_MAP,
             super::BufferInputMode::ATAscii => super::ATASCII_KEY_MAP,
-       //     super::BufferInputMode::VT500 => super::VT500_KEY_MAP,
+            //     super::BufferInputMode::VT500 => super::VT500_KEY_MAP,
             super::BufferInputMode::ViewData => super::VIDEOTERM_KEY_MAP,
         }
     }

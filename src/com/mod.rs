@@ -18,7 +18,10 @@ pub use raw::*;
 
 use tokio::sync::mpsc;
 
-use crate::{address_mod::Address, TerminalResult};
+use crate::{
+    address_mod::{Address, Terminal},
+    TerminalResult,
+};
 pub type TermComResult<T> = Result<T, Box<dyn Error + Send + Sync>>;
 
 #[async_trait]
@@ -30,6 +33,7 @@ pub trait Com: Sync + Send {
     async fn read_data(&mut self) -> TermComResult<Vec<u8>>;
     async fn read_u8(&mut self) -> TermComResult<u8>;
     async fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>>;
+    fn set_terminal_type(&mut self, terminal: Terminal);
 
     fn disconnect(&mut self) -> TermComResult<()>;
 }
@@ -38,7 +42,6 @@ pub trait Com: Sync + Send {
 pub enum SendData {
     Data(Vec<u8>),
     Disconnect,
-
     StartTransfer(
         crate::protocol::TransferType,
         bool,

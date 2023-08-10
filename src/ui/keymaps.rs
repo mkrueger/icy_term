@@ -160,7 +160,7 @@ pub static ATASCII_KEY_MAP: &[(u32, &[u8])] = &[
     //    (Key::Period as u32 | CTRL_MOD, &[96]),
     //    (Key::Colon as u32 | CTRL_MOD, &[13]),
 ];
-/* 
+/*
 pub static VT500_KEY_MAP: &[(u32, &[u8])] = &[
     (Key::Escape as u32, &[0x1B]),
     (Key::Home as u32, b"\x1b[1~"),

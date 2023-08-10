@@ -24,6 +24,8 @@ impl Com for TestCom {
         "Test_Com"
     }
 
+    fn set_terminal_type(&mut self, _terminal: crate::address_mod::Terminal) {}
+
     async fn connect(&mut self, _addr: &Address, _timeout: Duration) -> TermComResult<bool> {
         Ok(true)
     }

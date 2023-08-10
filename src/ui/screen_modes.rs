@@ -48,10 +48,8 @@ impl Display for ScreenMode {
 impl ScreenMode {
     pub fn get_input_mode(&self) -> BufferInputMode {
         match self {
-            //ScreenMode::Cga(_, _) | ScreenMode::Ega(_, _) | 
-            ScreenMode::Vga(_, _) => {
-                BufferInputMode::CP437
-            }
+            //ScreenMode::Cga(_, _) | ScreenMode::Ega(_, _) |
+            ScreenMode::Vga(_, _) => BufferInputMode::CP437,
             ScreenMode::Vic => BufferInputMode::PETscii,
             ScreenMode::Antic => BufferInputMode::ATAscii,
             ScreenMode::Videotex => BufferInputMode::ViewData,
@@ -61,7 +59,7 @@ impl ScreenMode {
 
     pub fn get_window_size(&self) -> Size<u16> {
         match self {
-            // ScreenMode::Cga(w, h) | ScreenMode::Ega(w, h) | 
+            // ScreenMode::Cga(w, h) | ScreenMode::Ega(w, h) |
             ScreenMode::Vga(w, h) => {
                 Size::new(u16::try_from(*w).unwrap(), u16::try_from(*h).unwrap())
             }
@@ -81,7 +79,7 @@ impl ScreenMode {
                 main_window.buffer_parser = Box::new(AvatarParser::new(true));
                 buf.palette = Palette::new();
             }
-            // ScreenMode::Cga(_, h) | ScreenMode::Ega(_, h) | 
+            // ScreenMode::Cga(_, h) | ScreenMode::Ega(_, h) |
             ScreenMode::Vga(_, h) => {
                 buf.font_table.clear();
                 buf.font_table.push(
