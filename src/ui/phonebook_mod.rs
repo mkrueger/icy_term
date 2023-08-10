@@ -342,7 +342,7 @@ fn render_list(window: &mut MainWindow, ui: &mut egui::Ui) {
                     }
                 }
                 if r.double_clicked() {
-                    window.call_bbs(i);
+                    window.call_bbs_uuid(Some(addr.uuid));
                 }
             });
         });
