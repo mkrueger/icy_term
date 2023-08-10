@@ -375,6 +375,7 @@ impl MainWindow {
         let Some(con) = &mut self.connection_opt else {
             return Ok(());
         };
+        let mut send_data = Vec::new();
 
         if con.is_data_available()? {
             for ch in con.read_buffer() {
@@ -410,7 +411,7 @@ impl MainWindow {
                 match result {
                     Ok(icy_engine::CallbackAction::None) => {}
                     Ok(icy_engine::CallbackAction::SendString(result)) => {
-                        con.send(result.as_bytes().to_vec())?;
+                        send_data.extend_from_slice(result.as_bytes());
                     }
                     Ok(icy_engine::CallbackAction::PlayMusic(_music)) => {
                         // play_music(&music)
@@ -429,6 +430,12 @@ impl MainWindow {
                 }
             }
         }
+        if !send_data.is_empty() {
+            // HACK: For synchronet ansi detection the response needs to be delayed for some unknown reason.
+            std::thread::sleep(Duration::from_millis(150));
+            con.send(send_data)?;
+        }
+
         if con.is_disconnected() {
             self.connection_opt = None;
         }
