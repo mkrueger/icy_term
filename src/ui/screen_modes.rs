@@ -13,16 +13,13 @@ use super::{main_window_mod::MainWindow, BufferInputMode};
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "name", content = "par")]
 pub enum ScreenMode {
-    NotSet,
-    #[serde(rename = "DOS")]
+    Default,
+    Cga(i32, i32),
+    Ega(i32, i32),
     Dos(i32, i32),
-    C64,
-    C128(i32),
-    Atari,
-    AtariXep80,
-    VT500,
-    #[serde(rename = "Viewdata")]
-    ViewData,
+    Vic,
+    Antic,
+    Videotex,
 }
 
 pub const DEFAULT_MODES: [ScreenMode; 22] = [

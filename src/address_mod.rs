@@ -1,12 +1,13 @@
 use crate::ui::screen_modes::ScreenMode;
 use crate::TerminalResult;
+use chrono::Utc;
 use directories::ProjectDirs;
 use icy_engine::{
     AnsiParser, AtasciiParser, AvatarParser, BufferParser, PETSCIIParser, ViewdataParser,
 };
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
-use serde_derive::{Deserialize, Serialize};
 use std::path::Path;
+use std::time::SystemTime;
 use std::{
     fmt::Display,
     fs::{self, File},
@@ -15,14 +16,24 @@ use std::{
     thread,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Terminal {
     Ansi,
     Avatar,
+    Ascii,
+    PETscii,
+    ATAscii,
+    ViewData,
 }
 
 impl Terminal {
-    pub const ALL: [Terminal; 2] = [Terminal::Ansi, Terminal::Avatar];
+    pub const ALL: [Terminal; 5] = [
+        Terminal::Ansi,
+        Terminal::Avatar,
+        Terminal::Ascii,
+        Terminal::PETscii,
+        Terminal::ViewData,
+    ];
 }
 
 impl Display for Terminal {
@@ -31,12 +42,10 @@ impl Display for Terminal {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConnectionType {
     Telnet,
-    #[serde(rename = "RAW")]
     Raw,
-    #[serde(rename = "SSH")]
     Ssh,
 }
 
@@ -54,14 +63,30 @@ impl ConnectionType {
     ];
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct AddressBook {
     pub addresses: Vec<Address>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LastCall {
+    pub uuid: Option<uuid::Uuid>,
+
+    pub address: String,
+    pub terminal_type: Terminal,
+    pub connection_type: ConnectionType,
+
+    pub date: Option<chrono::DateTime<Utc>>,
+    pub last_call_duration: chrono::Duration,
+    pub upladed_bytes: usize,
+    pub downloaded_bytes: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Address {
+    pub uuid: uuid::Uuid,
     pub system_name: String,
+    pub is_favored: bool,
+
     pub user_name: String,
     pub password: String,
     pub comment: String,
@@ -72,12 +97,20 @@ pub struct Address {
     pub connection_type: ConnectionType,
 
     pub ice_mode: bool,
-
-    #[serde(default)]
     pub ansi_music: String,
 
     pub font_name: Option<String>,
     pub screen_mode: Option<ScreenMode>,
+
+    pub created: chrono::DateTime<Utc>,
+    pub updated: chrono::DateTime<Utc>,
+    pub overall_duration: chrono::Duration,
+
+    pub number_of_calls: usize,
+    pub last_call: Option<chrono::DateTime<Utc>>,
+    pub last_call_duration: chrono::Duration,
+    pub upladed_bytes: usize,
+    pub downloaded_bytes: usize,
 }
 
 const TEMPLATE: &str = r#"
@@ -138,6 +171,8 @@ name = 'Atari'
 
 impl Address {
     pub fn new(system_name: String) -> Self {
+        let foo = SystemTime::now();
+
         Self {
             system_name,
             user_name: String::new(),
