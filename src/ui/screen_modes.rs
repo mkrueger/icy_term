@@ -12,8 +12,8 @@ use super::{main_window_mod::MainWindow, BufferInputMode};
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ScreenMode {
     Default,
-    Cga(i32, i32),
-    Ega(i32, i32),
+    // Cga(i32, i32),
+    // Ega(i32, i32),
     Vga(i32, i32),
     Vic,
     Antic,
@@ -35,8 +35,8 @@ impl Display for ScreenMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ScreenMode::Vga(w, h) => write!(f, "VGA {w}x{h}"),
-            ScreenMode::Ega(w, h) => write!(f, "EGA {w}x{h}"),
-            ScreenMode::Cga(w, h) => write!(f, "CGA {w}x{h}"),
+            // ScreenMode::Ega(w, h) => write!(f, "EGA {w}x{h}"),
+            // ScreenMode::Cga(w, h) => write!(f, "CGA {w}x{h}"),
             ScreenMode::Vic => write!(f, "VIC-II"),
             ScreenMode::Antic => write!(f, "ANTIC"),
             ScreenMode::Videotex => write!(f, "VIDEOTEX"),
@@ -48,7 +48,8 @@ impl Display for ScreenMode {
 impl ScreenMode {
     pub fn get_input_mode(&self) -> BufferInputMode {
         match self {
-            ScreenMode::Cga(_, _) | ScreenMode::Ega(_, _) | ScreenMode::Vga(_, _) => {
+            //ScreenMode::Cga(_, _) | ScreenMode::Ega(_, _) | 
+            ScreenMode::Vga(_, _) => {
                 BufferInputMode::CP437
             }
             ScreenMode::Vic => BufferInputMode::PETscii,
@@ -60,7 +61,8 @@ impl ScreenMode {
 
     pub fn get_window_size(&self) -> Size<u16> {
         match self {
-            ScreenMode::Cga(w, h) | ScreenMode::Ega(w, h) | ScreenMode::Vga(w, h) => {
+            // ScreenMode::Cga(w, h) | ScreenMode::Ega(w, h) | 
+            ScreenMode::Vga(w, h) => {
                 Size::new(u16::try_from(*w).unwrap(), u16::try_from(*h).unwrap())
             }
             ScreenMode::Vic => Size::new(40, 25),
@@ -79,7 +81,8 @@ impl ScreenMode {
                 main_window.buffer_parser = Box::new(AvatarParser::new(true));
                 buf.palette = Palette::new();
             }
-            ScreenMode::Cga(_, h) | ScreenMode::Ega(_, h) | ScreenMode::Vga(_, h) => {
+            // ScreenMode::Cga(_, h) | ScreenMode::Ega(_, h) | 
+            ScreenMode::Vga(_, h) => {
                 buf.font_table.clear();
                 buf.font_table.push(
                     BitFont::from_name(if *h >= 50 { "IBM VGA50" } else { "IBM VGA" }).unwrap(),

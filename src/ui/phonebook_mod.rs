@@ -4,7 +4,6 @@ use eframe::{
     emath::NumExt,
     epaint::{Color32, FontFamily, FontId, Vec2},
 };
-use glow::CW;
 use i18n_embed_fl::fl;
 use rand::Rng;
 
@@ -174,7 +173,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
                         "phonebook-cancel-button"
                     )));
                     if r.clicked() {
-                        window.call_bbs_uuid(window.selected_bbs);
+                        window.show_terminal();
                     }
 
                     let r: egui::Response = ui.add(egui::Button::new(fl!(
@@ -311,7 +310,7 @@ fn render_list(window: &mut MainWindow, ui: &mut egui::Ui) {
     };
 
     ScrollArea::vertical().show_rows(ui, row_height, addresses.len(), |ui, range| {
-        for i in range.start..range.end {
+        (range.start..range.end).for_each(|i| {
             let addr = &addresses[i];
             ui.with_layout(ui.layout().with_cross_justify(true), |ui| {
                 let show_quick_connect = window.phonebook_filter_string.is_empty()
@@ -342,7 +341,7 @@ fn render_list(window: &mut MainWindow, ui: &mut egui::Ui) {
                     window.call_bbs(i);
                 }
             });
-        }
+        });
     });
 }
 

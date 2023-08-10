@@ -17,7 +17,6 @@ use std::{
     path::PathBuf,
     thread,
 };
-use toml::value::Datetime;
 use toml::Value;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
