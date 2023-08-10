@@ -71,6 +71,7 @@ impl Options {
 
             let mut file = File::create(options_file)?;
             file.write_all(b"version = \"1.0\"\n")?;
+
             file.write_all(format!("scaling = \"{:?}\"\n", self.scaling).as_bytes())?;
             file.write_all(
                 format!("post_processing = \"{:?}\"\n", self.post_processing).as_bytes(),
@@ -84,7 +85,7 @@ impl Options {
         let value = input_text.parse::<Value>().unwrap();
         let mut result = Options::new();
         parse_value(&mut result, &value);
-        return result;
+        result
     }
 }
 
@@ -129,13 +130,9 @@ fn parse_value(options: &mut Options, value: &Value) {
                             match str.as_str() {
                                 "None" => options.post_processing = PostProcessing::None,
                                 "CRT1" => options.post_processing = PostProcessing::CRT1,
-                                "CRT1CURVED" => {
-                                    options.post_processing = PostProcessing::CRT1CURVED
-                                }
+                                "CRT1CURVED" => options.post_processing = PostProcessing::CRT1CURVED,
                                 "CRT2" => options.post_processing = PostProcessing::CRT2,
-                                "CRT2CURVED" => {
-                                    options.post_processing = PostProcessing::CRT2CURVED
-                                }
+                                "CRT2CURVED" => options.post_processing = PostProcessing::CRT2CURVED,
                                 _ => {}
                             }
                         }

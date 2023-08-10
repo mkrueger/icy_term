@@ -10,6 +10,7 @@ settings-post-processing = Post processing
 phonebook-connect-to = Quick connect to…
 phonebook-new_bbs = New BBS
 phonebook-name-placeholder = BBS name
+phonebook-filter-placeholder = Filter names
 phonebook-address = Address:
 phonebook-protocol = Protocol:
 phonebook-user = User:
@@ -26,6 +27,9 @@ phonebook-connect-to-address = <Connect to Address>
 phonebook-connect-button = Connect
 phonebook-cancel-button = Cancel
 phonebook-not-called = Not yet called
+phonebook-date-format=%m/%d/%Y %H:%M
+phonebook-clear-filter = Clear filter
+phonebook-starred-items = Filter starred items
 
 terminal-upload = Upload
 terminal-download = Download

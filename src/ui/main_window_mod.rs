@@ -1,5 +1,6 @@
 #![allow(unsafe_code, clippy::wildcard_imports)]
 
+use chrono::Utc;
 use eframe::epaint::FontId;
 use i18n_embed_fl::fl;
 use icy_engine::{AvatarParser, BufferParser};
@@ -49,8 +50,9 @@ pub struct MainWindow {
     pub addresses: Vec<Address>,
     pub handled_char: bool,
     cur_addr: usize,
-    pub selected_bbs: usize,
+    pub selected_bbs: Option<uuid::Uuid>,
     pub phonebook_filter: PhonebookFilter,
+    pub phonebook_filter_string: String,
 
     pub options: Options,
     pub screen_mode: ScreenMode,
@@ -77,7 +79,7 @@ impl MainWindow {
             mode: MainWindowMode::ShowPhonebook,
             addresses: start_read_book(),
             cur_addr: 0,
-            selected_bbs: 0,
+            selected_bbs: None,
             connection_opt: None,
             options,
             auto_login: AutoLogin::new(""),
@@ -89,6 +91,7 @@ impl MainWindow {
             phonebook_filter: PhonebookFilter::All,
             buffer_parser: Box::new(AvatarParser::new(true)),
             open_connection_promise: None,
+            phonebook_filter_string: String::new(),
         };
         let args: Vec<String> = env::args().collect();
         if let Some(arg) = args.get(1) {
@@ -276,12 +279,45 @@ impl MainWindow {
         self.mode = MainWindowMode::ShowPhonebook;
     }
 
+    pub fn get_address_mut(&mut self, uuid: Option<uuid::Uuid>) -> &mut Address {
+        if uuid.is_none() {
+            return &mut self.addresses[0];
+        }
+
+        let uuid = uuid.unwrap();
+        for (i, adr) in self.addresses.iter().enumerate() {
+            if adr.uuid == uuid {
+                return &mut self.addresses[i];
+            }
+        }
+
+        &mut self.addresses[0]
+    }
+    
+    pub fn call_bbs_uuid(&mut self, uuid: Option<uuid::Uuid>) {
+        if uuid.is_none() {
+            self.call_bbs(0);
+            return;
+        }
+
+        let uuid = uuid.unwrap();
+        for (i, adr) in self.addresses.iter().enumerate() {
+            if adr.uuid == uuid {
+                self.call_bbs(i);
+                return;
+            }
+        }
+    }
+
     pub fn call_bbs(&mut self, i: usize) {
-        self.mode = MainWindowMode::ShowTerminal;
+            self.mode = MainWindowMode::ShowTerminal;
         let mut adr = self.addresses[i].address.clone();
         if !adr.contains(':') {
             adr.push_str(":23");
         }
+        self.addresses[i].number_of_calls += 1;
+        self.addresses[i].last_call = Some(Utc::now());
+        store_phone_book(&self.addresses).unwrap_or_default();
 
         let call_adr = self.addresses[i].clone();
         self.auto_login = AutoLogin::new(&call_adr.auto_login);
@@ -304,16 +340,16 @@ impl MainWindow {
         .unwrap_or_default();
 
         let timeout = self.options.connect_timeout;
-        let ct = call_adr.connection_type;
+        let ct = call_adr.protocol;
         let window_size = self.screen_mode.get_window_size();
 
         self.open_connection_promise = Some(Promise::spawn_async(async move {
             let mut com: Box<dyn Com> = match ct {
-                crate::address_mod::ConnectionType::Ssh
-                | crate::address_mod::ConnectionType::Telnet => {
+                crate::address_mod::Protocol::Ssh
+                | crate::address_mod::Protocol::Telnet => {
                     Box::new(ComTelnetImpl::new(window_size))
                 }
-                crate::address_mod::ConnectionType::Raw => Box::new(ComRawImpl::new()),
+                crate::address_mod::Protocol::Raw => Box::new(ComRawImpl::new()),
                 //                crate::address_mod::ConnectionType::Ssh => Box::new(SSHCom::new()),
             };
             if let Err(err) = com.connect(&call_adr, timeout).await {
@@ -324,15 +360,12 @@ impl MainWindow {
         }));
     }
 
-    pub fn select_bbs(&mut self, i: usize) {
-        self.selected_bbs = i;
+    pub fn select_bbs(&mut self, uuid: Option<uuid::Uuid>) {
+        self.selected_bbs = uuid;
     }
 
     pub fn delete_selected_address(&mut self) {
-        if self.selected_bbs > 0 {
-            self.addresses.remove(self.selected_bbs);
-            self.selected_bbs -= 1;
-        }
+        self.selected_bbs = None;
         let res = store_phone_book(&self.addresses);
         self.handle_result(res, true);
     }
