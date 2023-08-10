@@ -1,5 +1,5 @@
-use crate::ui::AdressCategory;
 use crate::ui::screen_modes::ScreenMode;
+use crate::ui::AdressCategory;
 use crate::TerminalResult;
 use chrono::{Duration, Utc};
 use directories::ProjectDirs;
@@ -28,18 +28,26 @@ pub enum Terminal {
 }
 
 impl Terminal {
-    pub const ALL: [Terminal; 5] = [
+    pub const ALL: [Terminal; 6] = [
         Terminal::Ansi,
         Terminal::Avatar,
         Terminal::Ascii,
         Terminal::PETscii,
+        Terminal::ATAscii,
         Terminal::ViewData,
     ];
 }
 
 impl Display for Terminal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{self:?}")
+        match self {
+            Terminal::Ansi => write!(f, "ANSI"),
+            Terminal::Avatar => write!(f, "AVATAR"),
+            Terminal::Ascii => write!(f, "Raw (ASCII)"),
+            Terminal::PETscii => write!(f, "PETSCII"),
+            Terminal::ATAscii => write!(f, "ATASCII"),
+            Terminal::ViewData => write!(f, "VIEWDATA"),
+        }
     }
 }
 
@@ -113,9 +121,8 @@ pub struct Address {
     pub upladed_bytes: usize,
     pub downloaded_bytes: usize,
 
-
     // UI
-    pub adress_category: AdressCategory
+    pub adress_category: AdressCategory,
 }
 
 const TEMPLATE: &str = r#"
@@ -201,7 +208,7 @@ impl Address {
             last_call_duration: Duration::zero(),
             upladed_bytes: 0,
             downloaded_bytes: 0,
-            adress_category: AdressCategory::Server
+            adress_category: AdressCategory::Server,
         }
     }
 

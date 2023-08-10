@@ -20,24 +20,14 @@ pub enum ScreenMode {
     Videotex,
 }
 
-pub const DEFAULT_MODES: [ScreenMode; 18] = [
+pub const DEFAULT_MODES: [ScreenMode; 8] = [
     ScreenMode::Vga(80, 25),
-    ScreenMode::Vga(80, 28),
-    ScreenMode::Vga(80, 30),
-    ScreenMode::Vga(80, 43),
     ScreenMode::Vga(80, 50),
-    ScreenMode::Vga(80, 60),
-    ScreenMode::Vga(132, 37),
-    ScreenMode::Vga(132, 52),
-    ScreenMode::Vga(132, 25),
-    ScreenMode::Vga(132, 28),
-    ScreenMode::Vga(132, 30),
-    ScreenMode::Vga(132, 34),
-    ScreenMode::Vga(132, 43),
-    ScreenMode::Vga(132, 50),
-    ScreenMode::Vga(132, 60),
+    ScreenMode::Default,
     ScreenMode::Vic,
+    ScreenMode::Default,
     ScreenMode::Antic,
+    ScreenMode::Default,
     ScreenMode::Videotex,
 ];
 
@@ -47,9 +37,9 @@ impl Display for ScreenMode {
             ScreenMode::Vga(w, h) => write!(f, "VGA {w}x{h}"),
             ScreenMode::Ega(w, h) => write!(f, "EGA {w}x{h}"),
             ScreenMode::Cga(w, h) => write!(f, "CGA {w}x{h}"),
-            ScreenMode::Vic => write!(f, "C64"),
-            ScreenMode::Antic => write!(f, "Atari"),
-            ScreenMode::Videotex => write!(f, "Viewdata"),
+            ScreenMode::Vic => write!(f, "VIC-II"),
+            ScreenMode::Antic => write!(f, "ANTIC"),
+            ScreenMode::Videotex => write!(f, "VIDEOTEX"),
             ScreenMode::Default => write!(f, "Default"),
         }
     }

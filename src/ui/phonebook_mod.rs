@@ -12,15 +12,15 @@ use super::{main_window_mod::MainWindow, DEFAULT_MODES};
 
 pub enum PhonebookFilter {
     All,
-    Favourites
+    Favourites,
 }
-
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum AdressCategory {
     Server,
+    Login,
     Terminal,
-    Notes
+    Notes,
 }
 
 pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
@@ -40,14 +40,11 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
         .open(&mut open);
 
     w.show(ctx, |ui| {
-
         egui::SidePanel::left("left_panel")
             .resizable(true)
             .exact_width(350.0 + 16.0)
             .show_inside(ui, |ui| {
-
                 ui.with_layout(Layout::right_to_left(egui::Align::TOP), |ui| {
-
                     let r: egui::Response = ui
                         .add(egui::ImageButton::new(
                             super::ADD_SVG.texture_id(ctx),
@@ -72,12 +69,18 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
                 ui.add_space(8.);
 
                 ui.with_layout(Layout::left_to_right(egui::Align::BOTTOM), |ui| {
-                    let r: egui::Response = ui.selectable_label(matches!(window.phonebook_filter, PhonebookFilter::All), RichText::new("📞").font(FontId::new(20.0, FontFamily::Proportional)));
+                    let r: egui::Response = ui.selectable_label(
+                        matches!(window.phonebook_filter, PhonebookFilter::All),
+                        RichText::new("📞").font(FontId::new(20.0, FontFamily::Proportional)),
+                    );
                     if r.clicked() {
                         window.phonebook_filter = PhonebookFilter::All;
                     }
 
-                    let r: egui::Response = ui.selectable_label(matches!(window.phonebook_filter, PhonebookFilter::Favourites), RichText::new("★").font(FontId::new(20.0, FontFamily::Proportional)));
+                    let r: egui::Response = ui.selectable_label(
+                        matches!(window.phonebook_filter, PhonebookFilter::Favourites),
+                        RichText::new("★").font(FontId::new(20.0, FontFamily::Proportional)),
+                    );
                     if r.clicked() {
                         window.phonebook_filter = PhonebookFilter::Favourites;
                     }
@@ -90,41 +93,56 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
             .show_inside(ui, |ui| {
                 ui.add_space(8.);
                 ui.horizontal(|ui| {
-
                     let r: egui::Response = ui
-                    .add_enabled(
-                        window.selected_bbs > 0,
-                        egui::ImageButton::new(super::DELETE_SVG.texture_id(ctx), img_size),
-                    )
-                    .on_hover_ui(|ui| {
-                        ui.label(
-                            RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-delete"))
-                                .small(),
-                        );
-                    });
+                        .add_enabled(
+                            window.selected_bbs > 0,
+                            egui::ImageButton::new(super::DELETE_SVG.texture_id(ctx), img_size),
+                        )
+                        .on_hover_ui(|ui| {
+                            ui.label(
+                                RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-delete"))
+                                    .small(),
+                            );
+                        });
 
                     if r.clicked() {
                         window.delete_selected_address();
                     }
 
-                    let connect_text = WidgetText::from(fl!(crate::LANGUAGE_LOADER, "phonebook-connect-button"));
-                    let connect_text_size = connect_text.into_galley(ui, Some(false), 1000., egui::TextStyle::Button).size();
-            
-                    let cancel_text = WidgetText::from(fl!(crate::LANGUAGE_LOADER, "phonebook-cancel-button"));
-                    let cancel_text_size = cancel_text.into_galley(ui, Some(false), 1000., egui::TextStyle::Button).size();
+                    let connect_text =
+                        WidgetText::from(fl!(crate::LANGUAGE_LOADER, "phonebook-connect-button"));
+                    let connect_text_size = connect_text
+                        .into_galley(ui, Some(false), 1000., egui::TextStyle::Button)
+                        .size();
 
-                    ui.add_space(ui.available_size_before_wrap().x  - connect_text_size.x - cancel_text_size.x - 8.);
+                    let cancel_text =
+                        WidgetText::from(fl!(crate::LANGUAGE_LOADER, "phonebook-cancel-button"));
+                    let cancel_text_size = cancel_text
+                        .into_galley(ui, Some(false), 1000., egui::TextStyle::Button)
+                        .size();
 
-                    let r: egui::Response = ui.add(egui::Button::new(fl!(crate::LANGUAGE_LOADER, "phonebook-cancel-button")));
+                    ui.add_space(
+                        ui.available_size_before_wrap().x
+                            - connect_text_size.x
+                            - cancel_text_size.x
+                            - 8.,
+                    );
+
+                    let r: egui::Response = ui.add(egui::Button::new(fl!(
+                        crate::LANGUAGE_LOADER,
+                        "phonebook-cancel-button"
+                    )));
                     if r.clicked() {
                         window.call_bbs(window.selected_bbs);
                     }
 
-                    let r: egui::Response = ui.add(egui::Button::new(fl!(crate::LANGUAGE_LOADER, "phonebook-connect-button")));
+                    let r: egui::Response = ui.add(egui::Button::new(fl!(
+                        crate::LANGUAGE_LOADER,
+                        "phonebook-connect-button"
+                    )));
                     if r.clicked() {
                         window.call_bbs(window.selected_bbs);
                     }
-
                 });
             });
 
@@ -148,55 +166,97 @@ fn show_content(window: &mut MainWindow, ui: &mut egui::Ui) {
             }
         }
     } else {
-        let adr = &mut window.addresses[window.selected_bbs];
-        ui.horizontal(|ui| {
+        render_quick_connect(window, ui);
+    }
+}
+
+fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
+    let adr = &mut window.addresses[window.selected_bbs];
+    ui.horizontal(|ui| {
+        ui.add(
+            TextEdit::singleline(&mut adr.address)
+                .desired_width(ui.available_width() - 50.)
+                .hint_text(fl!(crate::LANGUAGE_LOADER, "phonebook-connect-to"))
+                .font(FontId::proportional(22.)),
+        );
+    });
+    ui.add_space(8.);
+    egui::Grid::new("some_unique_id")
+    .num_columns(2)
+    .spacing([4.0, 8.0])
+    .min_row_height(24.)
+    .show(ui, |ui| {
+        // Protocol row
+        ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
             ui.label(RichText::new(fl!(
                 crate::LANGUAGE_LOADER,
-                "phonebook-address"
+                "phonebook-protocol"
             )));
-
-            ui.add(
-                TextEdit::singleline(&mut adr.address)
-                    .desired_width(ui.available_width() - 50.)
-                    .hint_text(fl!(crate::LANGUAGE_LOADER, "phonebook-connect-to"))
-                    .font(FontId::proportional(22.)),
-            );
         });
-        ui.horizontal(|ui| {
+
+        egui::ComboBox::from_id_source("combobox1")
+            .selected_text(RichText::new(format!("{:?}", adr.connection_type)))
+            .show_ui(ui, |ui| {
+                for ct in &address_mod::ConnectionType::ALL {
+                    let label = RichText::new(format!("{ct:?}"));
+                    ui.selectable_value(&mut adr.connection_type, *ct, label);
+                }
+            });
+        ui.end_row();
+
+        // Screen mode row
+        ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
             ui.label(RichText::new(fl!(
                 crate::LANGUAGE_LOADER,
                 "phonebook-screen_mode"
             )));
+        });
 
-            egui::ComboBox::from_id_source("combobox2")
-                .selected_text(RichText::new(format!("{:?}", adr.screen_mode)))
-                .show_ui(ui, |ui| {
-                    for mode in &DEFAULT_MODES {
-                        let label = RichText::new(format!("{mode:?}"));
-                        ui.selectable_value(&mut adr.screen_mode, *mode, label);
+        egui::ComboBox::from_id_source("combobox2")
+            .selected_text(RichText::new(format!("{}", adr.screen_mode)))
+            .width(250.)
+            .show_ui(ui, |ui| {
+                for mode in &DEFAULT_MODES {
+                    if matches!(mode, super::ScreenMode::Default) {
+                        ui.separator();
+                        continue;
                     }
-                });
+                    let label = RichText::new(format!("{mode}"));
+                    ui.selectable_value(&mut adr.screen_mode, *mode, label);
+                }
+            });
+        ui.end_row();
+
+        // Terminal type row
+        ui.with_layout(Layout::left_to_right(egui::Align::Center), |ui| {
             ui.label(RichText::new(fl!(
                 crate::LANGUAGE_LOADER,
                 "phonebook-terminal_type"
             )));
-            egui::ComboBox::from_id_source("combobox3")
-                .selected_text(RichText::new(format!("{:?}", adr.terminal_type)))
-                .show_ui(ui, |ui| {
-                    for t in &Terminal::ALL {
-                        let label = RichText::new(format!("{t:?}"));
-                        ui.selectable_value(&mut adr.terminal_type, *t, label);
-                    }
-                });
         });
-    }
+        egui::ComboBox::from_id_source("combobox3")
+            .selected_text(RichText::new(format!("{}", adr.terminal_type)))
+            .width(250.)
+            .show_ui(ui, |ui| {
+                for t in &Terminal::ALL {
+                    let label = RichText::new(format!("{t}"));
+                    ui.selectable_value(&mut adr.terminal_type, *t, label);
+                }
+            });
+        ui.end_row();
+    });
 }
 
 fn render_list(window: &mut MainWindow, ui: &mut egui::Ui) {
     let row_height = 18. * 2.;
 
     let addresses = if let PhonebookFilter::Favourites = window.phonebook_filter {
-        window.addresses.iter().filter(|a| a.is_favored).cloned().collect()
+        window
+            .addresses
+            .iter()
+            .filter(|a| a.is_favored)
+            .cloned()
+            .collect()
     } else {
         window.addresses.clone()
     };
@@ -229,13 +289,22 @@ fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address_mod::Address) {
     // Name row
 
     ui.horizontal(|ui| {
-        ui.add(TextEdit::singleline(&mut adr.system_name).desired_width(f32::INFINITY).hint_text(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-name-placeholder"))));
+        ui.add(
+            TextEdit::singleline(&mut adr.system_name)
+                .desired_width(f32::INFINITY)
+                .hint_text(RichText::new(fl!(
+                    crate::LANGUAGE_LOADER,
+                    "phonebook-name-placeholder"
+                ))),
+        );
         let text = if adr.is_favored {
-            RichText::new("★").font(FontId::new(20.0, FontFamily::Proportional)).color(Color32::YELLOW)
+            RichText::new("★")
+                .font(FontId::new(20.0, FontFamily::Proportional))
+                .color(Color32::YELLOW)
         } else {
             RichText::new("☆").font(FontId::new(20.0, FontFamily::Proportional))
         };
-    
+
         if ui.selectable_label(false, text).clicked() {
             adr.is_favored = !adr.is_favored;
         }
@@ -243,13 +312,15 @@ fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address_mod::Address) {
 
     ui.add_space(8.);
 
-
     match &adr.last_call {
         Some(last_call) => {
             ui.label(last_call.to_string());
         }
         None => {
-            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-not-called")));
+            ui.label(RichText::new(fl!(
+                crate::LANGUAGE_LOADER,
+                "phonebook-not-called"
+            )));
         }
     }
 
@@ -258,151 +329,156 @@ fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address_mod::Address) {
     ui.separator();
     ui.horizontal(|ui| {
         ui.selectable_value(&mut adr.adress_category, AdressCategory::Server, "Server");
-        ui.selectable_value(&mut adr.adress_category, AdressCategory::Terminal, "Terminal");
+        ui.selectable_value(&mut adr.adress_category, AdressCategory::Login, "Login");
+        ui.selectable_value(
+            &mut adr.adress_category,
+            AdressCategory::Terminal,
+            "Terminal",
+        );
         ui.selectable_value(&mut adr.adress_category, AdressCategory::Notes, "Comment");
     });
     ui.separator();
 
-
     match adr.adress_category {
         AdressCategory::Server => {
             egui::Grid::new("some_unique_id")
-        .num_columns(2)
-        .spacing([4.0, 8.0])
-        .min_row_height(24.)
-        .show(ui, |ui| {
+                .num_columns(2)
+                .spacing([4.0, 8.0])
+                .min_row_height(24.)
+                .show(ui, |ui| {
+                    // Addreess row
+                    ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(RichText::new(fl!(
+                            crate::LANGUAGE_LOADER,
+                            "phonebook-address"
+                        )));
+                    });
+                    ui.add(TextEdit::singleline(&mut adr.address));
+                    ui.end_row();
 
-            // Addreess row
-            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-address")));
-            });
-            ui.add(TextEdit::singleline(&mut adr.address));
-            ui.end_row();
+                    // Protocol row
+                    ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(RichText::new(fl!(
+                            crate::LANGUAGE_LOADER,
+                            "phonebook-protocol"
+                        )));
+                    });
 
-            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-protocol")));
-            });
-          
-            egui::ComboBox::from_id_source("combobox1")
-                .selected_text(RichText::new(format!("{:?}", adr.connection_type)))
-                .show_ui(ui, |ui| {
-                    for ct in &address_mod::ConnectionType::ALL {
-                        let label = RichText::new(format!("{ct:?}"));
-                        ui.selectable_value(&mut adr.connection_type, *ct, label);
-                    }
-                });
-                ui.end_row();
-
-            // User row
-            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-user")));
-            });
-            ui.add(TextEdit::singleline(&mut adr.user_name).desired_width(f32::INFINITY));
-            ui.end_row();
-
-            // Password row
-            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(RichText::new(fl!(
-                    crate::LANGUAGE_LOADER,
-                    "phonebook-password"
-                )));
-            });
-            ui.with_layout(Layout::left_to_right(egui::Align::Center), |ui| {
-                ui.add(TextEdit::singleline(&mut adr.password));
-                if ui
-                    .button(RichText::new(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "phonebook-generate"
-                    )))
-                    .clicked()
-                {
-                    let mut rng = rand::thread_rng();
-                    let mut pw = String::new();
-                    for _ in 0..16 {
-                        pw.push(unsafe {
-                            char::from_u32_unchecked(rng.gen_range(b'0'..b'z') as u32)
+                    egui::ComboBox::from_id_source("combobox1")
+                        .selected_text(RichText::new(format!("{:?}", adr.connection_type)))
+                        .show_ui(ui, |ui| {
+                            for ct in &address_mod::ConnectionType::ALL {
+                                let label = RichText::new(format!("{ct:?}"));
+                                ui.selectable_value(&mut adr.connection_type, *ct, label);
+                            }
                         });
-                    }
-                    adr.password = pw;
-                }
-            });
-            ui.end_row();
+                    ui.end_row();
+                });
+        }
+        AdressCategory::Login => {
+            egui::Grid::new("some_unique_id")
+                .num_columns(2)
+                .spacing([4.0, 8.0])
+                .min_row_height(24.)
+                .show(ui, |ui| {
+                    // User row
+                    ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-user")));
+                    });
+                    ui.add(TextEdit::singleline(&mut adr.user_name).desired_width(f32::INFINITY));
+                    ui.end_row();
 
-            // Screen mode row
-            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(RichText::new(fl!(
-                    crate::LANGUAGE_LOADER,
-                    "phonebook-screen_mode"
-                )));
-            });
-
-            ui.with_layout(Layout::left_to_right(egui::Align::Center), |ui| {
-                egui::ComboBox::from_id_source("combobox2")
-                    .selected_text(RichText::new(format!("{:?}", adr.screen_mode)))
-                    .show_ui(ui, |ui| {
-                        for mode in &DEFAULT_MODES {
-                            let label = RichText::new(format!("{mode:?}"));
-                            ui.selectable_value(&mut adr.screen_mode, *mode, label);
+                    // Password row
+                    ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(RichText::new(fl!(
+                            crate::LANGUAGE_LOADER,
+                            "phonebook-password"
+                        )));
+                    });
+                    ui.with_layout(Layout::left_to_right(egui::Align::Center), |ui| {
+                        ui.add(TextEdit::singleline(&mut adr.password));
+                        if ui
+                            .button(RichText::new(fl!(
+                                crate::LANGUAGE_LOADER,
+                                "phonebook-generate"
+                            )))
+                            .clicked()
+                        {
+                            let mut rng = rand::thread_rng();
+                            let mut pw = String::new();
+                            for _ in 0..16 {
+                                pw.push(unsafe {
+                                    char::from_u32_unchecked(rng.gen_range(b'0'..b'z') as u32)
+                                });
+                            }
+                            adr.password = pw;
                         }
                     });
-                ui.label(RichText::new(fl!(
-                    crate::LANGUAGE_LOADER,
-                    "phonebook-terminal_type"
-                )));
-                egui::ComboBox::from_id_source("combobox3")
-                    .selected_text(RichText::new(format!("{:?}", adr.terminal_type)))
-                    .show_ui(ui, |ui| {
-                        for t in &Terminal::ALL {
-                            let label = RichText::new(format!("{t:?}"));
-                            ui.selectable_value(&mut adr.terminal_type, *t, label);
-                        }
+                    ui.end_row();
+
+                    // Autologin row
+                    ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(RichText::new(fl!(
+                            crate::LANGUAGE_LOADER,
+                            "phonebook-autologin"
+                        )));
                     });
-            });
-            ui.end_row();
-
-            // Autologin row
-            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(RichText::new(fl!(
-                    crate::LANGUAGE_LOADER,
-                    "phonebook-autologin"
-                )));
-            });
-            ui.add(TextEdit::singleline(&mut adr.auto_login).desired_width(f32::INFINITY));
-            ui.end_row();
-
-        });
-        },
+                    ui.add(TextEdit::singleline(&mut adr.auto_login).desired_width(f32::INFINITY));
+                    ui.end_row();
+                });
+        }
         AdressCategory::Terminal => {
             egui::Grid::new("some_unique_id")
-            .num_columns(2)
-            .spacing([4.0, 8.0])
-            .min_row_height(24.)
-            .show(ui, |ui| {
-    
-            });    
+                .num_columns(2)
+                .spacing([4.0, 8.0])
+                .min_row_height(24.)
+                .show(ui, |ui| {
+                    // Screen mode row
+                    ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(RichText::new(fl!(
+                            crate::LANGUAGE_LOADER,
+                            "phonebook-screen_mode"
+                        )));
+                    });
+
+                    egui::ComboBox::from_id_source("combobox2")
+                        .selected_text(RichText::new(format!("{}", adr.screen_mode)))
+                        .width(250.)
+                        .show_ui(ui, |ui| {
+                            for mode in &DEFAULT_MODES {
+                                if matches!(mode, super::ScreenMode::Default) {
+                                    ui.separator();
+                                    continue;
+                                }
+                                let label = RichText::new(format!("{mode}"));
+                                ui.selectable_value(&mut adr.screen_mode, *mode, label);
+                            }
+                        });
+                    ui.end_row();
+
+                    ui.with_layout(Layout::left_to_right(egui::Align::Center), |ui| {
+                        ui.label(RichText::new(fl!(
+                            crate::LANGUAGE_LOADER,
+                            "phonebook-terminal_type"
+                        )));
+                    });
+                    egui::ComboBox::from_id_source("combobox3")
+                        .selected_text(RichText::new(format!("{}", adr.terminal_type)))
+                        .width(250.)
+                        .show_ui(ui, |ui| {
+                            for t in &Terminal::ALL {
+                                let label = RichText::new(format!("{t}"));
+                                ui.selectable_value(&mut adr.terminal_type, *t, label);
+                            }
+                        });
+                    ui.end_row();
+                });
         }
 
         AdressCategory::Notes => {
-            egui::Grid::new("some_unique_id")
-        .num_columns(2)
-        .spacing([4.0, 8.0])
-        .min_row_height(24.)
-        .show(ui, |ui| {
-            // Comment row
-            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(RichText::new(fl!(
-                    crate::LANGUAGE_LOADER,
-                    "phonebook-comment"
-                )));
-            });
-            ui.add(TextEdit::singleline(&mut adr.comment).desired_width(f32::INFINITY));
-            ui.end_row();
-
-        });
+            ui.add(TextEdit::multiline(&mut adr.comment).desired_width(f32::INFINITY));
+        }
     }
-    }
-
-    
 }
 
 pub struct AddressRow {
@@ -424,17 +500,19 @@ impl egui::Widget for AddressRow {
         let total_extra = button_padding + button_padding + Vec2::new(0.0, 8.0);
 
         let wrap_width = ui.available_width() - total_extra.x;
-        let star_text = WidgetText::from(RichText::new("★").font(FontId::new(14.0, FontFamily::Proportional)).color(Color32::YELLOW));
-        let star_text: egui::widget_text::WidgetTextGalley = star_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
+        let star_text = WidgetText::from(
+            RichText::new("★")
+                .font(FontId::new(14.0, FontFamily::Proportional))
+                .color(Color32::YELLOW),
+        );
+        let star_text: egui::widget_text::WidgetTextGalley =
+            star_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
         let star_text_size = star_text.size();
 
-
         let name_text =
-        WidgetText::from(RichText::new(addr.system_name.clone()).color(Color32::WHITE));
+            WidgetText::from(RichText::new(addr.system_name.clone()).color(Color32::WHITE));
         let name_text = name_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
         let name_text_size = name_text.size();
-
-
 
         let addr_text = WidgetText::from(
             RichText::new(addr.address.clone()).font(FontId::new(14.0, FontFamily::Proportional)),

@@ -76,10 +76,10 @@ impl MainWindow {
                             self.send_login();
                         }
                     }
-                    
+
                     let r: egui::Response = ui
                         .add(egui::Button::new(
-                            RichText::new("📞").font(FontId::new(20.0, FontFamily::Proportional))
+                            RichText::new("📞").font(FontId::new(20.0, FontFamily::Proportional)),
                         ))
                         .on_hover_ui(|ui| {
                             ui.label(

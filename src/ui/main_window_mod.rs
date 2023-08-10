@@ -24,8 +24,8 @@ use crate::{
     TerminalResult,
 };
 
-use super::{Options, PhonebookFilter};
 use super::{screen_modes::ScreenMode, ViewState};
+use super::{Options, PhonebookFilter};
 use crate::com::Connection;
 use tokio::sync::mpsc;
 
