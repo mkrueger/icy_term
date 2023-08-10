@@ -13,6 +13,7 @@ use std::{
     io::Write,
     sync::{Arc, Mutex},
 };
+use toml::Value;
 
 use eframe::egui::{self, Key};
 
@@ -27,6 +28,7 @@ use crate::{
     TerminalResult,
 };
 
+use super::Options;
 use super::{screen_modes::ScreenMode, ViewState};
 use crate::com::Connection;
 use tokio::sync::mpsc;
@@ -39,85 +41,6 @@ pub enum MainWindowMode {
     SelectProtocol(bool),
     FileTransfer(bool),
     //   AskDeleteEntry
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum Scaling {
-    Nearest,
-    Linear,
-}
-
-impl Scaling {
-    pub const ALL: [Scaling; 2] = [Scaling::Nearest, Scaling::Linear];
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum PostProcessing {
-    None,
-    CRT1,
-    CRT1CURVED,
-    CRT2,
-    CRT2CURVED,
-}
-
-impl PostProcessing {
-    pub const ALL: [PostProcessing; 5] = [
-        PostProcessing::None,
-        PostProcessing::CRT1,
-        PostProcessing::CRT1CURVED,
-        PostProcessing::CRT2,
-        PostProcessing::CRT2CURVED,
-    ];
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct Options {
-    pub scaling: Scaling,
-    pub post_processing: PostProcessing,
-    connect_timeout: Duration,
-}
-
-impl Options {
-    pub fn new() -> Self {
-        Options {
-            connect_timeout: Duration::from_secs(10),
-            scaling: Scaling::Linear,
-            post_processing: PostProcessing::CRT1,
-        }
-    }
-
-    pub fn load_options() -> Self {
-        if let Some(proj_dirs) = ProjectDirs::from("com", "GitHub", "icy_term") {
-            let options_file = proj_dirs.config_dir().join("options.toml");
-            if options_file.exists() {
-                let fs = fs::read_to_string(&options_file).expect("Can't read options");
-                if let Ok(options) = toml::from_str::<Options>(fs.as_str()) {
-                    return options;
-                }
-            }
-        }
-        Options::new()
-    }
-
-    pub fn store_options(&self) -> TerminalResult<()> {
-        if let Some(proj_dirs) = ProjectDirs::from("com", "GitHub", "icy_term") {
-            let options_file = proj_dirs.config_dir().join("options.toml");
-            match toml::to_string_pretty(&self) {
-                Ok(str) => {
-                    let mut tmp = options_file.clone();
-                    if !tmp.set_extension("tmp") {
-                        return Ok(());
-                    }
-                    let mut file = File::create(&tmp)?;
-                    file.write_all(str.as_bytes())?;
-                    file.sync_all()?;
-                    fs::rename(&tmp, options_file)?;
-                }
-                Err(err) => return Err(Box::new(err)),
-            }
-        }
-        Ok(())
-    }
 }
 
 pub struct MainWindow {
@@ -162,7 +85,7 @@ impl MainWindow {
             options,
             auto_login: AutoLogin::new(""),
             auto_file_transfer: AutoFileTransfer::new(),
-            screen_mode: ScreenMode::Dos(80, 25),
+            screen_mode: ScreenMode::Vga(80, 25),
             current_transfer: None,
             handled_char: false,
             is_alt_pressed: false,
@@ -367,11 +290,7 @@ impl MainWindow {
         self.auto_login.disabled = self.is_alt_pressed;
         self.buffer_view.lock().buf.clear();
         self.cur_addr = i;
-        if let Some(mode) = &call_adr.screen_mode {
-            self.set_screen_mode(*mode);
-        } else {
-            self.set_screen_mode(ScreenMode::Dos(80, 25));
-        }
+        self.set_screen_mode(call_adr.screen_mode);
         self.buffer_parser = self.addresses[i].get_terminal_parser();
 
         self.buffer_view.lock().redraw_font();

@@ -1,9 +1,10 @@
 use crate::ui::screen_modes::ScreenMode;
 use crate::TerminalResult;
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use directories::ProjectDirs;
 use icy_engine::{
-    AnsiParser, AtasciiParser, AvatarParser, BufferParser, PETSCIIParser, ViewdataParser,
+    AnsiParser, AsciiParser, AtasciiParser, AvatarParser, BufferParser, PETSCIIParser,
+    ViewdataParser,
 };
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::Path;
@@ -15,6 +16,7 @@ use std::{
     path::PathBuf,
     thread,
 };
+use toml::Value;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Terminal {
@@ -100,7 +102,7 @@ pub struct Address {
     pub ansi_music: String,
 
     pub font_name: Option<String>,
-    pub screen_mode: Option<ScreenMode>,
+    pub screen_mode: ScreenMode,
 
     pub created: chrono::DateTime<Utc>,
     pub updated: chrono::DateTime<Utc>,
@@ -171,7 +173,7 @@ name = 'Atari'
 
 impl Address {
     pub fn new(system_name: String) -> Self {
-        let foo = SystemTime::now();
+        let time = Utc::now();
 
         Self {
             system_name,
@@ -180,35 +182,37 @@ impl Address {
             comment: String::new(),
             terminal_type: Terminal::Ansi,
             font_name: None,
-            screen_mode: None,
+            screen_mode: ScreenMode::Vga(80, 25),
             auto_login: String::new(),
             address: String::new(),
             connection_type: ConnectionType::Telnet,
             ansi_music: String::new(),
             ice_mode: true,
+            uuid: uuid::Uuid::new_v4(),
+            is_favored: false,
+            created: time,
+            updated: time,
+            overall_duration: Duration::zero(),
+            number_of_calls: 0,
+            last_call: None,
+            last_call_duration: Duration::zero(),
+            upladed_bytes: 0,
+            downloaded_bytes: 0,
         }
     }
 
     pub fn get_terminal_parser(&self) -> Box<dyn BufferParser> {
-        match self.screen_mode {
-            Some(ScreenMode::C64 | ScreenMode::C128(_)) => {
-                return Box::<PETSCIIParser>::default();
+        match self.terminal_type {
+            Terminal::Ansi => {
+                let mut parser = AnsiParser::new();
+                parser.ansi_music = self.ansi_music.clone().into();
+                Box::new(parser)
             }
-            Some(ScreenMode::Atari | ScreenMode::AtariXep80) => {
-                return Box::<AtasciiParser>::default();
-            }
-            Some(ScreenMode::ViewData) => {
-                return Box::new(ViewdataParser::new());
-            }
-            _ => {}
-        }
-
-        if let Terminal::Avatar = self.terminal_type {
-            Box::new(AvatarParser::new(true))
-        } else {
-            let mut parser = AnsiParser::new();
-            parser.ansi_music = self.ansi_music.clone().into();
-            Box::new(parser)
+            Terminal::Avatar => Box::new(AvatarParser::new(true)),
+            Terminal::Ascii => Box::<AsciiParser>::default(),
+            Terminal::PETscii => Box::<PETSCIIParser>::default(),
+            Terminal::ATAscii => Box::<AtasciiParser>::default(),
+            Terminal::ViewData => Box::new(ViewdataParser::new()),
         }
     }
 
@@ -235,8 +239,10 @@ impl Address {
         let mut res = Vec::new();
         res.push(Address::new(String::new()));
         if let Some(phonebook) = Address::get_phonebook_file() {
-            let fs = fs::read_to_string(&phonebook).expect("Can't read phonebook");
-            match toml::from_str::<AddressBook>(fs.as_str()) {
+            let input_text = fs::read_to_string(&phonebook).expect("Can't read phonebook");
+            let value = input_text.parse::<Value>().unwrap();
+            parse_addresses(&mut res, &value);
+            /* match toml::from_str::<AddressBook>(fs.as_str()) {
                 Ok(addresses) => {
                     res.extend_from_slice(&addresses.addresses);
                     return res;
@@ -249,7 +255,7 @@ impl Address {
                     );
                     return res;
                 }
-            }
+            }*/
         }
         res
     }
@@ -279,7 +285,7 @@ pub fn store_phone_book(addr: &Vec<Address>) -> TerminalResult<()> {
             addresses.push(addr[i].clone());
         });
         let phonebook = AddressBook { addresses };
-
+        /*
         match toml::to_string_pretty(&phonebook) {
             Ok(str) => {
                 let mut tmp = file_name.clone();
@@ -292,7 +298,7 @@ pub fn store_phone_book(addr: &Vec<Address>) -> TerminalResult<()> {
                 fs::rename(&tmp, file_name)?;
             }
             Err(err) => return Err(Box::new(err)),
-        }
+        }*/
     }
     Ok(())
 }
@@ -318,4 +324,85 @@ fn watch<P: AsRef<Path>>(path: P) -> notify::Result<()> {
     }
 
     Ok(())
+}
+
+fn parse_addresses(addresses: &mut Vec<Address>, value: &Value) {
+    if let Value::Table(table) = value {
+        let version: Option<String> = if let Some(Value::String(version)) = table.get("version") {
+            Some(version.clone())
+        } else {
+            None
+        };
+
+        if let Some(Value::Array(values)) = table.get("addresses") {
+            for value in values {
+                addresses.push(parse_legacy_address(value));
+            }
+        }
+    }
+}
+
+fn parse_legacy_address(value: &Value) -> Address {
+    let mut result = Address::new(String::new());
+    if let Value::Table(table) = value {
+        if let Some(Value::String(value)) = table.get("system_name") {
+            result.system_name = value.clone();
+        }
+        if let Some(Value::String(value)) = table.get("address") {
+            result.address = value.clone();
+        }
+        if let Some(Value::String(value)) = table.get("user_name") {
+            result.user_name = value.clone();
+        }
+        if let Some(Value::String(value)) = table.get("password") {
+            result.password = value.clone();
+        }
+        if let Some(Value::String(value)) = table.get("comment") {
+            result.comment = value.clone();
+        }
+        if let Some(Value::String(value)) = table.get("auto_login") {
+            result.auto_login = value.clone();
+        }
+        if let Some(Value::String(value)) = table.get("connection_type") {
+            match value.as_str() {
+                "Telnet" => result.connection_type = ConnectionType::Telnet,
+                "SSH" => result.connection_type = ConnectionType::Ssh,
+                "Raw" => result.connection_type = ConnectionType::Raw,
+                _ => {}
+            }
+        }
+
+        if let Some(Value::String(value)) = table.get("terminal_type") {
+            match value.as_str() {
+                "Ansi" => result.terminal_type = Terminal::Ansi,
+                "Avatar" => result.terminal_type = Terminal::Avatar,
+                _ => {}
+            }
+        }
+
+        if let Some(Value::Table(value)) = table.get("screen_mode") {
+            if let Some(Value::String(name)) = value.get("name") {
+                match name.as_str() {
+                    "DOS" | "VT500" => {
+                        result.screen_mode = ScreenMode::Vga(80, 25);
+                    }
+                    "C64" | "C128" => {
+                        result.screen_mode = ScreenMode::Vic;
+                        result.terminal_type = Terminal::PETscii;
+                    }
+                    "Atari" | "AtariXep80" => {
+                        result.screen_mode = ScreenMode::Antic;
+                        result.terminal_type = Terminal::ATAscii;
+                    }
+                    "Viewdata" => {
+                        result.screen_mode = ScreenMode::Videotex;
+                        result.terminal_type = Terminal::ViewData;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    result
 }

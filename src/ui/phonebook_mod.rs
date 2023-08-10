@@ -1,6 +1,7 @@
 use eframe::{
     egui::{self, Layout, RichText, ScrollArea, TextEdit, WidgetText},
-    epaint::{FontId, Vec2, Color32, FontFamily}, emath::NumExt,
+    emath::NumExt,
+    epaint::{Color32, FontFamily, FontId, Vec2},
 };
 use i18n_embed_fl::fl;
 use rand::Rng;
@@ -134,14 +135,11 @@ fn show_content(window: &mut MainWindow, ui: &mut egui::Ui) {
             )));
 
             egui::ComboBox::from_id_source("combobox2")
-                .selected_text(RichText::new(format!(
-                    "{:?}",
-                    adr.screen_mode.unwrap_or(super::ScreenMode::NotSet)
-                )))
+                .selected_text(RichText::new(format!("{:?}", adr.screen_mode)))
                 .show_ui(ui, |ui| {
                     for mode in &DEFAULT_MODES {
                         let label = RichText::new(format!("{mode:?}"));
-                        ui.selectable_value(&mut adr.screen_mode, Some(*mode), label);
+                        ui.selectable_value(&mut adr.screen_mode, *mode, label);
                     }
                 });
             ui.label(RichText::new(fl!(
@@ -167,15 +165,14 @@ fn render_list(window: &mut MainWindow, ui: &mut egui::Ui) {
             let addr = window.addresses[i].clone();
             ui.with_layout(ui.layout().with_cross_justify(true), |ui| {
                 let r = ui.add(AddressRow::new(
-                    i == window.selected_bbs, if i == 0 {
+                    i == window.selected_bbs,
+                    if i == 0 {
                         Address::new(fl!(crate::LANGUAGE_LOADER, "phonebook-connect-to-address"))
                     } else {
                         addr
-                    }));
-               
-                                    
+                    },
+                ));
 
-                
                 if r.clicked() {
                     window.select_bbs(i);
                 }
@@ -267,14 +264,11 @@ fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address_mod::Address) {
 
             ui.with_layout(Layout::left_to_right(egui::Align::Center), |ui| {
                 egui::ComboBox::from_id_source("combobox2")
-                    .selected_text(RichText::new(format!(
-                        "{:?}",
-                        adr.screen_mode.unwrap_or(super::ScreenMode::NotSet)
-                    )))
+                    .selected_text(RichText::new(format!("{:?}", adr.screen_mode)))
                     .show_ui(ui, |ui| {
                         for mode in &DEFAULT_MODES {
                             let label = RichText::new(format!("{mode:?}"));
-                            ui.selectable_value(&mut adr.screen_mode, Some(*mode), label);
+                            ui.selectable_value(&mut adr.screen_mode, *mode, label);
                         }
                     });
                 ui.label(RichText::new(fl!(
@@ -314,7 +308,6 @@ fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address_mod::Address) {
         });
 }
 
-
 pub struct AddressRow {
     selected: bool,
     addr: Address,
@@ -322,10 +315,7 @@ pub struct AddressRow {
 
 impl AddressRow {
     pub fn new(selected: bool, addr: Address) -> Self {
-        Self {
-            selected,
-            addr,
-        }
+        Self { selected, addr }
     }
 }
 
@@ -337,20 +327,26 @@ impl egui::Widget for AddressRow {
         let total_extra = button_padding + button_padding + Vec2::new(0.0, 8.0);
 
         let wrap_width = ui.available_width() - total_extra.x;
-        let name_text = WidgetText::from(RichText::new(addr.system_name.clone()).color(Color32::WHITE));
+        let name_text =
+            WidgetText::from(RichText::new(addr.system_name.clone()).color(Color32::WHITE));
         let name_text = name_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
         let name_text_size = name_text.size();
-        
-        let addr_text = WidgetText::from(RichText::new(addr.address.clone()).font(FontId::new(14.0, FontFamily::Proportional)));
-        let addr_text = addr_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
 
+        let addr_text = WidgetText::from(
+            RichText::new(addr.address.clone()).font(FontId::new(14.0, FontFamily::Proportional)),
+        );
+        let addr_text = addr_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
 
         let mut desired_size = total_extra + name_text.size() + Vec2::new(0.0, addr_text.size().y);
         desired_size.x = 350.0;
         desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
         let (rect, response) = ui.allocate_at_least(desired_size, egui::Sense::click());
         response.widget_info(|| {
-            egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, selected, name_text.text())
+            egui::WidgetInfo::selected(
+                egui::WidgetType::SelectableLabel,
+                selected,
+                name_text.text(),
+            )
         });
 
         if ui.is_rect_visible(response.rect) {

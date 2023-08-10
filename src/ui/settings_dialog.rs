@@ -1,7 +1,10 @@
 use eframe::egui::{self, RichText};
 use i18n_embed_fl::fl;
 
-use super::main_window_mod::{MainWindow, MainWindowMode, PostProcessing, Scaling};
+use super::{
+    main_window_mod::{MainWindow, MainWindowMode},
+    PostProcessing, Scaling,
+};
 
 pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut eframe::Frame) {
     let mut open = true;

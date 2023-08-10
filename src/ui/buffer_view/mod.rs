@@ -13,7 +13,7 @@ pub use sixels::*;
 pub mod selection;
 pub use selection::*;
 
-use super::main_window_mod::{Options, PostProcessing, Scaling};
+use super::{Options, PostProcessing, Scaling};
 
 #[derive(Clone, Copy)]
 pub enum BufferInputMode {
