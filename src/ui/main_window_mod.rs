@@ -1,6 +1,5 @@
 #![allow(unsafe_code, clippy::wildcard_imports)]
 
-use directories::ProjectDirs;
 use eframe::epaint::FontId;
 use i18n_embed_fl::fl;
 use icy_engine::{AvatarParser, BufferParser};
@@ -9,11 +8,8 @@ use rfd::FileDialog;
 use std::time::{Duration, SystemTime};
 use std::{
     env,
-    fs::{self, File},
-    io::Write,
     sync::{Arc, Mutex},
 };
-use toml::Value;
 
 use eframe::egui::{self, Key};
 
@@ -28,7 +24,7 @@ use crate::{
     TerminalResult,
 };
 
-use super::Options;
+use super::{Options, PhonebookFilter};
 use super::{screen_modes::ScreenMode, ViewState};
 use crate::com::Connection;
 use tokio::sync::mpsc;
@@ -54,6 +50,7 @@ pub struct MainWindow {
     pub handled_char: bool,
     cur_addr: usize,
     pub selected_bbs: usize,
+    pub phonebook_filter: PhonebookFilter,
 
     pub options: Options,
     pub screen_mode: ScreenMode,
@@ -89,6 +86,7 @@ impl MainWindow {
             current_transfer: None,
             handled_char: false,
             is_alt_pressed: false,
+            phonebook_filter: PhonebookFilter::All,
             buffer_parser: Box::new(AvatarParser::new(true)),
             open_connection_promise: None,
         };

@@ -1,3 +1,4 @@
+use crate::ui::AdressCategory;
 use crate::ui::screen_modes::ScreenMode;
 use crate::TerminalResult;
 use chrono::{Duration, Utc};
@@ -8,11 +9,9 @@ use icy_engine::{
 };
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::Path;
-use std::time::SystemTime;
 use std::{
     fmt::Display,
-    fs::{self, File},
-    io::Write,
+    fs::{self},
     path::PathBuf,
     thread,
 };
@@ -113,6 +112,10 @@ pub struct Address {
     pub last_call_duration: chrono::Duration,
     pub upladed_bytes: usize,
     pub downloaded_bytes: usize,
+
+
+    // UI
+    pub adress_category: AdressCategory
 }
 
 const TEMPLATE: &str = r#"
@@ -198,6 +201,7 @@ impl Address {
             last_call_duration: Duration::zero(),
             upladed_bytes: 0,
             downloaded_bytes: 0,
+            adress_category: AdressCategory::Server
         }
     }
 

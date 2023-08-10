@@ -76,14 +76,14 @@ impl MainWindow {
                             self.send_login();
                         }
                     }
+                    
                     let r: egui::Response = ui
-                        .add(egui::ImageButton::new(
-                            super::CALL_SVG.texture_id(ctx),
-                            img_size,
+                        .add(egui::Button::new(
+                            RichText::new("📞").font(FontId::new(20.0, FontFamily::Proportional))
                         ))
                         .on_hover_ui(|ui| {
                             ui.label(
-                                RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-call"))
+                                RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-phonebook"))
                                     .small(),
                             );
                         });
