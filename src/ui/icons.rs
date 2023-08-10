@@ -1,14 +1,6 @@
 use egui_extras::RetainedImage;
 
 lazy_static::lazy_static! {
-    pub static ref CALL_SVG: RetainedImage = egui_extras::RetainedImage::from_svg_bytes(
-        "call.svg",
-        include_bytes!("../../data/icons/call.svg"),
-    )
-    .unwrap();
-}
-
-lazy_static::lazy_static! {
     pub static ref CALL_END_SVG: RetainedImage = egui_extras::RetainedImage::from_svg_bytes(
         "call_end.svg",
         include_bytes!("../../data/icons/call_end.svg"),

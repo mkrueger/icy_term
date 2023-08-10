@@ -1,6 +1,6 @@
 #![allow(unsafe_code, clippy::wildcard_imports)]
 
-use directories::ProjectDirs;
+use chrono::Utc;
 use eframe::epaint::FontId;
 use i18n_embed_fl::fl;
 use icy_engine::{AvatarParser, BufferParser};
@@ -9,8 +9,6 @@ use rfd::FileDialog;
 use std::time::{Duration, SystemTime};
 use std::{
     env,
-    fs::{self, File},
-    io::Write,
     sync::{Arc, Mutex},
 };
 
@@ -28,6 +26,7 @@ use crate::{
 };
 
 use super::{screen_modes::ScreenMode, ViewState};
+use super::{Options, PhonebookFilter};
 use crate::com::Connection;
 use tokio::sync::mpsc;
 
@@ -41,85 +40,6 @@ pub enum MainWindowMode {
     //   AskDeleteEntry
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum Scaling {
-    Nearest,
-    Linear,
-}
-
-impl Scaling {
-    pub const ALL: [Scaling; 2] = [Scaling::Nearest, Scaling::Linear];
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum PostProcessing {
-    None,
-    CRT1,
-    CRT1CURVED,
-    CRT2,
-    CRT2CURVED,
-}
-
-impl PostProcessing {
-    pub const ALL: [PostProcessing; 5] = [
-        PostProcessing::None,
-        PostProcessing::CRT1,
-        PostProcessing::CRT1CURVED,
-        PostProcessing::CRT2,
-        PostProcessing::CRT2CURVED,
-    ];
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct Options {
-    pub scaling: Scaling,
-    pub post_processing: PostProcessing,
-    connect_timeout: Duration,
-}
-
-impl Options {
-    pub fn new() -> Self {
-        Options {
-            connect_timeout: Duration::from_secs(10),
-            scaling: Scaling::Linear,
-            post_processing: PostProcessing::CRT1,
-        }
-    }
-
-    pub fn load_options() -> Self {
-        if let Some(proj_dirs) = ProjectDirs::from("com", "GitHub", "icy_term") {
-            let options_file = proj_dirs.config_dir().join("options.toml");
-            if options_file.exists() {
-                let fs = fs::read_to_string(&options_file).expect("Can't read options");
-                if let Ok(options) = toml::from_str::<Options>(fs.as_str()) {
-                    return options;
-                }
-            }
-        }
-        Options::new()
-    }
-
-    pub fn store_options(&self) -> TerminalResult<()> {
-        if let Some(proj_dirs) = ProjectDirs::from("com", "GitHub", "icy_term") {
-            let options_file = proj_dirs.config_dir().join("options.toml");
-            match toml::to_string_pretty(&self) {
-                Ok(str) => {
-                    let mut tmp = options_file.clone();
-                    if !tmp.set_extension("tmp") {
-                        return Ok(());
-                    }
-                    let mut file = File::create(&tmp)?;
-                    file.write_all(str.as_bytes())?;
-                    file.sync_all()?;
-                    fs::rename(&tmp, options_file)?;
-                }
-                Err(err) => return Err(Box::new(err)),
-            }
-        }
-        Ok(())
-    }
-}
-
 pub struct MainWindow {
     pub buffer_view: Arc<eframe::epaint::mutex::Mutex<ViewState>>,
     pub buffer_parser: Box<dyn BufferParser>,
@@ -130,7 +50,9 @@ pub struct MainWindow {
     pub addresses: Vec<Address>,
     pub handled_char: bool,
     cur_addr: usize,
-    pub selected_bbs: usize,
+    pub selected_bbs: Option<uuid::Uuid>,
+    pub phonebook_filter: PhonebookFilter,
+    pub phonebook_filter_string: String,
 
     pub options: Options,
     pub screen_mode: ScreenMode,
@@ -157,17 +79,19 @@ impl MainWindow {
             mode: MainWindowMode::ShowPhonebook,
             addresses: start_read_book(),
             cur_addr: 0,
-            selected_bbs: 0,
+            selected_bbs: None,
             connection_opt: None,
             options,
             auto_login: AutoLogin::new(""),
             auto_file_transfer: AutoFileTransfer::new(),
-            screen_mode: ScreenMode::Dos(80, 25),
+            screen_mode: ScreenMode::Vga(80, 25),
             current_transfer: None,
             handled_char: false,
             is_alt_pressed: false,
+            phonebook_filter: PhonebookFilter::All,
             buffer_parser: Box::new(AvatarParser::new(true)),
             open_connection_promise: None,
+            phonebook_filter_string: String::new(),
         };
         let args: Vec<String> = env::args().collect();
         if let Some(arg) = args.get(1) {
@@ -355,23 +279,52 @@ impl MainWindow {
         self.mode = MainWindowMode::ShowPhonebook;
     }
 
+    pub fn get_address_mut(&mut self, uuid: Option<uuid::Uuid>) -> &mut Address {
+        if uuid.is_none() {
+            return &mut self.addresses[0];
+        }
+
+        let uuid = uuid.unwrap();
+        for (i, adr) in self.addresses.iter().enumerate() {
+            if adr.uuid == uuid {
+                return &mut self.addresses[i];
+            }
+        }
+
+        &mut self.addresses[0]
+    }
+    
+    pub fn call_bbs_uuid(&mut self, uuid: Option<uuid::Uuid>) {
+        if uuid.is_none() {
+            self.call_bbs(0);
+            return;
+        }
+
+        let uuid = uuid.unwrap();
+        for (i, adr) in self.addresses.iter().enumerate() {
+            if adr.uuid == uuid {
+                self.call_bbs(i);
+                return;
+            }
+        }
+    }
+
     pub fn call_bbs(&mut self, i: usize) {
-        self.mode = MainWindowMode::ShowTerminal;
+            self.mode = MainWindowMode::ShowTerminal;
         let mut adr = self.addresses[i].address.clone();
         if !adr.contains(':') {
             adr.push_str(":23");
         }
+        self.addresses[i].number_of_calls += 1;
+        self.addresses[i].last_call = Some(Utc::now());
+        store_phone_book(&self.addresses).unwrap_or_default();
 
         let call_adr = self.addresses[i].clone();
         self.auto_login = AutoLogin::new(&call_adr.auto_login);
         self.auto_login.disabled = self.is_alt_pressed;
         self.buffer_view.lock().buf.clear();
         self.cur_addr = i;
-        if let Some(mode) = &call_adr.screen_mode {
-            self.set_screen_mode(*mode);
-        } else {
-            self.set_screen_mode(ScreenMode::Dos(80, 25));
-        }
+        self.set_screen_mode(call_adr.screen_mode);
         self.buffer_parser = self.addresses[i].get_terminal_parser();
 
         self.buffer_view.lock().redraw_font();
@@ -387,16 +340,16 @@ impl MainWindow {
         .unwrap_or_default();
 
         let timeout = self.options.connect_timeout;
-        let ct = call_adr.connection_type;
+        let ct = call_adr.protocol;
         let window_size = self.screen_mode.get_window_size();
 
         self.open_connection_promise = Some(Promise::spawn_async(async move {
             let mut com: Box<dyn Com> = match ct {
-                crate::address_mod::ConnectionType::Ssh
-                | crate::address_mod::ConnectionType::Telnet => {
+                crate::address_mod::Protocol::Ssh
+                | crate::address_mod::Protocol::Telnet => {
                     Box::new(ComTelnetImpl::new(window_size))
                 }
-                crate::address_mod::ConnectionType::Raw => Box::new(ComRawImpl::new()),
+                crate::address_mod::Protocol::Raw => Box::new(ComRawImpl::new()),
                 //                crate::address_mod::ConnectionType::Ssh => Box::new(SSHCom::new()),
             };
             if let Err(err) = com.connect(&call_adr, timeout).await {
@@ -407,15 +360,12 @@ impl MainWindow {
         }));
     }
 
-    pub fn select_bbs(&mut self, i: usize) {
-        self.selected_bbs = i;
+    pub fn select_bbs(&mut self, uuid: Option<uuid::Uuid>) {
+        self.selected_bbs = uuid;
     }
 
     pub fn delete_selected_address(&mut self) {
-        if self.selected_bbs > 0 {
-            self.addresses.remove(self.selected_bbs);
-            self.selected_bbs -= 1;
-        }
+        self.selected_bbs = None;
         let res = store_phone_book(&self.addresses);
         self.handle_result(res, true);
     }

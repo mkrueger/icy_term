@@ -7,12 +7,12 @@ settings-heading = Einstellungen
 settings-scaling = Skalierung
 settings-post-processing = Filter
 
-phonebook-dialog-title = Addressen
 phonebook-connect-to = Verbinde zu…
-phonebook-call = Verbinden
 phonebook-new_bbs = Neue BBS
-phonebook-name = Name:
+phonebook-name-placeholder = BBS Name
+phonebook-filter-placeholder = Namensfilter
 phonebook-address = Addresse:
+phonebook-protocol = Protokoll:
 phonebook-user = User:
 phonebook-password = Passwort:
 phonebook-generate = Generieren
@@ -24,11 +24,18 @@ phonebook-delete = Ausgewählte BBS löschen
 phonebook-add = Neue BBS
 phonebook-settings = { settings-heading }
 phonebook-connect-to-address = <Verbinde zu Addresse>
+phonebook-connect-button = Verbinden
+phonebook-cancel-button = Abbrechen
+phonebook-not-called = Noch nicht verbunden
+phonebook-date-format=%d.%m.%Y %H:%M
+phonebook-clear-filter = Filter löschen
+phonebook-starred-items = Favoriten filtern
 
 terminal-upload = Upload
 terminal-download = Download
 terminal-hangup = Auflegen
 terminal-autologin = Username/Passwort senden
+terminal-phonebook = Telefonbuch
 terminal-menu-copy = Kopieren
 terminal-menu-paste = Einfügen
 

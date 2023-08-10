@@ -3,7 +3,7 @@ use std::cmp::max;
 use clipboard::{ClipboardContext, ClipboardProvider};
 use eframe::{
     egui::{self, CursorIcon, PointerButton, RichText, ScrollArea},
-    epaint::{Color32, Rect, Vec2, FontId, FontFamily},
+    epaint::{Color32, FontFamily, FontId, Rect, Vec2},
 };
 use i18n_embed_fl::fl;
 
@@ -76,14 +76,14 @@ impl MainWindow {
                             self.send_login();
                         }
                     }
+
                     let r: egui::Response = ui
-                        .add(egui::ImageButton::new(
-                            super::CALL_SVG.texture_id(ctx),
-                            img_size,
+                        .add(egui::Button::new(
+                            RichText::new("📞").font(FontId::new(20.0, FontFamily::Proportional)),
                         ))
                         .on_hover_ui(|ui| {
                             ui.label(
-                                RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-call"))
+                                RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-phonebook"))
                                     .small(),
                             );
                         });
@@ -110,30 +110,33 @@ impl MainWindow {
                         self.hangup();
                     }
 
-                    ui.menu_button(RichText::new("…").font(FontId::new(24.0, FontFamily::Proportional)), |ui| {
-                        let r = ui.hyperlink_to(
-                            fl!(crate::LANGUAGE_LOADER, "menu-item-discuss"),
-                            "https://github.com/mkrueger/icy_term/discussions",
-                        );
-                        if r.clicked() {
-                            ui.close_menu();
-                        }
-                        let r = ui.hyperlink_to(
-                            fl!(crate::LANGUAGE_LOADER, "menu-item-report-bug"),
-                            "https://github.com/mkrueger/icy_term/issues/new",
-                        );
-                        if r.clicked() {
-                            ui.close_menu();
-                        }
-                        ui.separator();
-                        if ui
-                            .button(fl!(crate::LANGUAGE_LOADER, "menu-item-settings"))
-                            .clicked()
-                        {
-                            self.show_settings(false);
-                            ui.close_menu();
-                        }
-                    });
+                    ui.menu_button(
+                        RichText::new("…").font(FontId::new(24.0, FontFamily::Proportional)),
+                        |ui| {
+                            let r = ui.hyperlink_to(
+                                fl!(crate::LANGUAGE_LOADER, "menu-item-discuss"),
+                                "https://github.com/mkrueger/icy_term/discussions",
+                            );
+                            if r.clicked() {
+                                ui.close_menu();
+                            }
+                            let r = ui.hyperlink_to(
+                                fl!(crate::LANGUAGE_LOADER, "menu-item-report-bug"),
+                                "https://github.com/mkrueger/icy_term/issues/new",
+                            );
+                            if r.clicked() {
+                                ui.close_menu();
+                            }
+                            ui.separator();
+                            if ui
+                                .button(fl!(crate::LANGUAGE_LOADER, "menu-item-settings"))
+                                .clicked()
+                            {
+                                self.show_settings(false);
+                                ui.close_menu();
+                            }
+                        },
+                    );
                 });
             });
 

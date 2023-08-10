@@ -7,7 +7,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::ui::main_window_mod::Scaling;
+use crate::ui::{PostProcessing, Scaling};
 
 use super::ViewState;
 
@@ -260,11 +260,11 @@ impl ViewState {
                 gl.get_uniform_location(self.draw_program, "u_effect")
                     .as_ref(),
                 match self.post_processing {
-                    crate::ui::main_window_mod::PostProcessing::None => 0.0,
-                    crate::ui::main_window_mod::PostProcessing::CRT1 => 1.0,
-                    crate::ui::main_window_mod::PostProcessing::CRT1CURVED => 2.0,
-                    crate::ui::main_window_mod::PostProcessing::CRT2 => 3.,
-                    crate::ui::main_window_mod::PostProcessing::CRT2CURVED => 4.,
+                    PostProcessing::None => 0.0,
+                    PostProcessing::CRT1 => 1.0,
+                    PostProcessing::CRT1CURVED => 2.0,
+                    PostProcessing::CRT2 => 3.,
+                    PostProcessing::CRT2CURVED => 4.,
                 },
             );
 
