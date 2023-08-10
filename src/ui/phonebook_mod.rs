@@ -309,6 +309,10 @@ fn render_list(window: &mut MainWindow, ui: &mut egui::Ui) {
             .collect()
     };
 
+    if addresses.is_empty() {
+        ui.label(fl!(crate::LANGUAGE_LOADER, "phonebook-no-entries"));
+    }
+
     ScrollArea::vertical().show_rows(ui, row_height, addresses.len(), |ui, range| {
         (range.start..range.end).for_each(|i| {
             let addr = &addresses[i];

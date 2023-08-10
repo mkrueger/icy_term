@@ -30,6 +30,7 @@ phonebook-not-called = Not yet called
 phonebook-date-format=%m/%d/%Y %H:%M
 phonebook-clear-filter = Clear filter
 phonebook-starred-items = Filter starred items
+phonebook-no-entries = No matching entries
 
 terminal-upload = Upload
 terminal-download = Download
