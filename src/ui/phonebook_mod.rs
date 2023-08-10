@@ -1,6 +1,6 @@
 use eframe::{
-    egui::{self, Layout, RichText, ScrollArea, TextEdit},
-    epaint::{FontId, Vec2},
+    egui::{self, Layout, RichText, ScrollArea, TextEdit, WidgetText},
+    epaint::{FontId, Vec2, Color32, FontFamily}, emath::NumExt,
 };
 use i18n_embed_fl::fl;
 use rand::Rng;
@@ -88,8 +88,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
 
         egui::SidePanel::left("left_panel")
             .resizable(true)
-            .default_width(150.0)
-            .width_range(80.0..=200.0)
+            .exact_width(350.0 + 16.0)
             .show_inside(ui, |ui| {
                 render_list(window, ui);
             });
@@ -162,19 +161,21 @@ fn show_content(window: &mut MainWindow, ui: &mut egui::Ui) {
 }
 
 fn render_list(window: &mut MainWindow, ui: &mut egui::Ui) {
-    let row_height = 18.;
+    let row_height = 18. * 2.;
     ScrollArea::vertical().show_rows(ui, row_height, window.addresses.len(), |ui, range| {
         for i in range.start..range.end {
             let addr = window.addresses[i].clone();
-            ui.horizontal(|ui| {
-                let r = ui.selectable_label(
-                    i == window.selected_bbs,
-                    if i == 0 {
-                        fl!(crate::LANGUAGE_LOADER, "phonebook-connect-to-address")
+            ui.with_layout(ui.layout().with_cross_justify(true), |ui| {
+                let r = ui.add(AddressRow::new(
+                    i == window.selected_bbs, if i == 0 {
+                        Address::new(fl!(crate::LANGUAGE_LOADER, "phonebook-connect-to-address"))
                     } else {
-                        addr.system_name
-                    },
-                );
+                        addr
+                    }));
+               
+                                    
+
+                
                 if r.clicked() {
                     window.select_bbs(i);
                 }
@@ -311,4 +312,68 @@ fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address_mod::Address) {
             ui.add(TextEdit::singleline(&mut adr.comment).desired_width(f32::INFINITY));
             ui.end_row();
         });
+}
+
+
+pub struct AddressRow {
+    selected: bool,
+    addr: Address,
+}
+
+impl AddressRow {
+    pub fn new(selected: bool, addr: Address) -> Self {
+        Self {
+            selected,
+            addr,
+        }
+    }
+}
+
+impl egui::Widget for AddressRow {
+    fn ui(self, ui: &mut egui::Ui) -> egui::Response {
+        let Self { selected, addr } = self;
+
+        let button_padding = ui.spacing().button_padding;
+        let total_extra = button_padding + button_padding + Vec2::new(0.0, 8.0);
+
+        let wrap_width = ui.available_width() - total_extra.x;
+        let name_text = WidgetText::from(RichText::new(addr.system_name.clone()).color(Color32::WHITE));
+        let name_text = name_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
+        let name_text_size = name_text.size();
+        
+        let addr_text = WidgetText::from(RichText::new(addr.address.clone()).font(FontId::new(14.0, FontFamily::Proportional)));
+        let addr_text = addr_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
+
+
+        let mut desired_size = total_extra + name_text.size() + Vec2::new(0.0, addr_text.size().y);
+        desired_size.x = 350.0;
+        desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
+        let (rect, response) = ui.allocate_at_least(desired_size, egui::Sense::click());
+        response.widget_info(|| {
+            egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, selected, name_text.text())
+        });
+
+        if ui.is_rect_visible(response.rect) {
+            let visuals = ui.style().interact_selectable(&response, selected);
+
+            if selected || response.hovered() || response.highlighted() || response.has_focus() {
+                let rect = rect.expand(visuals.expansion);
+
+                ui.painter().rect(
+                    rect,
+                    visuals.rounding,
+                    visuals.weak_bg_fill,
+                    visuals.bg_stroke,
+                );
+            }
+
+            let text_pos = rect.left_top() + button_padding;
+            name_text.paint_with_visuals(ui.painter(), text_pos, &visuals);
+
+            let text_pos = rect.left_top() + button_padding + Vec2::new(0.0, name_text_size.y);
+            addr_text.paint_with_visuals(ui.painter(), text_pos, &visuals);
+        }
+
+        response
+    }
 }
