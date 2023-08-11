@@ -67,7 +67,7 @@ impl Display for Protocol {
 }
 
 impl Protocol {
-    pub const ALL: [Protocol; 3] = [Protocol::Telnet, Protocol::Raw, Protocol::Ssh];
+    pub const ALL: [Protocol; 2] = [Protocol::Telnet, Protocol::Raw /*, Protocol::Ssh*/];
 }
 
 #[derive(Debug, Clone)]

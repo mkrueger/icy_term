@@ -27,9 +27,11 @@ impl Com for SSHCom {
     fn get_name(&self) -> &'static str {
         "SSH"
     }
+    fn set_terminal_type(&mut self, _terminal: crate::address_mod::Terminal) {}
 
     async fn connect(&mut self, addr: &Address, _timeout: Duration) -> TermComResult<bool> {
         match ssh::create_session()
+            .private_key_path("/home/mkrueger/.ssh/id_rsa")
             .username(&addr.user_name)
             .password(&addr.password)
             .connect(&addr.address)
