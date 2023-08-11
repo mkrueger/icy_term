@@ -50,7 +50,7 @@ pub struct MainWindow {
     pub addresses: Vec<Address>,
     pub handled_char: bool,
     cur_addr: usize,
-    pub selected_bbs: Option<uuid::Uuid>,
+    pub selected_bbs: Option<usize>,
     pub phonebook_filter: PhonebookFilter,
     pub phonebook_filter_string: String,
 
@@ -279,14 +279,14 @@ impl MainWindow {
         self.mode = MainWindowMode::ShowPhonebook;
     }
 
-    pub fn get_address_mut(&mut self, uuid: Option<uuid::Uuid>) -> &mut Address {
+    pub fn get_address_mut(&mut self, uuid: Option<usize>) -> &mut Address {
         if uuid.is_none() {
             return &mut self.addresses[0];
         }
 
         let uuid = uuid.unwrap();
         for (i, adr) in self.addresses.iter().enumerate() {
-            if adr.uuid == uuid {
+            if adr.id == uuid {
                 return &mut self.addresses[i];
             }
         }
@@ -294,7 +294,7 @@ impl MainWindow {
         &mut self.addresses[0]
     }
 
-    pub fn call_bbs_uuid(&mut self, uuid: Option<uuid::Uuid>) {
+    pub fn call_bbs_uuid(&mut self, uuid: Option<usize>) {
         if uuid.is_none() {
             self.call_bbs(0);
             return;
@@ -302,7 +302,7 @@ impl MainWindow {
 
         let uuid = uuid.unwrap();
         for (i, adr) in self.addresses.iter().enumerate() {
-            if adr.uuid == uuid {
+            if adr.id == uuid {
                 self.call_bbs(i);
                 return;
             }
@@ -360,14 +360,14 @@ impl MainWindow {
         }));
     }
 
-    pub fn select_bbs(&mut self, uuid: Option<uuid::Uuid>) {
+    pub fn select_bbs(&mut self, uuid: Option<usize>) {
         self.selected_bbs = uuid;
     }
 
     pub fn delete_selected_address(&mut self) {
         if let Some(uuid) = self.selected_bbs {
             for (i, adr) in self.addresses.iter().enumerate() {
-                if adr.uuid == uuid {
+                if adr.id == uuid {
                     self.addresses.remove(i);
                     break;
                 }

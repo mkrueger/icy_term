@@ -327,7 +327,7 @@ fn render_list(window: &mut MainWindow, ui: &mut egui::Ui) {
                 let show_quick_connect = window.phonebook_filter_string.is_empty()
                     && matches!(window.phonebook_filter, PhonebookFilter::All);
                 let selected = match window.selected_bbs {
-                    Some(uuid) => addr.uuid == uuid,
+                    Some(uuid) => addr.id == uuid,
                     None => i == 0 && show_quick_connect,
                 };
                 let r = ui.add(if i == 0 && show_quick_connect {
@@ -345,11 +345,11 @@ fn render_list(window: &mut MainWindow, ui: &mut egui::Ui) {
                     if i == 0 && show_quick_connect {
                         window.select_bbs(None);
                     } else {
-                        window.select_bbs(Some(addr.uuid));
+                        window.select_bbs(Some(addr.id));
                     }
                 }
                 if r.double_clicked() {
-                    window.call_bbs_uuid(Some(addr.uuid));
+                    window.call_bbs_uuid(Some(addr.id));
                 }
             });
         });

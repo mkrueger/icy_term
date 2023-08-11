@@ -90,7 +90,7 @@ pub struct LastCall {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Address {
-    pub uuid: uuid::Uuid,
+    pub id: usize,
     pub system_name: String,
     pub is_favored: bool,
 
@@ -178,9 +178,14 @@ screen_mode = "Videotex"
 comment = "ViewData BBS"
 "#;
 
+static mut current_id: usize = 0;
+
 impl Address {
     pub fn new(system_name: String) -> Self {
         let time = Utc::now();
+        unsafe {
+            current_id = current_id.wrapping_add(1); 
+        }
 
         Self {
             system_name,
@@ -195,7 +200,7 @@ impl Address {
             protocol: Protocol::Telnet,
             ansi_music: String::new(),
             ice_mode: true,
-            uuid: uuid::Uuid::new_v4(),
+            id: unsafe  { current_id },
             is_favored: false,
             created: time,
             updated: time,
