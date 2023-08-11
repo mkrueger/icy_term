@@ -318,6 +318,7 @@ impl MainWindow {
                                 }
                                 for (k, m) in key_map {
                                     if *k == key_code {
+                                        println!("found key code : {} {:?}", key_code, m.to_vec());
                                         self.handled_char = true;
                                         if let Some(con) = &mut self.connection_opt {
                                             let res = con.send(m.to_vec());
