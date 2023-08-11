@@ -1,4 +1,3 @@
-
 #[cfg(test)]
 mod xy_modem_tests {
     /*       use std::thread;
@@ -14,7 +13,7 @@ mod xy_modem_tests {
         com.cmd_table.insert(0x15, "NAK".to_string());
         com.cmd_table.insert(0x18, "CAN".to_string());
     }*/
-/*
+    /*
     fn create_channel() -> (TestChannel, Arc<Mutex<TransferState>>) {
         let res = TestChannel::new();
         // setup_xmodem_cmds(&res.sender);
@@ -32,7 +31,7 @@ mod xy_modem_tests {
 
         let data = vec![1u8, 2, 5, 10];
         let (mut com, transfer_state) = create_channel();
-        
+
         send
             .initiate_send(
                 &mut com.sender,
@@ -88,7 +87,7 @@ mod xy_modem_tests {
         }
     }*/
 
-    /* 
+    /*
     #[test]
     fn test_xmodem1k_simple() {
         let mut send = XYmodem::new(XYModemVariant::XModem1k);

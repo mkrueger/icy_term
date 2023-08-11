@@ -25,11 +25,11 @@ impl MainWindow {
                 }
                 ui.horizontal(|ui| {
                     let r = ui
-                    .button(  
-                        RichText::new("⬆")
-                            .font(FontId::new(img_size , FontFamily::Proportional))
-                    )
-                    .on_hover_ui(|ui| {
+                        .button(
+                            RichText::new("⬆")
+                                .font(FontId::new(img_size, FontFamily::Proportional)),
+                        )
+                        .on_hover_ui(|ui| {
                             ui.label(
                                 RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-upload"))
                                     .small(),
@@ -41,10 +41,11 @@ impl MainWindow {
                     }
 
                     let r = ui
-                    .button(
-                        RichText::new("⬇")
-                            .font(FontId::new(img_size, FontFamily::Proportional)),
-                    ).on_hover_ui(|ui| {
+                        .button(
+                            RichText::new("⬇")
+                                .font(FontId::new(img_size, FontFamily::Proportional)),
+                        )
+                        .on_hover_ui(|ui| {
                             ui.label(
                                 RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-download"))
                                     .small(),
@@ -57,10 +58,11 @@ impl MainWindow {
 
                     if !self.auto_login.logged_in {
                         let r = ui
-                        .button(
-                            RichText::new("🔑")
-                                .font(FontId::new(img_size, FontFamily::Monospace)),
-                        ).on_hover_ui(|ui| {
+                            .button(
+                                RichText::new("🔑")
+                                    .font(FontId::new(img_size, FontFamily::Monospace)),
+                            )
+                            .on_hover_ui(|ui| {
                                 ui.label(
                                     RichText::new(fl!(
                                         crate::LANGUAGE_LOADER,
@@ -92,13 +94,12 @@ impl MainWindow {
 
                     let size = ui.available_size_before_wrap();
                     ui.add_space(size.x - 70.0);
-                    
+
                     let r = ui
-                    .button(
-                        RichText::new("☎")
-                        .font(FontId::new(img_size, FontFamily::Monospace)),
-                    )
-                    .on_hover_ui(|ui| {
+                        .button(
+                            RichText::new("☎").font(FontId::new(img_size, FontFamily::Monospace)),
+                        )
+                        .on_hover_ui(|ui| {
                             ui.label(
                                 RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-hangup"))
                                     .small(),
@@ -109,7 +110,8 @@ impl MainWindow {
                     }
 
                     ui.menu_button(
-                        RichText::new("☰").font(FontId::new(img_size + 6., FontFamily::Proportional)),
+                        RichText::new("☰")
+                            .font(FontId::new(img_size + 6., FontFamily::Proportional)),
                         |ui| {
                             let r = ui.hyperlink_to(
                                 fl!(crate::LANGUAGE_LOADER, "menu-item-discuss"),

@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -38,7 +38,6 @@ impl Com for TestCom {
         }
         let result: Vec<u8> = self.read_buf.lock().drain(0..).collect();
 
-
         if result.len() == 1 {
             if let Some(cmd) = self.cmd_table.get(&result[0]) {
                 println!("{} {}({} 0x{})", self.name, cmd, result[0], result[0]);
@@ -48,7 +47,7 @@ impl Com for TestCom {
         } else {
             println!("{} reads {:?} #{}", self.name, result, result.len());
         }
-        
+
         Ok(result)
     }
 
@@ -84,7 +83,7 @@ impl Com for TestCom {
                 println!("{} reads {} 0x{:X}", self.name, b, b);
             }
             Ok(b)
-        } else { 
+        } else {
             Err(Box::new(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 "No data to read",
@@ -117,14 +116,14 @@ impl TestChannel {
         Self {
             sender: Box::new(TestCom {
                 name: "sender".to_string(),
-                read_buf:b1.clone(),
-                write_buf:b2.clone(),
+                read_buf: b1.clone(),
+                write_buf: b2.clone(),
                 cmd_table: HashMap::new(),
             }),
             receiver: Box::new(TestCom {
                 name: "receiver".to_string(),
-                read_buf:b2,
-                write_buf:b1,
+                read_buf: b2,
+                write_buf: b1,
                 cmd_table: HashMap::new(),
             }),
         }
@@ -139,20 +138,13 @@ mod communication_tests {
         let mut test = TestChannel::new();
         let t = b"Hello World";
         let _ = test.sender.send(t).await;
-        assert_eq!(
-            t.to_vec(),
-            test.receiver
-                .read_data().await.unwrap()
-        );
+        assert_eq!(t.to_vec(), test.receiver.read_data().await.unwrap());
     }
 
     #[tokio::test]
     async fn test_transfer_byte() {
         let mut test = TestChannel::new();
         let _ = test.sender.send(&[42]).await;
-        assert_eq!(
-            42,
-            test.receiver.read_u8().await.unwrap()
-        );
+        assert_eq!(42, test.receiver.read_u8().await.unwrap());
     }
 }

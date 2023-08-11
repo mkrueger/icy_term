@@ -1,11 +1,10 @@
-
 use chrono::{DateTime, Local};
 use eframe::{
     egui::{self, Layout, RichText, ScrollArea, TextEdit, WidgetText},
     emath::NumExt,
     epaint::{Color32, FontFamily, FontId, Vec2},
 };
-use egui::{Rect, Id};
+use egui::{Id, Rect};
 use i18n_embed_fl::fl;
 
 use crate::address_mod::{self, store_phone_book, Address, Terminal};
@@ -25,7 +24,7 @@ pub enum AdressCategory {
     Notes,
 }
 
-const phone_list_width:f32 = 220.0;
+const phone_list_width: f32 = 220.0;
 
 pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
     let mut open = true;
@@ -33,15 +32,18 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
     let bounds = 16.0;
     let width = (available_rect.width() - bounds * 2. - 81.).min(900.);
     let height = (available_rect.height() - available_rect.top() - bounds * 2.).min(580.);
-    let x_pos = available_rect.left() + (available_rect.width() - width).max(0.)  / 2.;
-    let y_pos = 20. + (available_rect.height() - height).max(0.)  / 2.;
+    let x_pos = available_rect.left() + (available_rect.width() - width).max(0.) / 2.;
+    let y_pos = 20. + (available_rect.height() - height).max(0.) / 2.;
 
     let w = egui::Window::new("")
         .collapsible(false)
         .vscroll(false)
         .resizable(true)
         .title_bar(false)
-        .fixed_rect(Rect::from_min_size(egui::Pos2::new(x_pos, y_pos), Vec2::new(width, height)))
+        .fixed_rect(Rect::from_min_size(
+            egui::Pos2::new(x_pos, y_pos),
+            Vec2::new(width, height),
+        ))
         .open(&mut open);
 
     w.show(ctx, |ui| {
@@ -111,11 +113,10 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
 
                 ui.with_layout(Layout::left_to_right(egui::Align::BOTTOM), |ui| {
                     let r: egui::Response = ui
-                    .button(
-                        RichText::new("➕")
-                            .font(FontId::new(20.0, FontFamily::Proportional)),
-                    )
-                    .on_hover_ui(|ui| {
+                        .button(
+                            RichText::new("➕").font(FontId::new(20.0, FontFamily::Proportional)),
+                        )
+                        .on_hover_ui(|ui| {
                             ui.label(
                                 RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-add")).small(),
                             );
@@ -140,8 +141,10 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
                     let r: egui::Response = ui
                         .add_enabled(
                             window.selected_bbs.is_some(),
-                            egui::Button::new(RichText::new("🗑")
-                            .font(FontId::new(26.0, FontFamily::Proportional))),
+                            egui::Button::new(
+                                RichText::new("🗑")
+                                    .font(FontId::new(26.0, FontFamily::Proportional)),
+                            ),
                         )
                         .on_hover_ui(|ui| {
                             ui.label(
@@ -218,7 +221,6 @@ pub fn store_phonebook(window: &MainWindow) {
         eprintln!("{err}");
     }
 }
-
 
 fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
     let adr = window.get_address_mut(window.selected_bbs);
@@ -373,8 +375,8 @@ fn view_edit_bbs(window: &mut MainWindow, ui: &mut egui::Ui) {
         let adr = window.get_address_mut(window.selected_bbs);
         ui.add(
             TextEdit::singleline(&mut adr.system_name)
-            .id(Id::new("phonebook-name-placeholder"))
-            .desired_width(f32::INFINITY)
+                .id(Id::new("phonebook-name-placeholder"))
+                .desired_width(f32::INFINITY)
                 .hint_text(RichText::new(fl!(
                     crate::LANGUAGE_LOADER,
                     "phonebook-name-placeholder"
@@ -472,11 +474,15 @@ fn view_edit_bbs(window: &mut MainWindow, ui: &mut egui::Ui) {
         }
 
         AdressCategory::Notes => {
-            ui.add(TextEdit::multiline(&mut window.get_address_mut(window.selected_bbs).comment).desired_width(f32::INFINITY));
+            ui.add(
+                TextEdit::multiline(&mut window.get_address_mut(window.selected_bbs).comment)
+                    .desired_width(f32::INFINITY),
+            );
         }
     }
 
-    let converted: DateTime<Local> = DateTime::from(window.get_address_mut(window.selected_bbs).created);
+    let converted: DateTime<Local> =
+        DateTime::from(window.get_address_mut(window.selected_bbs).created);
     ui.with_layout(Layout::left_to_right(egui::Align::BOTTOM), |ui| {
         ui.label(format!(
             "Created at {}",
@@ -485,7 +491,7 @@ fn view_edit_bbs(window: &mut MainWindow, ui: &mut egui::Ui) {
     });
 }
 
-fn render_terminal_category(window: &mut MainWindow,  ui: &mut egui::Ui) {
+fn render_terminal_category(window: &mut MainWindow, ui: &mut egui::Ui) {
     let adr = window.get_address_mut(window.selected_bbs);
     egui::Grid::new("some_unique_id")
         .num_columns(2)
@@ -544,7 +550,10 @@ fn render_login_category(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-user")));
             });
-            ui.add(TextEdit::singleline(&mut window.get_address_mut(window.selected_bbs).user_name).desired_width(f32::INFINITY));
+            ui.add(
+                TextEdit::singleline(&mut window.get_address_mut(window.selected_bbs).user_name)
+                    .desired_width(f32::INFINITY),
+            );
             ui.end_row();
 
             // Password row
@@ -555,7 +564,9 @@ fn render_login_category(window: &mut MainWindow, ui: &mut egui::Ui) {
                 )));
             });
             ui.with_layout(Layout::left_to_right(egui::Align::Center), |ui| {
-                ui.add(TextEdit::singleline(&mut window.get_address_mut(window.selected_bbs).password));
+                ui.add(TextEdit::singleline(
+                    &mut window.get_address_mut(window.selected_bbs).password,
+                ));
                 if ui
                     .button(RichText::new(fl!(
                         crate::LANGUAGE_LOADER,
@@ -581,7 +592,10 @@ fn render_login_category(window: &mut MainWindow, ui: &mut egui::Ui) {
                     "phonebook-autologin"
                 )));
             });
-            ui.add(TextEdit::singleline(&mut window.get_address_mut(window.selected_bbs).auto_login).desired_width(f32::INFINITY));
+            ui.add(
+                TextEdit::singleline(&mut window.get_address_mut(window.selected_bbs).auto_login)
+                    .desired_width(f32::INFINITY),
+            );
             ui.end_row();
         });
 }
@@ -661,7 +675,7 @@ impl egui::Widget for AddressRow {
         let star_text_size = star_text.size();
 
         let mut rt = RichText::new(addr.system_name.clone())
-        .font(FontId::new(16., FontFamily::Proportional));
+            .font(FontId::new(16., FontFamily::Proportional));
         if !centered {
             rt = rt.color(Color32::WHITE);
         }
@@ -670,14 +684,16 @@ impl egui::Widget for AddressRow {
         let name_text_size = name_text.size();
 
         let addr_text = WidgetText::from(
-            RichText::new(addr.address.clone())
-            .font(FontId::new(12.0, FontFamily::Monospace)),
+            RichText::new(addr.address.clone()).font(FontId::new(12.0, FontFamily::Monospace)),
         );
         let addr_text = addr_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
 
         let mut desired_size = total_extra + name_text.size() + Vec2::new(0.0, addr_text.size().y);
         desired_size.x = phone_list_width;
-        desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y).floor();
+        desired_size.y = desired_size
+            .y
+            .at_least(ui.spacing().interact_size.y)
+            .floor();
         let (rect, response) = ui.allocate_at_least(desired_size, egui::Sense::click());
         response.widget_info(|| {
             egui::WidgetInfo::selected(

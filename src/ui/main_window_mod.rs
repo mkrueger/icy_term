@@ -538,7 +538,7 @@ impl eframe::App for MainWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         use egui::FontFamily::Proportional;
         use egui::TextStyle::{Body, Button, Heading, Monospace, Small};
-        
+
         let mut style: egui::Style = (*ctx.style()).clone();
         style.text_styles = [
             (Heading, FontId::new(24.0, Proportional)),

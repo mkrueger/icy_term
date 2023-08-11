@@ -481,7 +481,10 @@ impl ComTelnetImpl {
                                 stream.try_write(&buf)?;
                             }
                             _ => {
-                                eprintln!("unsupported do option {}", telnet_option::to_string(opt));
+                                eprintln!(
+                                    "unsupported do option {}",
+                                    telnet_option::to_string(opt)
+                                );
                                 stream.try_write(&telnet_cmd::make_cmd_with_option(
                                     telnet_cmd::Wont,
                                     opt,

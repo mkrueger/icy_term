@@ -184,7 +184,7 @@ impl Address {
     pub fn new(system_name: String) -> Self {
         let time = Utc::now();
         unsafe {
-            current_id = current_id.wrapping_add(1); 
+            current_id = current_id.wrapping_add(1);
         }
 
         Self {
@@ -200,7 +200,7 @@ impl Address {
             protocol: Protocol::Telnet,
             ansi_music: String::new(),
             ice_mode: true,
-            id: unsafe  { current_id },
+            id: unsafe { current_id },
             is_favored: false,
             created: time,
             updated: time,
