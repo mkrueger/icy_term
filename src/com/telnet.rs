@@ -594,7 +594,7 @@ impl Com for ComTelnetImpl {
     async fn send<'a>(&mut self, buf: &'a [u8]) -> TermComResult<usize> {
         if self.use_raw_transfer {
             return if let Some(stream) = self.tcp_stream.as_mut() {
-                stream.write_all(&buf).await?;
+                stream.write_all(buf).await?;
                 Ok(buf.len())
             } else {
                 Err(Box::new(ConnectionError::ConnectionLost))

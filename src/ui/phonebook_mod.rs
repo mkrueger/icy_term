@@ -1,9 +1,11 @@
+
 use chrono::{DateTime, Local};
 use eframe::{
     egui::{self, Layout, RichText, ScrollArea, TextEdit, WidgetText},
     emath::NumExt,
     epaint::{Color32, FontFamily, FontId, Vec2},
 };
+use egui::{Rect, Id};
 use i18n_embed_fl::fl;
 use rand::Rng;
 
@@ -24,26 +26,29 @@ pub enum AdressCategory {
     Notes,
 }
 
-pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
-    let img_size = Vec2::new(24., 24.);
+const phone_list_width:f32 = 220.0;
 
+pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
     let mut open = true;
-    let mut r = ctx.available_rect().shrink(80.);
-    r.set_top(r.top() - 40.0);
+    let available_rect = ctx.available_rect();
+    let bounds = 16.0;
+    let width = (available_rect.width() - bounds * 2. - 81.).min(900.);
+    let height = (available_rect.height() - available_rect.top() - bounds * 2.).min(580.);
+    let x_pos = available_rect.left() + (available_rect.width() - width).max(0.)  / 2.;
+    let y_pos = 20. + (available_rect.height() - height).max(0.)  / 2.;
+
     let w = egui::Window::new("")
-        .default_width(600.0)
-        .default_height(400.0)
         .collapsible(false)
         .vscroll(false)
         .resizable(true)
         .title_bar(false)
-        .fixed_rect(r)
+        .fixed_rect(Rect::from_min_size(egui::Pos2::new(x_pos, y_pos), Vec2::new(width, height)))
         .open(&mut open);
 
     w.show(ctx, |ui| {
         egui::SidePanel::left("left_panel")
             .resizable(true)
-            .exact_width(350.0 + 16.0)
+            .exact_width(phone_list_width + 16.0)
             .show_inside(ui, |ui| {
                 ui.with_layout(Layout::left_to_right(egui::Align::TOP), |ui| {
                     ui.horizontal(|ui| {
@@ -53,7 +58,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
                             .selectable_label(
                                 selected,
                                 RichText::new("★")
-                                    .font(FontId::new(28.0, FontFamily::Proportional)),
+                                    .font(FontId::new(22.0, FontFamily::Proportional)),
                             )
                             .on_hover_ui(|ui| {
                                 ui.label(
@@ -85,7 +90,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
                         let r: egui::Response = ui
                             .button(
                                 RichText::new("✖")
-                                    .font(FontId::new(20.0, FontFamily::Proportional)),
+                                    .font(FontId::new(16.0, FontFamily::Proportional)),
                             )
                             .on_hover_ui(|ui| {
                                 ui.label(
@@ -107,11 +112,11 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
 
                 ui.with_layout(Layout::left_to_right(egui::Align::BOTTOM), |ui| {
                     let r: egui::Response = ui
-                        .add(egui::ImageButton::new(
-                            super::ADD_SVG.texture_id(ctx),
-                            img_size,
-                        ))
-                        .on_hover_ui(|ui| {
+                    .button(
+                        RichText::new("➕")
+                            .font(FontId::new(20.0, FontFamily::Proportional)),
+                    )
+                    .on_hover_ui(|ui| {
                             ui.label(
                                 RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-add")).small(),
                             );
@@ -136,7 +141,8 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
                     let r: egui::Response = ui
                         .add_enabled(
                             window.selected_bbs.is_some(),
-                            egui::ImageButton::new(super::DELETE_SVG.texture_id(ctx), img_size),
+                            egui::Button::new(RichText::new("🗑")
+                            .font(FontId::new(26.0, FontFamily::Proportional))),
                         )
                         .on_hover_ui(|ui| {
                             ui.label(
@@ -219,6 +225,7 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
         ui.add(
             TextEdit::singleline(&mut adr.address)
+                .id(Id::new("phonebook-connect-to"))
                 .desired_width(ui.available_width() - 50.)
                 .hint_text(fl!(crate::LANGUAGE_LOADER, "phonebook-connect-to"))
                 .font(FontId::proportional(22.)),
@@ -364,7 +371,8 @@ fn view_edit_bbs(ui: &mut egui::Ui, adr: &mut crate::address_mod::Address) {
     ui.horizontal(|ui| {
         ui.add(
             TextEdit::singleline(&mut adr.system_name)
-                .desired_width(f32::INFINITY)
+            .id(Id::new("phonebook-name-placeholder"))
+            .desired_width(f32::INFINITY)
                 .hint_text(RichText::new(fl!(
                     crate::LANGUAGE_LOADER,
                     "phonebook-name-placeholder"
@@ -633,7 +641,8 @@ impl egui::Widget for AddressRow {
             star_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
         let star_text_size = star_text.size();
 
-        let mut rt = RichText::new(addr.system_name.clone());
+        let mut rt = RichText::new(addr.system_name.clone())
+        .font(FontId::new(16., FontFamily::Proportional));
         if !centered {
             rt = rt.color(Color32::WHITE);
         }
@@ -642,13 +651,14 @@ impl egui::Widget for AddressRow {
         let name_text_size = name_text.size();
 
         let addr_text = WidgetText::from(
-            RichText::new(addr.address.clone()).font(FontId::new(14.0, FontFamily::Proportional)),
+            RichText::new(addr.address.clone())
+            .font(FontId::new(12.0, FontFamily::Monospace)),
         );
         let addr_text = addr_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
 
         let mut desired_size = total_extra + name_text.size() + Vec2::new(0.0, addr_text.size().y);
-        desired_size.x = 350.0;
-        desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
+        desired_size.x = phone_list_width;
+        desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y).floor();
         let (rect, response) = ui.allocate_at_least(desired_size, egui::Sense::click());
         response.widget_info(|| {
             egui::WidgetInfo::selected(

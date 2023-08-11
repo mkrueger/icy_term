@@ -19,17 +19,17 @@ impl MainWindow {
         egui::TopBottomPanel::top("button_bar")
             .frame(button_frame)
             .show(ctx, |ui| {
-                let img_size = Vec2::new(22., 22.);
+                let img_size = 20.0;
                 if show_pb {
                     ui.set_enabled(false);
                 }
                 ui.horizontal(|ui| {
                     let r = ui
-                        .add(egui::ImageButton::new(
-                            super::UPLOAD_SVG.texture_id(ctx),
-                            img_size,
-                        ))
-                        .on_hover_ui(|ui| {
+                    .button(  
+                        RichText::new("⬆")
+                            .font(FontId::new(img_size , FontFamily::Proportional))
+                    )
+                    .on_hover_ui(|ui| {
                             ui.label(
                                 RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-upload"))
                                     .small(),
@@ -41,11 +41,10 @@ impl MainWindow {
                     }
 
                     let r = ui
-                        .add(egui::ImageButton::new(
-                            super::DOWNLOAD_SVG.texture_id(ctx),
-                            img_size,
-                        ))
-                        .on_hover_ui(|ui| {
+                    .button(
+                        RichText::new("⬇")
+                            .font(FontId::new(img_size, FontFamily::Proportional)),
+                    ).on_hover_ui(|ui| {
                             ui.label(
                                 RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-download"))
                                     .small(),
@@ -58,11 +57,10 @@ impl MainWindow {
 
                     if !self.auto_login.logged_in {
                         let r = ui
-                            .add(egui::ImageButton::new(
-                                super::KEY_SVG.texture_id(ctx),
-                                img_size,
-                            ))
-                            .on_hover_ui(|ui| {
+                        .button(
+                            RichText::new("🔑")
+                                .font(FontId::new(img_size, FontFamily::Monospace)),
+                        ).on_hover_ui(|ui| {
                                 ui.label(
                                     RichText::new(fl!(
                                         crate::LANGUAGE_LOADER,
@@ -79,7 +77,7 @@ impl MainWindow {
 
                     let r: egui::Response = ui
                         .add(egui::Button::new(
-                            RichText::new("📞").font(FontId::new(20.0, FontFamily::Proportional)),
+                            RichText::new("📞").font(FontId::new(img_size, FontFamily::Monospace)),
                         ))
                         .on_hover_ui(|ui| {
                             ui.label(
@@ -94,13 +92,13 @@ impl MainWindow {
 
                     let size = ui.available_size_before_wrap();
                     ui.add_space(size.x - 70.0);
-
+                    
                     let r = ui
-                        .add(egui::ImageButton::new(
-                            super::CALL_END_SVG.texture_id(ctx),
-                            img_size,
-                        ))
-                        .on_hover_ui(|ui| {
+                    .button(
+                        RichText::new("☎")
+                        .font(FontId::new(img_size, FontFamily::Monospace)),
+                    )
+                    .on_hover_ui(|ui| {
                             ui.label(
                                 RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-hangup"))
                                     .small(),
@@ -111,7 +109,7 @@ impl MainWindow {
                     }
 
                     ui.menu_button(
-                        RichText::new("…").font(FontId::new(24.0, FontFamily::Proportional)),
+                        RichText::new("☰").font(FontId::new(img_size + 6., FontFamily::Proportional)),
                         |ui| {
                             let r = ui.hyperlink_to(
                                 fl!(crate::LANGUAGE_LOADER, "menu-item-discuss"),

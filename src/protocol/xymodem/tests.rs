@@ -1,11 +1,12 @@
 
 #[cfg(test)]
 mod xy_modem_tests {
-    use std::thread;
+    /*       use std::thread;
 
     use crate::{com::TestChannel, protocol::*};
 
-    /*   fn setup_xmodem_cmds(com: &TestCom) {
+
+    fn setup_xmodem_cmds(com: &TestCom) {
         com.cmd_table.insert(b'C', "C".to_string());
         com.cmd_table.insert(b'G', "G".to_string());
         com.cmd_table.insert(0x04, "EOT".to_string());

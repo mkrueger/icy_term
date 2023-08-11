@@ -26,9 +26,6 @@ pub use file_transfer::*;
 pub mod keymaps;
 pub use keymaps::*;
 
-pub mod icons;
-pub use icons::*;
-
 pub mod settings_dialog;
 pub use settings_dialog::*;
 

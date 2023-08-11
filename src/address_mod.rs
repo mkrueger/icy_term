@@ -124,59 +124,58 @@ pub struct Address {
 }
 
 const TEMPLATE: &str = r#"
-[[addresses]]
-system_name = 'Crazy Paradise BBS'
-user_name = ''
-password = ''
-comment = 'Last german Amiga BBS. Icy Term WHQ.'
-terminal_type = 'Ansi'
-address = 'cpbbs.de:2323'
-auto_login = ''
-connection_type = 'Telnet'
-ice_mode = true
-ansi_music = 'Off'
+version = "1.0"
 
 [[addresses]]
-system_name = 'Deadline BBS'
-user_name = ''
-password = ''
-comment = 'Cool BBS running PCBoard.'
-terminal_type = 'Ansi'
-address = 'deadline.aegis-corp.org:1337'
-auto_login = ''
-connection_type = 'Telnet'
-ice_mode = true
-ansi_music = 'Off'
+system_name = "Crazy Paradise BBS"
+is_favored = false
+address = "cpbbs.de:2323"
+protocol = "Telnet"
+user_name = ""
+password = ""
+auto_login = ""
+terminal_type = "Ansi"
+screen_mode = "Vga(80, 25)"
+comment = "Last german Amiga BBS. Icy Term WHQ."
+
 
 [[addresses]]
-system_name = 'BBS Retroacademy'
-user_name = ''
-password = ''
-comment = 'Lovely Petscii BBS'
-terminal_type = 'Ansi'
-address = 'bbs.retroacademy.it:6510'
-auto_login = ''
-connection_type = 'Telnet'
-ice_mode = true
-ansi_music = 'Off'
+system_name = "BBS Retrocampus"
+is_favored = false
+address = "BBS.RETROCAMPUS.COM:6510"
+protocol = "Telnet"
+user_name = ""
+password = ""
+auto_login = ""
+terminal_type = "PETscii"
+screen_mode = "Vic"
+comment = "Lovely Petscii BBS"
 
-[addresses.screen_mode]
-name = 'C64'
 
 [[addresses]]
-system_name = 'Amis XE'
-user_name = 'amis86'
-password = 'amis86'
-comment = 'Atasii id&pw: amis86'
-terminal_type = 'Ansi'
-address = 'amis86.ddns.net:9000'
-auto_login = ''
-connection_type = 'Telnet'
-ice_mode = true
-ansi_music = 'Off'
+system_name = "Amis XE"
+is_favored = false
+address = "amis86.ddns.net:9000"
+protocol = "Telnet"
+user_name = "amis86"
+password = "amis86"
+auto_login = ""
+terminal_type = "ATAscii"
+screen_mode = "Antic"
+comment = "Atasii id&pw: amis86"
 
-[addresses.screen_mode]
-name = 'Atari'
+
+[[addresses]]
+system_name = "ntxtel"
+is_favored = false
+address = "nx.nxtel.org:23280"
+protocol = "Telnet"
+user_name = ""
+password = ""
+auto_login = ""
+terminal_type = "ViewData"
+screen_mode = "Videotex"
+comment = "ViewData BBS"
 "#;
 
 impl Address {

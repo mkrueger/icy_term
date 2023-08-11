@@ -365,7 +365,14 @@ impl MainWindow {
     }
 
     pub fn delete_selected_address(&mut self) {
-        self.selected_bbs = None;
+        if let Some(uuid) = self.selected_bbs {
+            for (i, adr) in self.addresses.iter().enumerate() {
+                if adr.uuid == uuid {
+                    self.addresses.remove(i);
+                    break;
+                }
+            }
+        }
         let res = store_phone_book(&self.addresses);
         self.handle_result(res, true);
     }
@@ -527,12 +534,13 @@ impl eframe::App for MainWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         use egui::FontFamily::Proportional;
         use egui::TextStyle::{Body, Button, Heading, Monospace, Small};
+        
         let mut style: egui::Style = (*ctx.style()).clone();
         style.text_styles = [
-            (Heading, FontId::new(26.0, Proportional)),
-            (Body, FontId::new(20.0, Proportional)),
-            (Monospace, FontId::new(20.0, Proportional)),
-            (Button, FontId::new(20.0, Proportional)),
+            (Heading, FontId::new(24.0, Proportional)),
+            (Body, FontId::new(18.0, Proportional)),
+            (Monospace, FontId::new(18.0, egui::FontFamily::Monospace)),
+            (Button, FontId::new(18.0, Proportional)),
             (Small, FontId::new(14.0, Proportional)),
         ]
         .into();
