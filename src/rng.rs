@@ -17,7 +17,7 @@ impl Rng {
 
     // Lehmer random number generator
     pub fn next(&mut self) -> i32 {
-        self.state = ((self.state as u64) * 48271 % 0x7fff_ffff) as i32;
+        self.state = ((self.state as u64).wrapping_mul(48271) % 0x7fff_ffff) as i32;
         self.state
     }
 
