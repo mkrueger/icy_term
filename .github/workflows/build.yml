@@ -24,7 +24,7 @@ jobs:
    - name: Build deb
      id: build-deb
      run: |
-       export VERSION=$(cargo get version)
+       export VERSION="$(cargo get package.version)"
        echo "VERSION=$VERSION" >> $GITHUB_ENV
        export DEB=$(cargo deb)
        echo "Copy $DEB to ${{ env.APP_NAME }}_${VERSION}_amd64.deb"
@@ -128,7 +128,7 @@ jobs:
       - name: Sign dmg
         id: sign-bundle
         run: |
-          export version="$(cargo get version)"
+          export version="$(cargo get package.version)"
           echo "VERSION=$version" >> $GITHUB_ENV
           sed "s/#VERSION/$version/g" <build/file_id.diz  >file_id.diz
           export MAC_APP=$(cat Cargo.toml | grep "name"  | awk -F"\"" '{print $2}' | head -n 2 | tail -n 1)
