@@ -61,7 +61,7 @@ impl FileDescriptor {
     }
 
     #[cfg(test)]
-    pub fn _create_test(file_name: String, data: Vec<u8>) -> Self {
+    pub fn create_test(file_name: String, data: Vec<u8>) -> Self {
         Self {
             path_name: String::new(),
             file_name,

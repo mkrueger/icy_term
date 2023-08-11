@@ -1,43 +1,93 @@
-/*
+
 #[cfg(test)]
-mod tests {
+mod xy_modem_tests {
+    use std::thread;
+
     use crate::{com::TestChannel, protocol::*};
 
-    #[test]
-    fn test_xmodem_simple() {
+    /*   fn setup_xmodem_cmds(com: &TestCom) {
+        com.cmd_table.insert(b'C', "C".to_string());
+        com.cmd_table.insert(b'G', "G".to_string());
+        com.cmd_table.insert(0x04, "EOT".to_string());
+        com.cmd_table.insert(0x06, "ACK".to_string());
+        com.cmd_table.insert(0x15, "NAK".to_string());
+        com.cmd_table.insert(0x18, "CAN".to_string());
+    }*/
+/*
+    fn create_channel() -> (TestChannel, Arc<Mutex<TransferState>>) {
+        let res = TestChannel::new();
+        // setup_xmodem_cmds(&res.sender);
+        // setup_xmodem_cmds(&res.receiver);
+
+        let state = Arc::new(Mutex::new(TransferState::new()));
+
+        (res, state)
+    }
+
+    #[tokio::test]
+    async fn test_xmodem_simple() {
         let mut send = XYmodem::new(XYModemVariant::XModem);
         let mut recv = XYmodem::new(XYModemVariant::XModem);
 
         let data = vec![1u8, 2, 5, 10];
-        let mut com = create_channel();
-        let mut send_state = send
+        let (mut com, transfer_state) = create_channel();
+        
+        send
             .initiate_send(
                 &mut com.sender,
                 vec![FileDescriptor::create_test(
                     "foo.bar".to_string(),
                     data.clone(),
                 )],
-            )
-            .expect("error.");
-        let mut recv_state = recv.initiate_recv(&mut com.receiver).expect("error.");
+                transfer_state.clone()
+            ).await.expect("error.");
+
+        recv.initiate_recv(&mut com.receiver, transfer_state.clone()).await.expect("error.");
         let mut i = 0;
-        while !send_state.is_finished || !recv_state.is_finished {
-            i += 1;
-            if i > 10 {
+
+        let send_state = transfer_state.clone();
+        tokio::spawn(async move {
+            loop {
+                if send_state.lock().unwrap().is_finished {
+                    break;
+                }
+                i += 1;
+                if i > 10 {
+                    break;
+                }
+                send.update(&mut com.sender, send_state.clone()).await.expect("error.");
+            }
+        });
+
+        let recv_state = transfer_state.clone();
+        tokio::spawn(async move {
+            loop {
+                if recv_state.lock().unwrap().is_finished {
+                    break;
+                }
+                i += 1;
+                if i > 10 {
+                    break;
+                }
+                recv.update(&mut com.receiver, recv_state.clone()).await.expect("error.");
+            }
+
+
+            let recv_data: Vec<FileDescriptor> = recv.get_received_files();
+            assert_eq!(1, recv_data.len());
+            let send_data = &recv_data[0].get_data();
+            assert_eq!(&data, send_data);
+        });
+
+        loop {
+            if transfer_state.lock().unwrap().is_finished {
                 break;
             }
-            send.update(&mut com.sender, &mut send_state)
-                .expect("error.");
-            recv.update(&mut com.receiver, &mut recv_state)
-                .expect("error.");
+            thread::sleep(Duration::from_millis(10));
         }
+    }*/
 
-        let rdata = recv.get_received_files();
-        assert_eq!(1, rdata.len());
-        let sdata = &rdata[0].get_data().unwrap();
-        assert_eq!(&data, sdata);
-    }
-
+    /* 
     #[test]
     fn test_xmodem1k_simple() {
         let mut send = XYmodem::new(XYModemVariant::XModem1k);
@@ -153,21 +203,6 @@ mod tests {
         }
     }
 
-    /*   fn setup_xmodem_cmds(com: &TestCom) {
-        com.cmd_table.insert(b'C', "C".to_string());
-        com.cmd_table.insert(b'G', "G".to_string());
-        com.cmd_table.insert(0x04, "EOT".to_string());
-        com.cmd_table.insert(0x06, "ACK".to_string());
-        com.cmd_table.insert(0x15, "NAK".to_string());
-        com.cmd_table.insert(0x18, "CAN".to_string());
-    }*/
-
-    fn create_channel() -> TestChannel {
-        let res = TestChannel::new();
-        // setup_xmodem_cmds(&res.sender);
-        // setup_xmodem_cmds(&res.receiver);
-        res
-    }
 
     #[test]
     fn test_ymodem_simple() {
@@ -279,5 +314,6 @@ mod tests {
         assert_eq!(&data2, &rdata[1].get_data().unwrap());
         assert_eq!(data2.len(), rdata[1].size);
     }
+
+    */
 }
-*/

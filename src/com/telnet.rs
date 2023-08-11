@@ -15,6 +15,7 @@ pub struct ComTelnetImpl {
     state: ParserState,
     window_size: Size<u16>, // width, height
     terminal: Terminal,
+    use_raw_transfer: bool,
 }
 
 #[derive(Debug)]
@@ -311,10 +312,14 @@ impl ComTelnetImpl {
             state: ParserState::Data,
             window_size,
             terminal: Terminal::Ansi,
+            use_raw_transfer: false,
         }
     }
 
     fn parse(&mut self, data: &[u8]) -> TermComResult<Vec<u8>> {
+        if self.use_raw_transfer {
+            return Ok(data.to_vec());
+        }
         let mut buf = Vec::with_capacity(data.len());
         for b in data {
             match self.state {
@@ -587,6 +592,15 @@ impl Com for ComTelnetImpl {
     }
 
     async fn send<'a>(&mut self, buf: &'a [u8]) -> TermComResult<usize> {
+        if self.use_raw_transfer {
+            return if let Some(stream) = self.tcp_stream.as_mut() {
+                stream.write_all(&buf).await?;
+                Ok(buf.len())
+            } else {
+                Err(Box::new(ConnectionError::ConnectionLost))
+            };
+        }
+
         let mut data = Vec::with_capacity(buf.len());
         for b in buf {
             if *b == telnet_cmd::Iac {
