@@ -69,9 +69,16 @@ jobs:
     - name: 'Upload Artifact'
       uses: actions/upload-artifact@v3
       with:
-        name: ${{ env.APP_NAME }}_${{ env.VERSION }}_windows
+        name: ${{ env.APP_NAME }}_${{ env.VERSION }}_windows_msi
         path: |
           ${{ env.APP_NAME }}-${{ env.VERSION }}-installer.msi
+          file_id.diz
+    - name: 'Upload Artifact 2'
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ env.APP_NAME }}_${{ env.VERSION }}_windows_exe
+        path: |
+          .\target\release\Icy*.exe
           file_id.diz
   
   build_mac:
