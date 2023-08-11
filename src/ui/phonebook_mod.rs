@@ -566,7 +566,7 @@ fn render_login_category(window: &mut MainWindow, ui: &mut egui::Ui) {
                     let mut pw = String::new();
                     for _ in 0..16 {
                         pw.push(unsafe {
-                            char::from_u32_unchecked(window.rng.gen_range(b'0'..(b'z' + 1)))
+                            char::from_u32_unchecked(window.rng.gen_range(b'0'..=b'z'))
                         });
                     }
                     window.get_address_mut(window.selected_bbs).password = pw;

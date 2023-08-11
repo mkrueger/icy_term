@@ -1,4 +1,4 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{time::{SystemTime, UNIX_EPOCH}, ops::{RangeBounds, Bound}};
 
 pub struct Rng {
     state: i32
@@ -16,8 +16,20 @@ impl Rng {
         self.state
     }
 
-    pub(crate) fn gen_range(&mut self, arg: std::ops::Range<u8>) -> u32 {
-        let res = (arg.start as usize) + (self.next() as usize) % (arg.end - arg.start) as usize;
+    pub(crate) fn gen_range<R: RangeBounds<u8>>(&mut self, arg: R) -> u32 {
+
+        let bounds = (arg.start_bound(), arg.end_bound());
+        let res = match bounds {   
+            (Bound::Included(a), Bound::Included(b)) => {
+                (*a as usize) + (self.next() as usize) % (*b + 1 - *a) as usize
+            },
+
+            (Bound::Included(a), Bound::Excluded(b)) => {
+                (*a as usize) + (self.next() as usize) % (*b - *a) as usize
+            },
+            _ => panic!("Unsupported range bounds")
+        };
+        
         res as u32
     }
 }
