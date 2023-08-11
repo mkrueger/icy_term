@@ -18,6 +18,7 @@ use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
 use crate::com::{Com, TermComResult};
 use crate::protocol::TransferState;
+use crate::rng::Rng;
 use crate::{
     address_mod::{start_read_book, store_phone_book, Address},
     com::{ComRawImpl, ComTelnetImpl, SendData},
@@ -57,6 +58,8 @@ pub struct MainWindow {
     pub options: Options,
     pub screen_mode: ScreenMode,
     pub auto_login: AutoLogin,
+
+    pub rng: Rng,
     auto_file_transfer: AutoFileTransfer,
     // protocols
     current_transfer: Option<Arc<Mutex<TransferState>>>,
@@ -92,6 +95,7 @@ impl MainWindow {
             buffer_parser: Box::new(AvatarParser::new(true)),
             open_connection_promise: None,
             phonebook_filter_string: String::new(),
+            rng: Rng::new(),
         };
         let args: Vec<String> = env::args().collect();
         if let Some(arg) = args.get(1) {

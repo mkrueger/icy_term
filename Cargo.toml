@@ -28,9 +28,8 @@ glow = "0.12.2"
 
 #sound
 #cpal = { git = "https://github.com/RustAudio/cpal.git" }
-anyhow = "1.0"
 icy_engine = { git = "https://github.com/mkrueger/icy_engine.git" }
-tokio = { version = "1.21.2", features = ["full"] }
+tokio = { version = "1.30.0", features = ["full"] }
 
 directories = "5.0.1"
 rfd = "0.11.4"
@@ -42,7 +41,6 @@ notify = "6.0.0"
 gabi = "0.2.6"
 clipboard = "0.5.0"
 async-trait = "0.1.58"
-rand = "0.8"
 poll-promise = { git = "https://github.com/EmbarkStudios/poll-promise", features = ["tokio"] }
 chrono = "0.4.26"
 
