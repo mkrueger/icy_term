@@ -49,11 +49,10 @@ impl ScreenMode {
     pub fn get_input_mode(&self) -> BufferInputMode {
         match self {
             //ScreenMode::Cga(_, _) | ScreenMode::Ega(_, _) |
-            ScreenMode::Vga(_, _) => BufferInputMode::CP437,
+            ScreenMode::Default | ScreenMode::Vga(_, _) => BufferInputMode::CP437,
             ScreenMode::Vic => BufferInputMode::PETscii,
             ScreenMode::Antic => BufferInputMode::ATAscii,
             ScreenMode::Videotex => BufferInputMode::ViewData,
-            ScreenMode::Default => BufferInputMode::CP437,
         }
     }
 

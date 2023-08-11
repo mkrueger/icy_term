@@ -37,8 +37,6 @@ mod terminal_type {
 mod telnet_cmd {
     use crate::com::TermComResult;
 
-    use super::TelnetOption;
-
     /// End of subnegotiation parameters.
     pub const SE: u8 = 0xF0;
 
@@ -100,8 +98,8 @@ mod telnet_cmd {
         [Iac, byte]
     }
 
-    pub fn make_cmd_opt(byte: u8, opt: TelnetOption) -> [u8; 3] {
-        [Iac, byte, opt as u8]
+    pub fn make_cmd_with_option(byte: u8, option: u8) -> [u8; 3] {
+        [Iac, byte, option]
     }
 
     pub fn check(byte: u8) -> TermComResult<u8> {
@@ -113,175 +111,195 @@ mod telnet_cmd {
             ))),
         }
     }
+
+    pub fn to_string(byte: u8) -> &'static str {
+        match byte {
+            SE => "SE",
+            Nop => "Nop",
+            DataMark => "DataMark",
+            Break => "Break",
+            IP => "IP",
+            AO => "AO",
+            Ayt => "Ayt",
+            EC => "EC",
+            EL => "EL",
+            GA => "GA",
+            SB => "SB",
+            Will => "Will",
+            Wont => "Wont",
+            DO => "DO",
+            Dont => "Dont",
+            Iac => "Iac",
+            _ => "unknown",
+        }
+    }
 }
 
 /**
 <http://www.iana.org/assignments/telnet-options/telnet-options.xhtml>
 */
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TelnetOption {
-    /// https://www.rfc-editor.org/rfc/rfc856
-    TransmitBinary = 0x00,
-    /// https://www.rfc-editor.org/rfc/rfc857
-    Echo = 0x01,
+mod telnet_option {
+    /// <https://www.rfc-editor.org/rfc/rfc856>
+    pub const TransmitBinary: u8 = 0x00;
+    /// <https://www.rfc-editor.org/rfc/rfc857>
+    pub const Echo: u8 = 0x01;
     /// ???
-    Reconnection = 0x02,
-    /// https://www.rfc-editor.org/rfc/rfc858
-    SuppressGoAhead = 0x03,
-    /// https://www.rfc-editor.org/rfc/rfc859
-    Status = 0x05,
-    /// https://www.rfc-editor.org/rfc/rfc860
-    TimingMark = 0x06,
-    /// https://www.rfc-editor.org/rfc/rfc726.html
-    RemoteControlledTransAndEcho = 0x07,
+    pub const Reconnection: u8 = 0x02;
+    /// <https://www.rfc-editor.org/rfc/rfc858>
+    pub const SuppressGoAhead: u8 = 0x03;
+    /// <https://www.rfc-editor.org/rfc/rfc859>
+    pub const Status: u8 = 0x05;
+    /// <https://www.rfc-editor.org/rfc/rfc860>
+    pub const TimingMark: u8 = 0x06;
+    /// <https://www.rfc-editor.org/rfc/rfc726.html>
+    pub const RemoteControlledTransAndEcho: u8 = 0x07;
     /// ???
-    OutputLineWidth = 0x08,
+    pub const OutputLineWidth: u8 = 0x08;
     /// ???
-    OutputPageSize = 0x09,
-    ///https://www.rfc-editor.org/rfc/RFC652
-    OutputCarriageReturnDisposition = 10,
-    ///https://www.rfc-editor.org/rfc/RFC653
-    OutputHorizontalTabStops = 11,
-    ///https://www.rfc-editor.org/rfc/RFC654
-    OutputHorizontalTabDisposition = 12,
-    ///https://www.rfc-editor.org/rfc/RFC655
-    OutputFormfeedDisposition = 13,
-    ///https://www.rfc-editor.org/rfc/RFC656
-    OutputVerticalTabstops = 14,
-    ///https://www.rfc-editor.org/rfc/RFC657
-    OutputVerticalTabDisposition = 15,
-    ///https://www.rfc-editor.org/rfc/RFC658
-    OutputLinefeedDisposition = 16,
-    ///https://www.rfc-editor.org/rfc/RFC698
-    ExtendedASCII = 17,
-    ///https://www.rfc-editor.org/rfc/RFC727
-    Logout = 18,
-    ///https://www.rfc-editor.org/rfc/RFC735
-    ByteMacro = 19,
-    ///https://www.rfc-editor.org/rfc/RFC1043][RFC732
-    DataEntryTerminal = 20,
-    ///https://www.rfc-editor.org/rfc/RFC736][RFC734
-    SupDup = 21,
-    ///https://www.rfc-editor.org/rfc/RFC749
-    SupDupOutput = 22,
-    ///https://www.rfc-editor.org/rfc/RFC779
-    SendLocation = 23,
-    /// https://www.rfc-editor.org/rfc/rfc1091
-    TerminalType = 24,
-    /// https://www.rfc-editor.org/rfc/rfc885
-    EndOfRecord = 25,
-    /// https://www.rfc-editor.org/rfc/rfc1073
-    NegotiateAboutWindowSize = 31,
-    /// https://www.rfc-editor.org/rfc/rfc1079
-    TerminalSpeed = 32,
-    /// https://www.rfc-editor.org/rfc/rfc1372
-    ToggleFlowControl = 33,
-    /// https://www.rfc-editor.org/rfc/rfc1184
-    LineMode = 34,
-    /// https://www.rfc-editor.org/rfc/rfc1096
-    XDisplayLocation = 35,
-    /// https://www.rfc-editor.org/rfc/rfc1408
-    EnvironmentOption = 36,
-    /// https://www.rfc-editor.org/rfc/rfc2941
-    Authentication = 37,
-    /// https://www.rfc-editor.org/rfc/rfc2946
-    Encrypt = 38,
-    /// https://www.rfc-editor.org/rfc/rfc1572
-    NewEnviron = 39,
-    ///https://www.rfc-editor.org/rfc/RFC2355
-    TN3270E = 40,
-    ///https://www.rfc-editor.org/rfc/Rob_Earhart
-    XAuth = 41,
-    ///https://www.rfc-editor.org/rfc/RFC2066
-    CharSet = 42,
-    ///https://www.rfc-editor.org/rfc/Robert_Barnes
-    TelnetRemoteSerialPortRSP = 43,
-    ///https://www.rfc-editor.org/rfc/RFC2217
-    ComPortControlOption = 44,
-    ///https://www.rfc-editor.org/rfc/Wirt_Atmar
-    TelnetSuppressLocalEcho = 45,
-    ///https://www.rfc-editor.org/rfc/Michael_Boe
-    TelnetStartTLS = 46,
-    ///https://www.rfc-editor.org/rfc/RFC2840
-    Kermit = 47,
-    ///https://www.rfc-editor.org/rfc/David_Croft
-    SendURL = 48,
-    ///https://www.rfc-editor.org/rfc/Jeffrey_Altman
-    ForwardX = 49,
+    pub const OutputPageSize: u8 = 0x09;
+    ///<https://www.rfc-editor.org/rfc/RFC652>
+    pub const OutputCarriageReturnDisposition: u8 = 10;
+    ///<https://www.rfc-editor.org/rfc/RFC653>
+    pub const OutputHorizontalTabStops: u8 = 11;
+    ///<https://www.rfc-editor.org/rfc/RFC654>
+    pub const OutputHorizontalTabDisposition: u8 = 12;
+    ///<https://www.rfc-editor.org/rfc/RFC655>
+    pub const OutputFormfeedDisposition: u8 = 13;
+    ///<https://www.rfc-editor.org/rfc/RFC656>
+    pub const OutputVerticalTabstops: u8 = 14;
+    ///<https://www.rfc-editor.org/rfc/RFC657>
+    pub const OutputVerticalTabDisposition: u8 = 15;
+    ///<https://www.rfc-editor.org/rfc/RFC658>
+    pub const OutputLinefeedDisposition: u8 = 16;
+    ///<https://www.rfc-editor.org/rfc/RFC698>
+    pub const ExtendedASCII: u8 = 17;
+    ///<https://www.rfc-editor.org/rfc/RFC727>
+    pub const Logout: u8 = 18;
+    ///<https://www.rfc-editor.org/rfc/RFC735>
+    pub const ByteMacro: u8 = 19;
+    ///<https://www.rfc-editor.org/rfc/RFC1043][RFC732>
+    pub const DataEntryTerminal: u8 = 20;
+    ///<https://www.rfc-editor.org/rfc/RFC736][RFC734>
+    pub const SupDup: u8 = 21;
+    ///<https://www.rfc-editor.org/rfc/RFC749>
+    pub const SupDupOutput: u8 = 22;
+    ///<https://www.rfc-editor.org/rfc/RFC779>
+    pub const SendLocation: u8 = 23;
+    /// <https://www.rfc-editor.org/rfc/rfc1091>
+    pub const TerminalType: u8 = 24;
+    /// <https://www.rfc-editor.org/rfc/rfc885>
+    pub const EndOfRecord: u8 = 25;
+    /// <https://www.rfc-editor.org/rfc/rfc1073>
+    pub const NegotiateAboutWindowSize: u8 = 31;
+    /// <https://www.rfc-editor.org/rfc/rfc1079>
+    pub const TerminalSpeed: u8 = 32;
+    /// <https://www.rfc-editor.org/rfc/rfc1372>
+    pub const ToggleFlowControl: u8 = 33;
+    /// <https://www.rfc-editor.org/rfc/rfc1184>
+    pub const LineMode: u8 = 34;
+    /// <https://www.rfc-editor.org/rfc/rfc1096>
+    pub const XDisplayLocation: u8 = 35;
+    /// <https://www.rfc-editor.org/rfc/rfc1408>
+    pub const EnvironmentOption: u8 = 36;
+    /// <https://www.rfc-editor.org/rfc/rfc2941>
+    pub const Authentication: u8 = 37;
+    /// <https://www.rfc-editor.org/rfc/rfc2946>
+    pub const Encrypt: u8 = 38;
+    /// <https://www.rfc-editor.org/rfc/rfc1572>
+    pub const NewEnviron: u8 = 39;
+    ///<https://www.rfc-editor.org/rfc/RFC2355>
+    pub const TN3270E: u8 = 40;
+    ///<https://www.rfc-editor.org/rfc/Rob_Earhart>
+    pub const XAuth: u8 = 41;
+    ///<https://www.rfc-editor.org/rfc/RFC2066>
+    pub const CharSet: u8 = 42;
+    ///<https://www.rfc-editor.org/rfc/Robert_Barnes>
+    pub const TelnetRemoteSerialPortRSP: u8 = 43;
+    ///<https://www.rfc-editor.org/rfc/RFC2217>
+    pub const ComPortControlOption: u8 = 44;
+    ///<https://www.rfc-editor.org/rfc/Wirt_Atmar>
+    pub const TelnetSuppressLocalEcho: u8 = 45;
+    ///<https://www.rfc-editor.org/rfc/Michael_Boe>
+    pub const TelnetStartTLS: u8 = 46;
+    ///<https://www.rfc-editor.org/rfc/RFC2840>
+    pub const Kermit: u8 = 47;
+    ///<https://www.rfc-editor.org/rfc/David_Croft>
+    pub const SendURL: u8 = 48;
+    ///<https://www.rfc-editor.org/rfc/Jeffrey_Altman>
+    pub const ForwardX: u8 = 49;
     // 50-137 	Unassigned
-    TelOptPragmaLogon = 138,
-    ///https://www.rfc-editor.org/rfc/Steve_McGregory
-    TelOptSSPILogon = 139,
-    ///https://www.rfc-editor.org/rfc/Steve_McGregory
-    TelOptPragmaHeartbeat = 140,
-    ///https://www.rfc-editor.org/rfc/Steve_McGregory
+    pub const TelOptPragmaLogon: u8 = 138;
+    ///<https://www.rfc-editor.org/rfc/Steve_McGregory>
+    pub const TelOptSSPILogon: u8 = 139;
+    ///<https://www.rfc-editor.org/rfc/Steve_McGregory>
+    pub const TelOptPragmaHeartbeat: u8 = 140;
+    ///<https://www.rfc-editor.org/rfc/Steve_McGregory>
     // 141-254 	Unassigned
-    /// https://www.rfc-editor.org/rfc/rfc861
-    ExtendedOptionsList = 0xFF,
-}
+    /// <https://www.rfc-editor.org/rfc/rfc861>
+    pub const ExtendedOptionsList: u8 = 0xFF;
 
-#[allow(dead_code)]
-impl TelnetOption {
-    pub fn get(byte: u8) -> TermComResult<TelnetOption> {
-        let cmd = match byte {
-            0 => TelnetOption::TransmitBinary,
-            1 => TelnetOption::Echo,
-            2 => TelnetOption::Reconnection,
-            3 => TelnetOption::SuppressGoAhead,
-            5 => TelnetOption::Status,
-            6 => TelnetOption::TimingMark,
-            7 => TelnetOption::RemoteControlledTransAndEcho,
-            8 => TelnetOption::OutputLineWidth,
-            9 => TelnetOption::OutputPageSize,
-            10 => TelnetOption::OutputCarriageReturnDisposition,
-            11 => TelnetOption::OutputHorizontalTabStops,
-            12 => TelnetOption::OutputHorizontalTabDisposition,
-            13 => TelnetOption::OutputFormfeedDisposition,
-            14 => TelnetOption::OutputVerticalTabstops,
-            15 => TelnetOption::OutputVerticalTabDisposition,
-            16 => TelnetOption::OutputLinefeedDisposition,
-            17 => TelnetOption::ExtendedASCII,
-            18 => TelnetOption::Logout,
-            19 => TelnetOption::ByteMacro,
-            20 => TelnetOption::DataEntryTerminal,
-            21 => TelnetOption::SupDup,
-            22 => TelnetOption::SupDupOutput,
-            23 => TelnetOption::SendLocation,
-            24 => TelnetOption::TerminalType,
-            25 => TelnetOption::EndOfRecord,
-            31 => TelnetOption::NegotiateAboutWindowSize,
-            32 => TelnetOption::TerminalSpeed,
-            33 => TelnetOption::ToggleFlowControl,
-            34 => TelnetOption::LineMode,
-            35 => TelnetOption::XDisplayLocation,
-            36 => TelnetOption::EnvironmentOption,
-            37 => TelnetOption::Authentication,
-            38 => TelnetOption::Encrypt,
-            39 => TelnetOption::NewEnviron,
-            40 => TelnetOption::TN3270E,
-            41 => TelnetOption::XAuth,
-            42 => TelnetOption::CharSet,
-            43 => TelnetOption::TelnetRemoteSerialPortRSP,
-            44 => TelnetOption::ComPortControlOption,
-            45 => TelnetOption::TelnetSuppressLocalEcho,
-            46 => TelnetOption::TelnetStartTLS,
-            47 => TelnetOption::Kermit,
-            48 => TelnetOption::SendURL,
-            49 => TelnetOption::ForwardX,
-            // unassigned
-            138 => TelnetOption::TelOptPragmaLogon,
-            139 => TelnetOption::TelOptSSPILogon,
-            140 => TelnetOption::TelOptPragmaHeartbeat,
-            // unassigned
-            255 => TelnetOption::ExtendedOptionsList,
-            _ => {
-                return Err(Box::new(io::Error::new(
-                    ErrorKind::InvalidData,
-                    format!("unknown option: {byte}/x{byte:02X}"),
-                )));
-            }
-        };
-        Ok(cmd)
+    pub fn check(byte: u8) -> crate::com::TermComResult<u8> {
+        match byte {
+            0..=49 | 138..=140 | 255 => Ok(byte),
+            _ => Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("unknown option: {byte}/x{byte:02X}"),
+            ))),
+        }
+    }
+
+    pub fn to_string(byte: u8) -> &'static str {
+        match byte {
+            TransmitBinary => "TransmitBinary",
+            Echo => "Echo",
+            Reconnection => "Reconnection",
+            SuppressGoAhead => "SuppressGoAhead",
+            Status => "Status",
+            TimingMark => "TimingMark",
+            RemoteControlledTransAndEcho => "RemoteControlledTransAndEcho",
+            OutputLineWidth => "OutputLineWidth",
+            OutputPageSize => "OutputPageSize",
+            OutputCarriageReturnDisposition => "OutputCarriageReturnDisposition",
+            OutputHorizontalTabStops => "OutputHorizontalTabStops",
+            OutputHorizontalTabDisposition => "OutputHorizontalTabDisposition",
+            OutputFormfeedDisposition => "OutputFormfeedDisposition",
+            OutputVerticalTabstops => "OutputVerticalTabstops",
+            OutputVerticalTabDisposition => "OutputVerticalTabDisposition",
+            OutputLinefeedDisposition => "OutputLinefeedDisposition",
+            ExtendedASCII => "ExtendedASCII",
+            Logout => "Logout",
+            ByteMacro => "ByteMacro",
+            DataEntryTerminal => "DataEntryTerminal",
+            SupDup => "SupDup",
+            SupDupOutput => "SupDupOutput",
+            SendLocation => "SendLocation",
+            TerminalType => "TerminalType",
+            EndOfRecord => "EndOfRecord",
+            NegotiateAboutWindowSize => "NegotiateAboutWindowSize",
+            TerminalSpeed => "TerminalSpeed",
+            ToggleFlowControl => "ToggleFlowControl",
+            LineMode => "LineMode",
+            XDisplayLocation => "XDisplayLocation",
+            EnvironmentOption => "EnvironmentOption",
+            Authentication => "Authentication",
+            Encrypt => "Encrypt",
+            NewEnviron => "NewEnviron",
+            TN3270E => "TN3270E",
+            XAuth => "XAuth",
+            CharSet => "CharSet",
+            TelnetRemoteSerialPortRSP => "TelnetRemoteSerialPortRSP",
+            ComPortControlOption => "ComPortControlOption",
+            TelnetSuppressLocalEcho => "TelnetSuppressLocalEcho",
+            TelnetStartTLS => "TelnetStartTLS",
+            Kermit => "Kermit",
+            SendURL => "SendURL",
+            ForwardX => "ForwardX",
+            TelOptPragmaLogon => "TelOptPragmaLogon",
+            TelOptSSPILogon => "TelOptSSPILogon",
+            TelOptPragmaHeartbeat => "TelOptPragmaHeartbeat",
+            ExtendedOptionsList => "ExtendedOptionsList",
+            _ => "Unknown",
+        }
     }
 }
 
@@ -316,38 +334,37 @@ impl ComTelnetImpl {
                         }
                         terminal_type::SEND => {
                             // Send
-                            if let ParserState::SubCommand(cmd) = self.state {
-                                if cmd == TelnetOption::TerminalType as i32 {
-                                    let mut buf: Vec<u8> = vec![
-                                        telnet_cmd::Iac,
-                                        telnet_cmd::SB,
-                                        TelnetOption::TerminalType as u8,
-                                        terminal_type::IS,
-                                    ];
+                            if cmd == telnet_option::TerminalType as i32 {
+                                let mut buf: Vec<u8> = vec![
+                                    telnet_cmd::Iac,
+                                    telnet_cmd::SB,
+                                    telnet_option::TerminalType,
+                                    terminal_type::IS,
+                                ];
 
-                                    match self.terminal {
-                                        Terminal::Ansi => buf.extend_from_slice(b"ANSI"),
-                                        Terminal::PETscii => buf.extend_from_slice(b"PETSCII"),
-                                        Terminal::ATAscii => buf.extend_from_slice(b"ATASCII"),
-                                        Terminal::ViewData => buf.extend_from_slice(b"VIEWDATA"),
-                                        Terminal::Ascii => buf.extend_from_slice(b"RAW"),
-                                        Terminal::Avatar => buf.extend_from_slice(b"AVATAR"),
-                                    }
-                                    buf.extend([telnet_cmd::Iac, telnet_cmd::SE]);
+                                match self.terminal {
+                                    Terminal::Ansi => buf.extend_from_slice(b"ANSI"),
+                                    Terminal::PETscii => buf.extend_from_slice(b"PETSCII"),
+                                    Terminal::ATAscii => buf.extend_from_slice(b"ATASCII"),
+                                    Terminal::ViewData => buf.extend_from_slice(b"VIEWDATA"),
+                                    Terminal::Ascii => buf.extend_from_slice(b"RAW"),
+                                    Terminal::Avatar => buf.extend_from_slice(b"AVATAR"),
+                                }
+                                buf.extend([telnet_cmd::Iac, telnet_cmd::SE]);
 
-                                    println!("Sending terminal type: {:?}", buf);
+                                //println!("Sending terminal type: {:?}", buf);
 
-                                    if let Some(stream) = self.tcp_stream.as_mut() {
-                                        stream.try_write(&buf)?;
-                                    } else {
-                                        return Err(Box::new(ConnectionError::ConnectionLost));
-                                    }
+                                if let Some(stream) = self.tcp_stream.as_mut() {
+                                    stream.try_write(&buf)?;
+                                } else {
+                                    return Err(Box::new(ConnectionError::ConnectionLost));
                                 }
                             }
                         }
                         24 => {
                             // Ternminal type
-                            self.state = ParserState::SubCommand(TelnetOption::TerminalType as i32);
+                            self.state =
+                                ParserState::SubCommand(telnet_option::TerminalType as i32);
                         }
                         _ => {}
                     }
@@ -387,65 +404,68 @@ impl ComTelnetImpl {
                         eprintln!("{err}");
                         self.state = ParserState::Data;
                     }
-                    cmd => {
-                        eprintln!("unsupported IAC: {cmd:?}");
+                    Ok(cmd) => {
+                        eprintln!("unsupported IAC: {}", telnet_cmd::to_string(cmd));
                         self.state = ParserState::Data;
                     }
                 },
                 ParserState::Will => {
                     self.state = ParserState::Data;
-                    let opt = TelnetOption::get(*b)?;
+                    let opt = telnet_option::check(*b)?;
                     if let Some(stream) = self.tcp_stream.as_mut() {
-                        if let TelnetOption::TransmitBinary = opt {
-                            stream.try_write(&telnet_cmd::make_cmd_opt(
+                        if let telnet_option::TransmitBinary = opt {
+                            stream.try_write(&telnet_cmd::make_cmd_with_option(
                                 telnet_cmd::DO,
-                                TelnetOption::TransmitBinary,
+                                telnet_option::TransmitBinary,
                             ))?;
-                        } else if let TelnetOption::Echo = opt {
-                            stream.try_write(&telnet_cmd::make_cmd_opt(
+                        } else if let telnet_option::Echo = opt {
+                            stream.try_write(&telnet_cmd::make_cmd_with_option(
                                 telnet_cmd::DO,
-                                TelnetOption::Echo,
+                                telnet_option::Echo,
                             ))?;
-                        } else if let TelnetOption::SuppressGoAhead = opt {
-                            stream.try_write(&telnet_cmd::make_cmd_opt(
+                        } else if let telnet_option::SuppressGoAhead = opt {
+                            stream.try_write(&telnet_cmd::make_cmd_with_option(
                                 telnet_cmd::DO,
-                                TelnetOption::SuppressGoAhead,
+                                telnet_option::SuppressGoAhead,
                             ))?;
                         } else {
-                            eprintln!("unsupported will option {opt:?}");
-                            stream.try_write(&telnet_cmd::make_cmd_opt(telnet_cmd::Dont, opt))?;
+                            eprintln!("unsupported will option {}", telnet_option::to_string(opt));
+                            stream.try_write(&telnet_cmd::make_cmd_with_option(
+                                telnet_cmd::Dont,
+                                opt,
+                            ))?;
                         }
                     } else {
                         return Err(Box::new(ConnectionError::ConnectionLost));
                     }
                 }
                 ParserState::Wont => {
-                    let opt = TelnetOption::get(*b)?;
+                    let opt = telnet_option::check(*b)?;
                     eprintln!("Won't {opt:?}");
                     self.state = ParserState::Data;
                 }
                 ParserState::Do => {
                     self.state = ParserState::Data;
-                    let opt = TelnetOption::get(*b)?;
+                    let opt = telnet_option::check(*b)?;
                     if let Some(stream) = self.tcp_stream.as_mut() {
                         match opt {
-                            TelnetOption::TransmitBinary => {
-                                stream.try_write(&telnet_cmd::make_cmd_opt(
+                            telnet_option::TransmitBinary => {
+                                stream.try_write(&telnet_cmd::make_cmd_with_option(
                                     telnet_cmd::Will,
-                                    TelnetOption::TransmitBinary,
+                                    telnet_option::TransmitBinary,
                                 ))?;
                             }
-                            TelnetOption::TerminalType => {
-                                stream.try_write(&telnet_cmd::make_cmd_opt(
+                            telnet_option::TerminalType => {
+                                stream.try_write(&telnet_cmd::make_cmd_with_option(
                                     telnet_cmd::Will,
-                                    TelnetOption::TerminalType,
+                                    telnet_option::TerminalType,
                                 ))?;
                             }
-                            TelnetOption::NegotiateAboutWindowSize => {
+                            telnet_option::NegotiateAboutWindowSize => {
                                 // NAWS: send our current window size
-                                let mut buf: Vec<u8> = telnet_cmd::make_cmd_opt(
+                                let mut buf: Vec<u8> = telnet_cmd::make_cmd_with_option(
                                     telnet_cmd::SB,
-                                    TelnetOption::NegotiateAboutWindowSize,
+                                    telnet_option::NegotiateAboutWindowSize,
                                 )
                                 .to_vec();
                                 buf.extend(self.window_size.width.to_be_bytes());
@@ -456,9 +476,11 @@ impl ComTelnetImpl {
                                 stream.try_write(&buf)?;
                             }
                             _ => {
-                                eprintln!("unsupported do option {opt:?}");
-                                stream
-                                    .try_write(&telnet_cmd::make_cmd_opt(telnet_cmd::Wont, opt))?;
+                                eprintln!("unsupported do option {}", telnet_option::to_string(opt));
+                                stream.try_write(&telnet_cmd::make_cmd_with_option(
+                                    telnet_cmd::Wont,
+                                    opt,
+                                ))?;
                             }
                         }
                     } else {
@@ -466,7 +488,7 @@ impl ComTelnetImpl {
                     }
                 }
                 ParserState::Dont => {
-                    let opt = TelnetOption::get(*b)?;
+                    let opt = telnet_option::check(*b)?;
                     eprintln!("Don't {opt:?}");
                     self.state = ParserState::Data;
                 }
