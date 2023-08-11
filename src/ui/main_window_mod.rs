@@ -384,7 +384,8 @@ impl MainWindow {
                         eprintln!("{err}");
                     }
                 }
-                /*
+                
+                /* 
                 match ch  {
                     b'\\' => print!("\\\\"),
                     b'\n' => println!("\\n"),
@@ -431,8 +432,7 @@ impl MainWindow {
             }
         }
         if !send_data.is_empty() {
-            // HACK: For synchronet ansi detection the response needs to be delayed for some unknown reason.
-            std::thread::sleep(Duration::from_millis(150));
+            // println!("Sending: {:?}", String::from_utf8_lossy(&send_data).replace('\x1B', "\\x1B"));
             con.send(send_data)?;
         }
 

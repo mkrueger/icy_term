@@ -406,6 +406,11 @@ impl ComTelnetImpl {
                                 telnet_cmd::DO,
                                 TelnetOption::Echo,
                             ))?;
+                        } else if let TelnetOption::SuppressGoAhead = opt {
+                            stream.try_write(&telnet_cmd::make_cmd_opt(
+                                telnet_cmd::DO,
+                                TelnetOption::SuppressGoAhead,
+                            ))?;
                         } else {
                             eprintln!("unsupported will option {opt:?}");
                             stream.try_write(&telnet_cmd::make_cmd_opt(telnet_cmd::Dont, opt))?;
@@ -445,7 +450,8 @@ impl ComTelnetImpl {
                                 .to_vec();
                                 buf.extend(self.window_size.width.to_be_bytes());
                                 buf.extend(self.window_size.height.to_be_bytes());
-                                buf.push(telnet_cmd::SE as u8);
+                                buf.push(telnet_cmd::Iac);
+                                buf.push(telnet_cmd::SE);
 
                                 stream.try_write(&buf)?;
                             }
@@ -568,10 +574,8 @@ impl Com for ComTelnetImpl {
             }
         }
         if let Some(stream) = self.tcp_stream.as_mut() {
-            match stream.write(&data).await {
-                Ok(bytes) => Ok(bytes),
-                Err(error) => Err(Box::new(error)),
-            }
+            stream.write_all(&data).await?;
+            Ok(buf.len())
         } else {
             Err(Box::new(ConnectionError::ConnectionLost))
         }
