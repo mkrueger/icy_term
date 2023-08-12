@@ -11,6 +11,8 @@ pub struct SixelCacheEntry {
 
     pub pos: Position,
     pub size: icy_engine::Size<i32>,
+    pub x_scale: i32,
+    pub y_scale: i32,
 
     pub texture_opt: Option<NativeTexture>,
 }
@@ -117,15 +119,11 @@ impl ViewState {
             let mut j = old_line as usize * sixel.width() as usize * 4;
 
             for y in old_line..current_line {
+                let line = &sixel.picture_data[y as usize];
                 for x in 0..sixel.width() {
-                    let column = &sixel.picture[x as usize];
-                    let data = if let Some(col) = column.get(y as usize) {
-                        if let Some(c) = col {
-                            let (r, g, b) = c.get_rgb();
-                            [r, g, b, 0xFF]
-                        } else {
-                            [0, 0, 0, 0]
-                        }
+                    let data = if let Some(c) = line.get(x as usize) {
+                        let (r, g, b) = c.get_rgb();
+                        [r, g, b, 0xFF]
                     } else {
                         [0, 0, 0, 0]
                     };
@@ -186,6 +184,8 @@ impl ViewState {
                 old_line: current_line,
                 data_opt,
                 pos: sixel.position,
+                x_scale: sixel.horizontal_size,
+                y_scale: sixel.vertical_size,
                 size: icy_engine::Size {
                     width: sixel.width() as i32,
                     height: sixel.height() as i32,

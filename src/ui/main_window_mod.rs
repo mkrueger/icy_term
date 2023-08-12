@@ -404,9 +404,9 @@ impl MainWindow {
                     b'\"' => print!("\\\""),
                     _ => {
                         if ch < b' ' || ch == b'\x7F' {
-                            print!("\\x{:02X}", ch as u8);
+                            print!("\\x{ch:02X}");
                         } else if ch > b'\x7F' {
-                            print!("\\u{{{:02X}}}", ch as u8);
+                            print!("\\u{{{ch:02X}}}");
                         } else {
                             print!("{}", char::from_u32(ch as u32).unwrap());
                         }

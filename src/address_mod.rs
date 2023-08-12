@@ -131,51 +131,43 @@ system_name = "Crazy Paradise BBS"
 is_favored = false
 address = "cpbbs.de:2323"
 protocol = "Telnet"
-user_name = ""
-password = ""
-auto_login = ""
 terminal_type = "Ansi"
 screen_mode = "Vga(80, 25)"
 comment = "Last german Amiga BBS. Icy Term WHQ."
-
 
 [[addresses]]
 system_name = "BBS Retrocampus"
 is_favored = false
 address = "BBS.RETROCAMPUS.COM:6510"
 protocol = "Telnet"
-user_name = ""
-password = ""
-auto_login = ""
 terminal_type = "PETscii"
 screen_mode = "Vic"
 comment = "Lovely Petscii BBS"
-
 
 [[addresses]]
 system_name = "Amis XE"
 is_favored = false
 address = "amis86.ddns.net:9000"
 protocol = "Telnet"
-user_name = "amis86"
-password = "amis86"
-auto_login = ""
 terminal_type = "ATAscii"
 screen_mode = "Antic"
 comment = "Atasii id&pw: amis86"
-
 
 [[addresses]]
 system_name = "ntxtel"
 is_favored = false
 address = "nx.nxtel.org:23280"
 protocol = "Telnet"
-user_name = ""
-password = ""
-auto_login = ""
 terminal_type = "ViewData"
 screen_mode = "Videotex"
 comment = "ViewData BBS"
+
+[[addresses]]
+system_name = "dura-bbs.net:6359"
+address = "dura-bbs.net:6359"
+protocol = "Telnet"
+terminal_type = "Ansi"
+screen_mode = "Vga(80, 25)"
 "#;
 
 static mut current_id: usize = 0;

@@ -217,8 +217,9 @@ impl ViewState {
                     let x = sixel.pos.x as f32 * self.buf.get_font_dimensions().width as f32;
                     let y = sixel.pos.y as f32 * self.buf.get_font_dimensions().height as f32;
 
-                    let w = sixel.size.width as f32;
-                    let h = sixel.size.height as f32;
+                    let w = sixel.size.width as f32 * sixel.x_scale as f32;
+                    let h = sixel.size.height as f32 * sixel.y_scale as f32;
+                    print!("{}, {}", sixel.x_scale, sixel.y_scale);
 
                     gl.uniform_4_f32(
                         gl.get_uniform_location(self.sixel_shader, "u_sixel_rectangle")
