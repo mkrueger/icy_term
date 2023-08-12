@@ -9,6 +9,13 @@ use i18n_embed_fl::fl;
 
 use super::main_window_mod::{MainWindow, MainWindowMode};
 
+fn encode_mouse_button(button: i32) -> char {
+    unsafe { char::from_u32_unchecked(b' ' as u32 + button as u32) }
+}
+fn encode_mouse_position(pos: i32) -> char {
+    unsafe { char::from_u32_unchecked(b'!' as u32 + pos as u32) }
+}
+
 impl MainWindow {
     pub fn update_terminal_window(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let button_frame = egui::containers::Frame::none()
@@ -218,7 +225,9 @@ impl MainWindow {
                     )),
                 };
                 ui.painter().add(callback);
-                response = response.context_menu(terminal_context_menu);
+                if self.buffer_view.lock().buf.terminal_state.mouse_mode == icy_engine::MouseMode::Default {
+                    response = response.context_menu(terminal_context_menu);
+                }
 
                 if matches!(self.mode, MainWindowMode::ShowTerminal) && ui.is_enabled() {
                     let events = ui.input(|i| i.events.clone());
@@ -249,7 +258,7 @@ impl MainWindow {
 
                             egui::Event::PointerButton {
                                 pos,
-                                button: PointerButton::Primary,
+                                button,
                                 pressed: true,
                                 modifiers,
                             } => {
@@ -260,26 +269,116 @@ impl MainWindow {
                                         - Vec2::new(0., top_margin_height))
                                         / char_size
                                         + Vec2::new(0.0, first_line as f32);
-                                    buffer_view.lock().selection_opt =
-                                        Some(crate::ui::Selection::new(click_pos));
-                                    buffer_view
-                                        .lock()
-                                        .selection_opt
-                                        .as_mut()
-                                        .unwrap()
-                                        .block_selection = modifiers.alt;
+
+                                    let mode: icy_engine::MouseMode =
+                                        buffer_view.lock().buf.terminal_state.mouse_mode;
+                                    match mode {
+                                        icy_engine::MouseMode::Default => {
+                                            if matches!(button, PointerButton::Primary) {
+                                                buffer_view.lock().selection_opt =
+                                                    Some(crate::ui::Selection::new(click_pos));
+                                                buffer_view
+                                                    .lock()
+                                                    .selection_opt
+                                                    .as_mut()
+                                                    .unwrap()
+                                                    .block_selection = modifiers.alt;
+                                            }
+                                        }
+                                        icy_engine::MouseMode::VT200
+                                        | icy_engine::MouseMode::VT200_Highlight => {
+                                            let mut modifier_mask = 0;
+                                            if matches!(button, PointerButton::Secondary) {
+                                                modifier_mask |= 1;
+                                            }
+                                            if modifiers.shift {
+                                                modifier_mask |= 4;
+                                            }
+                                            if modifiers.alt {
+                                                modifier_mask |= 8;
+                                            }
+                                            if modifiers.ctrl || modifiers.mac_cmd {
+                                                modifier_mask |= 16;
+                                            }
+                                            self.output_string(
+                                                format!(
+                                                    "\x1b[M{}{}{}",
+                                                    encode_mouse_button(modifier_mask),
+                                                    encode_mouse_position(click_pos.x as i32),
+                                                    encode_mouse_position(click_pos.y as i32)
+                                                )
+                                                .as_str(),
+                                            );
+                                        }
+                                        icy_engine::MouseMode::X10 => {
+                                            self.output_string(
+                                                format!(
+                                                    "\x1b[M{}{}{}",
+                                                    encode_mouse_button(0),
+                                                    encode_mouse_position(click_pos.x as i32),
+                                                    encode_mouse_position(click_pos.y as i32)
+                                                )
+                                                .as_str(),
+                                            );
+                                        }
+                                        _ => {} /*
+                                                icy_engine::MouseMode::ButtonEvents => todo!(),
+                                                icy_engine::MouseMode::AnyEvents => todo!(),
+                                                icy_engine::MouseMode::FocusEvent => todo!(),
+                                                icy_engine::MouseMode::AlternateScroll => todo!(),
+                                                icy_engine::MouseMode::ExtendedMode => todo!(),
+                                                icy_engine::MouseMode::SGRExtendedMode => todo!(),
+                                                icy_engine::MouseMode::URXVTExtendedMode => todo!(),
+                                                icy_engine::MouseMode::PixelPosition => todo!(),*/
+                                    }
                                 }
                             }
 
                             egui::Event::PointerButton {
+                                pos,
                                 button: PointerButton::Primary,
                                 pressed: false,
+                                modifiers,
                                 ..
                             } => {
-                                let buffer_view = self.buffer_view.clone();
-                                let mut l = buffer_view.lock();
-                                if let Some(sel) = &mut l.selection_opt {
-                                    sel.locked = true;
+                                let mode: icy_engine::MouseMode = self.buffer_view.lock().buf.terminal_state.mouse_mode;
+                                match mode {
+                                    icy_engine::MouseMode::Default => {
+                                        if let Some(sel) = &mut self.buffer_view.lock().selection_opt {
+                                            sel.locked = true;
+                                        }
+                                    }
+                                    icy_engine::MouseMode::VT200
+                                    | icy_engine::MouseMode::VT200_Highlight => {
+                                        if terminal_rect.contains(pos) {
+                                            let click_pos = (pos
+                                                - terminal_rect.min
+                                                - Vec2::new(0., top_margin_height))
+                                                / char_size
+                                                + Vec2::new(0.0, first_line as f32);
+
+                                            let mut modifier_mask = 3; // 3 means realease
+                                            if modifiers.shift {
+                                                modifier_mask |= 4;
+                                            }
+                                            if modifiers.alt {
+                                                modifier_mask |= 8;
+                                            }
+                                            if modifiers.ctrl || modifiers.mac_cmd {
+                                                modifier_mask |= 16;
+                                            }
+                                            self.output_string(
+                                                format!(
+                                                    "\x1b[M{}{}{}",
+                                                    encode_mouse_button(modifier_mask),
+                                                    encode_mouse_position(click_pos.x as i32),
+                                                    encode_mouse_position(click_pos.y as i32)
+                                                )
+                                                .as_str(),
+                                            );
+                                        }
+                                    }
+                                    _ => {}
                                 }
                             }
 
