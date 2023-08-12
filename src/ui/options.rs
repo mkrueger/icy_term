@@ -107,13 +107,11 @@ fn parse_value(options: &mut Options, value: &Value) {
             println!("a datetime --> {datetime}");
         }
         Value::Array(array) => {
-            println!("an array");
             for v in array {
                 parse_value(options, v);
             }
         }
         Value::Table(table) => {
-            println!("a table");
             for (k, v) in table {
                 match k.as_str() {
                     "scaling" => {
