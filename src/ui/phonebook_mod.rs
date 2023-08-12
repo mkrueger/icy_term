@@ -402,7 +402,7 @@ fn view_edit_bbs(window: &mut MainWindow, ui: &mut egui::Ui) {
             let converted: DateTime<Local> = DateTime::from(*last_call);
             ui.label(
                 converted
-                    .format(fl!(crate::LANGUAGE_LOADER, "phonebook-date-format").as_str())
+                    .format(fl!(crate::LANGUAGE_LOADER, "phonebook-last-call-date-format").as_str())
                     .to_string(),
             );
         }
@@ -484,10 +484,8 @@ fn view_edit_bbs(window: &mut MainWindow, ui: &mut egui::Ui) {
     let converted: DateTime<Local> =
         DateTime::from(window.get_address_mut(window.selected_bbs).created);
     ui.with_layout(Layout::left_to_right(egui::Align::BOTTOM), |ui| {
-        ui.label(format!(
-            "Created at {}",
-            converted.format(fl!(crate::LANGUAGE_LOADER, "phonebook-date-format").as_str())
-        ));
+        let str = fl!(crate::LANGUAGE_LOADER, "phonebook-created-at-date-format");
+        ui.label(converted.format(str.as_str()).to_string());
     });
 }
 
