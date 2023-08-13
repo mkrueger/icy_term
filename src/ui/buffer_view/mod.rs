@@ -324,7 +324,6 @@ void main() {
                 glow::TEXTURE_WRAP_T,
                 glow::CLAMP_TO_EDGE as i32,
             );
-    
 
             let buffer_texture = gl.create_texture().unwrap();
             create_buffer_texture(gl, &buf, 0, buffer_texture, &font_lookup_table);
@@ -519,7 +518,7 @@ void main() {
                 sixel_shader,
                 sixel_render_texture,
 
-                font_lookup_table
+                font_lookup_table,
             }
         }
     }

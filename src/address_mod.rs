@@ -3,10 +3,7 @@ use crate::ui::AdressCategory;
 use crate::TerminalResult;
 use chrono::{Duration, Utc};
 use directories::ProjectDirs;
-use icy_engine::{
-    AnsiParser, AsciiParser, AtasciiParser, AvatarParser, BufferParser, PETSCIIParser,
-    ViewdataParser,
-};
+use icy_engine::{ansi, ascii, atascii, avatar, petscii, viewdata, BufferParser};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::fs::File;
 use std::io::Write;
@@ -209,15 +206,15 @@ impl Address {
     pub fn get_terminal_parser(&self) -> Box<dyn BufferParser> {
         match self.terminal_type {
             Terminal::Ansi => {
-                let mut parser = AnsiParser::new();
+                let mut parser = ansi::Parser::default();
                 parser.ansi_music = self.ansi_music.clone().into();
                 Box::new(parser)
             }
-            Terminal::Avatar => Box::new(AvatarParser::new(true)),
-            Terminal::Ascii => Box::<AsciiParser>::default(),
-            Terminal::PETscii => Box::<PETSCIIParser>::default(),
-            Terminal::ATAscii => Box::<AtasciiParser>::default(),
-            Terminal::ViewData => Box::new(ViewdataParser::new()),
+            Terminal::Avatar => Box::<avatar::Parser>::default(),
+            Terminal::Ascii => Box::<ascii::Parser>::default(),
+            Terminal::PETscii => Box::<petscii::Parser>::default(),
+            Terminal::ATAscii => Box::<atascii::Parser>::default(),
+            Terminal::ViewData => Box::<viewdata::Parser>::default(),
         }
     }
 

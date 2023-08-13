@@ -3,7 +3,7 @@
 use chrono::Utc;
 use eframe::epaint::FontId;
 use i18n_embed_fl::fl;
-use icy_engine::{AvatarParser, BufferParser};
+use icy_engine::{ansi, BufferParser};
 use poll_promise::Promise;
 use rfd::FileDialog;
 use std::time::{Duration, SystemTime};
@@ -92,7 +92,7 @@ impl MainWindow {
             handled_char: false,
             is_alt_pressed: false,
             phonebook_filter: PhonebookFilter::All,
-            buffer_parser: Box::new(AvatarParser::new(true)),
+            buffer_parser: Box::<ansi::Parser>::default(),
             open_connection_promise: None,
             phonebook_filter_string: String::new(),
             rng: Rng::new(),

@@ -38,16 +38,9 @@ impl ViewState {
         let buffer = &mut self.buf;
         let sixel_len = buffer.layers[0].sixels.len();
         if sixel_len == 0 {
-            for sx in &self.sixel_cache {
-                if let Some(tex) = sx.texture_opt {
-                    unsafe {
-                        gl.delete_texture(tex);
-                    }
-                }
-            }
-            self.sixel_cache.clear();
+            self.clear_sixel_cache(gl);
+            return false;
         }
-
         let mut res = false;
         let mut i = 0;
         while i < sixel_len {
@@ -140,6 +133,7 @@ impl ViewState {
             }
             let (texture_opt, data_opt, clear) = match sixel.read_status {
                 SixelReadStatus::Finished | SixelReadStatus::Error => unsafe {
+                    println!("update texture : {}:{}!", i, buffer.layers[0].sixels.len());
                     let texture = gl.create_texture().unwrap();
                     gl.active_texture(glow::TEXTURE0 + 6);
                     gl.bind_texture(glow::TEXTURE_2D, Some(texture));
@@ -208,6 +202,17 @@ impl ViewState {
             }
         }
         res
+    }
+
+    fn clear_sixel_cache(&mut self, gl: &glow::Context) {
+        for sx in &self.sixel_cache {
+            if let Some(tex) = sx.texture_opt {
+                unsafe {
+                    gl.delete_texture(tex);
+                }
+            }
+        }
+        self.sixel_cache.clear();
     }
 
     pub fn clear_invisible_sixel_cache(&mut self, gl: &glow::Context, j: usize) {

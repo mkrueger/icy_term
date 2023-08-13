@@ -323,7 +323,7 @@ impl ViewState {
         if self.caret_blink.update(cur_ms) || self.character_blink.update(cur_ms) {
             self.redraw_view = true;
         }
- 
+
         if self.redraw_font || self.buf.is_font_table_updated() {
             self.redraw_font = false;
             self.font_lookup_table = create_font_texture(gl, &mut self.buf, self.font_texture);
@@ -331,7 +331,13 @@ impl ViewState {
 
         if self.redraw_view {
             self.redraw_view = false;
-            create_buffer_texture(gl, &self.buf, self.scroll_back_line, self.buffer_texture, &self.font_lookup_table);
+            create_buffer_texture(
+                gl,
+                &self.buf,
+                self.scroll_back_line,
+                self.buffer_texture,
+                &self.font_lookup_table,
+            );
         }
 
         if self.redraw_palette || self.colors != self.buf.palette.colors.len() {
@@ -340,7 +346,6 @@ impl ViewState {
             self.colors = self.buf.palette.colors.len();
         }
 
-        
         let buf = &self.buf;
         let render_buffer_size = Vec2::new(
             buf.get_font_dimensions().width as f32 * buf.get_buffer_width() as f32,
@@ -471,7 +476,11 @@ pub fn create_palette_texture(gl: &glow::Context, buf: &Buffer, palette_texture:
     }
 }
 
-pub fn create_font_texture(gl: &glow::Context, buf: &mut Buffer, font_texture: NativeTexture) -> HashMap<usize, usize> {
+pub fn create_font_texture(
+    gl: &glow::Context,
+    buf: &mut Buffer,
+    font_texture: NativeTexture,
+) -> HashMap<usize, usize> {
     let size = buf.get_font(0).unwrap().size;
     let w = size.width as usize;
     let h = size.height as usize;
@@ -480,14 +489,15 @@ pub fn create_font_texture(gl: &glow::Context, buf: &mut Buffer, font_texture: N
     let chars_in_line = 16;
     let line_width = w * chars_in_line * 4;
     let height = h * 256 / chars_in_line;
-    let mut font_table: HashMap<usize, usize>  = HashMap::default();
+    let mut font_table: HashMap<usize, usize> = HashMap::default();
     font_data.resize(line_width * height * buf.font_count(), 0);
     buf.set_font_table_is_updated();
 
     for (cur_font_num, font) in buf.font_iter().enumerate() {
         font_table.insert(*font.0, cur_font_num);
         for ch in 0..256usize {
-            let glyph = font.1
+            let glyph = font
+                .1
                 .get_glyph(unsafe { char::from_u32_unchecked(ch as u32) })
                 .unwrap();
 
@@ -543,7 +553,7 @@ pub fn create_buffer_texture(
     buf: &Buffer,
     scroll_back_line: i32,
     buffer_texture: NativeTexture,
-    font_lookup_table: &HashMap<usize, usize>
+    font_lookup_table: &HashMap<usize, usize>,
 ) {
     let first_line = max(
         0,
@@ -579,7 +589,8 @@ pub fn create_buffer_texture(
             buffer_data.push(conv_color(ch.attribute.get_background(), colors));
             if buf.has_fonts() {
                 buffer_data.push(
-                    (255.0 * *font_lookup_table.get(&ch.get_font_page()).unwrap() as f32 / (buf.font_count() - 1) as f32) as u8,
+                    (255.0 * *font_lookup_table.get(&ch.get_font_page()).unwrap() as f32
+                        / (buf.font_count() - 1) as f32) as u8,
                 );
             } else {
                 buffer_data.push(0);
@@ -608,8 +619,8 @@ pub fn create_buffer_texture(
 
                 if buf.has_fonts() {
                     buffer_data.push(
-                        (255.0 * *font_lookup_table.get(&ch.get_font_page()).unwrap() as f32 / (buf.font_count() - 1) as f32)
-                            as u8,
+                        (255.0 * *font_lookup_table.get(&ch.get_font_page()).unwrap() as f32
+                            / (buf.font_count() - 1) as f32) as u8,
                     );
                 } else {
                     buffer_data.push(0);
