@@ -1,6 +1,6 @@
 [package]
 name = "icy_term"
-version = "0.5.3"
+version = "0.5.4"
 edition = "2021"
 authors = ["Mike Krüger <mkrueger@posteo.de>"]
 description = "A terminal program supporting CP437, PetScii and ViewData"
@@ -28,7 +28,7 @@ glow = "0.12.2"
 
 #sound
 #cpal = { git = "https://github.com/RustAudio/cpal.git" }
-icy_engine = { path ="../icy_engine" }
+icy_engine = { git ="https://github.com/mkrueger/icy_engine" }
 tokio = { version = "1.30.0", features = ["full"] }
 
 walkdir = "2"

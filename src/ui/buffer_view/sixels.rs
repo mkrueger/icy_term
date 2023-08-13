@@ -13,21 +13,10 @@ pub struct SixelCacheEntry {
     pub texture: NativeTexture,
 }
 
-impl SixelCacheEntry {
-    pub fn rect(&self) -> icy_engine::Rectangle {
-        icy_engine::Rectangle {
-            start: self.pos,
-            size: self.size,
-        }
-    }
-
-    fn reset(&mut self) {}
-}
-
 impl ViewState {
     pub fn update_sixels(&mut self, gl: &glow::Context) -> bool {
         let buffer = &mut self.buf;
-        if buffer.layers[0].sixels.len() == 0 {
+        if buffer.layers[0].sixels.is_empty() {
             for sx in &self.sixel_cache {
                 unsafe {
                     gl.delete_texture(sx.texture);
@@ -50,17 +39,14 @@ impl ViewState {
         //   if sixel_len == 0 {
         //     return false;
         //  }
-        let mut res = false;
         let mut i = 0;
         while i < sixel_len {
             let sixel = &buffer.layers[0].sixels[i];
-            let data_len = (sixel.height() * sixel.width() * 4) as usize;
+            //let data_len = (sixel.height() * sixel.width() * 4) as usize;
             let mut data = Vec::new();
             for y in 0..sixel.height() {
                 data.extend(&sixel.picture_data[y as usize]);
             }
-
-            println!("gen texture");
 
             unsafe {
                 let texture = gl.create_texture().unwrap();
@@ -112,31 +98,6 @@ impl ViewState {
             }
             i += 1;
         }
-
-        res
-    }
-
-    fn clear_sixel_cache(&mut self, gl: &glow::Context) {}
-
-    pub fn clear_invisible_sixel_cache(&mut self, gl: &glow::Context, j: usize) {
-        // remove cache entries that are removed by the engine
-        if j > 0 {
-            let cur_rect = self.sixel_cache[j].rect();
-            let mut i = j - 1;
-            loop {
-                let other_rect = self.sixel_cache[i].rect();
-                if cur_rect.contains(other_rect) {
-                    let t = self.sixel_cache.remove(i);
-                    unsafe {
-                        gl.delete_texture(t.texture);
-                    }
-                    self.buf.layers[0].sixels.remove(i);
-                }
-                if i == 0 {
-                    break;
-                }
-                i -= 1;
-            }
-        }
+        false
     }
 }
