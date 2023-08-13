@@ -1,20 +1,16 @@
 #![allow(clippy::many_single_char_names, clippy::collapsible_match)]
 use glow::{HasContext, NativeTexture};
-use icy_engine::{Position, SixelReadStatus};
+use icy_engine::{Position};
 
 use super::ViewState;
 
 pub struct SixelCacheEntry {
-    pub status: SixelReadStatus,
-    pub old_line: i32,
-    pub data_opt: Option<Vec<u8>>,
-
     pub pos: Position,
     pub size: icy_engine::Size<i32>,
     pub x_scale: i32,
     pub y_scale: i32,
 
-    pub texture_opt: Option<NativeTexture>,
+    pub texture: NativeTexture,
 }
 
 impl SixelCacheEntry {
@@ -26,193 +22,104 @@ impl SixelCacheEntry {
     }
 
     fn reset(&mut self) {
-        self.status = SixelReadStatus::default();
-        self.old_line = 0;
-        self.data_opt = None;
-        self.texture_opt = None;
     }
 }
 
 impl ViewState {
     pub fn update_sixels(&mut self, gl: &glow::Context) -> bool {
         let buffer = &mut self.buf;
-        let sixel_len = buffer.layers[0].sixels.len();
-        if sixel_len == 0 {
-            self.clear_sixel_cache(gl);
+        if buffer.layers[0].sixels.len() == 0 {
+            for sx in &self.sixel_cache {
+                unsafe {
+                    gl.delete_texture(sx.texture);
+                }
+            }
+            self.sixel_cache.clear();
             return false;
         }
+        if !buffer.layers[0].updated_sixels {
+            return false;
+        }
+        for sx in &self.sixel_cache {
+            unsafe {
+                gl.delete_texture(sx.texture);
+            }
+        }
+        self.sixel_cache.clear();
+
+        let sixel_len = buffer.layers[0].sixels.len();
+     //   if sixel_len == 0 {
+       //     return false;
+      //  }
         let mut res = false;
         let mut i = 0;
         while i < sixel_len {
-            let reset_entry = matches!(
-                buffer.layers[0].sixels[i].read_status,
-                SixelReadStatus::Updated
-            );
-            if reset_entry {
-                buffer.layers[0].sixels[i].read_status = SixelReadStatus::Finished;
-            }
-
             let sixel = &buffer.layers[0].sixels[i];
-
-            if sixel.width() == 0 || sixel.height() == 0 {
-                i += 1;
-                continue;
-            }
-
-            let mut old_line = 0;
-            let current_line = match sixel.read_status {
-                SixelReadStatus::Position(_, y) => y * 6,
-                SixelReadStatus::Error | SixelReadStatus::Finished | SixelReadStatus::Updated => {
-                    sixel.height() as i32
-                }
-                SixelReadStatus::NotStarted => 0,
-            };
-
-            if let Some(entry) = self.sixel_cache.get_mut(i) {
-                if reset_entry {
-                    if let Some(texture) = entry.texture_opt {
-                        unsafe {
-                            gl.delete_texture(texture);
-                        }
-                    }
-                    entry.reset();
-                }
-
-                old_line = entry.old_line;
-                if let SixelReadStatus::Position(_, _) = sixel.read_status {
-                    if old_line + 5 * 6 >= current_line {
-                        i += 1;
-                        continue;
-                    }
-                }
-                if entry.status == sixel.read_status {
-                    i += 1;
-                    continue;
-                }
-            }
-            res = true;
             let data_len = (sixel.height() * sixel.width() * 4) as usize;
-            let mut removed_index = -1;
-            let mut v = if self.sixel_cache.len() > i {
-                let mut entry = self.sixel_cache.remove(i);
-                // old_handle = entry.image_opt;
-                removed_index = i as i32;
-                if let Some(ptr) = &mut entry.data_opt {
-                    if ptr.len() < data_len {
-                        ptr.resize(data_len, 0);
-                    }
-                    entry.data_opt.take().unwrap()
-                } else {
-                    vec![0; data_len]
-                }
-            } else {
-                vec![0; data_len]
-            };
+            let mut data = Vec::new();
 
-            let mut j = old_line as usize * sixel.width() as usize * 4;
-
-            for y in old_line..current_line {
-                let line = &sixel.picture_data[y as usize];
-                for x in 0..sixel.width() {
-                    let data = if let Some(c) = line.get(x as usize) {
-                        let (r, g, b) = c.get_rgb();
-                        [r, g, b, 0xFF]
-                    } else {
-                        [0, 0, 0, 0]
-                    };
-                    if j >= v.len() {
-                        v.extend_from_slice(&data);
-                    } else {
-                        v[j] = data[0];
-                        v[j + 1] = data[1];
-                        v[j + 2] = data[2];
-                        v[j + 3] = data[3];
-                    }
-                    j += 4;
-                }
+            println!("get sixel data!!! {}x{}", sixel.width(), sixel.height());
+            for y in 0..sixel.height() {
+                data.extend(&sixel.picture_data[y as usize]);
             }
-            let (texture_opt, data_opt, clear) = match sixel.read_status {
-                SixelReadStatus::Finished | SixelReadStatus::Error => unsafe {
-                    println!("update texture : {}:{}!", i, buffer.layers[0].sixels.len());
-                    let texture = gl.create_texture().unwrap();
-                    gl.active_texture(glow::TEXTURE0 + 6);
-                    gl.bind_texture(glow::TEXTURE_2D, Some(texture));
-                    gl.tex_parameter_i32(
-                        glow::TEXTURE_2D,
-                        glow::TEXTURE_MIN_FILTER,
-                        glow::NEAREST as i32,
-                    );
-                    gl.tex_parameter_i32(
-                        glow::TEXTURE_2D,
-                        glow::TEXTURE_MAG_FILTER,
-                        glow::NEAREST as i32,
-                    );
-                    gl.tex_parameter_i32(
-                        glow::TEXTURE_2D,
-                        glow::TEXTURE_WRAP_S,
-                        glow::CLAMP_TO_EDGE as i32,
-                    );
-                    gl.tex_parameter_i32(
-                        glow::TEXTURE_2D,
-                        glow::TEXTURE_WRAP_T,
-                        glow::CLAMP_TO_EDGE as i32,
-                    );
-                    gl.tex_image_2d(
-                        glow::TEXTURE_2D,
-                        0,
-                        glow::RGB as i32,
-                        sixel.width() as i32,
-                        sixel.height() as i32,
-                        0,
-                        glow::RGBA,
-                        glow::UNSIGNED_BYTE,
-                        Some(&v),
-                    );
-                    (Some(texture), None, true)
-                },
-                _ => (None, Some(v), false),
-            };
 
-            let new_entry = SixelCacheEntry {
-                status: sixel.read_status,
-                old_line: current_line,
-                data_opt,
-                pos: sixel.position,
-                x_scale: sixel.horizontal_size,
-                y_scale: sixel.vertical_size,
-                size: icy_engine::Size {
-                    width: sixel.width() as i32,
-                    height: sixel.height() as i32,
-                },
-                texture_opt,
-            };
+            println!("gen texture");
 
-            if removed_index < 0 {
+            unsafe { 
+                let texture = gl.create_texture().unwrap();
+                gl.active_texture(glow::TEXTURE0 + 6);
+                gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_MIN_FILTER,
+                    glow::NEAREST as i32,
+                );
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_MAG_FILTER,
+                    glow::NEAREST as i32,
+                );
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_WRAP_S,
+                    glow::CLAMP_TO_EDGE as i32,
+                );
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_WRAP_T,
+                    glow::CLAMP_TO_EDGE as i32,
+                );
+                gl.tex_image_2d(
+                    glow::TEXTURE_2D,
+                    0,
+                    glow::RGB as i32,
+                    sixel.width() as i32,
+                    sixel.height() as i32,
+                    0,
+                    glow::RGBA,
+                    glow::UNSIGNED_BYTE,
+                    Some(&data),
+                );
+
+                let new_entry = SixelCacheEntry {
+                    pos: sixel.position,
+                    x_scale: sixel.horizontal_scale,
+                    y_scale: sixel.vertical_scale,
+                    size: icy_engine::Size {
+                        width: sixel.width() as i32,
+                        height: sixel.height() as i32,
+                    },
+                    texture
+                };
                 self.sixel_cache.push(new_entry);
-                if clear {
-                    self.clear_invisible_sixel_cache(gl, self.sixel_cache.len() - 1);
-                    break;
-                }
-            } else {
-                self.sixel_cache.insert(removed_index as usize, new_entry);
-                if clear {
-                    self.clear_invisible_sixel_cache(gl, removed_index as usize);
-                    break;
-                }
             }
+            i+=1;
         }
+
         res
     }
 
     fn clear_sixel_cache(&mut self, gl: &glow::Context) {
-        for sx in &self.sixel_cache {
-            if let Some(tex) = sx.texture_opt {
-                unsafe {
-                    gl.delete_texture(tex);
-                }
-            }
-        }
-        self.sixel_cache.clear();
     }
 
     pub fn clear_invisible_sixel_cache(&mut self, gl: &glow::Context, j: usize) {
@@ -224,10 +131,8 @@ impl ViewState {
                 let other_rect = self.sixel_cache[i].rect();
                 if cur_rect.contains(other_rect) {
                     let t = self.sixel_cache.remove(i);
-                    if let Some(texture) = &t.texture_opt {
-                        unsafe {
-                            gl.delete_texture(*texture);
-                        }
+                    unsafe {
+                        gl.delete_texture(t.texture);
                     }
                     self.buf.layers[0].sixels.remove(i);
                 }

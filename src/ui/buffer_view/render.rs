@@ -173,69 +173,67 @@ impl ViewState {
             let mut sixel_render_texture = self.sixel_render_texture;
 
             for sixel in &self.sixel_cache {
-                if let Some(sixel_tex) = sixel.texture_opt {
-                    gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.framebuffer));
-                    gl.framebuffer_texture(
-                        glow::FRAMEBUFFER,
-                        glow::COLOR_ATTACHMENT0,
-                        Some(sixel_render_texture),
-                        0,
-                    );
-                    gl.bind_texture(glow::TEXTURE_2D, Some(sixel_render_texture));
+                gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.framebuffer));
+                gl.framebuffer_texture(
+                    glow::FRAMEBUFFER,
+                    glow::COLOR_ATTACHMENT0,
+                    Some(sixel_render_texture),
+                    0,
+                );
+                gl.bind_texture(glow::TEXTURE_2D, Some(sixel_render_texture));
 
-                    gl.viewport(
-                        0,
-                        0,
-                        self.render_buffer_size.x as i32,
-                        self.render_buffer_size.y as i32,
-                    );
+                gl.viewport(
+                    0,
+                    0,
+                    self.render_buffer_size.x as i32,
+                    self.render_buffer_size.y as i32,
+                );
 
-                    gl.use_program(Some(self.sixel_shader));
-                    gl.uniform_1_i32(
-                        gl.get_uniform_location(self.sixel_shader, "u_render_texture")
-                            .as_ref(),
-                        4,
-                    );
-                    gl.uniform_1_i32(
-                        gl.get_uniform_location(self.sixel_shader, "u_sixel")
-                            .as_ref(),
-                        2,
-                    );
+                gl.use_program(Some(self.sixel_shader));
+                gl.uniform_1_i32(
+                    gl.get_uniform_location(self.sixel_shader, "u_render_texture")
+                        .as_ref(),
+                    4,
+                );
+                gl.uniform_1_i32(
+                    gl.get_uniform_location(self.sixel_shader, "u_sixel")
+                        .as_ref(),
+                    2,
+                );
 
-                    gl.active_texture(glow::TEXTURE0 + 4);
-                    gl.bind_texture(glow::TEXTURE_2D, Some(render_texture));
+                gl.active_texture(glow::TEXTURE0 + 4);
+                gl.bind_texture(glow::TEXTURE_2D, Some(render_texture));
 
-                    gl.active_texture(glow::TEXTURE0 + 2);
-                    gl.bind_texture(glow::TEXTURE_2D, Some(sixel_tex));
+                gl.active_texture(glow::TEXTURE0 + 2);
+                gl.bind_texture(glow::TEXTURE_2D, Some(sixel.texture));
 
-                    gl.uniform_2_f32(
-                        gl.get_uniform_location(self.sixel_shader, "u_resolution")
-                            .as_ref(),
-                        self.render_buffer_size.x,
-                        self.render_buffer_size.y,
-                    );
+                gl.uniform_2_f32(
+                    gl.get_uniform_location(self.sixel_shader, "u_resolution")
+                        .as_ref(),
+                    self.render_buffer_size.x,
+                    self.render_buffer_size.y,
+                );
 
-                    let x = sixel.pos.x as f32 * self.buf.get_font_dimensions().width as f32;
-                    let y = sixel.pos.y as f32 * self.buf.get_font_dimensions().height as f32;
+                let x = sixel.pos.x as f32 * self.buf.get_font_dimensions().width as f32;
+                let y = sixel.pos.y as f32 * self.buf.get_font_dimensions().height as f32;
 
-                    let w = sixel.size.width as f32 * sixel.x_scale as f32;
-                    let h = sixel.size.height as f32 * sixel.y_scale as f32;
+                let w = sixel.size.width as f32 * sixel.x_scale as f32;
+                let h = sixel.size.height as f32 * sixel.y_scale as f32;
 
-                    gl.uniform_4_f32(
-                        gl.get_uniform_location(self.sixel_shader, "u_sixel_rectangle")
-                            .as_ref(),
-                        x,
-                        y,
-                        x + w,
-                        y + h,
-                    );
+                gl.uniform_4_f32(
+                    gl.get_uniform_location(self.sixel_shader, "u_sixel_rectangle")
+                        .as_ref(),
+                    x,
+                    y,
+                    x + w,
+                    y + h,
+                );
 
-                    gl.bind_vertex_array(Some(self.vertex_array));
-                    gl.draw_arrays(glow::TRIANGLES, 0, 3);
-                    gl.draw_arrays(glow::TRIANGLES, 3, 3);
+                gl.bind_vertex_array(Some(self.vertex_array));
+                gl.draw_arrays(glow::TRIANGLES, 0, 3);
+                gl.draw_arrays(glow::TRIANGLES, 3, 3);
 
-                    std::mem::swap(&mut render_texture, &mut sixel_render_texture);
-                }
+                std::mem::swap(&mut render_texture, &mut sixel_render_texture);
             }
 
             // draw Framebuffer
@@ -314,6 +312,7 @@ impl ViewState {
 
     pub fn update_buffer(&mut self, gl: &glow::Context) {
         self.update_sixels(gl);
+        self.buf.layers[0].updated_sixels = false;
 
         let start = SystemTime::now();
         let since_the_epoch = start
