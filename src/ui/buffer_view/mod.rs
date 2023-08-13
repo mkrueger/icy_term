@@ -1,6 +1,7 @@
 use std::cmp::{max, min};
 
 use eframe::epaint::Vec2;
+use egui::epaint::ahash::HashMap;
 use glow::NativeTexture;
 use icy_engine::{Buffer, BufferParser, CallbackAction, Caret, EngineResult, Position};
 
@@ -80,6 +81,8 @@ pub struct ViewState {
 
     pub selection_opt: Option<Selection>,
 
+    pub font_lookup_table: HashMap<usize, usize>,
+
     program: glow::Program,
     vertex_array: glow::VertexArray,
 
@@ -89,7 +92,6 @@ pub struct ViewState {
     colors: usize,
 
     redraw_font: bool,
-    fonts: usize,
     scaling: Scaling,
     post_processing: PostProcessing,
 
@@ -299,8 +301,33 @@ void main() {
             let vertex_array = gl
                 .create_vertex_array()
                 .expect("Cannot create vertex array");
+
+            let font_texture = gl.create_texture().unwrap();
+            let font_lookup_table = create_font_texture(gl, &mut buf, font_texture);
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D_ARRAY,
+                glow::TEXTURE_MIN_FILTER,
+                glow::NEAREST as i32,
+            );
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D_ARRAY,
+                glow::TEXTURE_MAG_FILTER,
+                glow::NEAREST as i32,
+            );
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D_ARRAY,
+                glow::TEXTURE_WRAP_S,
+                glow::CLAMP_TO_EDGE as i32,
+            );
+            gl.tex_parameter_i32(
+                glow::TEXTURE_2D_ARRAY,
+                glow::TEXTURE_WRAP_T,
+                glow::CLAMP_TO_EDGE as i32,
+            );
+    
+
             let buffer_texture = gl.create_texture().unwrap();
-            create_buffer_texture(gl, &buf, 0, buffer_texture);
+            create_buffer_texture(gl, &buf, 0, buffer_texture, &font_lookup_table);
             gl.tex_parameter_i32(
                 glow::TEXTURE_2D_ARRAY,
                 glow::TEXTURE_MIN_FILTER,
@@ -345,30 +372,7 @@ void main() {
                 glow::CLAMP_TO_EDGE as i32,
             );
 
-            let font_texture = gl.create_texture().unwrap();
-            create_font_texture(gl, &buf, font_texture);
-            gl.tex_parameter_i32(
-                glow::TEXTURE_2D_ARRAY,
-                glow::TEXTURE_MIN_FILTER,
-                glow::NEAREST as i32,
-            );
-            gl.tex_parameter_i32(
-                glow::TEXTURE_2D_ARRAY,
-                glow::TEXTURE_MAG_FILTER,
-                glow::NEAREST as i32,
-            );
-            gl.tex_parameter_i32(
-                glow::TEXTURE_2D_ARRAY,
-                glow::TEXTURE_WRAP_S,
-                glow::CLAMP_TO_EDGE as i32,
-            );
-            gl.tex_parameter_i32(
-                glow::TEXTURE_2D_ARRAY,
-                glow::TEXTURE_WRAP_T,
-                glow::CLAMP_TO_EDGE as i32,
-            );
             let colors = buf.palette.colors.len();
-            let fonts = buf.font_table.len();
             let framebuffer = gl.create_framebuffer().unwrap();
 
             gl.bind_framebuffer(glow::FRAMEBUFFER, Some(framebuffer));
@@ -499,7 +503,6 @@ void main() {
                 scroll_back_line: 0,
                 selection_opt: None,
                 colors,
-                fonts,
                 program,
                 draw_program,
                 vertex_array,
@@ -515,6 +518,8 @@ void main() {
 
                 sixel_shader,
                 sixel_render_texture,
+
+                font_lookup_table
             }
         }
     }

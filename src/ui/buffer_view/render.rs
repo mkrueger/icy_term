@@ -1,5 +1,6 @@
 #![allow(clippy::float_cmp)]
 use eframe::epaint::{PaintCallbackInfo, Rect, Vec2};
+use egui::epaint::ahash::HashMap;
 use glow::NativeTexture;
 use icy_engine::Buffer;
 use std::{
@@ -322,10 +323,15 @@ impl ViewState {
         if self.caret_blink.update(cur_ms) || self.character_blink.update(cur_ms) {
             self.redraw_view = true;
         }
+ 
+        if self.redraw_font || self.buf.is_font_table_updated() {
+            self.redraw_font = false;
+            self.font_lookup_table = create_font_texture(gl, &mut self.buf, self.font_texture);
+        }
 
         if self.redraw_view {
             self.redraw_view = false;
-            create_buffer_texture(gl, &self.buf, self.scroll_back_line, self.buffer_texture);
+            create_buffer_texture(gl, &self.buf, self.scroll_back_line, self.buffer_texture, &self.font_lookup_table);
         }
 
         if self.redraw_palette || self.colors != self.buf.palette.colors.len() {
@@ -334,11 +340,7 @@ impl ViewState {
             self.colors = self.buf.palette.colors.len();
         }
 
-        if self.redraw_font || self.fonts != self.buf.font_table.len() {
-            self.redraw_font = false;
-            create_font_texture(gl, &self.buf, self.palette_texture);
-            self.fonts = self.buf.font_table.len();
-        }
+        
         let buf = &self.buf;
         let render_buffer_size = Vec2::new(
             buf.get_font_dimensions().width as f32 * buf.get_buffer_width() as f32,
@@ -469,27 +471,30 @@ pub fn create_palette_texture(gl: &glow::Context, buf: &Buffer, palette_texture:
     }
 }
 
-pub fn create_font_texture(gl: &glow::Context, buf: &Buffer, font_texture: NativeTexture) {
-    let w = buf.font_table[0].size.width as usize;
-    let h = buf.font_table[0].size.height as usize;
+pub fn create_font_texture(gl: &glow::Context, buf: &mut Buffer, font_texture: NativeTexture) -> HashMap<usize, usize> {
+    let size = buf.get_font(0).unwrap().size;
+    let w = size.width as usize;
+    let h = size.height as usize;
 
     let mut font_data = Vec::new();
     let chars_in_line = 16;
     let line_width = w * chars_in_line * 4;
     let height = h * 256 / chars_in_line;
+    let mut font_table: HashMap<usize, usize>  = HashMap::default();
+    font_data.resize(line_width * height * buf.font_count(), 0);
+    buf.set_font_table_is_updated();
 
-    font_data.resize(line_width * height * buf.font_table.len(), 0);
-
-    for i in 0..buf.font_table.len() {
+    for (cur_font_num, font) in buf.font_iter().enumerate() {
+        font_table.insert(*font.0, cur_font_num);
         for ch in 0..256usize {
-            let glyph = buf.font_table[i]
+            let glyph = font.1
                 .get_glyph(unsafe { char::from_u32_unchecked(ch as u32) })
                 .unwrap();
 
             let x = ch % chars_in_line;
             let y = ch / chars_in_line;
 
-            let offset = x * w * 4 + y * h * line_width + i * line_width * height;
+            let offset = x * w * 4 + y * h * line_width + cur_font_num * line_width * height;
             for y in 0..h {
                 let scan_line = glyph.data[y];
                 let mut po = offset + y * line_width;
@@ -523,13 +528,14 @@ pub fn create_font_texture(gl: &glow::Context, buf: &Buffer, font_texture: Nativ
             glow::RGB as i32,
             line_width as i32 / 4,
             height as i32,
-            buf.font_table.len() as i32,
+            buf.font_count() as i32,
             0,
             glow::RGBA,
             glow::UNSIGNED_BYTE,
             Some(&font_data),
         );
     }
+    font_table
 }
 
 pub fn create_buffer_texture(
@@ -537,6 +543,7 @@ pub fn create_buffer_texture(
     buf: &Buffer,
     scroll_back_line: i32,
     buffer_texture: NativeTexture,
+    font_lookup_table: &HashMap<usize, usize>
 ) {
     let first_line = max(
         0,
@@ -570,12 +577,12 @@ pub fn create_buffer_texture(
                 buffer_data.push(conv_color(ch.attribute.get_foreground(), colors));
             }
             buffer_data.push(conv_color(ch.attribute.get_background(), colors));
-            if buf.font_table.is_empty() {
-                buffer_data.push(0);
-            } else {
+            if buf.has_fonts() {
                 buffer_data.push(
-                    (255.0 * ch.get_font_page() as f32 / (buf.font_table.len() - 1) as f32) as u8,
+                    (255.0 * *font_lookup_table.get(&ch.get_font_page()).unwrap() as f32 / (buf.font_count() - 1) as f32) as u8,
                 );
+            } else {
+                buffer_data.push(0);
             }
         }
 
@@ -599,13 +606,13 @@ pub fn create_buffer_texture(
 
                 buffer_data.push(conv_color(ch.attribute.get_background(), colors));
 
-                if buf.font_table.is_empty() {
-                    buffer_data.push(0);
-                } else {
+                if buf.has_fonts() {
                     buffer_data.push(
-                        (255.0 * ch.get_font_page() as f32 / (buf.font_table.len() - 1) as f32)
+                        (255.0 * *font_lookup_table.get(&ch.get_font_page()).unwrap() as f32 / (buf.font_count() - 1) as f32)
                             as u8,
                     );
+                } else {
+                    buffer_data.push(0);
                 }
             }
         }
