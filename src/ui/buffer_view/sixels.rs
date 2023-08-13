@@ -1,6 +1,6 @@
 #![allow(clippy::many_single_char_names, clippy::collapsible_match)]
 use glow::{HasContext, NativeTexture};
-use icy_engine::{Position};
+use icy_engine::Position;
 
 use super::ViewState;
 
@@ -21,8 +21,7 @@ impl SixelCacheEntry {
         }
     }
 
-    fn reset(&mut self) {
-    }
+    fn reset(&mut self) {}
 }
 
 impl ViewState {
@@ -48,24 +47,22 @@ impl ViewState {
         self.sixel_cache.clear();
 
         let sixel_len = buffer.layers[0].sixels.len();
-     //   if sixel_len == 0 {
-       //     return false;
-      //  }
+        //   if sixel_len == 0 {
+        //     return false;
+        //  }
         let mut res = false;
         let mut i = 0;
         while i < sixel_len {
             let sixel = &buffer.layers[0].sixels[i];
             let data_len = (sixel.height() * sixel.width() * 4) as usize;
             let mut data = Vec::new();
-
-            println!("get sixel data!!! {}x{}", sixel.width(), sixel.height());
             for y in 0..sixel.height() {
                 data.extend(&sixel.picture_data[y as usize]);
             }
 
             println!("gen texture");
 
-            unsafe { 
+            unsafe {
                 let texture = gl.create_texture().unwrap();
                 gl.active_texture(glow::TEXTURE0 + 6);
                 gl.bind_texture(glow::TEXTURE_2D, Some(texture));
@@ -109,18 +106,17 @@ impl ViewState {
                         width: sixel.width() as i32,
                         height: sixel.height() as i32,
                     },
-                    texture
+                    texture,
                 };
                 self.sixel_cache.push(new_entry);
             }
-            i+=1;
+            i += 1;
         }
 
         res
     }
 
-    fn clear_sixel_cache(&mut self, gl: &glow::Context) {
-    }
+    fn clear_sixel_cache(&mut self, gl: &glow::Context) {}
 
     pub fn clear_invisible_sixel_cache(&mut self, gl: &glow::Context, j: usize) {
         // remove cache entries that are removed by the engine
