@@ -3,6 +3,7 @@ use crate::ui::AdressCategory;
 use crate::TerminalResult;
 use chrono::{Duration, Utc};
 use directories::ProjectDirs;
+use icy_engine::ansi::MusicOption;
 use icy_engine::{ansi, ascii, atascii, avatar, petscii, viewdata, BufferParser};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::fs::File;
@@ -101,7 +102,7 @@ pub struct Address {
     pub protocol: Protocol,
 
     pub ice_mode: bool,
-    pub ansi_music: String,
+    pub ansi_music: MusicOption,
 
     pub font_name: Option<String>,
     pub screen_mode: ScreenMode,
@@ -187,7 +188,7 @@ impl Address {
             auto_login: String::new(),
             address: String::new(),
             protocol: Protocol::Telnet,
-            ansi_music: String::new(),
+            ansi_music: MusicOption::Off,
             ice_mode: true,
             id: unsafe { current_id },
             is_favored: false,
@@ -203,11 +204,11 @@ impl Address {
         }
     }
 
-    pub fn get_terminal_parser(&self) -> Box<dyn BufferParser> {
+    pub fn get_terminal_parser(&self, addr: &Address) -> Box<dyn BufferParser> {
         match self.terminal_type {
             Terminal::Ansi => {
                 let mut parser = ansi::Parser::default();
-                parser.ansi_music = self.ansi_music.clone().into();
+                parser.ansi_music = addr.ansi_music;
                 Box::new(parser)
             }
             Terminal::Avatar => Box::<avatar::Parser>::default(),
@@ -373,6 +374,15 @@ fn parse_address(value: &Value) -> Address {
             }
         }
 
+        if let Some(Value::String(value)) = table.get("ansi_music") {
+            match value.to_lowercase().as_str() {
+                "banana" => result.ansi_music = MusicOption::Banana,
+                "conflicting" => result.ansi_music = MusicOption::Conflicting,
+                "both" => result.ansi_music = MusicOption::Both,
+                _ => {}
+            }
+        }
+
         if let Some(Value::String(value)) = table.get("terminal_type") {
             match value.to_lowercase().as_str() {
                 "ansi" => result.terminal_type = Terminal::Ansi,
@@ -412,22 +422,34 @@ fn escape(value: &str) -> String {
 fn store_address(file: &mut File, addr: &Address) -> TerminalResult<()> {
     file.write_all(b"\n[[addresses]]\n")?;
     file.write_all(format!("system_name = \"{}\"\n", escape(&addr.system_name)).as_bytes())?;
-    file.write_all(format!("is_favored = {}\n", addr.is_favored).as_bytes())?;
+    if addr.is_favored {
+        file.write_all(format!("is_favored = {}\n", addr.is_favored).as_bytes())?;
+    }
     file.write_all(format!("address = \"{}\"\n", escape(&addr.address)).as_bytes())?;
     file.write_all(format!("protocol = \"{:?}\"\n", addr.protocol).as_bytes())?;
-    file.write_all(format!("user_name = \"{}\"\n", escape(&addr.user_name)).as_bytes())?;
-    file.write_all(format!("password = \"{}\"\n", escape(&addr.password)).as_bytes())?;
-    file.write_all(format!("auto_login = \"{}\"\n", escape(&addr.auto_login)).as_bytes())?;
+    if !addr.user_name.is_empty() {
+        file.write_all(format!("user_name = \"{}\"\n", escape(&addr.user_name)).as_bytes())?;
+    }
+    if !addr.password.is_empty() {
+        file.write_all(format!("password = \"{}\"\n", escape(&addr.password)).as_bytes())?;
+    }
+    if !addr.auto_login.is_empty() {
+        file.write_all(format!("auto_login = \"{}\"\n", escape(&addr.auto_login)).as_bytes())?;
+    }
     file.write_all(format!("terminal_type = \"{:?}\"\n", addr.terminal_type).as_bytes())?;
+    if addr.ansi_music != MusicOption::Off {
+        file.write_all(format!("ansi_music = \"{:?}\"\n", addr.ansi_music).as_bytes())?;
+    }
     file.write_all(format!("screen_mode = \"{:?}\"\n", addr.screen_mode).as_bytes())?;
-    file.write_all(format!("comment = \"{}\"\n", escape(&addr.comment)).as_bytes())?;
+    if !addr.comment.is_empty() {
+        file.write_all(format!("comment = \"{}\"\n", escape(&addr.comment)).as_bytes())?;
+    }
     file.write_all(format!("number_of_calls = {}\n", addr.number_of_calls).as_bytes())?;
 
     if let Some(last_call) = addr.last_call {
         file.write_all(format!("last_call = \"{}\"\n", last_call.to_rfc3339()).as_bytes())?;
     }
     file.write_all(format!("created = \"{}\"\n", addr.created.to_rfc3339()).as_bytes())?;
-
     Ok(())
 }
 

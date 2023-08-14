@@ -6,6 +6,7 @@ use eframe::{
 };
 use egui::{Id, Rect};
 use i18n_embed_fl::fl;
+use icy_engine::ansi::MusicOption;
 
 use crate::address_mod::{self, store_phone_book, Address, Terminal};
 
@@ -491,6 +492,13 @@ fn view_edit_bbs(window: &mut MainWindow, ui: &mut egui::Ui) {
     });
 }
 
+const MUSIC_OPTIONS: [MusicOption; 4] = [
+    MusicOption::Off,
+    MusicOption::Banana,
+    MusicOption::Conflicting,
+    MusicOption::Both,
+];
+
 fn render_terminal_category(window: &mut MainWindow, ui: &mut egui::Ui) {
     let adr = window.get_address_mut(window.selected_bbs);
     egui::Grid::new("some_unique_id")
@@ -537,6 +545,25 @@ fn render_terminal_category(window: &mut MainWindow, ui: &mut egui::Ui) {
                     }
                 });
             ui.end_row();
+
+            if adr.terminal_type == Terminal::Ansi {
+                ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(RichText::new(fl!(
+                        crate::LANGUAGE_LOADER,
+                        "phonebook-music-option"
+                    )));
+                });
+                egui::ComboBox::from_id_source("combobox4")
+                    .selected_text(RichText::new(format!("{}", adr.ansi_music)))
+                    .width(250.)
+                    .show_ui(ui, |ui| {
+                        for t in &MUSIC_OPTIONS {
+                            let label = RichText::new(format!("{t}"));
+                            ui.selectable_value(&mut adr.ansi_music, *t, label);
+                        }
+                    });
+                ui.end_row();
+            }
         });
 }
 

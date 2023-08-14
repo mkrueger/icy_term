@@ -347,9 +347,7 @@ impl MainWindow {
                                 let mode: icy_engine::MouseMode =
                                     self.buffer_view.lock().buf.terminal_state.mouse_mode;
 
-                                if let Some(sel) =
-                                    &mut self.buffer_view.lock().selection_opt
-                                {
+                                if let Some(sel) = &mut self.buffer_view.lock().selection_opt {
                                     sel.locked = true;
                                 }
 

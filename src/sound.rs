@@ -1,11 +1,14 @@
-use std::thread;
+use std::{
+    io::{self, ErrorKind},
+    thread,
+};
 
+use cpal::FromSample;
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     SizedSample,
 };
-use cpal::{FromSample, Sample};
-use icy_engine::AnsiMusic;
+use icy_engine::{AnsiMusic, EngineResult};
 
 pub fn play_music(music: &AnsiMusic) {
     let mut i = 0;
@@ -75,40 +78,36 @@ impl SampleRequestOptions {
     }
 }
 
-pub fn stream_setup_for<F>(on_sample: F) -> Result<cpal::Stream, anyhow::Error>
+pub fn stream_setup_for<F>(on_sample: F) -> EngineResult<cpal::Stream>
 where
     F: FnMut(&mut SampleRequestOptions) -> f32 + std::marker::Send + 'static + Copy,
 {
-    let (_host, device, config) = host_device_setup()?;
+    let (_, device, config) = host_device_setup()?;
 
     match config.sample_format() {
         cpal::SampleFormat::I8 => stream_make::<i8, _>(&device, &config.into(), on_sample),
         cpal::SampleFormat::I16 => stream_make::<i16, _>(&device, &config.into(), on_sample),
-        // cpal::SampleFormat::I24 => stream_make::<I24, _>(&device, &config.into(), on_sample),
         cpal::SampleFormat::I32 => stream_make::<i32, _>(&device, &config.into(), on_sample),
-        // cpal::SampleFormat::I48 => stream_make::<I48, _>(&device, &config.into(), on_sample),
         cpal::SampleFormat::I64 => stream_make::<i64, _>(&device, &config.into(), on_sample),
         cpal::SampleFormat::U8 => stream_make::<u8, _>(&device, &config.into(), on_sample),
         cpal::SampleFormat::U16 => stream_make::<u16, _>(&device, &config.into(), on_sample),
-        // cpal::SampleFormat::U24 => stream_make::<U24, _>(&device, &config.into(), on_sample),
         cpal::SampleFormat::U32 => stream_make::<u32, _>(&device, &config.into(), on_sample),
-        // cpal::SampleFormat::U48 => stream_make::<U48, _>(&device, &config.into(), on_sample),
         cpal::SampleFormat::U64 => stream_make::<u64, _>(&device, &config.into(), on_sample),
         cpal::SampleFormat::F32 => stream_make::<f32, _>(&device, &config.into(), on_sample),
-        cpal::SampleFormat::F64 => stream_make::<f64, _>(&device, &config.into(), on_sample),
-        sample_format => Err(anyhow::Error::msg(format!(
-            "Unsupported sample format '{sample_format}'"
+        sample_format => Err(Box::new(io::Error::new(
+            ErrorKind::InvalidData,
+            format!("Unsupported sample format '{sample_format}'"),
         ))),
     }
 }
 
-pub fn host_device_setup(
-) -> Result<(cpal::Host, cpal::Device, cpal::SupportedStreamConfig), anyhow::Error> {
+pub fn host_device_setup() -> EngineResult<(cpal::Host, cpal::Device, cpal::SupportedStreamConfig)>
+{
     let host = cpal::default_host();
 
     let device = host
         .default_output_device()
-        .ok_or_else(|| anyhow::Error::msg("Default output device is not available"))?;
+        .ok_or("Default output device is not available")?;
     let config = device.default_output_config()?;
     Ok((host, device, config))
 }
@@ -117,7 +116,7 @@ pub fn stream_make<T, F>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
     on_sample: F,
-) -> Result<cpal::Stream, anyhow::Error>
+) -> EngineResult<cpal::Stream>
 where
     T: SizedSample + FromSample<f32>,
     F: FnMut(&mut SampleRequestOptions) -> f32 + std::marker::Send + 'static + Copy,
@@ -131,28 +130,20 @@ where
         nchannels,
     };
     let err_fn = |err| eprintln!("Error building output sound stream: {err}");
-
+    let mut on_sample = on_sample;
     let stream = device.build_output_stream(
         config,
         move |output: &mut [T], _: &cpal::OutputCallbackInfo| {
-            on_window(output, &mut request, on_sample);
+            for frame in output.chunks_mut(request.nchannels) {
+                let value: T = T::from_sample(on_sample(&mut request));
+                for sample in &mut *frame {
+                    *sample = value;
+                }
+            }
         },
         err_fn,
         None,
     )?;
 
     Ok(stream)
-}
-
-fn on_window<T, F>(output: &mut [T], request: &mut SampleRequestOptions, mut on_sample: F)
-where
-    T: Sample + FromSample<f32>,
-    F: FnMut(&mut SampleRequestOptions) -> f32 + std::marker::Send + 'static,
-{
-    for frame in output.chunks_mut(request.nchannels) {
-        let value: T = T::from_sample(on_sample(request));
-        for sample in &mut *frame {
-            *sample = value;
-        }
-    }
 }

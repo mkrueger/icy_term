@@ -18,6 +18,7 @@ phonebook-password = Password:
 phonebook-generate = Generate
 phonebook-screen_mode = Screen Mode:
 phonebook-terminal_type = Terminal type:
+phonebook-music-option = Ansi music:
 phonebook-autologin = Autologin String:
 phonebook-comment = Comment:
 phonebook-delete = Delete selected BBS

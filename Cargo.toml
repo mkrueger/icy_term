@@ -27,7 +27,7 @@ egui_glow = "0.22.0"
 glow = "0.12.2"
 
 #sound
-#cpal = { git = "https://github.com/RustAudio/cpal.git" }
+cpal = "0.15.2"
 icy_engine = { git ="https://github.com/mkrueger/icy_engine" }
 tokio = { version = "1.30.0", features = ["full"] }
 

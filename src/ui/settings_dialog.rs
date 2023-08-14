@@ -48,7 +48,7 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
             egui::ComboBox::from_label(fl!(crate::LANGUAGE_LOADER, "settings-monitor-type"))
                 .selected_text(MONITOR_NAMES[cur_color])
                 .show_ui(ui, |ui| {
-                    for i in 0..MONITOR_NAMES.len() {
+                    (0..MONITOR_NAMES.len()).for_each(|i| {
                         let t = MONITOR_NAMES[i];
                         let label = RichText::new(t);
                         let resp = ui.selectable_value(
@@ -60,7 +60,7 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
                             window.handle_result(window.options.store_options(), false);
                             window.buffer_view.lock().monitor_settings.monitor_type = i;
                         }
-                    }
+                    });
                 });
             let old_settings = window.buffer_view.lock().monitor_settings.clone();
             let use_filter = window.buffer_view.lock().monitor_settings.use_filter;

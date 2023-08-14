@@ -196,12 +196,11 @@ impl MainWindow {
                     self.handle_result(r, false);
                 }
             }
-            icy_engine::CallbackAction::PlayMusic(_music) => {
-                //play_music(&music),
+            icy_engine::CallbackAction::PlayMusic(music) => {
+                crate::sound::play_music(&music);
             }
             icy_engine::CallbackAction::Beep => {
-                //crate::sound::beep()
-                println!("beep.");
+                crate::sound::beep();
             }
         }
         //if !self.update_sixels() {
@@ -329,7 +328,7 @@ impl MainWindow {
         self.buffer_view.lock().buf.clear();
         self.cur_addr = i;
         self.set_screen_mode(call_adr.screen_mode);
-        self.buffer_parser = self.addresses[i].get_terminal_parser();
+        self.buffer_parser = self.addresses[i].get_terminal_parser(&call_adr);
 
         self.buffer_view.lock().redraw_font();
         self.buffer_view.lock().redraw_palette();
@@ -395,7 +394,6 @@ impl MainWindow {
                         eprintln!("{err}");
                     }
                 }
-                /*
                 match ch {
                     b'\\' => print!("\\\\"),
                     b'\n' => println!("\\n"),
@@ -410,7 +408,7 @@ impl MainWindow {
                             print!("{}", char::from_u32(ch as u32).unwrap());
                         }
                     }
-                }*/
+                }
 
                 let result = self
                     .buffer_view
@@ -424,12 +422,11 @@ impl MainWindow {
                     Ok(icy_engine::CallbackAction::SendString(result)) => {
                         send_data.extend_from_slice(result.as_bytes());
                     }
-                    Ok(icy_engine::CallbackAction::PlayMusic(_music)) => {
-                        // play_music(&music)
+                    Ok(icy_engine::CallbackAction::PlayMusic(music)) => {
+                        crate::sound::play_music(&music);
                     }
                     Ok(icy_engine::CallbackAction::Beep) => {
-                        // crate::sound::beep()
-                        println!("beep.");
+                        crate::sound::beep();
                     }
                     Err(err) => {
                         eprintln!("{err}");
