@@ -10,10 +10,10 @@ use i18n_embed_fl::fl;
 use super::main_window_mod::{MainWindow, MainWindowMode};
 
 fn encode_mouse_button(button: i32) -> char {
-    unsafe { char::from_u32_unchecked(b' ' as u32 + button as u32) }
+    unsafe { char::from_u32_unchecked(b' '.saturating_add(button as u8) as u32) }
 }
 fn encode_mouse_position(pos: i32) -> char {
-    unsafe { char::from_u32_unchecked(b'!' as u32 + pos as u32) }
+    unsafe { char::from_u32_unchecked(b'!'.saturating_add(pos as u8) as u32) }
 }
 
 impl MainWindow {
@@ -307,7 +307,7 @@ impl MainWindow {
                                                     "\x1b[M{}{}{}",
                                                     encode_mouse_button(modifier_mask),
                                                     encode_mouse_position(click_pos.x as i32),
-                                                    encode_mouse_position(click_pos.y as i32)
+                                                    encode_mouse_position(click_pos.y as i32 - first_line)
                                                 )
                                                 .as_str(),
                                             );
