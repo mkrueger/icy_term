@@ -394,7 +394,7 @@ impl MainWindow {
                         eprintln!("{err}");
                     }
                 }
-                /* 
+                /*
                 match ch {
                     b'\\' => print!("\\\\"),
                     b'\n' => println!("\\n"),

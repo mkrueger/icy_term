@@ -16,7 +16,8 @@ pub struct SixelCacheEntry {
 impl ViewState {
     pub fn update_sixels(&mut self, gl: &glow::Context) -> bool {
         let buffer = &mut self.buf;
-        if buffer.layers[0].sixels.is_empty() {
+        buffer.update_sixel_threads();
+        if buffer.layers[0].sixels.lock().unwrap().is_empty() {
             for sx in &self.sixel_cache {
                 unsafe {
                     gl.delete_texture(sx.texture);
@@ -35,18 +36,13 @@ impl ViewState {
         }
         self.sixel_cache.clear();
 
-        let sixel_len = buffer.layers[0].sixels.len();
+        let sixel_len = buffer.layers[0].sixels.lock().unwrap().len();
         //   if sixel_len == 0 {
         //     return false;
         //  }
         let mut i = 0;
         while i < sixel_len {
-            let sixel = &buffer.layers[0].sixels[i];
-            //let data_len = (sixel.height() * sixel.width() * 4) as usize;
-            let mut data = Vec::new();
-            for y in 0..sixel.height() {
-                data.extend(&sixel.picture_data[y as usize]);
-            }
+            let sixel = &buffer.layers[0].sixels.lock().unwrap()[i];
 
             unsafe {
                 let texture = gl.create_texture().unwrap();
@@ -81,7 +77,7 @@ impl ViewState {
                     0,
                     glow::RGBA,
                     glow::UNSIGNED_BYTE,
-                    Some(&data),
+                    Some(&sixel.picture_data),
                 );
 
                 let new_entry = SixelCacheEntry {
