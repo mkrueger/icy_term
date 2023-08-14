@@ -34,7 +34,9 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
     let height = (available_rect.height() - available_rect.top() - bounds * 2.).min(580.);
     let x_pos = available_rect.left() + (available_rect.width() - width).max(0.) / 2.;
     let y_pos = 20. + (available_rect.height() - height).max(0.) / 2.;
-
+    if ctx.input(|i| i.key_down(egui::Key::Escape)) {
+        open = false;
+    }
     let w = egui::Window::new("")
         .collapsible(false)
         .vscroll(false)

@@ -18,6 +18,9 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
     let mut open = true;
     let mut close_dialog = false;
     let title = RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-heading"));
+    if ctx.input(|i| i.key_down(egui::Key::Escape)) {
+        open = false;
+    }
 
     egui::Window::new(title)
         .open(&mut open)

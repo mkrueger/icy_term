@@ -274,19 +274,18 @@ impl MainWindow {
 
                                     let mode: icy_engine::MouseMode =
                                         buffer_view.lock().buf.terminal_state.mouse_mode;
+
+                                    if matches!(button, PointerButton::Primary) {
+                                        buffer_view.lock().selection_opt =
+                                            Some(crate::ui::Selection::new(click_pos));
+                                        buffer_view
+                                            .lock()
+                                            .selection_opt
+                                            .as_mut()
+                                            .unwrap()
+                                            .block_selection = modifiers.alt;
+                                    }
                                     match mode {
-                                        icy_engine::MouseMode::Default => {
-                                            if matches!(button, PointerButton::Primary) {
-                                                buffer_view.lock().selection_opt =
-                                                    Some(crate::ui::Selection::new(click_pos));
-                                                buffer_view
-                                                    .lock()
-                                                    .selection_opt
-                                                    .as_mut()
-                                                    .unwrap()
-                                                    .block_selection = modifiers.alt;
-                                            }
-                                        }
                                         icy_engine::MouseMode::VT200
                                         | icy_engine::MouseMode::VT200_Highlight => {
                                             let mut modifier_mask = 0;
@@ -347,14 +346,14 @@ impl MainWindow {
                             } => {
                                 let mode: icy_engine::MouseMode =
                                     self.buffer_view.lock().buf.terminal_state.mouse_mode;
+
+                                if let Some(sel) =
+                                    &mut self.buffer_view.lock().selection_opt
+                                {
+                                    sel.locked = true;
+                                }
+
                                 match mode {
-                                    icy_engine::MouseMode::Default => {
-                                        if let Some(sel) =
-                                            &mut self.buffer_view.lock().selection_opt
-                                        {
-                                            sel.locked = true;
-                                        }
-                                    }
                                     icy_engine::MouseMode::VT200
                                     | icy_engine::MouseMode::VT200_Highlight => {
                                         if terminal_rect.contains(pos) {
@@ -452,6 +451,8 @@ impl MainWindow {
                             }
                         }
                     }
+                } else {
+                    self.buffer_view.lock().selection_opt = None;
                 }
                 response.dragged = false;
                 response.drag_released = true;
