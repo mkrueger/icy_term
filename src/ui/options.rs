@@ -96,56 +96,44 @@ impl Options {
 
             file.write_all(format!("scaling = \"{:?}\"\n", self.scaling).as_bytes())?;
             file.write_all(
-                format!(
-                    "use_crt_filter = \"{:?}\"\n",
-                    self.monitor_settings.use_filter
-                )
-                .as_bytes(),
+                format!("use_crt_filter = {:?}\n", self.monitor_settings.use_filter).as_bytes(),
+            )?;
+            file.write_all(
+                format!("monitor_type = {:?}\n", self.monitor_settings.monitor_type).as_bytes(),
+            )?;
+            file.write_all(
+                format!("monitor_gamma = {:?}\n", self.monitor_settings.gamma).as_bytes(),
+            )?;
+            file.write_all(
+                format!("monitor_contrast = {:?}\n", self.monitor_settings.contrast).as_bytes(),
             )?;
             file.write_all(
                 format!(
-                    "monitor_type = \"{:?}\"\n",
-                    self.monitor_settings.monitor_type
-                )
-                .as_bytes(),
-            )?;
-            file.write_all(
-                format!("monitor_gamma = \"{:?}\"\n", self.monitor_settings.gamma).as_bytes(),
-            )?;
-            file.write_all(
-                format!(
-                    "monitor_contrast = \"{:?}\"\n",
-                    self.monitor_settings.contrast
-                )
-                .as_bytes(),
-            )?;
-            file.write_all(
-                format!(
-                    "monitor_saturation = \"{:?}\"\n",
+                    "monitor_saturation = {:?}\n",
                     self.monitor_settings.saturation
                 )
                 .as_bytes(),
             )?;
             file.write_all(
                 format!(
-                    "monitor_brightness = \"{:?}\"\n",
+                    "monitor_brightness = {:?}\n",
                     self.monitor_settings.brightness
                 )
                 .as_bytes(),
             )?;
             file.write_all(
-                format!("monitor_blur = \"{:?}\"\n", self.monitor_settings.blur).as_bytes(),
+                format!("monitor_blur = {:?}\n", self.monitor_settings.blur).as_bytes(),
             )?;
             file.write_all(
                 format!(
-                    "monitor_curvature = \"{:?}\"\n",
+                    "monitor_curvature = {:?}\n",
                     self.monitor_settings.curvature
                 )
                 .as_bytes(),
             )?;
             file.write_all(
                 format!(
-                    "monitor_scanlines = \"{:?}\"\n",
+                    "monitor_scanlines = {:?}\n",
                     self.monitor_settings.scanlines
                 )
                 .as_bytes(),

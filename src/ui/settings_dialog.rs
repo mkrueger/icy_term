@@ -16,6 +16,7 @@ const MONITOR_NAMES: [&str; 6] = [
 
 pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut eframe::Frame) {
     let mut open = true;
+    let mut close_dialog = false;
     let title = RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-heading"));
 
     egui::Window::new(title)
@@ -24,56 +25,45 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
         .resizable(false)
         .show(ctx, |ui| {
             ui.add_space(8.0);
-
-            ui.horizontal(|ui| {
-                ui.label(RichText::new(fl!(
-                    crate::LANGUAGE_LOADER,
-                    "settings-scaling"
-                )));
-                egui::ComboBox::from_id_source("settings_combobox_1")
-                    .selected_text(RichText::new(format!("{:?}", window.options.scaling)))
-                    .show_ui(ui, |ui| {
-                        for t in &Scaling::ALL {
-                            let label = RichText::new(format!("{t:?}"));
-                            let resp = ui.selectable_value(&mut window.options.scaling, *t, label);
-                            if resp.changed() {
-                                window.handle_result(window.options.store_options(), false);
-                                window
-                                    .buffer_view
-                                    .lock()
-                                    .set_scaling(window.options.scaling);
-                            }
+            egui::ComboBox::from_label(fl!(crate::LANGUAGE_LOADER, "settings-scaling"))
+                .selected_text(RichText::new(format!("{:?}", window.options.scaling)))
+                .show_ui(ui, |ui| {
+                    for t in &Scaling::ALL {
+                        let label = RichText::new(format!("{t:?}"));
+                        let resp = ui.selectable_value(&mut window.options.scaling, *t, label);
+                        if resp.changed() {
+                            window.handle_result(window.options.store_options(), false);
+                            window
+                                .buffer_view
+                                .lock()
+                                .set_scaling(window.options.scaling);
                         }
-                    });
-            });
+                    }
+                });
 
-            ui.horizontal(|ui| {
-                ui.label(RichText::new(fl!(
-                    crate::LANGUAGE_LOADER,
-                    "settings-monitor-type"
-                )));
-                let cur_color = window.buffer_view.lock().monitor_settings.monitor_type;
-                egui::ComboBox::from_id_source("settings_combobox_2")
-                    .selected_text(MONITOR_NAMES[cur_color])
-                    .show_ui(ui, |ui| {
-                        for i in 0..MONITOR_NAMES.len() {
-                            let t = MONITOR_NAMES[i];
-                            let label = RichText::new(t);
-                            let resp = ui.selectable_value(
-                                &mut window.options.monitor_settings.monitor_type,
-                                i,
-                                label,
-                            );
-                            if resp.changed() {
-                                window.handle_result(window.options.store_options(), false);
-                                window.buffer_view.lock().monitor_settings.monitor_type = i;
-                            }
+            let cur_color = window.buffer_view.lock().monitor_settings.monitor_type;
+            egui::ComboBox::from_label(fl!(crate::LANGUAGE_LOADER, "settings-monitor-type"))
+                .selected_text(MONITOR_NAMES[cur_color])
+                .show_ui(ui, |ui| {
+                    for i in 0..MONITOR_NAMES.len() {
+                        let t = MONITOR_NAMES[i];
+                        let label = RichText::new(t);
+                        let resp = ui.selectable_value(
+                            &mut window.options.monitor_settings.monitor_type,
+                            i,
+                            label,
+                        );
+                        if resp.changed() {
+                            window.handle_result(window.options.store_options(), false);
+                            window.buffer_view.lock().monitor_settings.monitor_type = i;
                         }
-                    });
-            });
+                    }
+                });
             let old_settings = window.buffer_view.lock().monitor_settings.clone();
             let use_filter = window.buffer_view.lock().monitor_settings.use_filter;
 
+            ui.add_space(8.0);
+            ui.separator();
             ui.add_space(8.0);
 
             ui.checkbox(
@@ -113,14 +103,14 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
                 )
                 .text("Gamma"),
             );
-            ui.add_enabled(
+            /*  ui.add_enabled(
                 use_filter,
                 egui::Slider::new(
                     &mut window.buffer_view.lock().monitor_settings.light,
                     0.0..=100.0,
                 )
                 .text("Light"),
-            );
+            );*/
             ui.add_enabled(
                 use_filter,
                 egui::Slider::new(
@@ -145,13 +135,21 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
                 )
                 .text("Scanlines"),
             );
-
             ui.add_space(8.0);
 
-            if ui.button("Reset").clicked() {
-                window.buffer_view.lock().monitor_settings = super::MonitorSettings::default();
-            }
-            ui.add_space(8.0);
+            ui.separator();
+            ui.horizontal(|ui| {
+                if ui.button("Reset").clicked() {
+                    window.options.scaling = Scaling::Nearest;
+                    window.buffer_view.lock().monitor_settings = super::MonitorSettings::default();
+                }
+                if ui
+                    .button(fl!(crate::LANGUAGE_LOADER, "phonebook-ok-button"))
+                    .clicked()
+                {
+                    close_dialog = true;
+                }
+            });
 
             let new_settings = window.buffer_view.lock().monitor_settings.clone();
             if old_settings != new_settings {
@@ -160,7 +158,7 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
             }
         });
 
-    if !open {
+    if !open || close_dialog {
         if let MainWindowMode::ShowSettings(show_phonebook) = window.mode {
             if show_phonebook {
                 window.mode = MainWindowMode::ShowPhonebook;

@@ -26,6 +26,7 @@ phonebook-settings = { settings-heading }
 phonebook-connect-to-address = <Connect to Address>
 phonebook-connect-button = Connect
 phonebook-cancel-button = Cancel
+phonebook-ok-button = OK
 phonebook-not-called = Not yet called
 phonebook-last-call-date-format=Last call was %m/%d/%Y at %H:%M
 phonebook-created-at-date-format=Created at %m/%d/%Y at %H:%M
