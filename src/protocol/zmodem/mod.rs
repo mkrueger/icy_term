@@ -134,7 +134,7 @@ pub async fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> TermComRe
                 }
             }
             0x11 | 0x91 | 0x13 | 0x93 => {
-                println!("ignored byte");
+                // println!("ignored byte");
             }
             _ => {
                 data.push(c);

@@ -8,7 +8,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::ui::{PostProcessing, Scaling};
+use crate::ui::{Scaling, MONO_COLORS};
 
 use super::ViewState;
 
@@ -255,16 +255,82 @@ impl ViewState {
                 0,
             );
             gl.bind_texture(glow::TEXTURE_2D, Some(render_texture));
+
             gl.uniform_1_f32(
                 gl.get_uniform_location(self.draw_program, "u_effect")
                     .as_ref(),
-                match self.post_processing {
-                    PostProcessing::None => 0.0,
-                    PostProcessing::CRT1 => 1.0,
-                    PostProcessing::CRT1CURVED => 2.0,
-                    PostProcessing::CRT2 => 3.,
-                    PostProcessing::CRT2CURVED => 4.,
+                if self.monitor_settings.use_filter {
+                    10.0
+                } else {
+                    0.0
                 },
+            );
+
+            gl.uniform_1_f32(
+                gl.get_uniform_location(self.draw_program, "u_use_monochrome")
+                    .as_ref(),
+                if self.monitor_settings.monitor_type > 0 {
+                    1.0
+                } else {
+                    0.0
+                },
+            );
+
+            if self.monitor_settings.monitor_type > 0 {
+                let r = MONO_COLORS[self.monitor_settings.monitor_type - 1].0 as f32 / 255.0;
+                let g = MONO_COLORS[self.monitor_settings.monitor_type - 1].1 as f32 / 255.0;
+                let b = MONO_COLORS[self.monitor_settings.monitor_type - 1].2 as f32 / 255.0;
+                gl.uniform_3_f32(
+                    gl.get_uniform_location(self.draw_program, "u_monchrome_mask")
+                        .as_ref(),
+                    r,
+                    g,
+                    b,
+                );
+            }
+
+            gl.uniform_1_f32(
+                gl.get_uniform_location(self.draw_program, "gamma").as_ref(),
+                self.monitor_settings.gamma / 50.0,
+            );
+
+            gl.uniform_1_f32(
+                gl.get_uniform_location(self.draw_program, "contrast")
+                    .as_ref(),
+                self.monitor_settings.contrast / 50.0,
+            );
+
+            gl.uniform_1_f32(
+                gl.get_uniform_location(self.draw_program, "saturation")
+                    .as_ref(),
+                self.monitor_settings.saturation / 50.0,
+            );
+
+            gl.uniform_1_f32(
+                gl.get_uniform_location(self.draw_program, "brightness")
+                    .as_ref(),
+                self.monitor_settings.brightness / 30.0,
+            );
+            /*
+                        gl.uniform_1_f32(
+                            gl.get_uniform_location(self.draw_program, "light")
+                                .as_ref(),
+                                self.light);
+            */
+            gl.uniform_1_f32(
+                gl.get_uniform_location(self.draw_program, "blur").as_ref(),
+                self.monitor_settings.blur / 30.0,
+            );
+
+            gl.uniform_1_f32(
+                gl.get_uniform_location(self.draw_program, "curvature")
+                    .as_ref(),
+                self.monitor_settings.curvature / 30.0,
+            );
+            gl.uniform_1_f32(
+                gl.get_uniform_location(self.draw_program, "u_scanlines")
+                    .as_ref(),
+                0.5 * (self.monitor_settings.scanlines / 100.0),
             );
 
             gl.uniform_2_f32(

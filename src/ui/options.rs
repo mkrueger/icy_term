@@ -19,30 +19,52 @@ impl Scaling {
     pub const ALL: [Scaling; 2] = [Scaling::Nearest, Scaling::Linear];
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PostProcessing {
-    None,
-    CRT1,
-    CRT1CURVED,
-    CRT2,
-    CRT2CURVED,
+pub const MONO_COLORS: [(u8, u8, u8); 5] = [
+    (0xFF, 0xFF, 0xFF), // Black / White
+    (0xFF, 0x81, 0x00), // Amber
+    (0x0C, 0xCC, 0x68), // Green
+    (0x00, 0xD5, 0x6D), // Apple ][
+    (0x72, 0x9F, 0xCF), // Futuristic
+];
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MonitorSettings {
+    pub use_filter: bool,
+
+    pub monitor_type: usize,
+
+    pub gamma: f32,
+    pub contrast: f32,
+    pub saturation: f32,
+    pub brightness: f32,
+    pub light: f32,
+    pub blur: f32,
+    pub curvature: f32,
+    pub scanlines: f32,
 }
 
-impl PostProcessing {
-    pub const ALL: [PostProcessing; 5] = [
-        PostProcessing::None,
-        PostProcessing::CRT1,
-        PostProcessing::CRT1CURVED,
-        PostProcessing::CRT2,
-        PostProcessing::CRT2CURVED,
-    ];
+impl Default for MonitorSettings {
+    fn default() -> Self {
+        Self {
+            use_filter: false,
+            monitor_type: 0,
+            gamma: 50.,
+            contrast: 50.,
+            saturation: 50.,
+            brightness: 30.,
+            light: 40.,
+            blur: 30.,
+            curvature: 10.,
+            scanlines: 10.,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct Options {
     pub scaling: Scaling,
-    pub post_processing: PostProcessing,
     pub connect_timeout: Duration,
+    pub monitor_settings: MonitorSettings,
 }
 
 impl Options {
@@ -50,7 +72,7 @@ impl Options {
         Options {
             connect_timeout: Duration::from_secs(10),
             scaling: Scaling::Linear,
-            post_processing: PostProcessing::CRT1,
+            monitor_settings: MonitorSettings::default(),
         }
     }
 
@@ -70,11 +92,63 @@ impl Options {
             let options_file = proj_dirs.config_dir().join("options.toml");
 
             let mut file = File::create(options_file)?;
-            file.write_all(b"version = \"1.0\"\n")?;
+            file.write_all(b"version = \"1.1\"\n")?;
 
             file.write_all(format!("scaling = \"{:?}\"\n", self.scaling).as_bytes())?;
             file.write_all(
-                format!("post_processing = \"{:?}\"\n", self.post_processing).as_bytes(),
+                format!(
+                    "use_crt_filter = \"{:?}\"\n",
+                    self.monitor_settings.use_filter
+                )
+                .as_bytes(),
+            )?;
+            file.write_all(
+                format!(
+                    "monitor_type = \"{:?}\"\n",
+                    self.monitor_settings.monitor_type
+                )
+                .as_bytes(),
+            )?;
+            file.write_all(
+                format!("monitor_gamma = \"{:?}\"\n", self.monitor_settings.gamma).as_bytes(),
+            )?;
+            file.write_all(
+                format!(
+                    "monitor_contrast = \"{:?}\"\n",
+                    self.monitor_settings.contrast
+                )
+                .as_bytes(),
+            )?;
+            file.write_all(
+                format!(
+                    "monitor_saturation = \"{:?}\"\n",
+                    self.monitor_settings.saturation
+                )
+                .as_bytes(),
+            )?;
+            file.write_all(
+                format!(
+                    "monitor_brightness = \"{:?}\"\n",
+                    self.monitor_settings.brightness
+                )
+                .as_bytes(),
+            )?;
+            file.write_all(
+                format!("monitor_blur = \"{:?}\"\n", self.monitor_settings.blur).as_bytes(),
+            )?;
+            file.write_all(
+                format!(
+                    "monitor_curvature = \"{:?}\"\n",
+                    self.monitor_settings.curvature
+                )
+                .as_bytes(),
+            )?;
+            file.write_all(
+                format!(
+                    "monitor_scanlines = \"{:?}\"\n",
+                    self.monitor_settings.scanlines
+                )
+                .as_bytes(),
             )?;
             file.flush()?;
         }
@@ -123,20 +197,49 @@ fn parse_value(options: &mut Options, value: &Value) {
                             }
                         }
                     }
-                    "post_processing" => {
-                        if let Value::String(str) = v {
-                            match str.as_str() {
-                                "None" => options.post_processing = PostProcessing::None,
-                                "CRT1" => options.post_processing = PostProcessing::CRT1,
-                                "CRT1CURVED" => {
-                                    options.post_processing = PostProcessing::CRT1CURVED;
-                                }
-                                "CRT2" => options.post_processing = PostProcessing::CRT2,
-                                "CRT2CURVED" => {
-                                    options.post_processing = PostProcessing::CRT2CURVED;
-                                }
-                                _ => {}
-                            }
+                    "use_crt_filter" => {
+                        if let Value::Boolean(b) = v {
+                            options.monitor_settings.use_filter = *b;
+                        }
+                    }
+                    "monitor_type" => {
+                        if let Value::Integer(b) = v {
+                            options.monitor_settings.monitor_type = *b as usize;
+                        }
+                    }
+                    "monitor_gamma" => {
+                        if let Value::Float(f) = v {
+                            options.monitor_settings.gamma = *f as f32;
+                        }
+                    }
+                    "monitor_contrast" => {
+                        if let Value::Float(f) = v {
+                            options.monitor_settings.contrast = *f as f32;
+                        }
+                    }
+                    "monitor_saturation" => {
+                        if let Value::Float(f) = v {
+                            options.monitor_settings.saturation = *f as f32;
+                        }
+                    }
+                    "monitor_brightness" => {
+                        if let Value::Float(f) = v {
+                            options.monitor_settings.brightness = *f as f32;
+                        }
+                    }
+                    "monitor_blur" => {
+                        if let Value::Float(f) = v {
+                            options.monitor_settings.blur = *f as f32;
+                        }
+                    }
+                    "monitor_curvature" => {
+                        if let Value::Float(f) = v {
+                            options.monitor_settings.curvature = *f as f32;
+                        }
+                    }
+                    "monitor_scanlines" => {
+                        if let Value::Float(f) = v {
+                            options.monitor_settings.scanlines = *f as f32;
                         }
                     }
                     _ => {}

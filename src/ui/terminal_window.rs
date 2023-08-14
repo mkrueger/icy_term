@@ -307,7 +307,9 @@ impl MainWindow {
                                                     "\x1b[M{}{}{}",
                                                     encode_mouse_button(modifier_mask),
                                                     encode_mouse_position(click_pos.x as i32),
-                                                    encode_mouse_position(click_pos.y as i32 - first_line)
+                                                    encode_mouse_position(
+                                                        click_pos.y as i32 - first_line
+                                                    )
                                                 )
                                                 .as_str(),
                                             );

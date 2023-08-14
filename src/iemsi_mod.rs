@@ -559,13 +559,9 @@ impl IEmsi {
             data.name = adr.user_name.clone();
             data.password = adr.password.clone();
             return Ok(Some(data.encode()?));
-        } else if let Some(isi) = &self.isi {
+        } else if let Some(_isi) = &self.isi {
             // self.log_file.push("Receiving valid IEMSI server info…".to_string());
             // self.log_file.push(format!("Name:{} Location:{} Operator:{} Notice:{} System:{}", isi.name, isi.location, isi.operator, isi.notice, isi.id));
-            println!(
-                "Name:{} Location:{} Operator:{} Notice:{} System:{}",
-                isi.name, isi.location, isi.operator, isi.notice, isi.id
-            );
             self.aborted = true;
             self.logged_in = true;
             return Ok(Some(EMSI_2ACK.to_vec()));

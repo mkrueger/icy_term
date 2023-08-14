@@ -5,7 +5,7 @@ title-offline   = iCY TERM { $version } - Offline
 
 settings-heading = Settings
 settings-scaling = Scaling
-settings-post-processing = Post processing
+settings-monitor-type = Monitor
 
 phonebook-connect-to = Quick connect to…
 phonebook-new_bbs = New BBS

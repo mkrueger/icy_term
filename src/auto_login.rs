@@ -164,23 +164,18 @@ impl AutoLogin {
                         let ch = self.login_expr.get(self.cur_expr_idx).unwrap();
                         match ch {
                             b'e' => {
-                                println!("send esc!");
                                 con.send(vec![0x1B])?;
                             }
                             b'n' => {
-                                println!("send lf!");
                                 con.send(vec![b'\n'])?;
                             }
                             b'r' => {
-                                println!("send cr!");
                                 con.send(vec![b'\r'])?;
                             }
                             b't' => {
-                                println!("send tab!");
                                 con.send(vec![b'\t'])?;
                             }
                             ch => {
-                                println!("send char {ch}!");
                                 self.cur_expr_idx += 1; // escape
                                 return Err(Box::new(io::Error::new(
                                     ErrorKind::InvalidData,

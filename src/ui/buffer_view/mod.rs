@@ -14,7 +14,7 @@ pub use sixels::*;
 pub mod selection;
 pub use selection::*;
 
-use super::{Options, PostProcessing, Scaling};
+use super::{MonitorSettings, Options, Scaling};
 
 #[derive(Clone, Copy)]
 pub enum BufferInputMode {
@@ -93,7 +93,7 @@ pub struct ViewState {
 
     redraw_font: bool,
     scaling: Scaling,
-    post_processing: PostProcessing,
+    pub monitor_settings: MonitorSettings,
 
     font_texture: NativeTexture,
     buffer_texture: NativeTexture,
@@ -196,7 +196,7 @@ void main() {
         gl_Position = vec4(vert, 0.3, 1.0);
     }
     "#,
-                include_str!("render.shader.frag"),
+                include_str!("crt.shader.frag"),
             );
             let shader_sources = [
                 (glow::VERTEX_SHADER, vertex_shader_source),
@@ -509,7 +509,7 @@ void main() {
                 buffer_texture,
                 palette_texture,
                 scaling: options.scaling,
-                post_processing: options.post_processing,
+                monitor_settings: options.monitor_settings.clone(),
 
                 framebuffer,
                 render_texture,
@@ -616,8 +616,5 @@ void main() {
     pub fn set_scaling(&mut self, scaling: Scaling) {
         self.scaling = scaling;
         self.render_buffer_size = Vec2::new(0., 0.);
-    }
-    pub fn set_post_processing(&mut self, post_processing: PostProcessing) {
-        self.post_processing = post_processing;
     }
 }
