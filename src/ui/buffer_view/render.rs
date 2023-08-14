@@ -560,6 +560,7 @@ pub fn create_font_texture(
 
     for (cur_font_num, font) in buf.font_iter().enumerate() {
         font_table.insert(*font.0, cur_font_num);
+        let fontpage_start = cur_font_num * line_width * height;
         for ch in 0..256usize {
             let glyph = font
                 .1
@@ -569,7 +570,7 @@ pub fn create_font_texture(
             let x = ch % chars_in_line;
             let y = ch / chars_in_line;
 
-            let offset = x * w * 4 + y * h * line_width + cur_font_num * line_width * height;
+            let offset = x * w * 4 + y * h * line_width + fontpage_start;
             for y in 0..h {
                 let scan_line = glyph.data[y];
                 let mut po = offset + y * line_width;
@@ -653,10 +654,8 @@ pub fn create_buffer_texture(
             }
             buffer_data.push(conv_color(ch.attribute.get_background(), colors));
             if buf.has_fonts() {
-                buffer_data.push(
-                    (255.0 * *font_lookup_table.get(&ch.get_font_page()).unwrap() as f32
-                        / (buf.font_count() - 1) as f32) as u8,
-                );
+                let font_number = *font_lookup_table.get(&ch.get_font_page()).unwrap();
+                buffer_data.push(font_number as u8);
             } else {
                 buffer_data.push(0);
             }

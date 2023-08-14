@@ -65,7 +65,7 @@ void main (void) {
         }
     }
 
-    vec4 char_data = get_char(fract_fb_pos, ch_value, ch.a);
+    vec4 char_data = get_char(fract_fb_pos, ch_value, ch.a * 255.0);
     
     vec4 fg = get_palette_color(ch.y);
     vec4 bg = get_palette_color(ch.z);

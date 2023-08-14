@@ -395,7 +395,7 @@ impl MainWindow {
                         eprintln!("{err}");
                     }
                 }
-
+                /*
                 match ch {
                     b'\\' => print!("\\\\"),
                     b'\n' => println!("\\n"),
@@ -410,7 +410,7 @@ impl MainWindow {
                             print!("{}", char::from_u32(ch as u32).unwrap());
                         }
                     }
-                }
+                }*/
 
                 let result = self
                     .buffer_view
