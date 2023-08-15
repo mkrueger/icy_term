@@ -19,6 +19,7 @@ pub struct TerminalRenderer {
     terminal_render_texture: NativeTexture,
     font_texture: NativeTexture,
     palette_texture: NativeTexture,
+    vertex_array: glow::VertexArray,
 
     // used to determine if palette needs to be updated - Note: palette only grows.
     old_palette_color_count: usize,
@@ -38,6 +39,9 @@ impl TerminalRenderer {
             let palette_texture = create_palette_texture(gl);
             let terminal_render_texture = create_buffer_texture(gl);
             let terminal_shader = compile_shader(gl);
+            let vertex_array = gl
+                .create_vertex_array()
+                .expect("Cannot create vertex array");
 
             Self {
                 terminal_shader,
@@ -51,7 +55,7 @@ impl TerminalRenderer {
                 redraw_view: true,
                 redraw_palette: true,
                 redraw_font: true,
-
+                vertex_array,
                 caret_blink: Blink::new((1000.0 / 1.875) as u128 / 2),
                 character_blink: Blink::new((1000.0 / 1.8) as u128),
             }
@@ -364,6 +368,10 @@ impl TerminalRenderer {
             gl.bind_texture(glow::TEXTURE_2D, Some(self.palette_texture));
             gl.active_texture(glow::TEXTURE0 + 4);
             gl.bind_texture(glow::TEXTURE_2D, Some(self.terminal_render_texture));
+
+            gl.bind_vertex_array(Some(self.vertex_array));
+            gl.draw_arrays(glow::TRIANGLES, 0, 3);
+            gl.draw_arrays(glow::TRIANGLES, 3, 3);
         }
     }
 
@@ -507,6 +515,8 @@ impl TerminalRenderer {
 
     pub(crate) fn destroy(&self, gl: &glow::Context) {
         unsafe {
+            gl.delete_vertex_array(self.vertex_array);
+
             gl.delete_program(self.terminal_shader);
 
             gl.delete_texture(self.terminal_render_texture);
