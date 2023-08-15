@@ -26,7 +26,7 @@ use crate::{
     TerminalResult,
 };
 
-use super::{screen_modes::ScreenMode, ViewState};
+use super::{screen_modes::ScreenMode, BufferView};
 use super::{Options, PhonebookFilter};
 use crate::com::Connection;
 use tokio::sync::mpsc;
@@ -42,7 +42,7 @@ pub enum MainWindowMode {
 }
 
 pub struct MainWindow {
-    pub buffer_view: Arc<eframe::epaint::mutex::Mutex<ViewState>>,
+    pub buffer_view: Arc<eframe::epaint::mutex::Mutex<BufferView>>,
     pub buffer_parser: Box<dyn BufferParser>,
 
     pub connection_opt: Option<Connection>,
@@ -75,7 +75,7 @@ impl MainWindow {
             .as_ref()
             .expect("You need to run eframe with the glow backend");
         let options = Options::load_options();
-        let view = ViewState::new(gl, &options);
+        let view = BufferView::new(gl, &options);
         let mut view = MainWindow {
             buffer_view: Arc::new(eframe::epaint::mutex::Mutex::new(view)),
             //address_list: HoverList::new(),

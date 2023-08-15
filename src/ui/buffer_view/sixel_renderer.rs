@@ -5,12 +5,14 @@ use glow::NativeTexture;
 use icy_engine::Buffer;
 use icy_engine::Position;
 
-use super::ViewState;
+use super::output_renderer::OutputRenderer;
+use super::BufferView;
 
 pub struct SixelRenderer {
     sixel_cache: Vec<SixelCacheEntry>,
     sixel_shader: glow::NativeProgram,
     sixel_render_texture: NativeTexture,
+    render_buffer_size: Vec2,
 }
 
 impl SixelRenderer {
@@ -23,18 +25,27 @@ impl SixelRenderer {
                 sixel_cache: Vec::new(),
                 sixel_shader,
                 sixel_render_texture,
+                render_buffer_size: Vec2::ZERO,
             }
+        }
+    }
+
+    pub fn destroy(&self, gl: &glow::Context) {
+        unsafe {
+            gl.delete_program(self.sixel_shader);
+            gl.delete_texture(self.sixel_render_texture);
         }
     }
 
     pub unsafe fn render_sixels(
         &self,
         gl: &glow::Context,
-        view_state: &ViewState,
+        view_state: &BufferView,
+        output_renderer: &OutputRenderer,
     ) -> glow::NativeTexture {
-        let mut render_texture = view_state.render_texture;
+        let mut render_texture = output_renderer.render_texture;
         let mut sixel_render_texture = self.sixel_render_texture;
-        gl.bind_framebuffer(glow::FRAMEBUFFER, Some(view_state.framebuffer));
+        gl.bind_framebuffer(glow::FRAMEBUFFER, Some(output_renderer.framebuffer));
         gl.framebuffer_texture(
             glow::FRAMEBUFFER,
             glow::COLOR_ATTACHMENT0,
@@ -47,8 +58,8 @@ impl SixelRenderer {
             gl.viewport(
                 0,
                 0,
-                view_state.render_buffer_size.x as i32,
-                view_state.render_buffer_size.y as i32,
+                self.render_buffer_size.x as i32,
+                self.render_buffer_size.y as i32,
             );
 
             gl.use_program(Some(self.sixel_shader));
@@ -72,8 +83,8 @@ impl SixelRenderer {
             gl.uniform_2_f32(
                 gl.get_uniform_location(self.sixel_shader, "u_resolution")
                     .as_ref(),
-                view_state.render_buffer_size.x,
-                view_state.render_buffer_size.y,
+                self.render_buffer_size.x,
+                self.render_buffer_size.y,
             );
 
             let x = sixel.pos.x as f32 * view_state.buf.get_font_dimensions().width as f32;
@@ -91,7 +102,7 @@ impl SixelRenderer {
                 y + h,
             );
 
-            gl.bind_vertex_array(Some(view_state.vertex_array));
+            gl.bind_vertex_array(Some(output_renderer.vertex_array));
             gl.draw_arrays(glow::TRIANGLES, 0, 3);
             gl.draw_arrays(glow::TRIANGLES, 3, 3);
             std::mem::swap(&mut render_texture, &mut sixel_render_texture);
@@ -99,7 +110,23 @@ impl SixelRenderer {
         render_texture
     }
 
-    pub fn update_sixels(&mut self, gl: &glow::Context, buf: &mut Buffer) -> bool {
+    pub fn update_sixels(
+        &mut self,
+        gl: &glow::Context,
+        buf: &mut Buffer,
+        scale_filter: i32,
+    ) -> bool {
+        let render_buffer_size = Vec2::new(
+            buf.get_font_dimensions().width as f32 * buf.get_buffer_width() as f32,
+            buf.get_font_dimensions().height as f32 * buf.get_buffer_height() as f32,
+        );
+        if render_buffer_size != self.render_buffer_size {
+            self.render_buffer_size = render_buffer_size;
+            unsafe {
+                self.create_sixel_render_texture(gl, render_buffer_size, scale_filter);
+            }
+        }
+
         buf.update_sixel_threads();
         if buf.layers[0].sixels.is_empty() {
             for sx in &self.sixel_cache {

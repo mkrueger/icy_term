@@ -9,7 +9,7 @@ use glow::NativeTexture;
 use icy_engine::Buffer;
 
 use super::Blink;
-use super::ViewState;
+use super::BufferView;
 
 pub struct TerminalRenderer {
     terminal_shader: glow::Program,
@@ -59,6 +59,18 @@ impl TerminalRenderer {
                 caret_blink: Blink::new((1000.0 / 1.875) as u128 / 2),
                 character_blink: Blink::new((1000.0 / 1.8) as u128),
             }
+        }
+    }
+
+    pub(crate) fn destroy(&self, gl: &glow::Context) {
+        unsafe {
+            gl.delete_vertex_array(self.vertex_array);
+
+            gl.delete_program(self.terminal_shader);
+
+            gl.delete_texture(self.terminal_render_texture);
+            gl.delete_texture(self.font_texture);
+            gl.delete_texture(self.palette_texture);
         }
     }
 
@@ -358,9 +370,13 @@ impl TerminalRenderer {
         }
     }
 
-    pub(crate) fn render_terminal(&self, gl: &glow::Context, view_state: &ViewState) {
+    pub(crate) fn render_terminal(&self, gl: &glow::Context, view_state: &BufferView) {
         unsafe {
-            self.run_shader(gl, view_state);
+            self.run_shader(
+                gl,
+                view_state,
+                view_state.output_renderer.render_buffer_size,
+            );
 
             gl.active_texture(glow::TEXTURE0);
             gl.bind_texture(glow::TEXTURE_2D, Some(self.font_texture));
@@ -375,13 +391,18 @@ impl TerminalRenderer {
         }
     }
 
-    unsafe fn run_shader(&self, gl: &glow::Context, view_state: &ViewState) {
+    unsafe fn run_shader(
+        &self,
+        gl: &glow::Context,
+        view_state: &BufferView,
+        render_buffer_size: egui::Vec2,
+    ) {
         gl.use_program(Some(self.terminal_shader));
         gl.uniform_2_f32(
             gl.get_uniform_location(self.terminal_shader, "u_resolution")
                 .as_ref(),
-            view_state.render_buffer_size.x,
-            view_state.render_buffer_size.y,
+            render_buffer_size.x,
+            render_buffer_size.y,
         );
         gl.uniform_2_f32(
             gl.get_uniform_location(self.terminal_shader, "u_position")
@@ -510,18 +531,6 @@ impl TerminalRenderer {
                     -1.0,
                 );
             }
-        }
-    }
-
-    pub(crate) fn destroy(&self, gl: &glow::Context) {
-        unsafe {
-            gl.delete_vertex_array(self.vertex_array);
-
-            gl.delete_program(self.terminal_shader);
-
-            gl.delete_texture(self.terminal_render_texture);
-            gl.delete_texture(self.font_texture);
-            gl.delete_texture(self.palette_texture);
         }
     }
 }

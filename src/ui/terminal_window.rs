@@ -219,8 +219,10 @@ impl MainWindow {
                     rect,
                     callback: std::sync::Arc::new(egui_glow::CallbackFn::new(
                         move |info, painter| {
-                            buffer_view.lock().update_buffer(painter.gl());
-                            buffer_view.lock().paint(painter.gl(), &info, terminal_rect);
+                            buffer_view.lock().update_contents(painter.gl());
+                            buffer_view
+                                .lock()
+                                .render_contents(painter.gl(), &info, terminal_rect);
                         },
                     )),
                 };
