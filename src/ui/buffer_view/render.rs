@@ -571,7 +571,7 @@ pub fn create_font_texture(
             let y = ch / chars_in_line;
 
             let offset = x * w * 4 + y * h * line_width + fontpage_start;
-            let last_scan_line = h.min((cur_font.size.height as usize).saturating_sub(1));
+            let last_scan_line = h.min(cur_font.size.height as usize);
             for y in 0..last_scan_line {
                 if let Some(scan_line) = glyph.data.get(y) {
                     let mut po = offset + y * line_width;
