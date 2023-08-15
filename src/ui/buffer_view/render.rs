@@ -562,8 +562,8 @@ pub fn create_font_texture(
         font_table.insert(*font.0, cur_font_num);
         let fontpage_start = cur_font_num * line_width * height;
         for ch in 0..256usize {
-            let glyph = font
-                .1
+            let cur_font = font.1;
+            let glyph = cur_font
                 .get_glyph(unsafe { char::from_u32_unchecked(ch as u32) })
                 .unwrap();
 
@@ -571,24 +571,29 @@ pub fn create_font_texture(
             let y = ch / chars_in_line;
 
             let offset = x * w * 4 + y * h * line_width + fontpage_start;
-            for y in 0..h {
-                let scan_line = glyph.data[y];
-                let mut po = offset + y * line_width;
+            let last_scan_line = h.min((cur_font.size.height as usize).saturating_sub(1));
+            for y in 0..last_scan_line {
+                if let Some(scan_line) = glyph.data.get(y) {
+                    let mut po = offset + y * line_width;
 
-                for x in 0..w {
-                    if scan_line & (128 >> x) == 0 {
-                        po += 4;
-                    } else {
-                        // unroll
-                        font_data[po] = 0xFF;
-                        po += 1;
-                        font_data[po] = 0xFF;
-                        po += 1;
-                        font_data[po] = 0xFF;
-                        po += 1;
-                        font_data[po] = 0xFF;
-                        po += 1;
+                    for x in 0..w {
+                        if scan_line & (128 >> x) == 0 {
+                            po += 4;
+                        } else {
+                            // unroll
+                            font_data[po] = 0xFF;
+                            po += 1;
+                            font_data[po] = 0xFF;
+                            po += 1;
+                            font_data[po] = 0xFF;
+                            po += 1;
+                            font_data[po] = 0xFF;
+                            po += 1;
+                        }
                     }
+                } else {
+                    eprintln!("error in font {} can't get line {y}", font.0);
+                    font_data.extend(vec![0xFF; w * 4]);
                 }
             }
         }
