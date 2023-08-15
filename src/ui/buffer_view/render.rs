@@ -50,17 +50,17 @@ impl ViewState {
             (info.viewport.width() * info.pixels_per_point) as i32,
             (info.viewport.height() * info.pixels_per_point) as i32,
         );
-        gl.use_program(Some(self.draw_program));
+        gl.use_program(Some(self.output_shader));
         gl.active_texture(glow::TEXTURE0);
         gl.uniform_1_i32(
-            gl.get_uniform_location(self.draw_program, "u_render_texture")
+            gl.get_uniform_location(self.output_shader, "u_render_texture")
                 .as_ref(),
             0,
         );
         gl.bind_texture(glow::TEXTURE_2D, Some(render_texture));
 
         gl.uniform_1_f32(
-            gl.get_uniform_location(self.draw_program, "u_effect")
+            gl.get_uniform_location(self.output_shader, "u_effect")
                 .as_ref(),
             if self.monitor_settings.use_filter {
                 10.0
@@ -70,7 +70,7 @@ impl ViewState {
         );
 
         gl.uniform_1_f32(
-            gl.get_uniform_location(self.draw_program, "u_use_monochrome")
+            gl.get_uniform_location(self.output_shader, "u_use_monochrome")
                 .as_ref(),
             if self.monitor_settings.monitor_type > 0 {
                 1.0
@@ -84,7 +84,7 @@ impl ViewState {
             let g = MONO_COLORS[self.monitor_settings.monitor_type - 1].1 as f32 / 255.0;
             let b = MONO_COLORS[self.monitor_settings.monitor_type - 1].2 as f32 / 255.0;
             gl.uniform_3_f32(
-                gl.get_uniform_location(self.draw_program, "u_monchrome_mask")
+                gl.get_uniform_location(self.output_shader, "u_monchrome_mask")
                     .as_ref(),
                 r,
                 g,
@@ -93,24 +93,25 @@ impl ViewState {
         }
 
         gl.uniform_1_f32(
-            gl.get_uniform_location(self.draw_program, "gamma").as_ref(),
+            gl.get_uniform_location(self.output_shader, "gamma")
+                .as_ref(),
             self.monitor_settings.gamma / 50.0,
         );
 
         gl.uniform_1_f32(
-            gl.get_uniform_location(self.draw_program, "contrast")
+            gl.get_uniform_location(self.output_shader, "contrast")
                 .as_ref(),
             self.monitor_settings.contrast / 50.0,
         );
 
         gl.uniform_1_f32(
-            gl.get_uniform_location(self.draw_program, "saturation")
+            gl.get_uniform_location(self.output_shader, "saturation")
                 .as_ref(),
             self.monitor_settings.saturation / 50.0,
         );
 
         gl.uniform_1_f32(
-            gl.get_uniform_location(self.draw_program, "brightness")
+            gl.get_uniform_location(self.output_shader, "brightness")
                 .as_ref(),
             self.monitor_settings.brightness / 30.0,
         );
@@ -121,36 +122,36 @@ impl ViewState {
                             self.light);
         */
         gl.uniform_1_f32(
-            gl.get_uniform_location(self.draw_program, "blur").as_ref(),
+            gl.get_uniform_location(self.output_shader, "blur").as_ref(),
             self.monitor_settings.blur / 30.0,
         );
 
         gl.uniform_1_f32(
-            gl.get_uniform_location(self.draw_program, "curvature")
+            gl.get_uniform_location(self.output_shader, "curvature")
                 .as_ref(),
             self.monitor_settings.curvature / 30.0,
         );
         gl.uniform_1_f32(
-            gl.get_uniform_location(self.draw_program, "u_scanlines")
+            gl.get_uniform_location(self.output_shader, "u_scanlines")
                 .as_ref(),
             0.5 * (self.monitor_settings.scanlines / 100.0),
         );
 
         gl.uniform_2_f32(
-            gl.get_uniform_location(self.draw_program, "u_resolution")
+            gl.get_uniform_location(self.output_shader, "u_resolution")
                 .as_ref(),
             rect.width() * info.pixels_per_point,
             rect.height() * info.pixels_per_point,
         );
         gl.uniform_2_f32(
-            gl.get_uniform_location(self.draw_program, "u_position")
+            gl.get_uniform_location(self.output_shader, "u_position")
                 .as_ref(),
             rect.left() * info.pixels_per_point,
             rect.top() * info.pixels_per_point,
         );
 
         gl.uniform_4_f32(
-            gl.get_uniform_location(self.draw_program, "u_draw_rect")
+            gl.get_uniform_location(self.output_shader, "u_draw_rect")
                 .as_ref(),
             info.clip_rect.left() * info.pixels_per_point,
             info.clip_rect.top() * info.pixels_per_point,
@@ -159,7 +160,7 @@ impl ViewState {
         );
 
         gl.uniform_4_f32(
-            gl.get_uniform_location(self.draw_program, "u_draw_area")
+            gl.get_uniform_location(self.output_shader, "u_draw_area")
                 .as_ref(),
             (rect.left() - 3.) * info.pixels_per_point,
             (rect.top() - info.clip_rect.top() - 4.) * info.pixels_per_point,
@@ -167,7 +168,7 @@ impl ViewState {
             (rect.bottom() - info.clip_rect.top() - 4.) * info.pixels_per_point,
         );
         gl.uniform_2_f32(
-            gl.get_uniform_location(self.draw_program, "u_size")
+            gl.get_uniform_location(self.output_shader, "u_size")
                 .as_ref(),
             rect.width() * info.pixels_per_point,
             rect.height() * info.pixels_per_point,
