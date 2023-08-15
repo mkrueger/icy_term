@@ -206,15 +206,23 @@ impl MainWindow {
                     Vec2::new(rect_w, rect_h),
                 );
                 let real_height = buffer_view.lock().buf.get_real_buffer_height();
+                let buf_h = buffer_view.lock().buf.get_buffer_height();
+
                 let max_lines = max(0, real_height - buf_h);
-                ui.set_height(scale_y * max_lines as f32 * font_dimensions.height as f32);
+
+                // Set the scrolling height.
+                ui.set_height(char_size.y * max_lines as f32);
 
                 let first_line = (viewport.top() / char_size.y) as i32;
-                let scroll_back_line = max(0, max_lines - first_line);
-                if scroll_back_line != buffer_view.lock().scroll_back_line {
-                    buffer_view.lock().scroll_back_line = scroll_back_line;
-                    buffer_view.lock().redraw_view();
+
+                {
+                    buffer_view.lock().char_size = char_size;
+                    if buffer_view.lock().viewport_top != viewport.top() {
+                        buffer_view.lock().viewport_top = viewport.top();
+                        buffer_view.lock().redraw_view();
+                    }
                 }
+
                 let callback = egui::PaintCallback {
                     rect,
                     callback: std::sync::Arc::new(egui_glow::CallbackFn::new(

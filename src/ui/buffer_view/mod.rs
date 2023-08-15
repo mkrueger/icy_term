@@ -1,5 +1,6 @@
 use std::cmp::{max, min};
 
+use egui::Vec2;
 use icy_engine::{Buffer, BufferParser, CallbackAction, Caret, EngineResult, Position};
 
 pub mod selection;
@@ -66,7 +67,9 @@ pub struct BufferView {
 
     pub scale: f32,
     pub buffer_input_mode: BufferInputMode,
-    pub scroll_back_line: i32,
+    pub viewport_top: f32,
+
+    pub char_size: Vec2,
 
     pub button_pressed: bool,
 
@@ -99,11 +102,11 @@ impl BufferView {
             scale: 1.0,
             buffer_input_mode: BufferInputMode::CP437,
             button_pressed: false,
-            scroll_back_line: 0,
+            viewport_top: 0.,
             selection_opt: None,
             scaling: options.scaling,
             monitor_settings: options.monitor_settings.clone(),
-
+            char_size: Vec2::ZERO,
             terminal_renderer,
             sixel_renderer,
             output_renderer,
@@ -224,8 +227,12 @@ impl BufferView {
 
         self.sixel_renderer
             .update_sixels(gl, &mut self.buf, scale_filter);
-        self.terminal_renderer
-            .update_textures(gl, &mut self.buf, self.scroll_back_line);
+        self.terminal_renderer.update_textures(
+            gl,
+            &mut self.buf,
+            self.viewport_top,
+            self.char_size,
+        );
         self.output_renderer
             .update_render_buffer(gl, &self.buf, scale_filter);
     }

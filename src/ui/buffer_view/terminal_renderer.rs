@@ -1,8 +1,10 @@
 #![allow(clippy::float_cmp)]
+use std::cmp::max;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
 use egui::epaint::ahash::HashMap;
+use egui::Vec2;
 use glow::HasContext as _;
 use glow::NativeProgram;
 use glow::NativeTexture;
@@ -86,7 +88,13 @@ impl TerminalRenderer {
         self.redraw_font = true;
     }
 
-    pub fn update_textures(&mut self, gl: &glow::Context, buf: &mut Buffer, scroll_back_line: i32) {
+    pub fn update_textures(
+        &mut self,
+        gl: &glow::Context,
+        buf: &mut Buffer,
+        viewport_top: f32,
+        char_size: Vec2,
+    ) {
         self.check_blink_timers();
 
         if self.redraw_font || buf.is_font_table_updated() {
@@ -97,7 +105,7 @@ impl TerminalRenderer {
 
         if self.redraw_view {
             self.redraw_view = false;
-            self.update_terminal_texture(gl, buf, scroll_back_line);
+            self.update_terminal_texture(gl, buf, viewport_top, char_size);
         }
 
         if self.redraw_palette || self.old_palette_color_count != buf.palette.colors.len() {
@@ -215,7 +223,18 @@ impl TerminalRenderer {
         }
     }
 
-    fn update_terminal_texture(&self, gl: &glow::Context, buf: &Buffer, scroll_back_line: i32) {
+    fn update_terminal_texture(
+        &self,
+        gl: &glow::Context,
+        buf: &Buffer,
+        viewport_top: f32,
+        char_size: Vec2,
+    ) {
+        let first_line = (viewport_top / char_size.y) as i32;
+        let real_height = buf.get_real_buffer_height();
+        let buf_h = buf.get_buffer_height();
+        let max_lines = max(0, real_height - buf_h);
+        let scroll_back_line = max(0, max_lines - first_line);
         let first_line = 0.max(buf.layers[0].lines.len() as i32 - buf.get_buffer_height());
         let mut buffer_data = Vec::with_capacity(
             2 * buf.get_buffer_width() as usize * 4 * buf.get_real_buffer_height() as usize,
@@ -223,7 +242,7 @@ impl TerminalRenderer {
         let colors = buf.palette.colors.len() as u32 - 1;
         let mut y = 0;
 
-        while y < buf.get_buffer_height() {
+        while y < buf_h {
             let mut is_double_height = false;
 
             for x in 0..buf.get_buffer_width() {
@@ -291,7 +310,7 @@ impl TerminalRenderer {
             }
         }
         y = 0;
-        while y < buf.get_buffer_height() {
+        while y < buf_h {
             let mut is_double_height = false;
 
             for x in 0..buf.get_buffer_width() {
@@ -360,7 +379,7 @@ impl TerminalRenderer {
                 0,
                 glow::RGBA32F as i32,
                 buf.get_buffer_width(),
-                buf.get_buffer_height(),
+                buf_h,
                 2,
                 0,
                 glow::RGBA,
@@ -394,7 +413,7 @@ impl TerminalRenderer {
     unsafe fn run_shader(
         &self,
         gl: &glow::Context,
-        view_state: &BufferView,
+        buffer_view: &BufferView,
         render_buffer_size: egui::Vec2,
     ) {
         gl.use_program(Some(self.terminal_shader));
@@ -404,25 +423,35 @@ impl TerminalRenderer {
             render_buffer_size.x,
             render_buffer_size.y,
         );
+        let fontdim = buffer_view.buf.get_font_dimensions();
+        let fh = fontdim.height as f32;
+        let scroll_offset = (buffer_view.viewport_top / buffer_view.char_size.y * fh) % fh;
+
         gl.uniform_2_f32(
             gl.get_uniform_location(self.terminal_shader, "u_position")
                 .as_ref(),
             0.0,
-            0.0,
+            scroll_offset,
         );
+        let first_line = (buffer_view.viewport_top / buffer_view.char_size.y) as i32;
+        let real_height = buffer_view.buf.get_real_buffer_height();
+        let buf_h = buffer_view.buf.get_buffer_height();
 
-        let sbl = (view_state.buf.get_first_visible_line() - view_state.scroll_back_line) as f32;
+        let max_lines = max(0, real_height - buf_h);
+        let scroll_back_line = max(0, max_lines - first_line);
+
+        let sbl = (buffer_view.buf.get_first_visible_line() - scroll_back_line) as f32;
         gl.uniform_4_f32(
             gl.get_uniform_location(self.terminal_shader, "u_caret_position")
                 .as_ref(),
-            view_state.caret.get_position().x as f32,
-            view_state.caret.get_position().y as f32 - sbl,
-            if self.caret_blink.is_on() && view_state.caret.is_visible {
+            buffer_view.caret.get_position().x as f32,
+            buffer_view.caret.get_position().y as f32 - sbl + scroll_offset,
+            if self.caret_blink.is_on() && buffer_view.caret.is_visible {
                 1.0
             } else {
                 0.0
             },
-            if view_state.caret.insert_mode {
+            if buffer_view.caret.insert_mode {
                 1.0
             } else {
                 0.0
@@ -442,8 +471,8 @@ impl TerminalRenderer {
         gl.uniform_2_f32(
             gl.get_uniform_location(self.terminal_shader, "u_terminal_size")
                 .as_ref(),
-            view_state.buf.get_buffer_width() as f32 - 0.0001,
-            view_state.buf.get_buffer_height() as f32 - 0.0001,
+            buffer_view.buf.get_buffer_width() as f32 - 0.0001,
+            buffer_view.buf.get_buffer_height() as f32 - 0.0001,
         );
 
         gl.uniform_1_i32(
@@ -462,7 +491,7 @@ impl TerminalRenderer {
             4,
         );
 
-        match &view_state.selection_opt {
+        match &buffer_view.selection_opt {
             Some(selection) => {
                 if selection.is_empty() {
                     gl.uniform_4_f32(
