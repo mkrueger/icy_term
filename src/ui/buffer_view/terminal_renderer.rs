@@ -236,13 +236,11 @@ impl TerminalRenderer {
         let max_lines = max(0, real_height - buf_h);
         let scroll_back_line = max(0, max_lines - first_line);
         let first_line = 0.max(buf.layers[0].lines.len() as i32 - buf.get_buffer_height());
-        let mut buffer_data = Vec::with_capacity(
-            2 * buf.get_buffer_width() as usize * 4 * buf.get_real_buffer_height() as usize,
-        );
+        let mut buffer_data =
+            Vec::with_capacity(2 * buf.get_buffer_width() as usize * 4 * buf_h as usize);
         let colors = buf.palette.colors.len() as u32 - 1;
         let mut y = 0;
-
-        while y < buf_h {
+        while y <= buf_h {
             let mut is_double_height = false;
 
             for x in 0..buf.get_buffer_width() {
@@ -310,7 +308,7 @@ impl TerminalRenderer {
             }
         }
         y = 0;
-        while y < buf_h {
+        while y <= buf_h {
             let mut is_double_height = false;
 
             for x in 0..buf.get_buffer_width() {
@@ -379,7 +377,7 @@ impl TerminalRenderer {
                 0,
                 glow::RGBA32F as i32,
                 buf.get_buffer_width(),
-                buf_h,
+                buf_h + 1,
                 2,
                 0,
                 glow::RGBA,
@@ -416,6 +414,9 @@ impl TerminalRenderer {
         buffer_view: &BufferView,
         render_buffer_size: egui::Vec2,
     ) {
+        let fontdim = buffer_view.buf.get_font_dimensions();
+        let fh = fontdim.height as f32;
+
         gl.use_program(Some(self.terminal_shader));
         gl.uniform_2_f32(
             gl.get_uniform_location(self.terminal_shader, "u_resolution")
@@ -423,15 +424,21 @@ impl TerminalRenderer {
             render_buffer_size.x,
             render_buffer_size.y,
         );
-        let fontdim = buffer_view.buf.get_font_dimensions();
-        let fh = fontdim.height as f32;
+
+        gl.uniform_2_f32(
+            gl.get_uniform_location(self.terminal_shader, "u_buffer_texture_resolution")
+                .as_ref(),
+            render_buffer_size.x,
+            render_buffer_size.y + fh,
+        );
+
         let scroll_offset = (buffer_view.viewport_top / buffer_view.char_size.y * fh) % fh;
 
         gl.uniform_2_f32(
             gl.get_uniform_location(self.terminal_shader, "u_position")
                 .as_ref(),
             0.0,
-            scroll_offset,
+            scroll_offset - fh,
         );
         let first_line = (buffer_view.viewport_top / buffer_view.char_size.y) as i32;
         let real_height = buffer_view.buf.get_real_buffer_height();
