@@ -536,7 +536,6 @@ impl MainWindow {
         let tx3 = tx.clone();
         thread::spawn(move || {
             let mut done = false;
-
             while !done {
                 let data = handle2.lock().unwrap().read_data();
                 if let Ok(Some(data)) = data {
@@ -553,7 +552,7 @@ impl MainWindow {
         thread::spawn(move || {
             let mut done = false;
             while !done {
-                if let Ok(result) = rx2.try_recv() {
+                if let Ok(result) = rx2.recv() {
                     match result {
                         SendData::Data(buf) => {
                             if let Err(err) = handle.lock().unwrap().send(&buf) {
