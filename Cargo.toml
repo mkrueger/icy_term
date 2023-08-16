@@ -28,7 +28,7 @@ glow = "0.12.2"
 
 #sound
 cpal = "0.15.2"
-icy_engine = { git ="https://github.com/mkrueger/icy_engine" }
+icy_engine = { git ="https://github.com/mkrueger/icy_engine", rev="70bbc2f6a0278dbe0d348d4dd3d31e5ab30ee0db" }
 #icy_engine = { path = "../icy_engine" }
 tokio = { version = "1.30.0", features = ["full"] }
 
