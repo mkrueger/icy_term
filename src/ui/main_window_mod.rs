@@ -531,23 +531,32 @@ impl MainWindow {
         let (tx, rx) = mpsc::channel::<SendData>();
         let (tx2, rx2) = mpsc::channel::<SendData>();
         self.connection_opt = Some(Connection::new(rx, tx2));
-
+        let handle: Arc<Mutex<Box<dyn Com>>> = Arc::new(Mutex::new(handle));
+        let handle2 = handle.clone();
+        let tx3 = tx.clone();
         thread::spawn(move || {
             let mut done = false;
+
             while !done {
-                let data = handle.read_data();
+                let data = handle2.lock().unwrap().read_data();
                 if let Ok(Some(data)) = data {
-                    if let Err(err) = tx.send(SendData::Data(data)) {
+                    if let Err(err) = tx3.send(SendData::Data(data)) {
                         eprintln!("{err}");
                         done = true;
                     }
                 } else {
                     thread::sleep(Duration::from_millis(25));
                 }
+            }
+        });
+
+        thread::spawn(move || {
+            let mut done = false;
+            while !done {
                 if let Ok(result) = rx2.try_recv() {
                     match result {
                         SendData::Data(buf) => {
-                            if let Err(err) = handle.send(&buf) {
+                            if let Err(err) = handle.lock().unwrap().send(&buf) {
                                 eprintln!("{err}");
                                 done = true;
                             }
@@ -560,10 +569,13 @@ impl MainWindow {
                         ) => {
                             let mut protocol = protocol_type.create();
                             if let Err(err) = if download {
-                                protocol.initiate_recv(&mut handle, transfer_state.clone())
+                                protocol.initiate_recv(
+                                    &mut handle.lock().unwrap(),
+                                    transfer_state.clone(),
+                                )
                             } else {
                                 protocol.initiate_send(
-                                    &mut handle,
+                                    &mut handle.lock().unwrap(),
                                     files_opt.unwrap(),
                                     transfer_state.clone(),
                                 )
@@ -572,7 +584,8 @@ impl MainWindow {
                                 break;
                             }
                             loop {
-                                let v = protocol.update(&mut handle, transfer_state.clone());
+                                let v = protocol
+                                    .update(&mut handle.lock().unwrap(), transfer_state.clone());
                                 match v {
                                     Ok(running) => {
                                         if !running {
@@ -585,7 +598,9 @@ impl MainWindow {
                                     }
                                 }
                                 if let Ok(SendData::CancelTransfer) = rx2.recv() {
-                                    protocol.cancel(&mut handle).unwrap_or_default();
+                                    protocol
+                                        .cancel(&mut handle.lock().unwrap())
+                                        .unwrap_or_default();
                                     eprintln!("Cancel");
                                     break;
                                 }
