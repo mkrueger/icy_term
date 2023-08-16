@@ -52,10 +52,22 @@ impl Com for ComRawImpl {
 
     fn read_u8(&mut self) -> TermComResult<u8> {
         self.tcp_stream.as_mut().unwrap().set_nonblocking(false)?;
+        println!("read u8!");
         let mut b = [0];
-        self.tcp_stream.as_mut().unwrap().read_exact(&mut b)?;
-        self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
-        Err(Box::new(io::Error::new(ErrorKind::TimedOut, "timed out")))
+        match self.tcp_stream.as_mut().unwrap().read_exact(&mut b) {
+            Ok(_) => {
+                println!("succ");
+                self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
+                Ok(b[0])
+            }
+            Err(err) => {
+                self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
+                Err(Box::new(io::Error::new(
+                    ErrorKind::ConnectionAborted,
+                    format!("error while reading single byte from stream: {err}"),
+                )))
+            }
+        }
     }
 
     fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
@@ -64,7 +76,7 @@ impl Com for ComRawImpl {
         self.tcp_stream.as_mut().unwrap().read_exact(&mut b)?;
         self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
 
-        Err(Box::new(io::Error::new(ErrorKind::TimedOut, "timed out")))
+        Ok(b)
     }
 
     fn send(&mut self, buf: &[u8]) -> TermComResult<usize> {

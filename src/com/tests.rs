@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+use std::{collections::HashMap, thread};
 
 use eframe::epaint::mutex::Mutex;
 
@@ -38,7 +38,7 @@ impl Com for TestCom {
 
         if result.len() == 1 {
             if let Some(cmd) = self.cmd_table.get(&result[0]) {
-                println!("{} {}({} 0x{})", self.name, cmd, result[0], result[0]);
+                println!("{} reads {}({} 0x{})", self.name, cmd, result[0], result[0]);
             } else {
                 println!("{} reads {} 0x{:X}", self.name, result[0], result[0]);
             }
@@ -55,7 +55,7 @@ impl Com for TestCom {
         }
         if buf.len() == 1 {
             if let Some(cmd) = self.cmd_table.get(&buf[0]) {
-                println!("{} {}({} 0x{})", self.name, cmd, buf[0], buf[0]);
+                println!("{} writes {}({} 0x{})", self.name, cmd, buf[0], buf[0]);
             } else {
                 println!("{} writes {} 0x{:X}", self.name, buf[0], buf[0]);
             }
@@ -69,19 +69,28 @@ impl Com for TestCom {
     fn read_u8(&mut self) -> TermComResult<u8> {
         if self.name == "receiver" {
             indent_receiver();
-        } /*
-          while self.read_buf.lock().is_empty() {
-              tokio::time::sleep(Duration::from_millis(10)).await;
-          }*/
+        }
+        let mut i = 0;
+        while self.read_buf.lock().is_empty() {
+            i += 1;
+            if i > 10 {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("{} read_u8 timeout", self.name),
+                )));
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
 
         if let Some(b) = self.read_buf.lock().pop_front() {
             if let Some(cmd) = self.cmd_table.get(&b) {
-                println!("{} {}({} 0x{})", self.name, cmd, b, b);
+                println!("{} reads {}({} 0x{})", self.name, cmd, b, b);
             } else {
                 println!("{} reads {} 0x{:X}", self.name, b, b);
             }
             Ok(b)
         } else {
+            println!("{} can't read byte", self.name);
             Err(Box::new(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 "No data to read",
@@ -90,6 +99,18 @@ impl Com for TestCom {
     }
 
     fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
+        let mut i = 0;
+        while self.read_buf.lock().len() < len {
+            i += 1;
+            if i > 10 {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("{} read_exact timeout", self.name),
+                )));
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
+
         let result: Vec<u8> = self.read_buf.lock().drain(0..len).collect();
         Ok(result)
     }
@@ -109,6 +130,10 @@ pub struct TestChannel {
 #[cfg(test)]
 impl TestChannel {
     pub fn new() -> Self {
+        TestChannel::from_cmd_table(HashMap::new())
+    }
+
+    pub fn from_cmd_table(cmd_table: HashMap<u8, String>) -> Self {
         let b1 = Arc::new(Mutex::new(std::collections::VecDeque::new()));
         let b2 = Arc::new(Mutex::new(std::collections::VecDeque::new()));
         Self {
@@ -116,13 +141,13 @@ impl TestChannel {
                 name: "sender".to_string(),
                 read_buf: b1.clone(),
                 write_buf: b2.clone(),
-                cmd_table: HashMap::new(),
+                cmd_table: cmd_table.clone(),
             }),
             receiver: Box::new(TestCom {
                 name: "receiver".to_string(),
                 read_buf: b2,
                 write_buf: b1,
-                cmd_table: HashMap::new(),
+                cmd_table,
             }),
         }
     }
@@ -136,6 +161,8 @@ mod communication_tests {
         let t = b"Hello World";
         let _ = test.sender.send(t);
         assert_eq!(t.to_vec(), test.receiver.read_data().unwrap().unwrap());
+        let _ = test.receiver.send(t);
+        assert_eq!(t.to_vec(), test.sender.read_data().unwrap().unwrap());
     }
 
     #[test]
@@ -143,5 +170,12 @@ mod communication_tests {
         let mut test = TestChannel::new();
         let _ = test.sender.send(&[42]);
         assert_eq!(42, test.receiver.read_u8().unwrap());
+    }
+
+    #[test]
+    fn test_transfer_byte_back() {
+        let mut test = TestChannel::new();
+        let _ = test.receiver.send(&[42]);
+        assert_eq!(42, test.sender.read_u8().unwrap());
     }
 }

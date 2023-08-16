@@ -513,10 +513,10 @@ impl Com for ComTelnetImpl {
         self.terminal = terminal;
     }
 
-    fn connect(&mut self, addr: &Address, timeout: Duration) -> TermComResult<bool> {
+    fn connect(&mut self, addr: &Address, _timeout: Duration) -> TermComResult<bool> {
         let tcp_stream = TcpStream::connect(&addr.address)?;
         tcp_stream.set_nonblocking(true)?;
-        tcp_stream.set_read_timeout(Some(timeout))?;
+        tcp_stream.set_read_timeout(Some(Duration::from_secs(2)))?;
 
         self.tcp_stream = Some(tcp_stream);
         Ok(true)
@@ -541,9 +541,19 @@ impl Com for ComTelnetImpl {
     fn read_u8(&mut self) -> TermComResult<u8> {
         self.tcp_stream.as_mut().unwrap().set_nonblocking(false)?;
         let mut b = [0];
-        self.tcp_stream.as_mut().unwrap().read_exact(&mut b)?;
-        self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
-        Err(Box::new(io::Error::new(ErrorKind::TimedOut, "timed out")))
+        match self.tcp_stream.as_mut().unwrap().read_exact(&mut b) {
+            Ok(_) => {
+                self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
+                Ok(b[0])
+            }
+            Err(err) => {
+                self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
+                Err(Box::new(io::Error::new(
+                    ErrorKind::ConnectionAborted,
+                    format!("error while reading single byte from stream: {err}"),
+                )))
+            }
+        }
     }
 
     fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
@@ -551,8 +561,7 @@ impl Com for ComTelnetImpl {
         let mut b = vec![0; len];
         self.tcp_stream.as_mut().unwrap().read_exact(&mut b)?;
         self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
-
-        Err(Box::new(io::Error::new(ErrorKind::TimedOut, "timed out")))
+        Ok(b)
     }
 
     fn send(&mut self, buf: &[u8]) -> TermComResult<usize> {

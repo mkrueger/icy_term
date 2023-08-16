@@ -1,10 +1,6 @@
 #![allow(clippy::unused_self)]
 
-use std::{
-    cmp::min,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{cmp::min, time::Duration};
 
 use crate::{
     com::{Com, TermComResult},
@@ -116,7 +112,7 @@ impl Sz {
     pub fn update(
         &mut self,
         com: &mut Box<dyn Com>,
-        transfer_state: &Arc<Mutex<TransferState>>,
+        transfer_state: &mut TransferState,
     ) -> TermComResult<()> {
         if let SendState::Finished = self.state {
             return Ok(());
@@ -127,37 +123,34 @@ impl Sz {
             return Ok(());
         }
 
-        if let Ok(transfer_state) = &mut transfer_state.lock() {
-            let transfer_info = &mut transfer_state.send_state;
-            if self.cur_file >= 0 {
-                if let Some(fd) = self.files.get(usize::try_from(self.cur_file).unwrap()) {
-                    transfer_info.file_name = fd.file_name.clone();
-                    transfer_info.file_size = fd.size;
-                }
+        let transfer_info = &mut transfer_state.send_state;
+        if self.cur_file >= 0 {
+            if let Some(fd) = self.files.get(usize::try_from(self.cur_file).unwrap()) {
+                transfer_info.file_name = fd.file_name.clone();
+                transfer_info.file_size = fd.size;
             }
-            transfer_info.bytes_transfered = self.cur_file_pos;
-            transfer_info.errors = self.errors;
-            transfer_info.check_size = format!("Crc32/{}", self.package_len);
-            transfer_info.update_bps();
         }
-
+        transfer_info.bytes_transfered = self.cur_file_pos;
+        transfer_info.errors = self.errors;
+        transfer_info.check_size = format!("Crc32/{}", self.package_len);
+        transfer_info.update_bps();
+        println!("sender state: {:?}", self.state);
         match self.state {
             SendState::Await | SendState::AwaitZRPos => {
                 self.read_next_header(com)?;
             }
             SendState::SendZRQInit => {
-                //                transfer_state.lock().unwrap().current_state = "Negotiating transfer";
+                //                transfer_state.current_state = "Negotiating transfer";
                 //    let now = SystemTime::now();
                 //     if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
                 self.send_zrqinit(com)?;
-                self.read_next_header(com)?;
-
+                self.state = SendState::Await;
                 self.retries += 1;
                 //         self.last_send = SystemTime::now();
                 //     }
             }
             SendState::SendZDATA => {
-                //              transfer_state.lock().unwrap().current_state = "Sending data";
+                //              transfer_state.current_state = "Sending data";
                 if self.cur_file < 0 {
                     //println!("no file to send!");
                     return Ok(());
@@ -202,7 +195,7 @@ impl Sz {
                         .build(),
                     );
                     //transfer_info.write("Done sending file date.".to_string());
-                    // transfer_state.lock().unwrap().current_state = "Done data";
+                    // transfer_state.current_state = "Done data";
                     self.transfered_file = true;
                     self.state = SendState::Await;
                 }
@@ -232,7 +225,7 @@ impl Sz {
                 std::thread::sleep(Duration::from_millis(15));
             }
             SendState::Finished => {
-                //                transfer_state.lock().unwrap().current_state = "Finishing transfer…";
+                //                transfer_state.current_state = "Finishing transfer…";
                 // let now = SystemTime::now();
                 //if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
                 self.send_zfin(com, 0)?;
@@ -305,7 +298,7 @@ impl Sz {
                     if self.can_esc_8thbit() {
                         println!("receiver expects 8th bit to be escaped");
                     }*/
-                    //  transfer_state.lock().unwrap().current_state = "Sending header";
+                    //  transfer_state.current_state = "Sending header";
                     self.send_zfile(com)?;
                     self.state = SendState::AwaitZRPos;
                     return Ok(());
@@ -339,7 +332,7 @@ impl Sz {
                 }
 
                 ZFrameType::Skip => {
-                    // transfer_state.lock().unwrap().current_state = "Skipped… next file";
+                    // transfer_state.current_state = "Skipped… next file";
                     //transfer_info.write("Skip file".to_string());
                     self.next_file();
                     self.send_zfile(com)?;

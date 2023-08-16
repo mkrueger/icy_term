@@ -1,18 +1,13 @@
 #![allow(clippy::unused_self, clippy::wildcard_imports)]
-use std::{
-    cmp::Ordering,
-    fs,
-    sync::{Arc, Mutex},
-};
+use std::cmp::Ordering;
 
-use directories::UserDirs;
 use icy_engine::{get_crc32, update_crc32};
 
 use crate::{
     com::{Com, TermComResult},
     protocol::{
-        str_from_null_terminated_utf8_unchecked, FileDescriptor, Header, HeaderType, TransferState,
-        ZFrameType, Zmodem, ZCRCE, ZCRCG, ZCRCW,
+        str_from_null_terminated_utf8_unchecked, FileStorageHandler, Header, HeaderType,
+        TransferState, ZFrameType, Zmodem, ZCRCE, ZCRCG, ZCRCW,
     },
 };
 
@@ -30,7 +25,6 @@ pub enum RevcState {
 
 pub struct Rz {
     state: RevcState,
-    pub files: Vec<FileDescriptor>,
     pub errors: usize,
     retries: usize,
     can_count: usize,
@@ -43,7 +37,6 @@ impl Rz {
     pub fn new(block_length: usize) -> Self {
         Self {
             state: RevcState::Idle,
-            files: Vec::new(),
             block_length,
             retries: 0,
             can_count: 0,
@@ -72,7 +65,8 @@ impl Rz {
     pub fn update(
         &mut self,
         com: &mut Box<dyn Com>,
-        transfer_state: &Arc<Mutex<TransferState>>,
+        transfer_state: &mut TransferState,
+        storage_handler: &mut dyn FileStorageHandler,
     ) -> TermComResult<()> {
         if let RevcState::Idle = self.state {
             return Ok(());
@@ -81,24 +75,20 @@ impl Rz {
             self.cancel(com)?;
             return Ok(());
         }
-        if let Ok(transfer_state) = &mut transfer_state.lock() {
-            let transfer_info = &mut transfer_state.recieve_state;
+        let transfer_info = &mut transfer_state.recieve_state;
 
-            if !self.files.is_empty() {
-                let cur_file = self.files.len() - 1;
-                let fd = &self.files[cur_file];
-                transfer_info.file_name = fd.file_name.clone();
-                transfer_info.file_size = fd.size;
-                transfer_info.bytes_transfered = fd.data.as_ref().unwrap().len();
-            }
-            transfer_info.errors = self.errors;
-            transfer_info.check_size = "Crc32".to_string();
-            transfer_info.update_bps();
+        if let Some(file) = storage_handler.current_file_name() {
+            transfer_info.file_name = file;
+            transfer_info.file_size = storage_handler.get_current_file_total_size();
+            transfer_info.bytes_transfered = storage_handler.current_file_length();
         }
+        transfer_info.errors = self.errors;
+        transfer_info.check_size = "Crc32".to_string();
+        transfer_info.update_bps();
 
         match self.state {
             RevcState::SendZRINIT => {
-                if self.read_header(com)? {
+                if self.read_header(com, storage_handler)? {
                     return Ok(());
                 }
                 /*  let now = SystemTime::now();
@@ -119,28 +109,24 @@ impl Rz {
             } */
             RevcState::AwaitFileData => {
                 let pck = read_subpacket(com, self.block_length, self.use_crc32);
-                let last = self.files.len() - 1;
                 if let Ok((block, is_last, expect_ack)) = pck {
                     if expect_ack {
                         Header::empty(self.get_header_type(), ZFrameType::Ack).write(com)?;
                     }
-                    if let Some(fd) = self.files.get_mut(last) {
-                        if let Some(data) = &mut fd.data {
-                            data.extend_from_slice(&block);
-                        }
-                    }
+                    storage_handler.append(&block);
                     if is_last {
+                        storage_handler.close();
                         self.state = RevcState::AwaitEOF;
                     }
                 } else {
                     self.errors += 1;
                     //transfer_info.write(err.to_string());
 
-                    if let Some(fd) = self.files.get(last) {
+                    if storage_handler.current_file_name().is_some() {
                         Header::from_number(
                             self.get_header_type(),
                             ZFrameType::RPos,
-                            u32::try_from(fd.data.as_ref().unwrap().len()).unwrap(),
+                            u32::try_from(storage_handler.current_file_length()).unwrap(),
                         )
                         .write(com)?;
                         self.state = RevcState::AwaitZDATA;
@@ -149,7 +135,7 @@ impl Rz {
                 }
             }
             _ => {
-                self.read_header(com)?;
+                self.read_header(com, storage_handler)?;
             }
         }
         Ok(())
@@ -159,7 +145,11 @@ impl Rz {
         Header::from_number(self.get_header_type(), ZFrameType::RPos, 0).write(com)
     }
 
-    fn read_header(&mut self, com: &mut Box<dyn Com>) -> TermComResult<bool> {
+    fn read_header(
+        &mut self,
+        com: &mut Box<dyn Com>,
+        storage_handler: &mut dyn FileStorageHandler,
+    ) -> TermComResult<bool> {
         let result = Header::read(com, &mut self.can_count);
         if result.is_err() {
             if self.can_count >= 5 {
@@ -177,7 +167,7 @@ impl Rz {
         self.can_count = 0;
         let res = result?;
         if let Some(res) = res {
-            // println!("\t\t\t\t\t\tRECV header {}", res);
+            println!("\t\t\t\t\t\tRECV header {res}");
             self.use_crc32 = res.header_type == HeaderType::Bin32;
             match res.frame_type {
                 ZFrameType::Sinit => {
@@ -201,23 +191,14 @@ impl Rz {
 
                     if let Ok((block, _, _)) = pck {
                         let file_name = str_from_null_terminated_utf8_unchecked(&block).to_string();
-                        if self.files.is_empty()
-                            || self.files.last().unwrap().file_name != file_name
-                        {
-                            let mut fd = FileDescriptor::new();
-                            fd.data = Some(Vec::new());
-                            fd.file_name = file_name;
-                            //transfer_state.write(format!("Got file header for '{}'", fd.file_name));
-                            let mut file_size = 0;
-                            for b in &block[(fd.file_name.len() + 1)..] {
-                                if *b < b'0' || *b > b'9' {
-                                    break;
-                                }
-                                file_size = file_size * 10 + (*b - b'0') as usize;
+                        let mut file_size = 0;
+                        for b in &block[(file_name.len() + 1)..] {
+                            if *b < b'0' || *b > b'9' {
+                                break;
                             }
-                            fd.size = file_size;
-                            self.files.push(fd);
+                            file_size = file_size * 10 + (*b - b'0') as usize;
                         }
+                        storage_handler.open_file(&file_name, file_size);
 
                         self.state = RevcState::AwaitZDATA;
                         self.request_zpos(com)?;
@@ -230,35 +211,27 @@ impl Rz {
                 }
                 ZFrameType::Data => {
                     let offset = res.number();
-                    if self.files.is_empty() {
+                    if storage_handler.current_file_name().is_none() {
                         self.cancel(com)?;
                         return Err(Box::new(TransmissionError::ZDataBeforeZFILE));
                     }
                     let header_type = self.get_header_type();
-                    let last = self.files.len() - 1;
-                    if let Some(fd) = self.files.get_mut(last) {
-                        if let Some(data) = &mut fd.data {
-                            match data.len().cmp(&(offset as usize)) {
-                                Ordering::Greater => data.resize(offset as usize, 0),
-                                Ordering::Less => {
-                                    Header::from_number(
-                                        header_type,
-                                        ZFrameType::RPos,
-                                        data.len() as u32,
-                                    )
-                                    .write(com)?;
-                                    return Ok(false);
-                                }
-                                Ordering::Equal => {}
-                            }
-                            self.state = RevcState::AwaitFileData;
+                    let len = storage_handler.current_file_length();
+                    match len.cmp(&(offset as usize)) {
+                        Ordering::Greater => storage_handler.set_current_size_to(offset as usize),
+                        Ordering::Less => {
+                            Header::from_number(header_type, ZFrameType::RPos, len as u32)
+                                .write(com)?;
+                            return Ok(false);
                         }
+                        Ordering::Equal => {}
                     }
+                    self.state = RevcState::AwaitFileData;
                     return Ok(true);
                 }
                 ZFrameType::Eof => {
                     self.send_zrinit(com)?;
-                    self.save_last_file()?;
+                    storage_handler.close();
                     //transfer_state.write("Got eof".to_string());
                     self.state = RevcState::SendZRINIT;
                     return Ok(true);
@@ -299,26 +272,6 @@ impl Rz {
             }
         }
         Ok(false)
-    }
-
-    fn save_last_file(&mut self) -> TermComResult<()> {
-        if !self.files.is_empty() {
-            let fd = self.files.last().unwrap();
-
-            if let Some(user_dirs) = UserDirs::new() {
-                let dir = user_dirs.download_dir().unwrap();
-
-                let mut file_name = dir.join(&fd.file_name);
-                let mut i = 1;
-                while file_name.exists() {
-                    file_name = dir.join(&format!("{}.{}", fd.file_name, i));
-                    i += 1;
-                }
-                fs::write(file_name, fd.data.as_ref().unwrap())?;
-            }
-        }
-
-        Ok(())
     }
 
     pub fn recv(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {

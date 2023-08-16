@@ -2,8 +2,10 @@
 
 use std::fs;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
+
+pub mod file_storage_handler;
+pub use file_storage_handler::*;
 
 pub mod xymodem;
 pub use xymodem::*;
@@ -180,23 +182,22 @@ pub trait Protocol: Send {
     fn update(
         &mut self,
         com: &mut Box<dyn Com>,
-        transfer_state: Arc<Mutex<TransferState>>,
+        transfer_state: &mut TransferState,
+        storage_handler: &mut dyn FileStorageHandler,
     ) -> TermComResult<bool>;
 
     fn initiate_send(
         &mut self,
         com: &mut Box<dyn Com>,
         files: Vec<FileDescriptor>,
-        transfer_state: Arc<Mutex<TransferState>>,
+        transfer_state: &mut TransferState,
     ) -> TermComResult<()>;
 
     fn initiate_recv(
         &mut self,
         com: &mut Box<dyn Com>,
-        transfer_state: Arc<Mutex<TransferState>>,
+        transfer_state: &mut TransferState,
     ) -> TermComResult<()>;
-
-    fn get_received_files(&mut self) -> Vec<FileDescriptor>;
 
     fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()>;
 }

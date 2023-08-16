@@ -18,7 +18,7 @@ use eframe::egui::{self, Key};
 use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
 use crate::com::{Com, TermComResult};
-use crate::protocol::TransferState;
+use crate::protocol::{TestStorageHandler, TransferState};
 use crate::rng::Rng;
 use crate::{
     address_mod::{start_read_book, store_phone_book, Address},
@@ -526,7 +526,7 @@ impl MainWindow {
         self.mode = MainWindowMode::ShowSettings(in_phonebook);
     }
 
-    fn open_connection(&mut self, mut handle: Box<dyn Com>) {
+    fn open_connection(&mut self, handle: Box<dyn Com>) {
         // let ctx = ctx.clone();
         let (tx, rx) = mpsc::channel::<SendData>();
         let (tx2, rx2) = mpsc::channel::<SendData>();
@@ -546,13 +546,8 @@ impl MainWindow {
                 } else {
                     thread::sleep(Duration::from_millis(25));
                 }
-            }
-        });
 
-        thread::spawn(move || {
-            let mut done = false;
-            while !done {
-                if let Ok(result) = rx2.recv() {
+                if let Ok(result) = rx2.try_recv() {
                     match result {
                         SendData::Data(buf) => {
                             if let Err(err) = handle.lock().unwrap().send(&buf) {
@@ -567,24 +562,29 @@ impl MainWindow {
                             files_opt,
                         ) => {
                             let mut protocol = protocol_type.create();
+
+                            let mut transfer_state = transfer_state.lock().unwrap().clone();
                             if let Err(err) = if download {
-                                protocol.initiate_recv(
-                                    &mut handle.lock().unwrap(),
-                                    transfer_state.clone(),
-                                )
+                                protocol
+                                    .initiate_recv(&mut handle.lock().unwrap(), &mut transfer_state)
                             } else {
                                 protocol.initiate_send(
                                     &mut handle.lock().unwrap(),
                                     files_opt.unwrap(),
-                                    transfer_state.clone(),
+                                    &mut transfer_state,
                                 )
                             } {
                                 eprintln!("{err}");
                                 break;
                             }
+                            let mut storage_handler: TestStorageHandler = TestStorageHandler::new();
+
                             loop {
-                                let v = protocol
-                                    .update(&mut handle.lock().unwrap(), transfer_state.clone());
+                                let v = protocol.update(
+                                    &mut handle.lock().unwrap(),
+                                    &mut transfer_state,
+                                    &mut storage_handler,
+                                );
                                 match v {
                                     Ok(running) => {
                                         if !running {
@@ -596,12 +596,30 @@ impl MainWindow {
                                         break;
                                     }
                                 }
-                                if let Ok(SendData::CancelTransfer) = rx2.recv() {
+                                if let Ok(SendData::CancelTransfer) = rx2.try_recv() {
                                     protocol
                                         .cancel(&mut handle.lock().unwrap())
                                         .unwrap_or_default();
-                                    eprintln!("Cancel");
                                     break;
+                                }
+                            }
+                            if let Some(user_dirs) = directories::UserDirs::new() {
+                                let dir = user_dirs.download_dir().unwrap();
+
+                                for file in &storage_handler.file {
+                                    let f = if file.0.is_empty() {
+                                        "new_file".to_string()
+                                    } else {
+                                        file.0.clone()
+                                    };
+
+                                    let mut file_name = dir.join(file.0);
+                                    let mut i = 1;
+                                    while file_name.exists() {
+                                        file_name = dir.join(&format!("{}.{}", f, i));
+                                        i += 1;
+                                    }
+                                    std::fs::write(file_name, file.1.clone()).unwrap_or_default();
                                 }
                             }
                             tx.send(SendData::EndTransfer).unwrap_or_default();
@@ -692,7 +710,7 @@ impl eframe::App for MainWindow {
                 self.update_terminal_window(ctx, frame);
                 if let Some(a) = &mut self.current_transfer {
                     // self.print_result(&r);
-                    if !super::view_filetransfer(ctx, frame, a, download) {
+                    if !super::view_filetransfer(ctx, frame, &a.lock().unwrap(), download) {
                         self.mode = MainWindowMode::ShowTerminal;
                         let res = self.connection_opt.as_mut().unwrap().cancel_transfer();
                         self.handle_result(res, true);

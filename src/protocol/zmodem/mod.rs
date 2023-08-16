@@ -2,7 +2,6 @@
 // ZModem protocol specification http://cristal.inria.fr/~doligez/zmodem/zmodem.txt
 
 pub mod constants;
-use std::sync::{Arc, Mutex};
 
 pub use constants::*;
 mod header_mod;
@@ -20,7 +19,7 @@ mod tests;
 
 use self::error_mod::TransmissionError;
 
-use super::{FileDescriptor, Protocol, TransferState};
+use super::{FileDescriptor, FileStorageHandler, Protocol, TransferState};
 use crate::com::{Com, TermComResult};
 
 pub struct Zmodem {
@@ -168,18 +167,19 @@ impl Protocol for Zmodem {
     fn update(
         &mut self,
         com: &mut Box<dyn Com>,
-        transfer_state: Arc<Mutex<TransferState>>,
+        transfer_state: &mut TransferState,
+        storage_handler: &mut dyn FileStorageHandler,
     ) -> TermComResult<bool> {
         if let Some(rz) = &mut self.rz {
-            rz.update(com, &transfer_state)?;
+            rz.update(com, transfer_state, storage_handler)?;
             if !rz.is_active() {
-                transfer_state.lock().unwrap().is_finished = true;
+                transfer_state.is_finished = true;
                 return Ok(false);
             }
         } else if let Some(sz) = &mut self.sz {
-            sz.update(com, &transfer_state)?;
+            sz.update(com, transfer_state)?;
             if !sz.is_active() {
-                transfer_state.lock().unwrap().is_finished = true;
+                transfer_state.is_finished = true;
                 return Ok(false);
             }
         }
@@ -190,9 +190,9 @@ impl Protocol for Zmodem {
         &mut self,
         com: &mut Box<dyn Com>,
         files: Vec<FileDescriptor>,
-        transfer_state: Arc<Mutex<TransferState>>,
+        transfer_state: &mut TransferState,
     ) -> TermComResult<()> {
-        transfer_state.lock().unwrap().protocol_name = self.get_name().to_string();
+        transfer_state.protocol_name = self.get_name().to_string();
         let mut sz = Sz::new(self.block_length);
         sz.send(com, files);
         self.sz = Some(sz);
@@ -202,23 +202,13 @@ impl Protocol for Zmodem {
     fn initiate_recv(
         &mut self,
         com: &mut Box<dyn Com>,
-        transfer_state: Arc<Mutex<TransferState>>,
+        transfer_state: &mut TransferState,
     ) -> TermComResult<()> {
-        transfer_state.lock().unwrap().protocol_name = self.get_name().to_string();
+        transfer_state.protocol_name = self.get_name().to_string();
         let mut rz = Rz::new(self.block_length);
         rz.recv(com)?;
         self.rz = Some(rz);
         Ok(())
-    }
-
-    fn get_received_files(&mut self) -> Vec<super::FileDescriptor> {
-        if let Some(rz) = &mut self.rz {
-            let c = rz.files.clone();
-            rz.files = Vec::new();
-            c
-        } else {
-            Vec::new()
-        }
     }
 
     fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {

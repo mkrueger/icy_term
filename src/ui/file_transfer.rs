@@ -1,5 +1,4 @@
 use std::cmp::max;
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 use eframe::egui::{self, ProgressBar, RichText};
@@ -13,7 +12,7 @@ use crate::protocol::TransferState;
 pub fn view_filetransfer(
     ctx: &egui::Context,
     _frame: &mut eframe::Frame,
-    transfer_state: &Arc<Mutex<TransferState>>,
+    transfer_state: &TransferState,
     download: bool,
 ) -> bool {
     let mut open = true;
@@ -28,7 +27,7 @@ pub fn view_filetransfer(
         .collapsible(false)
         .resizable(false)
         .show(ctx, |ui| {
-            let state = transfer_state.lock().unwrap();
+            let state = transfer_state;
             let transfer_info = if download {
                 &state.recieve_state
             } else {

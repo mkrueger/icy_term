@@ -1,10 +1,5 @@
-use directories::UserDirs;
 use icy_engine::get_crc16;
-use std::{
-    fs::{self},
-    io::{self, ErrorKind},
-    sync::{Arc, Mutex},
-};
+use std::io::{self, ErrorKind};
 
 use super::{constants::DEFAULT_BLOCK_LENGTH, get_checksum, Checksum, XYModemConfiguration};
 use crate::{
@@ -12,7 +7,7 @@ use crate::{
     protocol::{
         str_from_null_terminated_utf8_unchecked,
         xymodem::constants::{ACK, CPMEOF, EOT, EXT_BLOCK_LENGTH, NAK, SOH, STX},
-        FileDescriptor, TransferState,
+        FileDescriptor, FileStorageHandler, TransferState,
     },
 };
 
@@ -57,31 +52,35 @@ impl Ry {
     pub fn update(
         &mut self,
         com: &mut Box<dyn Com>,
-        state: &Arc<Mutex<TransferState>>,
+        transfer_state: &mut TransferState,
+        storage_handler: &mut dyn FileStorageHandler,
     ) -> TermComResult<()> {
-        if let Ok(transfer_state) = &mut state.lock() {
-            let transfer_info = &mut transfer_state.recieve_state;
-            if !self.files.is_empty() {
-                let cur_file = self.files.len() - 1;
-                let f = &self.files[cur_file];
-                transfer_info.file_name = f.file_name.clone();
-                transfer_info.file_size = f.size;
-            }
-            transfer_info.bytes_transfered = self.bytes_send;
-            transfer_info.errors = self.errors;
-            transfer_info.check_size = self.configuration.get_check_and_size();
-            transfer_info.update_bps();
+        let transfer_info = &mut transfer_state.recieve_state;
+        if !self.files.is_empty() {
+            let cur_file = self.files.len() - 1;
+            let f = &self.files[cur_file];
+            transfer_info.file_name = f.file_name.clone();
+            transfer_info.file_size = f.size;
         }
+        transfer_info.bytes_transfered = self.bytes_send;
+        transfer_info.errors = self.errors;
+        transfer_info.check_size = self.configuration.get_check_and_size();
+        transfer_info.update_bps();
 
-        // println!("\t\t\t\t\t\t{:?}", self.recv_state);
+        println!("\t\t\t\t\t\t{:?}", self.recv_state);
         match self.recv_state {
             RecvState::None => {}
 
             RecvState::StartReceive(retries) => {
-                state.lock().unwrap().current_state = "Start receiving...";
+                transfer_state.current_state = "Start receiving...";
 
                 let start = com.read_u8()?;
-                // println!("{:02X} {}, {}", start, start, char::from_u32(start as u32).unwrap());
+                println!(
+                    "{:02X} {}, {}",
+                    start,
+                    start,
+                    char::from_u32(start as u32).unwrap()
+                );
                 if start == SOH {
                     if self.configuration.is_ymodem() {
                         self.recv_state = RecvState::ReadYModemHeader(0);
@@ -110,7 +109,7 @@ impl Ry {
             RecvState::ReadYModemHeader(retries) => {
                 let len = 128; // constant header length
 
-                state.lock().unwrap().current_state = "Get header...";
+                transfer_state.current_state = "Get header...";
                 let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode {
                     2
                 } else {
@@ -175,17 +174,9 @@ impl Ry {
 
                         let cur_file = self.files.len() - 1;
                         let fd = self.files.get_mut(cur_file).unwrap();
-                        if let Some(user_dirs) = UserDirs::new() {
-                            let dir = user_dirs.download_dir().unwrap();
-
-                            let mut file_name = dir.join(&fd.file_name);
-                            let mut i = 1;
-                            while file_name.exists() {
-                                file_name = dir.join(&format!("{}.{}", fd.file_name, i));
-                                i += 1;
-                            }
-                            fs::write(file_name, &self.data)?;
-                        }
+                        storage_handler.open_file(&fd.file_name, 0);
+                        storage_handler.append(&self.data);
+                        storage_handler.close();
                         self.data = Vec::new();
 
                         if self.configuration.is_ymodem() {
@@ -224,7 +215,7 @@ impl Ry {
             }
 
             RecvState::ReadBlock(len, retries) => {
-                state.lock().unwrap().current_state = "Receiving data...";
+                transfer_state.current_state = "Receiving data...";
                 let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode {
                     2
                 } else {

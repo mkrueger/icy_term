@@ -1,18 +1,16 @@
 use crate::com::{Com, TermComResult};
-use std::sync::{Arc, Mutex};
-
 mod constants;
 mod error_mod;
 mod ry;
 mod sy;
-mod tests;
+pub(crate) mod tests;
 
 use self::{
     constants::{CAN, DEFAULT_BLOCK_LENGTH, EXT_BLOCK_LENGTH},
     error_mod::TransmissionError,
 };
 
-use super::{FileDescriptor, TransferState};
+use super::{FileDescriptor, FileStorageHandler, TransferState};
 #[derive(Debug, Clone, Copy)]
 pub enum Checksum {
     Default,
@@ -31,7 +29,6 @@ pub enum XYModemVariant {
 /// specification: <http://pauillac.inria.fr/~doligez/zmodem/ymodem.txt>
 pub struct XYmodem {
     config: XYModemConfiguration,
-
     ry: Option<ry::Ry>,
     sy: Option<sy::Sy>,
 }
@@ -50,17 +47,18 @@ impl super::Protocol for XYmodem {
     fn update(
         &mut self,
         com: &mut Box<dyn Com>,
-        transfer_state: Arc<Mutex<TransferState>>,
+        transfer_state: &mut TransferState,
+        storage_handler: &mut dyn FileStorageHandler,
     ) -> TermComResult<bool> {
         if let Some(ry) = &mut self.ry {
-            ry.update(com, &transfer_state)?;
-            transfer_state.lock().unwrap().is_finished = ry.is_finished();
+            ry.update(com, transfer_state, storage_handler)?;
+            transfer_state.is_finished = ry.is_finished();
             if ry.is_finished() {
                 return Ok(false);
             }
         } else if let Some(sy) = &mut self.sy {
-            sy.update(com, &transfer_state)?;
-            transfer_state.lock().unwrap().is_finished = sy.is_finished();
+            sy.update(com, transfer_state)?;
+            transfer_state.is_finished = sy.is_finished();
             if sy.is_finished() {
                 return Ok(false);
             }
@@ -72,7 +70,7 @@ impl super::Protocol for XYmodem {
         &mut self,
         _com: &mut Box<dyn Com>,
         files: Vec<FileDescriptor>,
-        transfer_state: Arc<Mutex<TransferState>>,
+        transfer_state: &mut TransferState,
     ) -> TermComResult<()> {
         if !self.config.is_ymodem() && files.len() != 1 {
             return Err(Box::new(TransmissionError::XModem1File));
@@ -86,20 +84,20 @@ impl super::Protocol for XYmodem {
 
         sy.send(files);
         self.sy = Some(sy);
-        transfer_state.lock().unwrap().protocol_name = self.config.get_protocol_name().to_string();
+        transfer_state.protocol_name = self.config.get_protocol_name().to_string();
         Ok(())
     }
 
     fn initiate_recv(
         &mut self,
         com: &mut Box<dyn Com>,
-        transfer_state: Arc<Mutex<TransferState>>,
+        transfer_state: &mut TransferState,
     ) -> TermComResult<()> {
         let mut ry = ry::Ry::new(self.config);
         ry.recv(com)?;
         self.ry = Some(ry);
 
-        transfer_state.lock().unwrap().protocol_name = self.config.get_protocol_name().to_string();
+        transfer_state.protocol_name = self.config.get_protocol_name().to_string();
 
         // Add ghost file with no name when receiving with x-modem because this protocol
         // doesn't transfer any file information. User needs to set a file name after download.
@@ -109,17 +107,6 @@ impl super::Protocol for XYmodem {
 
         Ok(())
     }
-
-    fn get_received_files(&mut self) -> Vec<FileDescriptor> {
-        if let Some(ry) = &mut self.ry {
-            let c = ry.files.clone();
-            ry.files = Vec::new();
-            c
-        } else {
-            Vec::new()
-        }
-    }
-
     fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
         cancel(com)
     }
