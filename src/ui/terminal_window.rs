@@ -162,8 +162,16 @@ impl MainWindow {
     }
 
     fn custom_painting(&mut self, ui: &mut egui::Ui, top_margin_height: f32) -> egui::Response {
+        let buf_h = self.buffer_view.lock().buf.get_buffer_height();
+        let real_height = self.buffer_view.lock().buf.get_real_buffer_height();
+
         let output = ScrollArea::vertical()
             .auto_shrink([false; 2])
+            /*.scroll_bar_visibility(if real_height <= buf_h {
+                egui::scroll_area::ScrollBarVisibility::AlwaysHidden
+            } else {
+                egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded
+            })*/
             .stick_to_bottom(true)
             .show_viewport(ui, |ui, viewport| {
                 let (id, rect) =
@@ -173,7 +181,6 @@ impl MainWindow {
                 let size = rect.size();
                 let buffer_view = self.buffer_view.clone();
                 let buf_w = buffer_view.lock().buf.get_buffer_width();
-                let buf_h = buffer_view.lock().buf.get_buffer_height();
                 // let h = max(buf_h, buffer_view.lock().buf.get_real_buffer_height());
 
                 let font_dimensions = buffer_view.lock().buf.get_font_dimensions();
@@ -205,7 +212,6 @@ impl MainWindow {
                         .ceil(),
                     Vec2::new(rect_w, rect_h),
                 );
-                let real_height = buffer_view.lock().buf.get_real_buffer_height();
                 let buf_h = buffer_view.lock().buf.get_buffer_height();
 
                 let max_lines = max(0, real_height - buf_h);

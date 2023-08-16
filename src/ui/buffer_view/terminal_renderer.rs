@@ -445,7 +445,7 @@ impl TerminalRenderer {
         let buf_h = buffer_view.buf.get_buffer_height();
 
         let max_lines = max(0, real_height - buf_h);
-        let scroll_back_line = max(0, max_lines - first_line);
+        let scroll_back_line = max(0, max_lines - first_line) - 1;
 
         let sbl = (buffer_view.buf.get_first_visible_line() - scroll_back_line) as f32;
         gl.uniform_4_f32(
