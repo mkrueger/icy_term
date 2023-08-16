@@ -208,11 +208,12 @@ impl BufferView {
     }
 
     pub fn render_contents(
-        &self,
+        &mut self,
         gl: &glow::Context,
         info: &egui::PaintCallbackInfo,
         rect: egui::Rect,
     ) {
+        self.update_contents(gl);
         unsafe {
             self.output_renderer.init_output(gl);
             self.terminal_renderer.render_terminal(gl, self);
@@ -237,12 +238,8 @@ impl BufferView {
             Scaling::Linear => glow::LINEAR as i32,
         };
 
-        if self
-            .sixel_renderer
-            .update_sixels(gl, &mut self.buf, scale_filter)
-        {
-            self.redraw_view();
-        }
+        self.sixel_renderer
+            .update_sixels(gl, &mut self.buf, scale_filter);
         self.terminal_renderer.update_textures(
             gl,
             &mut self.buf,

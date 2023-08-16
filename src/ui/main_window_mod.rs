@@ -70,6 +70,9 @@ pub struct MainWindow {
 
 impl MainWindow {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        use egui::FontFamily::Proportional;
+        use egui::TextStyle::{Body, Button, Heading, Monospace, Small};
+
         let gl = cc
             .gl
             .as_ref()
@@ -111,6 +114,20 @@ impl MainWindow {
             view.mode = MainWindowMode::ShowTerminal;
             super::simulate::run_sim(&mut view);
         }*/
+
+        let ctx = &cc.egui_ctx;
+
+        let mut style: egui::Style = (*ctx.style()).clone();
+        style.text_styles = [
+            (Heading, FontId::new(24.0, Proportional)),
+            (Body, FontId::new(18.0, Proportional)),
+            (Monospace, FontId::new(18.0, egui::FontFamily::Monospace)),
+            (Button, FontId::new(18.0, Proportional)),
+            (Small, FontId::new(14.0, Proportional)),
+        ]
+        .into();
+        ctx.set_style(style);
+
         view
     }
 
@@ -522,8 +539,8 @@ impl MainWindow {
         self.mode = MainWindowMode::ShowSettings(in_phonebook);
     }
 
-    fn open_connection(&mut self, handle: Box<dyn Com>) {
-        // let ctx = ctx.clone();
+    fn open_connection(&mut self, ctx: &egui::Context, handle: Box<dyn Com>) {
+        let ctx = ctx.clone();
         let (tx, rx) = mpsc::channel::<SendData>();
         let (tx2, rx2) = mpsc::channel::<SendData>();
         self.connection_opt = Some(Connection::new(rx, tx2));
@@ -539,6 +556,7 @@ impl MainWindow {
                         eprintln!("{err}");
                         done = true;
                     }
+                    ctx.request_repaint();
                 } else {
                     thread::sleep(Duration::from_millis(25));
                 }
@@ -634,20 +652,6 @@ impl MainWindow {
 }
 impl eframe::App for MainWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        use egui::FontFamily::Proportional;
-        use egui::TextStyle::{Body, Button, Heading, Monospace, Small};
-
-        let mut style: egui::Style = (*ctx.style()).clone();
-        style.text_styles = [
-            (Heading, FontId::new(24.0, Proportional)),
-            (Body, FontId::new(18.0, Proportional)),
-            (Monospace, FontId::new(18.0, egui::FontFamily::Monospace)),
-            (Button, FontId::new(18.0, Proportional)),
-            (Small, FontId::new(14.0, Proportional)),
-        ]
-        .into();
-        ctx.set_style(style);
-
         self.update_title(frame);
 
         if self.open_connection_promise.is_some()
@@ -658,7 +662,7 @@ impl eframe::App for MainWindow {
                 if let Ok(handle) = handle {
                     match handle {
                         Ok(handle) => {
-                            self.open_connection(handle);
+                            self.open_connection(ctx, handle);
                         }
                         Err(err) => {
                             self.println(&format!("\n\r{err}")).unwrap();

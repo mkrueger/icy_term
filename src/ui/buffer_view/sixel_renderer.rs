@@ -110,12 +110,7 @@ impl SixelRenderer {
         render_texture
     }
 
-    pub fn update_sixels(
-        &mut self,
-        gl: &glow::Context,
-        buf: &mut Buffer,
-        scale_filter: i32,
-    ) -> bool {
+    pub fn update_sixels(&mut self, gl: &glow::Context, buf: &mut Buffer, scale_filter: i32) {
         let render_buffer_size = Vec2::new(
             buf.get_font_dimensions().width as f32 * buf.get_buffer_width() as f32,
             buf.get_font_dimensions().height as f32 * buf.get_buffer_height() as f32,
@@ -135,12 +130,11 @@ impl SixelRenderer {
                 }
             }
             self.sixel_cache.clear();
-            return false;
+            return;
         }
         if !sixels_updated {
-            return false;
+            return;
         }
-
         for sx in &self.sixel_cache {
             unsafe {
                 gl.delete_texture(sx.texture);
@@ -148,14 +142,7 @@ impl SixelRenderer {
         }
         self.sixel_cache.clear();
 
-        let sixel_len = buf.layers[0].sixels.len();
-        //   if sixel_len == 0 {
-        //     return false;
-        //  }
-        let mut i = 0;
-        while i < sixel_len {
-            let sixel = &buf.layers[0].sixels[i];
-
+        for sixel in &buf.layers[0].sixels {
             unsafe {
                 let texture = gl.create_texture().unwrap();
                 gl.active_texture(glow::TEXTURE0 + 6);
@@ -204,9 +191,7 @@ impl SixelRenderer {
                 };
                 self.sixel_cache.push(new_entry);
             }
-            i += 1;
         }
-        false
     }
 
     pub(crate) unsafe fn create_sixel_render_texture(
