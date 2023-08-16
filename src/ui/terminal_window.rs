@@ -235,8 +235,9 @@ impl MainWindow {
                     )),
                 };
                 ui.painter().add(callback);
-                if self.buffer_view.lock().buf.terminal_state.mouse_mode
-                    == icy_engine::MouseMode::Default
+
+                // if self.buffer_view.lock().buf.terminal_state.mouse_mode
+                //     != icy_engine::MouseMode::VT200
                 {
                     response = response.context_menu(terminal_context_menu);
                 }
@@ -244,7 +245,6 @@ impl MainWindow {
                 if matches!(self.mode, MainWindowMode::ShowTerminal) && ui.is_enabled() {
                     let events = ui.input(|i| i.events.clone());
                     for e in events {
-                        // println!("{:?}", e);
                         match e {
                             egui::Event::PointerButton {
                                 button: PointerButton::Middle,
@@ -286,11 +286,12 @@ impl MainWindow {
                                         buffer_view.lock().buf.terminal_state.mouse_mode;
 
                                     if matches!(button, PointerButton::Primary) {
-                                        buffer_view.lock().selection_opt =
-                                            Some(crate::ui::Selection::new(click_pos));
                                         buffer_view
                                             .lock()
-                                            .selection_opt
+                                            .set_selection(crate::ui::Selection::new(click_pos));
+                                        buffer_view
+                                            .lock()
+                                            .get_selection()
                                             .as_mut()
                                             .unwrap()
                                             .block_selection = modifiers.alt;
@@ -354,13 +355,14 @@ impl MainWindow {
                                 modifiers,
                                 ..
                             } => {
-                                let mode: icy_engine::MouseMode =
-                                    self.buffer_view.lock().buf.terminal_state.mouse_mode;
-
-                                if let Some(sel) = &mut self.buffer_view.lock().selection_opt {
-                                    sel.locked = true;
+                                if terminal_rect.contains(pos) {
+                                    if let Some(sel) = self.buffer_view.lock().get_selection() {
+                                        sel.locked = true;
+                                    }
                                 }
 
+                                let mode: icy_engine::MouseMode =
+                                    self.buffer_view.lock().buf.terminal_state.mouse_mode;
                                 match mode {
                                     icy_engine::MouseMode::VT200
                                     | icy_engine::MouseMode::VT200_Highlight => {
@@ -400,7 +402,7 @@ impl MainWindow {
                                 if terminal_rect.contains(pos) {
                                     let buffer_view = self.buffer_view.clone();
                                     let mut l = buffer_view.lock();
-                                    if let Some(sel) = &mut l.selection_opt {
+                                    if let Some(sel) = &mut l.get_selection() {
                                         if !sel.locked {
                                             let click_pos = (pos
                                                 - terminal_rect.min
@@ -460,7 +462,7 @@ impl MainWindow {
                         }
                     }
                 } else {
-                    self.buffer_view.lock().selection_opt = None;
+                    self.buffer_view.lock().clear_selection();
                 }
                 response.dragged = false;
                 response.drag_released = true;

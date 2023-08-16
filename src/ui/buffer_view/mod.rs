@@ -73,7 +73,7 @@ pub struct BufferView {
 
     pub button_pressed: bool,
 
-    pub selection_opt: Option<Selection>,
+    selection_opt: Option<Selection>,
 
     scaling: Scaling,
     pub monitor_settings: MonitorSettings,
@@ -111,6 +111,18 @@ impl BufferView {
             sixel_renderer,
             output_renderer,
         }
+    }
+
+    pub fn get_selection(&mut self) -> &mut Option<Selection> {
+        &mut self.selection_opt
+    }
+
+    pub fn set_selection(&mut self, sel: Selection) {
+        self.selection_opt = Some(sel);
+    }
+
+    pub fn clear_selection(&mut self) {
+        self.selection_opt = None;
     }
 
     pub fn clear(&mut self) {
