@@ -70,7 +70,7 @@ impl Com for ComRawImpl {
         }
     }
 
-    fn disconnect(&mut self) -> TermComResult<()> {
+    async fn disconnect(&mut self) -> TermComResult<()> {
         Ok(())
     }
 }

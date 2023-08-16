@@ -348,11 +348,9 @@ impl MainWindow {
 
         self.open_connection_promise = Some(Promise::spawn_async(async move {
             let mut com: Box<dyn Com> = match ct {
-                crate::address_mod::Protocol::Ssh | crate::address_mod::Protocol::Telnet => {
-                    Box::new(ComTelnetImpl::new(window_size))
-                }
+                crate::address_mod::Protocol::Telnet => Box::new(ComTelnetImpl::new(window_size)),
                 crate::address_mod::Protocol::Raw => Box::new(ComRawImpl::new()),
-                // crate::address_mod::Protocol::Ssh => Box::new(crate::com::SSHCom::new()),
+                crate::address_mod::Protocol::Ssh => panic!(), //Box::new(crate::com::SSHCom::new()),
             };
             com.set_terminal_type(call_adr.terminal_type);
             if let Err(err) = com.connect(&call_adr, timeout).await {
@@ -626,7 +624,7 @@ impl eframe::App for MainWindow {
                                                 tx.send(SendData::EndTransfer).await.unwrap_or_default();
                                             }
                                             Some(SendData::Disconnect) => {
-                                                done = true;
+                                                                                                done = true;
                                             }
                                             _ => {}
                                         }

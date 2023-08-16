@@ -16,6 +16,8 @@ pub use telnet::*;
 pub mod raw;
 pub use raw::*;
 
+// pub mod ssh;
+
 use tokio::sync::mpsc;
 
 use crate::{
@@ -35,7 +37,7 @@ pub trait Com: Sync + Send {
     async fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>>;
     fn set_terminal_type(&mut self, terminal: Terminal);
 
-    fn disconnect(&mut self) -> TermComResult<()>;
+    async fn disconnect(&mut self) -> TermComResult<()>;
 }
 
 #[derive(Debug)]

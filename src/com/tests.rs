@@ -96,7 +96,7 @@ impl Com for TestCom {
         Ok(result)
     }
 
-    fn disconnect(&mut self) -> TermComResult<()> {
+    async fn disconnect(&mut self) -> TermComResult<()> {
         // nothing
         Ok(())
     }
