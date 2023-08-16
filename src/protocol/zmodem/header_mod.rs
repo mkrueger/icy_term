@@ -182,9 +182,9 @@ impl Header {
         res
     }
 
-    pub async fn write(&mut self, com: &mut Box<dyn Com>) -> TermComResult<usize> {
+    pub fn write(&mut self, com: &mut Box<dyn Com>) -> TermComResult<usize> {
         // println!("send header: {:?}", self);
-        com.send(&self.build()).await
+        com.send(&self.build())
     }
 
     pub fn get_frame_type(ftype: u8) -> TermComResult<ZFrameType> {
@@ -213,11 +213,11 @@ impl Header {
         }
     }
 
-    pub async fn read(
+    pub fn read(
         com: &mut Box<dyn Com>,
         can_count: &mut usize,
     ) -> TermComResult<Option<Header>> {
-        let zpad = com.read_u8().await?;
+        let zpad = com.read_u8()?;
         if zpad == 0x18 {
             // CAN
             *can_count += 1;
@@ -226,15 +226,15 @@ impl Header {
             return Err(Box::new(TransmissionError::ZPADExected(zpad)));
         }
         *can_count = 0;
-        let mut next = com.read_u8().await?;
+        let mut next = com.read_u8()?;
         if next == ZPAD {
-            next = com.read_u8().await?;
+            next = com.read_u8()?;
         }
         if next != ZDLE {
             return Err(Box::new(TransmissionError::ZLDEExected(next)));
         }
 
-        let header_type = com.read_u8().await?;
+        let header_type = com.read_u8()?;
         let header_data_size = match header_type {
             ZBIN => 7,
             ZBIN32 => 9,
@@ -244,7 +244,7 @@ impl Header {
             }
         };
 
-        let header_data = read_zdle_bytes(com, header_data_size).await?;
+        let header_data = read_zdle_bytes(com, header_data_size)?;
         match header_type {
             ZBIN => {
                 let crc16 = get_crc16(&header_data[0..5]);
@@ -299,14 +299,14 @@ impl Header {
                     )));
                 }
                 // read rest
-                let eol = com.read_u8().await?;
+                let eol = com.read_u8()?;
 
                 // don't check the next bytes. Errors there don't impact much
                 if eol == b'\r' {
-                    com.read_u8().await?; // \n windows eol
+                    com.read_u8()?; // \n windows eol
                 }
                 if data[0] != ZACK && data[0] != frame_types::ZFIN {
-                    com.read_u8().await?; // read XON
+                    com.read_u8()?; // read XON
                 }
 
                 Ok(Some(Header {

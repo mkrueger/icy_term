@@ -4,7 +4,6 @@
 pub mod constants;
 use std::sync::{Arc, Mutex};
 
-use async_trait::async_trait;
 pub use constants::*;
 mod header_mod;
 pub use header_mod::*;
@@ -47,8 +46,8 @@ impl Zmodem {
         }
     }
 
-    pub async fn cancel(com: &mut Box<dyn Com>) -> TermComResult<()> {
-        com.send(&ABORT_SEQ).await?;
+    pub fn cancel(com: &mut Box<dyn Com>) -> TermComResult<()> {
+        com.send(&ABORT_SEQ)?;
         Ok(())
     }
 
@@ -105,13 +104,13 @@ pub fn append_zdle_encoded(v: &mut Vec<u8>, data: &[u8]) {
     }
 }
 
-pub async fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> TermComResult<Vec<u8>> {
+pub fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> TermComResult<Vec<u8>> {
     let mut data = Vec::new();
     loop {
-        let c = com.read_u8().await?;
+        let c = com.read_u8()?;
         match c {
             ZDLE => {
-                let c2 = com.read_u8().await?;
+                let c2 = com.read_u8()?;
                 match c2 {
                     ZDLEE => data.push(ZDLE),
                     ESC_0X10 => data.push(0x10),
@@ -126,9 +125,7 @@ pub async fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> TermComRe
                     ZRUB1 => data.push(0xFF),
 
                     _ => {
-                        Header::empty(HeaderType::Bin32, ZFrameType::Nak)
-                            .write(com)
-                            .await?;
+                        Header::empty(HeaderType::Bin32, ZFrameType::Nak).write(com)?;
                         return Err(Box::new(TransmissionError::InvalidSubpacket(c2)));
                     }
                 }
@@ -167,21 +164,20 @@ fn from_hex(n: u8) -> TermComResult<u8> {
     Err(Box::new(TransmissionError::HexNumberExpected))
 }
 
-#[async_trait]
 impl Protocol for Zmodem {
-    async fn update(
+    fn update(
         &mut self,
         com: &mut Box<dyn Com>,
         transfer_state: Arc<Mutex<TransferState>>,
     ) -> TermComResult<bool> {
         if let Some(rz) = &mut self.rz {
-            rz.update(com, transfer_state.clone()).await?;
+            rz.update(com, transfer_state.clone())?;
             if !rz.is_active() {
                 transfer_state.lock().unwrap().is_finished = true;
                 return Ok(false);
             }
         } else if let Some(sz) = &mut self.sz {
-            sz.update(com, transfer_state.clone()).await?;
+            sz.update(com, transfer_state.clone())?;
             if !sz.is_active() {
                 transfer_state.lock().unwrap().is_finished = true;
                 return Ok(false);
@@ -190,7 +186,7 @@ impl Protocol for Zmodem {
         Ok(true)
     }
 
-    async fn initiate_send(
+    fn initiate_send(
         &mut self,
         com: &mut Box<dyn Com>,
         files: Vec<FileDescriptor>,
@@ -203,14 +199,14 @@ impl Protocol for Zmodem {
         Ok(())
     }
 
-    async fn initiate_recv(
+    fn initiate_recv(
         &mut self,
         com: &mut Box<dyn Com>,
         transfer_state: Arc<Mutex<TransferState>>,
     ) -> TermComResult<()> {
         transfer_state.lock().unwrap().protocol_name = self.get_name().to_string();
         let mut rz = Rz::new(self.block_length);
-        rz.recv(com).await?;
+        rz.recv(com)?;
         self.rz = Some(rz);
         Ok(())
     }
@@ -225,8 +221,8 @@ impl Protocol for Zmodem {
         }
     }
 
-    async fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
-        com.send(&ABORT_SEQ).await?;
+    fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+        com.send(&ABORT_SEQ)?;
         Ok(())
     }
 }

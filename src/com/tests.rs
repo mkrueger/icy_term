@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_trait::async_trait;
 use eframe::epaint::mutex::Mutex;
 
 use crate::address_mod::Address;
@@ -20,7 +19,6 @@ pub fn indent_receiver() {
     print!("\t\t\t\t\t\t");
 }
 
-#[async_trait]
 impl Com for TestCom {
     fn get_name(&self) -> &'static str {
         "Test_Com"
@@ -28,11 +26,11 @@ impl Com for TestCom {
 
     fn set_terminal_type(&mut self, _terminal: crate::address_mod::Terminal) {}
 
-    async fn connect(&mut self, _addr: &Address, _timeout: Duration) -> TermComResult<bool> {
+    fn connect(&mut self, _addr: &Address, _timeout: Duration) -> TermComResult<bool> {
         Ok(true)
     }
 
-    async fn read_data(&mut self) -> TermComResult<Vec<u8>> {
+    fn read_data(&mut self) -> TermComResult<Vec<u8>> {
         if self.name == "receiver" {
             indent_receiver();
         }
@@ -51,7 +49,7 @@ impl Com for TestCom {
         Ok(result)
     }
 
-    async fn send<'a>(&mut self, buf: &'a [u8]) -> TermComResult<usize> {
+    fn send(&mut self, buf: &[u8]) -> TermComResult<usize> {
         if self.name == "receiver" {
             indent_receiver();
         }
@@ -68,13 +66,13 @@ impl Com for TestCom {
         Ok(buf.len())
     }
 
-    async fn read_u8(&mut self) -> TermComResult<u8> {
+    fn read_u8(&mut self) -> TermComResult<u8> {
         if self.name == "receiver" {
             indent_receiver();
-        }
-        while self.read_buf.lock().is_empty() {
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
+        } /*
+          while self.read_buf.lock().is_empty() {
+              tokio::time::sleep(Duration::from_millis(10)).await;
+          }*/
 
         if let Some(b) = self.read_buf.lock().pop_front() {
             if let Some(cmd) = self.cmd_table.get(&b) {
@@ -91,12 +89,12 @@ impl Com for TestCom {
         }
     }
 
-    async fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
+    fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
         let result: Vec<u8> = self.read_buf.lock().drain(0..len).collect();
         Ok(result)
     }
 
-    async fn disconnect(&mut self) -> TermComResult<()> {
+    fn disconnect(&mut self) -> TermComResult<()> {
         // nothing
         Ok(())
     }
@@ -132,19 +130,18 @@ impl TestChannel {
 
 mod communication_tests {
     use crate::com::TestChannel;
-
-    #[tokio::test]
-    async fn test_simple() {
+    #[test]
+    fn test_simple() {
         let mut test = TestChannel::new();
         let t = b"Hello World";
-        let _ = test.sender.send(t).await;
-        assert_eq!(t.to_vec(), test.receiver.read_data().await.unwrap());
+        let _ = test.sender.send(t);
+        assert_eq!(t.to_vec(), test.receiver.read_data().unwrap());
     }
 
-    #[tokio::test]
-    async fn test_transfer_byte() {
+    #[test]
+    fn test_transfer_byte() {
         let mut test = TestChannel::new();
-        let _ = test.sender.send(&[42]).await;
-        assert_eq!(42, test.receiver.read_u8().await.unwrap());
+        let _ = test.sender.send(&[42]);
+        assert_eq!(42, test.receiver.read_u8().unwrap());
     }
 }

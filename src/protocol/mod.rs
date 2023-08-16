@@ -6,7 +6,6 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 pub mod xymodem;
-use async_trait::async_trait;
 pub use xymodem::*;
 
 pub mod zmodem;
@@ -177,22 +176,21 @@ impl TransferState {
     }
 }
 
-#[async_trait]
 pub trait Protocol: Send {
-    async fn update(
+    fn update(
         &mut self,
         com: &mut Box<dyn Com>,
         transfer_state: Arc<Mutex<TransferState>>,
     ) -> TermComResult<bool>;
 
-    async fn initiate_send(
+    fn initiate_send(
         &mut self,
         com: &mut Box<dyn Com>,
         files: Vec<FileDescriptor>,
         transfer_state: Arc<Mutex<TransferState>>,
     ) -> TermComResult<()>;
 
-    async fn initiate_recv(
+    fn initiate_recv(
         &mut self,
         com: &mut Box<dyn Com>,
         transfer_state: Arc<Mutex<TransferState>>,
@@ -200,7 +198,7 @@ pub trait Protocol: Send {
 
     fn get_received_files(&mut self) -> Vec<FileDescriptor>;
 
-    async fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()>;
+    fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()>;
 }
 
 #[derive(Debug, Clone, Copy)]

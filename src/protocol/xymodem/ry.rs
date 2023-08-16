@@ -54,7 +54,7 @@ impl Ry {
         matches!(self.recv_state, RecvState::None)
     }
 
-    pub async fn update(
+    pub fn update(
         &mut self,
         com: &mut Box<dyn Com>,
         state: &Arc<Mutex<TransferState>>,
@@ -80,7 +80,7 @@ impl Ry {
             RecvState::StartReceive(retries) => {
                 state.lock().unwrap().current_state = "Start receiving...";
 
-                let start = com.read_u8().await?;
+                let start = com.read_u8()?;
                 // println!("{:02X} {}, {}", start, start, char::from_u32(start as u32).unwrap());
                 if start == SOH {
                     if self.configuration.is_ymodem() {
@@ -92,11 +92,11 @@ impl Ry {
                     self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, 0);
                 } else {
                     if retries < 3 {
-                        self.await_data(com).await?;
+                        self.await_data(com)?;
                     } else if retries == 4 {
-                        com.send(&[NAK]).await?;
+                        com.send(&[NAK])?;
                     } else {
-                        self.cancel(com).await?;
+                        self.cancel(com)?;
                         return Err(Box::new(io::Error::new(
                             ErrorKind::ConnectionAborted,
                             "too many retries starting the communication",
@@ -117,10 +117,10 @@ impl Ry {
                     1
                 };
 
-                let block = com.read_exact(2 + len + chksum_size).await?;
+                let block = com.read_exact(2 + len + chksum_size)?;
 
                 if block[0] != block[1] ^ 0xFF {
-                    com.send(&[NAK]).await?;
+                    com.send(&[NAK])?;
                     self.errors += 1;
                     self.recv_state = RecvState::StartReceive(retries + 1);
                     return Ok(());
@@ -129,14 +129,14 @@ impl Ry {
                 if !self.check_crc(block) {
                     //println!("NAK CRC FAIL");
                     self.errors += 1;
-                    com.send(&[NAK]).await?;
+                    com.send(&[NAK])?;
                     self.recv_state = RecvState::ReadYModemHeader(retries + 1);
                     return Ok(());
                 }
                 if block[0] == 0 {
                     // END transfer
                     //println!("END TRANSFER");
-                    com.send(&[ACK]).await?;
+                    com.send(&[ACK])?;
                     self.recv_state = RecvState::None;
                     return Ok(());
                 }
@@ -151,16 +151,16 @@ impl Ry {
                 }
                 self.files.push(fd);
                 if self.configuration.is_ymodem() {
-                    com.send(&[ACK, b'C']).await?;
+                    com.send(&[ACK, b'C'])?;
                 } else {
-                    com.send(&[ACK]).await?;
+                    com.send(&[ACK])?;
                 }
                 self.recv_state = RecvState::ReadBlockStart(0, 0);
             }
 
             RecvState::ReadBlockStart(step, retries) => {
                 if step == 0 {
-                    let start = com.read_u8().await?;
+                    let start = com.read_u8()?;
                     if start == SOH {
                         self.recv_state = RecvState::ReadBlock(DEFAULT_BLOCK_LENGTH, 0);
                     } else if start == STX {
@@ -189,17 +189,17 @@ impl Ry {
                         self.data = Vec::new();
 
                         if self.configuration.is_ymodem() {
-                            com.send(&[NAK]).await?;
+                            com.send(&[NAK])?;
                             self.recv_state = RecvState::ReadBlockStart(1, 0);
                         } else {
-                            com.send(&[ACK]).await?;
+                            com.send(&[ACK])?;
                             self.recv_state = RecvState::None;
                         }
                     } else {
                         if retries < 5 {
-                            com.send(&[NAK]).await?;
+                            com.send(&[NAK])?;
                         } else {
-                            self.cancel(com).await?;
+                            self.cancel(com)?;
                             return Err(Box::new(io::Error::new(
                                 ErrorKind::ConnectionAborted,
                                 "too many retries",
@@ -209,15 +209,15 @@ impl Ry {
                         self.recv_state = RecvState::ReadBlockStart(0, retries + 1);
                     }
                 } else if step == 1 {
-                    let eot = com.read_u8().await?;
+                    let eot = com.read_u8()?;
                     if eot != EOT {
                         self.recv_state = RecvState::None;
                         return Ok(());
                     }
                     if self.configuration.is_ymodem() {
-                        com.send(&[ACK, b'C']).await?;
+                        com.send(&[ACK, b'C'])?;
                     } else {
-                        com.send(&[ACK]).await?;
+                        com.send(&[ACK])?;
                     }
                     self.recv_state = RecvState::StartReceive(retries);
                 }
@@ -230,18 +230,18 @@ impl Ry {
                 } else {
                     1
                 };
-                let block = com.read_exact(2 + len + chksum_size).await?;
+                let block = com.read_exact(2 + len + chksum_size)?;
                 if block[0] != block[1] ^ 0xFF {
-                    com.send(&[NAK]).await?;
+                    com.send(&[NAK])?;
 
                     self.errors += 1;
-                    let start = com.read_u8().await?;
+                    let start = com.read_u8()?;
                     if start == SOH {
                         self.recv_state = RecvState::ReadBlock(DEFAULT_BLOCK_LENGTH, retries + 1);
                     } else if start == STX {
                         self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
                     } else {
-                        self.cancel(com).await?;
+                        self.cancel(com)?;
                         return Err(Box::new(io::Error::new(
                             ErrorKind::ConnectionAborted,
                             "too many retries",
@@ -255,13 +255,13 @@ impl Ry {
                 if !self.check_crc(block) {
                     //println!("\t\t\t\t\t\trecv crc mismatch");
                     self.errors += 1;
-                    com.send(&[NAK]).await?;
+                    com.send(&[NAK])?;
                     self.recv_state = RecvState::ReadBlockStart(0, retries + 1);
                     return Ok(());
                 }
                 self.data.extend_from_slice(&block[0..len]);
                 if !self.configuration.is_streaming() {
-                    com.send(&[ACK]).await?;
+                    com.send(&[ACK])?;
                 }
                 self.recv_state = RecvState::ReadBlockStart(0, 0);
             }
@@ -269,25 +269,25 @@ impl Ry {
         Ok(())
     }
 
-    pub async fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+    pub fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
         self.recv_state = RecvState::None;
-        super::cancel(com).await
+        super::cancel(com)
     }
 
-    pub async fn recv(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
-        self.await_data(com).await?;
+    pub fn recv(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+        self.await_data(com)?;
         self.data = Vec::new();
         self.recv_state = RecvState::StartReceive(0);
         Ok(())
     }
 
-    async fn await_data(&mut self, com: &mut Box<dyn Com>) -> TermComResult<usize> {
+    fn await_data(&mut self, com: &mut Box<dyn Com>) -> TermComResult<usize> {
         if self.configuration.is_streaming() {
-            com.send(&[b'G']).await?;
+            com.send(&[b'G'])?;
         } else if self.configuration.use_crc() {
-            com.send(&[b'C']).await?;
+            com.send(&[b'C'])?;
         } else {
-            com.send(&[NAK]).await?;
+            com.send(&[NAK])?;
         }
         Ok(1)
     }

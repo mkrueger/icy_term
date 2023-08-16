@@ -1,12 +1,12 @@
 use std::{
     collections::VecDeque,
     error::Error,
+    sync::mpsc,
     time::{Duration, SystemTime},
 };
 
 #[cfg(test)]
 pub mod tests;
-use async_trait::async_trait;
 #[cfg(test)]
 pub use tests::*;
 
@@ -18,26 +18,23 @@ pub use raw::*;
 
 // pub mod ssh;
 
-use tokio::sync::mpsc;
-
 use crate::{
     address_mod::{Address, Terminal},
     TerminalResult,
 };
 pub type TermComResult<T> = Result<T, Box<dyn Error + Send + Sync>>;
 
-#[async_trait]
 pub trait Com: Sync + Send {
     fn get_name(&self) -> &'static str;
 
-    async fn send<'a>(&mut self, buf: &'a [u8]) -> TermComResult<usize>;
-    async fn connect(&mut self, addr: &Address, timeout: Duration) -> TermComResult<bool>;
-    async fn read_data(&mut self) -> TermComResult<Vec<u8>>;
-    async fn read_u8(&mut self) -> TermComResult<u8>;
-    async fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>>;
+    fn send(&mut self, buf: &[u8]) -> TermComResult<usize>;
+    fn connect(&mut self, addr: &Address, timeout: Duration) -> TermComResult<bool>;
+    fn read_data(&mut self) -> TermComResult<Vec<u8>>;
+    fn read_u8(&mut self) -> TermComResult<u8>;
+    fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>>;
     fn set_terminal_type(&mut self, terminal: Terminal);
 
-    async fn disconnect(&mut self) -> TermComResult<()>;
+    fn disconnect(&mut self) -> TermComResult<()>;
 }
 
 #[derive(Debug)]
@@ -87,7 +84,7 @@ impl Connection {
     }
 
     pub fn send(&mut self, vec: Vec<u8>) -> TerminalResult<()> {
-        if let Err(err) = self.tx.try_send(SendData::Data(vec)) {
+        if let Err(err) = self.tx.send(SendData::Data(vec)) {
             eprintln!("{err}");
             self.is_disconnected = true;
             self.disconnect()?;
@@ -114,8 +111,8 @@ impl Connection {
                 },
 
                 Err(err) => match err {
-                    mpsc::error::TryRecvError::Empty => break,
-                    mpsc::error::TryRecvError::Disconnected => {
+                    mpsc::TryRecvError::Empty => break,
+                    mpsc::TryRecvError::Disconnected => {
                         self.is_disconnected = true;
                         return Err(Box::new(err));
                     }
@@ -135,12 +132,12 @@ impl Connection {
     }
 
     pub fn disconnect(&self) -> TerminalResult<()> {
-        self.tx.try_send(SendData::Disconnect)?;
+        self.tx.send(SendData::Disconnect)?;
         Ok(())
     }
 
     pub fn cancel_transfer(&self) -> TerminalResult<()> {
-        self.tx.try_send(SendData::CancelTransfer)?;
+        self.tx.send(SendData::CancelTransfer)?;
         Ok(())
     }
 
@@ -156,7 +153,7 @@ impl Connection {
         files_opt: Option<Vec<crate::protocol::FileDescriptor>>,
     ) -> TerminalResult<()> {
         self.end_transfer = false;
-        self.tx.try_send(SendData::StartTransfer(
+        self.tx.send(SendData::StartTransfer(
             protocol_type,
             download,
             state,

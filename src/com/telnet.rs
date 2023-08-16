@@ -1,12 +1,11 @@
 use crate::address_mod::{Address, Terminal};
 
 use super::{Com, ConnectionError, TermComResult};
-use async_trait::async_trait;
 use icy_engine::Size;
-use std::{io::ErrorKind, time::Duration};
-use tokio::{
-    io::{self, AsyncReadExt, AsyncWriteExt},
+use std::{
+    io::{self, ErrorKind, Read, Write},
     net::TcpStream,
+    time::Duration,
 };
 
 #[derive(Debug)]
@@ -360,7 +359,7 @@ impl ComTelnetImpl {
                                 //println!("Sending terminal type: {:?}", buf);
 
                                 if let Some(stream) = self.tcp_stream.as_mut() {
-                                    stream.try_write(&buf)?;
+                                    stream.write_all(&buf)?;
                                 } else {
                                     return Err(Box::new(ConnectionError::ConnectionLost));
                                 }
@@ -378,7 +377,7 @@ impl ComTelnetImpl {
                     Ok(telnet_cmd::Ayt) => {
                         self.state = ParserState::Data;
                         if let Some(stream) = self.tcp_stream.as_mut() {
-                            stream.try_write(&telnet_cmd::make_cmd(telnet_cmd::Nop))?;
+                            stream.write_all(&telnet_cmd::make_cmd(telnet_cmd::Nop))?;
                         } else {
                             return Err(Box::new(ConnectionError::ConnectionLost));
                         }
@@ -419,23 +418,23 @@ impl ComTelnetImpl {
                     let opt = telnet_option::check(*b)?;
                     if let Some(stream) = self.tcp_stream.as_mut() {
                         if let telnet_option::TransmitBinary = opt {
-                            stream.try_write(&telnet_cmd::make_cmd_with_option(
+                            stream.write_all(&telnet_cmd::make_cmd_with_option(
                                 telnet_cmd::DO,
                                 telnet_option::TransmitBinary,
                             ))?;
                         } else if let telnet_option::Echo = opt {
-                            stream.try_write(&telnet_cmd::make_cmd_with_option(
+                            stream.write_all(&telnet_cmd::make_cmd_with_option(
                                 telnet_cmd::DO,
                                 telnet_option::Echo,
                             ))?;
                         } else if let telnet_option::SuppressGoAhead = opt {
-                            stream.try_write(&telnet_cmd::make_cmd_with_option(
+                            stream.write_all(&telnet_cmd::make_cmd_with_option(
                                 telnet_cmd::DO,
                                 telnet_option::SuppressGoAhead,
                             ))?;
                         } else {
                             eprintln!("unsupported will option {}", telnet_option::to_string(opt));
-                            stream.try_write(&telnet_cmd::make_cmd_with_option(
+                            stream.write_all(&telnet_cmd::make_cmd_with_option(
                                 telnet_cmd::Dont,
                                 opt,
                             ))?;
@@ -455,13 +454,13 @@ impl ComTelnetImpl {
                     if let Some(stream) = self.tcp_stream.as_mut() {
                         match opt {
                             telnet_option::TransmitBinary => {
-                                stream.try_write(&telnet_cmd::make_cmd_with_option(
+                                stream.write_all(&telnet_cmd::make_cmd_with_option(
                                     telnet_cmd::Will,
                                     telnet_option::TransmitBinary,
                                 ))?;
                             }
                             telnet_option::TerminalType => {
-                                stream.try_write(&telnet_cmd::make_cmd_with_option(
+                                stream.write_all(&telnet_cmd::make_cmd_with_option(
                                     telnet_cmd::Will,
                                     telnet_option::TerminalType,
                                 ))?;
@@ -478,14 +477,14 @@ impl ComTelnetImpl {
                                 buf.push(telnet_cmd::Iac);
                                 buf.push(telnet_cmd::SE);
 
-                                stream.try_write(&buf)?;
+                                stream.write_all(&buf)?;
                             }
                             _ => {
                                 eprintln!(
                                     "unsupported do option {}",
                                     telnet_option::to_string(opt)
                                 );
-                                stream.try_write(&telnet_cmd::make_cmd_with_option(
+                                stream.write_all(&telnet_cmd::make_cmd_with_option(
                                     telnet_cmd::Wont,
                                     opt,
                                 ))?;
@@ -506,7 +505,6 @@ impl ComTelnetImpl {
     }
 }
 
-#[async_trait]
 impl Com for ComTelnetImpl {
     fn get_name(&self) -> &'static str {
         "Telnet"
@@ -515,108 +513,71 @@ impl Com for ComTelnetImpl {
         self.terminal = terminal;
     }
 
-    async fn connect(&mut self, addr: &Address, timeout: Duration) -> TermComResult<bool> {
-        let mut addr_copy = addr.address.clone();
-        if !addr_copy.contains(':') {
-            addr_copy.push_str(":23");
-        }
-        let r = tokio::time::timeout(timeout, TcpStream::connect(&addr_copy)).await;
-        match r {
-            Ok(tcp_stream) => match tcp_stream {
-                Ok(stream) => {
-                    self.tcp_stream = Some(stream);
-                    Ok(true)
-                }
-                Err(err) => Err(Box::new(err)),
-            },
-            Err(err) => Err(Box::new(err)),
-        }
+    fn connect(&mut self, addr: &Address, timeout: Duration) -> TermComResult<bool> {
+        let tcp_stream = TcpStream::connect(&addr.address)?;
+        tcp_stream.set_nonblocking(true)?;
+        tcp_stream.set_read_timeout(Some(timeout))?;
+
+        self.tcp_stream = Some(tcp_stream);
+        Ok(true)
     }
 
-    async fn read_data(&mut self) -> TermComResult<Vec<u8>> {
-        let mut buf = [0; 1024 * 50];
-        if let Some(stream) = self.tcp_stream.as_mut() {
-            match stream.read(&mut buf).await {
-                Ok(bytes) => {
-                    //                    println!("read {} bytes: {:?}", bytes, &buf[0..bytes]);
-                    self.parse(&buf[0..bytes])
+    fn read_data(&mut self) -> TermComResult<Vec<u8>> {
+        let mut buf = [0; 1024 * 256];
+        match self.tcp_stream.as_mut().unwrap().read(&mut buf) {
+            Ok(size) => self.parse(&buf[0..size]),
+            Err(ref e) => {
+                if e.kind() == io::ErrorKind::WouldBlock {
+                    return Ok(Vec::new());
                 }
-                Err(error) => Err(Box::new(error)),
+                Err(Box::new(io::Error::new(
+                    ErrorKind::ConnectionAborted,
+                    format!("Connection aborted: {e}"),
+                )))
             }
-        } else {
-            return Err(Box::new(io::Error::new(ErrorKind::BrokenPipe, "no stream")));
         }
     }
 
-    async fn read_u8(&mut self) -> TermComResult<u8> {
-        if let Some(stream) = self.tcp_stream.as_mut() {
-            match stream.read_u8().await {
-                Ok(b) => {
-                    if b == telnet_cmd::Iac {
-                        let b2 = stream.read_u8().await?;
-                        if b2 != telnet_cmd::Iac {
-                            return Err(Box::new(io::Error::new(
-                                ErrorKind::InvalidData,
-                                format!("expected iac, got {b2}"),
-                            )));
-                        }
-                        // IGNORE additional telnet commands
-                    }
-                    Ok(b)
-                }
-                Err(err) => Err(Box::new(err)),
-            }
-        } else {
-            return Err(Box::new(ConnectionError::ConnectionLost));
-        }
+    fn read_u8(&mut self) -> TermComResult<u8> {
+        self.tcp_stream.as_mut().unwrap().set_nonblocking(false)?;
+        let mut b = [0];
+        self.tcp_stream.as_mut().unwrap().read_exact(&mut b)?;
+        self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
+        Err(Box::new(io::Error::new(ErrorKind::TimedOut, "timed out")))
     }
 
-    async fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
-        let mut buf = vec![0; len];
-        if let Some(stream) = self.tcp_stream.as_mut() {
-            match stream.read_exact(&mut buf).await {
-                Ok(_) => {
-                    let mut buf = self.parse(&buf)?;
-                    while buf.len() < len {
-                        buf.push(self.read_u8().await?);
-                    }
-                    Ok(buf)
-                }
-                Err(err) => Err(Box::new(err)),
-            }
-        } else {
-            return Err(Box::new(ConnectionError::ConnectionLost));
-        }
+    fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
+        self.tcp_stream.as_mut().unwrap().set_nonblocking(false)?;
+        let mut b = vec![0; len];
+        self.tcp_stream.as_mut().unwrap().read_exact(&mut b)?;
+        self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
+
+        Err(Box::new(io::Error::new(ErrorKind::TimedOut, "timed out")))
     }
 
-    async fn disconnect(&mut self) -> TermComResult<()> {
-        // self.tcp_stream.shutdown(std::net::Shutdown::Both)
-        Ok(())
-    }
-
-    async fn send<'a>(&mut self, buf: &'a [u8]) -> TermComResult<usize> {
+    fn send(&mut self, buf: &[u8]) -> TermComResult<usize> {
         if self.use_raw_transfer {
-            return if let Some(stream) = self.tcp_stream.as_mut() {
-                stream.write_all(buf).await?;
-                Ok(buf.len())
-            } else {
-                Err(Box::new(ConnectionError::ConnectionLost))
-            };
-        }
-
-        let mut data = Vec::with_capacity(buf.len());
-        for b in buf {
-            if *b == telnet_cmd::Iac {
-                data.extend_from_slice(&[telnet_cmd::Iac, telnet_cmd::Iac]);
-            } else {
-                data.push(*b);
-            }
-        }
-        if let Some(stream) = self.tcp_stream.as_mut() {
-            stream.write_all(&data).await?;
-            Ok(buf.len())
+            self.tcp_stream.as_mut().unwrap().write_all(buf)?;
         } else {
-            Err(Box::new(ConnectionError::ConnectionLost))
+            let mut data = Vec::with_capacity(buf.len());
+            for b in buf {
+                if *b == telnet_cmd::Iac {
+                    data.extend_from_slice(&[telnet_cmd::Iac, telnet_cmd::Iac]);
+                } else {
+                    data.push(*b);
+                }
+            }
+            self.tcp_stream.as_mut().unwrap().write_all(&data)?;
         }
+        Ok(buf.len())
+    }
+
+    fn disconnect(&mut self) -> TermComResult<()> {
+        self.tcp_stream
+            .as_mut()
+            .unwrap()
+            .shutdown(std::net::Shutdown::Both)?;
+
+        Ok(())
     }
 }

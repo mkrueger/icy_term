@@ -1,5 +1,3 @@
-use async_trait::async_trait;
-
 use crate::com::{Com, TermComResult};
 use std::sync::{Arc, Mutex};
 
@@ -48,21 +46,20 @@ impl XYmodem {
     }
 }
 
-#[async_trait]
 impl super::Protocol for XYmodem {
-    async fn update(
+    fn update(
         &mut self,
         com: &mut Box<dyn Com>,
         transfer_state: Arc<Mutex<TransferState>>,
     ) -> TermComResult<bool> {
         if let Some(ry) = &mut self.ry {
-            ry.update(com, &transfer_state).await?;
+            ry.update(com, &transfer_state)?;
             transfer_state.lock().unwrap().is_finished = ry.is_finished();
             if ry.is_finished() {
                 return Ok(false);
             }
         } else if let Some(sy) = &mut self.sy {
-            sy.update(com, &transfer_state).await?;
+            sy.update(com, &transfer_state)?;
             transfer_state.lock().unwrap().is_finished = sy.is_finished();
             if sy.is_finished() {
                 return Ok(false);
@@ -71,7 +68,7 @@ impl super::Protocol for XYmodem {
         Ok(true)
     }
 
-    async fn initiate_send(
+    fn initiate_send(
         &mut self,
         _com: &mut Box<dyn Com>,
         files: Vec<FileDescriptor>,
@@ -93,13 +90,13 @@ impl super::Protocol for XYmodem {
         Ok(())
     }
 
-    async fn initiate_recv(
+    fn initiate_recv(
         &mut self,
         com: &mut Box<dyn Com>,
         transfer_state: Arc<Mutex<TransferState>>,
     ) -> TermComResult<()> {
         let mut ry = ry::Ry::new(self.config);
-        ry.recv(com).await?;
+        ry.recv(com)?;
         self.ry = Some(ry);
 
         transfer_state.lock().unwrap().protocol_name = self.config.get_protocol_name().to_string();
@@ -123,13 +120,13 @@ impl super::Protocol for XYmodem {
         }
     }
 
-    async fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
-        cancel(com).await
+    fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+        cancel(com)
     }
 }
 
-async fn cancel(com: &mut Box<dyn Com>) -> TermComResult<()> {
-    com.send(&[CAN, CAN, CAN, CAN, CAN, CAN]).await?;
+fn cancel(com: &mut Box<dyn Com>) -> TermComResult<()> {
+    com.send(&[CAN, CAN, CAN, CAN, CAN, CAN])?;
     Ok(())
 }
 

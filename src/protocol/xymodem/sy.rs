@@ -64,7 +64,7 @@ impl Sy {
         matches!(self.send_state, SendState::None)
     }
 
-    pub async fn update(
+    pub fn update(
         &mut self,
         com: &mut Box<dyn Com>,
         state: &Arc<Mutex<TransferState>>,
@@ -87,7 +87,7 @@ impl Sy {
             SendState::None => {}
             SendState::InitiateSend => {
                 state.lock().unwrap().current_state = "Initiate send…";
-                self.get_mode(com).await?;
+                self.get_mode(com)?;
                 if self.configuration.is_ymodem() {
                     self.send_state = SendState::SendYModemHeader(0);
                 } else {
@@ -98,18 +98,18 @@ impl Sy {
             SendState::SendYModemHeader(retries) => {
                 if retries > 3 {
                     state.lock().unwrap().current_state = "Too many retries...aborting";
-                    self.cancel(com).await?;
+                    self.cancel(com)?;
                     return Ok(());
                 }
                 self.block_number = 0;
                 //transfer_info.write("Send header...".to_string());
-                self.send_ymodem_header(com).await?;
+                self.send_ymodem_header(com)?;
                 self.send_state = SendState::AckSendYmodemHeader(retries);
             }
 
             SendState::AckSendYmodemHeader(retries) => {
                 //let now = SystemTime::now();
-                let ack = self.read_command(com).await?;
+                let ack = self.read_command(com)?;
                 if ack == NAK {
                     state.lock().unwrap().current_state = "Encountered error";
                     self.errors += 1;
@@ -127,7 +127,7 @@ impl Sy {
                     }
                     state.lock().unwrap().current_state = "Header accepted.";
                     self.data = self.files[self.cur_file].get_data();
-                    let _ = self.read_command(com).await?;
+                    let _ = self.read_command(com)?;
                     // SKIP - not needed to check that
                     self.send_state = SendState::SendData(0, 0);
                 }
@@ -143,11 +143,11 @@ impl Sy {
             }
             SendState::SendData(cur_offset, retries) => {
                 state.lock().unwrap().current_state = "Send data...";
-                if self.send_data_block(com, cur_offset).await? {
+                if self.send_data_block(com, cur_offset)? {
                     if self.configuration.is_streaming() {
                         self.bytes_send = cur_offset + self.configuration.block_length;
                         self.send_state = SendState::SendData(self.bytes_send, 0);
-                        self.check_eof(com).await?;
+                        self.check_eof(com)?;
                     } else {
                         self.send_state = SendState::AckSendData(cur_offset, retries);
                     }
@@ -156,10 +156,10 @@ impl Sy {
                 };
             }
             SendState::AckSendData(cur_offset, retries) => {
-                let ack = self.read_command(com).await?;
+                let ack = self.read_command(com)?;
                 if ack == CAN {
                     // need 2 CAN
-                    let can2 = self.read_command(com).await?;
+                    let can2 = self.read_command(com)?;
                     if can2 == CAN {
                         self.send_state = SendState::None;
                         //transfer_info.write("Got cancel ...".to_string());
@@ -178,7 +178,7 @@ impl Sy {
                     }
 
                     if retries > 5 {
-                        self.eot(com).await?;
+                        self.eot(com)?;
                         return Err(Box::new(TransmissionError::TooManyRetriesSendingHeader));
                     }
                     self.send_state = SendState::SendData(cur_offset, retries + 1);
@@ -186,31 +186,31 @@ impl Sy {
                 }
                 self.bytes_send = cur_offset + self.configuration.block_length;
                 self.send_state = SendState::SendData(self.bytes_send, 0);
-                self.check_eof(com).await?;
+                self.check_eof(com)?;
             }
             SendState::YModemEndHeader(step) => match step {
                 0 => {
-                    if self.read_command(com).await? == NAK {
-                        com.send(&[EOT]).await?;
+                    if self.read_command(com)? == NAK {
+                        com.send(&[EOT])?;
                         self.send_state = SendState::YModemEndHeader(1);
                         return Ok(());
                     }
-                    self.cancel(com).await?;
+                    self.cancel(com)?;
                 }
                 1 => {
-                    if self.read_command(com).await? == ACK {
+                    if self.read_command(com)? == ACK {
                         self.send_state = SendState::YModemEndHeader(2);
                         return Ok(());
                     }
-                    self.cancel(com).await?;
+                    self.cancel(com)?;
                 }
                 2 => {
-                    if self.read_command(com).await? == b'C' {
+                    if self.read_command(com)? == b'C' {
                         self.send_state = SendState::SendYModemHeader(0);
                         self.cur_file += 1;
                         return Ok(());
                     }
-                    self.cancel(com).await?;
+                    self.cancel(com)?;
                 }
                 _ => {
                     self.send_state = SendState::None;
@@ -220,9 +220,9 @@ impl Sy {
         Ok(())
     }
 
-    async fn check_eof(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+    fn check_eof(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
         if self.bytes_send >= self.files[self.cur_file].size {
-            self.eot(com).await?;
+            self.eot(com)?;
             if self.configuration.is_ymodem() {
                 self.send_state = SendState::YModemEndHeader(0);
             } else {
@@ -232,8 +232,8 @@ impl Sy {
         Ok(())
     }
 
-    async fn read_command(&self, com: &mut Box<dyn Com>) -> TermComResult<u8> {
-        let ch = com.read_u8().await?;
+    fn read_command(&self, com: &mut Box<dyn Com>) -> TermComResult<u8> {
+        let ch = com.read_u8()?;
         /* let cmd = match ch {
             b'C' => "[C]",
             EOT => "[EOT]",
@@ -252,13 +252,13 @@ impl Sy {
         Ok(ch)
     }
 
-    async fn eot(&self, com: &mut Box<dyn Com>) -> TermComResult<usize> {
+    fn eot(&self, com: &mut Box<dyn Com>) -> TermComResult<usize> {
         // println!("[EOT]");
-        com.send(&[EOT]).await
+        com.send(&[EOT])
     }
 
-    pub async fn get_mode(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
-        let ch = self.read_command(com).await?;
+    pub fn get_mode(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+        let ch = self.read_command(com)?;
         match ch {
             NAK => {
                 self.configuration.checksum_mode = Checksum::Default;
@@ -281,7 +281,7 @@ impl Sy {
         }
     }
 
-    async fn send_block(
+    fn send_block(
         &mut self,
         com: &mut Box<dyn Com>,
         data: &[u8],
@@ -317,12 +317,12 @@ impl Sy {
             }
         }
         // println!("Send block {:X?}", block);
-        com.send(&block).await?;
+        com.send(&block)?;
         self.block_number = self.block_number.wrapping_add(1);
         Ok(())
     }
 
-    async fn send_ymodem_header(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+    fn send_ymodem_header(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
         if self.cur_file < self.files.len() {
             // restart from 0
             let mut block = Vec::new();
@@ -331,19 +331,15 @@ impl Sy {
             block.extend_from_slice(name);
             block.push(0);
             block.extend_from_slice(format!("{}", fd.size).as_bytes());
-            self.send_block(com, &block, 0).await?;
+            self.send_block(com, &block, 0)?;
             Ok(())
         } else {
-            self.end_ymodem(com).await?;
+            self.end_ymodem(com)?;
             Ok(())
         }
     }
 
-    async fn send_data_block(
-        &mut self,
-        com: &mut Box<dyn Com>,
-        offset: usize,
-    ) -> TermComResult<bool> {
+    fn send_data_block(&mut self, com: &mut Box<dyn Com>, offset: usize) -> TermComResult<bool> {
         let data_len = self.data.len();
         if offset >= data_len {
             return Ok(false);
@@ -355,13 +351,13 @@ impl Sy {
             block_end = min(offset + self.configuration.block_length, data_len);
         }
         let d = self.data[offset..block_end].to_vec();
-        self.send_block(com, &d, CPMEOF).await?;
+        self.send_block(com, &d, CPMEOF)?;
         Ok(true)
     }
 
-    pub async fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+    pub fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
         self.send_state = SendState::None;
-        super::cancel(com).await
+        super::cancel(com)
     }
 
     pub fn send(&mut self, files: Vec<FileDescriptor>) {
@@ -371,8 +367,8 @@ impl Sy {
         self.bytes_send = 0;
     }
 
-    pub async fn end_ymodem(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
-        self.send_block(com, &[0], 0).await?;
+    pub fn end_ymodem(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+        self.send_block(com, &[0], 0)?;
         self.transfer_stopped = true;
         Ok(())
     }
