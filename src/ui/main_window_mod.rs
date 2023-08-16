@@ -13,7 +13,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use eframe::egui::{self, Key};
+use eframe::egui::{self};
 
 use crate::auto_file_transfer::AutoFileTransfer;
 use crate::auto_login::AutoLogin;
@@ -465,24 +465,20 @@ impl MainWindow {
     }
 
     pub fn send_login(&mut self) {
-        let adr = self.addresses.get(self.cur_addr).unwrap();
-        let mut cr = [self.buffer_parser.convert_from_unicode('\r') as u8].to_vec();
+        let user_name = self.addresses.get(self.cur_addr).unwrap().user_name.clone();
+        let password = self.addresses.get(self.cur_addr).unwrap().password.clone();
+        /*
+        let mut cr: Vec<u8> = [self.buffer_parser.convert_from_unicode('\r') as u8].to_vec();
         for (k, v) in self.screen_mode.get_input_mode().cur_map() {
             if *k == Key::Enter as u32 {
                 cr = v.to_vec();
                 break;
             }
-        }
-        let mut data = Vec::new();
-        data.extend_from_slice(adr.user_name.as_bytes());
-        data.extend(&cr);
-        data.extend_from_slice(adr.password.as_bytes());
-        data.extend(cr);
-        if let Some(con) = &mut self.connection_opt {
-            let res = con.send(data);
-            self.handle_result(res, true);
-        }
-        self.auto_login.logged_in = true;
+        }*/
+        self.output_string(&user_name);
+        self.output_string("\n");
+        self.output_string(&password);
+        self.output_string("\n");
     }
 
     fn update_title(&self, frame: &mut eframe::Frame) {
@@ -563,15 +559,16 @@ impl MainWindow {
                         ) => {
                             let mut protocol = protocol_type.create();
 
-                            let mut transfer_state = transfer_state.lock().unwrap().clone();
                             if let Err(err) = if download {
-                                protocol
-                                    .initiate_recv(&mut handle.lock().unwrap(), &mut transfer_state)
+                                protocol.initiate_recv(
+                                    &mut handle.lock().unwrap(),
+                                    &mut transfer_state.lock().unwrap(),
+                                )
                             } else {
                                 protocol.initiate_send(
                                     &mut handle.lock().unwrap(),
                                     files_opt.unwrap(),
-                                    &mut transfer_state,
+                                    &mut transfer_state.lock().unwrap(),
                                 )
                             } {
                                 eprintln!("{err}");
@@ -582,7 +579,7 @@ impl MainWindow {
                             loop {
                                 let v = protocol.update(
                                     &mut handle.lock().unwrap(),
-                                    &mut transfer_state,
+                                    &mut transfer_state.lock().unwrap(),
                                     &mut storage_handler,
                                 );
                                 match v {
@@ -703,7 +700,6 @@ impl eframe::App for MainWindow {
                             .expect("error saving file.");
                         }
                     } else */
-                    self.mode = MainWindowMode::ShowTerminal;
                     self.auto_file_transfer.reset();
                 }
 

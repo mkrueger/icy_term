@@ -17,7 +17,6 @@ mod zmodem_test {
 
     #[test]
     fn test_zmodem_simple() {
-        return;
         let send: Box<dyn Protocol> = Box::new(Zmodem::new(512));
         let recv: Box<dyn Protocol> = Box::new(Zmodem::new(512));
 

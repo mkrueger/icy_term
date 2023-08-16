@@ -52,11 +52,9 @@ impl Com for ComRawImpl {
 
     fn read_u8(&mut self) -> TermComResult<u8> {
         self.tcp_stream.as_mut().unwrap().set_nonblocking(false)?;
-        println!("read u8!");
         let mut b = [0];
         match self.tcp_stream.as_mut().unwrap().read_exact(&mut b) {
             Ok(_) => {
-                println!("succ");
                 self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
                 Ok(b[0])
             }
