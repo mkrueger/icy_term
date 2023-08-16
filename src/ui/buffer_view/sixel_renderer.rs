@@ -46,14 +46,14 @@ impl SixelRenderer {
         let mut render_texture = output_renderer.render_texture;
         let mut sixel_render_texture = self.sixel_render_texture;
         gl.bind_framebuffer(glow::FRAMEBUFFER, Some(output_renderer.framebuffer));
-        gl.framebuffer_texture(
-            glow::FRAMEBUFFER,
-            glow::COLOR_ATTACHMENT0,
-            Some(sixel_render_texture),
-            0,
-        );
 
         for sixel in &self.sixel_cache {
+            gl.framebuffer_texture(
+                glow::FRAMEBUFFER,
+                glow::COLOR_ATTACHMENT0,
+                Some(sixel_render_texture),
+                0,
+            );
             gl.bind_texture(glow::TEXTURE_2D, Some(render_texture));
             gl.viewport(
                 0,
@@ -127,7 +127,7 @@ impl SixelRenderer {
             }
         }
 
-        buf.update_sixel_threads();
+        let sixels_updated = buf.update_sixel_threads();
         if buf.layers[0].sixels.is_empty() {
             for sx in &self.sixel_cache {
                 unsafe {
@@ -137,10 +137,9 @@ impl SixelRenderer {
             self.sixel_cache.clear();
             return false;
         }
-        if !buf.layers[0].updated_sixels {
+        if !sixels_updated {
             return false;
         }
-        buf.layers[0].updated_sixels = false;
 
         for sx in &self.sixel_cache {
             unsafe {

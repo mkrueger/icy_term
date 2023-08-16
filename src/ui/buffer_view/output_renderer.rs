@@ -73,7 +73,7 @@ impl OutputRenderer {
         &self,
         gl: &glow::Context,
         info: &PaintCallbackInfo,
-        render_texture: glow::NativeTexture,
+        output_texture: glow::NativeTexture,
         rect: Rect,
         monitor_settings: &MonitorSettings,
     ) {
@@ -93,7 +93,7 @@ impl OutputRenderer {
                 .as_ref(),
             0,
         );
-        gl.bind_texture(glow::TEXTURE_2D, Some(render_texture));
+        gl.bind_texture(glow::TEXTURE_2D, Some(output_texture));
 
         gl.uniform_1_f32(
             gl.get_uniform_location(self.output_shader, "u_effect")

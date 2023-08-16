@@ -237,8 +237,12 @@ impl BufferView {
             Scaling::Linear => glow::LINEAR as i32,
         };
 
-        self.sixel_renderer
-            .update_sixels(gl, &mut self.buf, scale_filter);
+        if self
+            .sixel_renderer
+            .update_sixels(gl, &mut self.buf, scale_filter)
+        {
+            self.redraw_view();
+        }
         self.terminal_renderer.update_textures(
             gl,
             &mut self.buf,
