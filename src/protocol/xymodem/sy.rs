@@ -232,6 +232,7 @@ impl Sy {
         Ok(())
     }
 
+    #[allow(clippy::unused_self)]
     fn read_command(&self, com: &mut Box<dyn Com>) -> TermComResult<u8> {
         let ch = com.read_u8()?;
         /* let cmd = match ch {
@@ -252,6 +253,7 @@ impl Sy {
         Ok(ch)
     }
 
+    #[allow(clippy::unused_self)]
     fn eot(&self, com: &mut Box<dyn Com>) -> TermComResult<usize> {
         // println!("[EOT]");
         com.send(&[EOT])

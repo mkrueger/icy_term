@@ -72,7 +72,7 @@ impl Rz {
     pub fn update(
         &mut self,
         com: &mut Box<dyn Com>,
-        transfer_state: Arc<Mutex<TransferState>>,
+        transfer_state: &Arc<Mutex<TransferState>>,
     ) -> TermComResult<()> {
         if let RevcState::Idle = self.state {
             return Ok(());
@@ -107,16 +107,16 @@ impl Rz {
                     self.retries += 1;
                     self.last_send = SystemTime::now();
                 }*/
-            }
+            } /*  identical to '_'
             RevcState::AwaitZDATA => {
-                /*  let now = SystemTime::now();
+            /*  let now = SystemTime::now();
                 if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
                     self.request_zpos(com)?;
                     self.retries += 1;
                     self.last_send = SystemTime::now();
                 }*/
                 self.read_header(com)?;
-            }
+            } */
             RevcState::AwaitFileData => {
                 let pck = read_subpacket(com, self.block_length, self.use_crc32);
                 let last = self.files.len() - 1;

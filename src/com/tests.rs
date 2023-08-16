@@ -30,7 +30,7 @@ impl Com for TestCom {
         Ok(true)
     }
 
-    fn read_data(&mut self) -> TermComResult<Vec<u8>> {
+    fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
         if self.name == "receiver" {
             indent_receiver();
         }
@@ -46,7 +46,7 @@ impl Com for TestCom {
             println!("{} reads {:?} #{}", self.name, result, result.len());
         }
 
-        Ok(result)
+        Ok(Some(result))
     }
 
     fn send(&mut self, buf: &[u8]) -> TermComResult<usize> {
@@ -135,7 +135,7 @@ mod communication_tests {
         let mut test = TestChannel::new();
         let t = b"Hello World";
         let _ = test.sender.send(t);
-        assert_eq!(t.to_vec(), test.receiver.read_data().unwrap());
+        assert_eq!(t.to_vec(), test.receiver.read_data().unwrap().unwrap());
     }
 
     #[test]

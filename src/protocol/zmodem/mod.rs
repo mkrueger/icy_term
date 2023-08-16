@@ -171,13 +171,13 @@ impl Protocol for Zmodem {
         transfer_state: Arc<Mutex<TransferState>>,
     ) -> TermComResult<bool> {
         if let Some(rz) = &mut self.rz {
-            rz.update(com, transfer_state.clone())?;
+            rz.update(com, &transfer_state)?;
             if !rz.is_active() {
                 transfer_state.lock().unwrap().is_finished = true;
                 return Ok(false);
             }
         } else if let Some(sz) = &mut self.sz {
-            sz.update(com, transfer_state.clone())?;
+            sz.update(com, &transfer_state)?;
             if !sz.is_active() {
                 transfer_state.lock().unwrap().is_finished = true;
                 return Ok(false);

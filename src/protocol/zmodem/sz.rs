@@ -116,7 +116,7 @@ impl Sz {
     pub fn update(
         &mut self,
         com: &mut Box<dyn Com>,
-        transfer_state: Arc<Mutex<TransferState>>,
+        transfer_state: &Arc<Mutex<TransferState>>,
     ) -> TermComResult<()> {
         if let SendState::Finished = self.state {
             return Ok(());

@@ -34,13 +34,13 @@ impl Com for ComRawImpl {
         Ok(true)
     }
 
-    fn read_data(&mut self) -> TermComResult<Vec<u8>> {
+    fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
         let mut buf = [0; 1024 * 256];
         match self.tcp_stream.as_mut().unwrap().read(&mut buf) {
-            Ok(size) => Ok(buf[0..size].to_vec()),
+            Ok(size) => Ok(Some(buf[0..size].to_vec())),
             Err(ref e) => {
                 if e.kind() == io::ErrorKind::WouldBlock {
-                    return Ok(Vec::new());
+                    return Ok(None);
                 }
                 Err(Box::new(io::Error::new(
                     ErrorKind::ConnectionAborted,

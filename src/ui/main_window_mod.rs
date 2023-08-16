@@ -529,20 +529,20 @@ impl MainWindow {
     fn open_connection(&mut self, mut handle: Box<dyn Com>) {
         // let ctx = ctx.clone();
         let (tx, rx) = mpsc::channel::<SendData>();
-        let (tx2, mut rx2) = mpsc::channel::<SendData>();
+        let (tx2, rx2) = mpsc::channel::<SendData>();
         self.connection_opt = Some(Connection::new(rx, tx2));
 
         thread::spawn(move || {
             let mut done = false;
             while !done {
                 let data = handle.read_data();
-                if let Ok(data) = data {
-                    if !data.is_empty() {
-                        if let Err(err) = tx.send(SendData::Data(data)) {
-                            eprintln!("{err}");
-                            done = true;
-                        }
+                if let Ok(Some(data)) = data {
+                    if let Err(err) = tx.send(SendData::Data(data)) {
+                        eprintln!("{err}");
+                        done = true;
                     }
+                } else {
+                    thread::sleep(Duration::from_millis(25));
                 }
                 if let Ok(result) = rx2.try_recv() {
                     match result {
@@ -599,7 +599,7 @@ impl MainWindow {
                     }
                 }
             }
-            tx.send(SendData::Disconnect).unwrap()
+            tx.send(SendData::Disconnect).unwrap_or_default();
         });
     }
 }

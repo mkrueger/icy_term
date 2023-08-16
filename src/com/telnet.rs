@@ -315,9 +315,9 @@ impl ComTelnetImpl {
         }
     }
 
-    fn parse(&mut self, data: &[u8]) -> TermComResult<Vec<u8>> {
+    fn parse(&mut self, data: &[u8]) -> TermComResult<Option<Vec<u8>>> {
         if self.use_raw_transfer {
-            return Ok(data.to_vec());
+            return Ok(Some(data.to_vec()));
         }
         let mut buf = Vec::with_capacity(data.len());
         for b in data {
@@ -501,7 +501,7 @@ impl ComTelnetImpl {
                 }
             }
         }
-        Ok(buf)
+        Ok(Some(buf))
     }
 }
 
@@ -522,13 +522,13 @@ impl Com for ComTelnetImpl {
         Ok(true)
     }
 
-    fn read_data(&mut self) -> TermComResult<Vec<u8>> {
+    fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
         let mut buf = [0; 1024 * 256];
         match self.tcp_stream.as_mut().unwrap().read(&mut buf) {
             Ok(size) => self.parse(&buf[0..size]),
             Err(ref e) => {
                 if e.kind() == io::ErrorKind::WouldBlock {
-                    return Ok(Vec::new());
+                    return Ok(None);
                 }
                 Err(Box::new(io::Error::new(
                     ErrorKind::ConnectionAborted,

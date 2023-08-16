@@ -29,7 +29,7 @@ pub trait Com: Sync + Send {
 
     fn send(&mut self, buf: &[u8]) -> TermComResult<usize>;
     fn connect(&mut self, addr: &Address, timeout: Duration) -> TermComResult<bool>;
-    fn read_data(&mut self) -> TermComResult<Vec<u8>>;
+    fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>>;
     fn read_u8(&mut self) -> TermComResult<u8>;
     fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>>;
     fn set_terminal_type(&mut self, terminal: Terminal);

@@ -1,3 +1,4 @@
+#![allow(clippy::float_cmp)]
 use std::cmp::max;
 
 use clipboard::{ClipboardContext, ClipboardProvider};
