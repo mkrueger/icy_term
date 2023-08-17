@@ -85,6 +85,7 @@ impl Connection {
     }
 
     pub fn send(&mut self, vec: Vec<u8>) -> TerminalResult<()> {
+        let bt: std::backtrace::Backtrace = std::backtrace::Backtrace::force_capture();
         if let Err(err) = self.tx.send(SendData::Data(vec)) {
             eprintln!("{err}");
             self.is_disconnected = true;

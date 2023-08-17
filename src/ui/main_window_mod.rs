@@ -473,18 +473,7 @@ impl MainWindow {
     pub fn send_login(&mut self) {
         let user_name = self.addresses.get(self.cur_addr).unwrap().user_name.clone();
         let password = self.addresses.get(self.cur_addr).unwrap().password.clone();
-        /*
-        let mut cr: Vec<u8> = [self.buffer_parser.convert_from_unicode('\r') as u8].to_vec();
-        for (k, v) in self.screen_mode.get_input_mode().cur_map() {
-            if *k == Key::Enter as u32 {
-                cr = v.to_vec();
-                break;
-            }
-        }*/
-        self.output_string(&user_name);
-        self.output_string("\n");
-        self.output_string(&password);
-        self.output_string("\n");
+        self.output_string(&format!("{user_name}\r{password}\r"));
     }
 
     fn update_title(&self, frame: &mut eframe::Frame) {
@@ -538,7 +527,11 @@ impl MainWindow {
         let tx3 = tx.clone();
         //let bits_per_sec = self.buffer_view.lock().buf.terminal_state.get_baud_rate();
         let bits_per_sec = 57600;
-        let bytes_per_sec = if bits_per_sec == 0 { 0 } else { bits_per_sec / 8 };
+        let bytes_per_sec = if bits_per_sec == 0 {
+            0
+        } else {
+            bits_per_sec / 8
+        };
         thread::spawn(move || {
             let mut done = false;
             while !done {
@@ -552,7 +545,8 @@ impl MainWindow {
                     } else {
                         let bytes_to_send = data.len();
                         if bytes_to_send > 0 {
-                            let mut loop_helper = spin_sleep::LoopHelper::builder().build_with_target_rate(bytes_per_sec);
+                            let mut loop_helper = spin_sleep::LoopHelper::builder()
+                                .build_with_target_rate(bytes_per_sec);
                             for d in data {
                                 loop_helper.loop_start();
                                 if let Err(err) = tx3.send(SendData::Data([d].to_vec())) {

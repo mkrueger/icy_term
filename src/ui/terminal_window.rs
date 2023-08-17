@@ -82,6 +82,7 @@ impl MainWindow {
 
                         if r.clicked() {
                             self.send_login();
+                            self.auto_login.logged_in = true;
                         }
                     }
 
@@ -280,7 +281,7 @@ impl MainWindow {
                                 pressed: true,
                                 modifiers,
                             } => {
-                                if terminal_rect.contains(pos) {
+                                if terminal_rect.contains(pos - Vec2::new(0., top_margin_height)) {
                                     let buffer_view = self.buffer_view.clone();
                                     let click_pos = (pos
                                         - terminal_rect.min
@@ -361,51 +362,50 @@ impl MainWindow {
                                 modifiers,
                                 ..
                             } => {
-                                if terminal_rect.contains(pos) {
+                                if terminal_rect.contains(pos - Vec2::new(0., top_margin_height)) {
                                     if let Some(sel) = self.buffer_view.lock().get_selection() {
                                         sel.locked = true;
                                     }
-                                }
+                                    let mode: icy_engine::MouseMode =
+                                        self.buffer_view.lock().buf.terminal_state.mouse_mode;
+                                    match mode {
+                                        icy_engine::MouseMode::VT200
+                                        | icy_engine::MouseMode::VT200_Highlight => {
+                                            if terminal_rect.contains(pos) {
+                                                let click_pos = (pos
+                                                    - terminal_rect.min
+                                                    - Vec2::new(0., top_margin_height))
+                                                    / char_size
+                                                    + Vec2::new(0.0, first_line as f32);
 
-                                let mode: icy_engine::MouseMode =
-                                    self.buffer_view.lock().buf.terminal_state.mouse_mode;
-                                match mode {
-                                    icy_engine::MouseMode::VT200
-                                    | icy_engine::MouseMode::VT200_Highlight => {
-                                        if terminal_rect.contains(pos) {
-                                            let click_pos = (pos
-                                                - terminal_rect.min
-                                                - Vec2::new(0., top_margin_height))
-                                                / char_size
-                                                + Vec2::new(0.0, first_line as f32);
-
-                                            let mut modifier_mask = 3; // 3 means realease
-                                            if modifiers.shift {
-                                                modifier_mask |= 4;
+                                                let mut modifier_mask = 3; // 3 means realease
+                                                if modifiers.shift {
+                                                    modifier_mask |= 4;
+                                                }
+                                                if modifiers.alt {
+                                                    modifier_mask |= 8;
+                                                }
+                                                if modifiers.ctrl || modifiers.mac_cmd {
+                                                    modifier_mask |= 16;
+                                                }
+                                                self.output_string(
+                                                    format!(
+                                                        "\x1b[M{}{}{}",
+                                                        encode_mouse_button(modifier_mask),
+                                                        encode_mouse_position(click_pos.x as i32),
+                                                        encode_mouse_position(click_pos.y as i32)
+                                                    )
+                                                    .as_str(),
+                                                );
                                             }
-                                            if modifiers.alt {
-                                                modifier_mask |= 8;
-                                            }
-                                            if modifiers.ctrl || modifiers.mac_cmd {
-                                                modifier_mask |= 16;
-                                            }
-                                            self.output_string(
-                                                format!(
-                                                    "\x1b[M{}{}{}",
-                                                    encode_mouse_button(modifier_mask),
-                                                    encode_mouse_position(click_pos.x as i32),
-                                                    encode_mouse_position(click_pos.y as i32)
-                                                )
-                                                .as_str(),
-                                            );
                                         }
+                                        _ => {}
                                     }
-                                    _ => {}
                                 }
                             }
 
                             egui::Event::PointerMoved(pos) => {
-                                if terminal_rect.contains(pos) {
+                                if terminal_rect.contains(pos - Vec2::new(0., top_margin_height)) {
                                     let buffer_view = self.buffer_view.clone();
                                     let mut l = buffer_view.lock();
                                     if let Some(sel) = &mut l.get_selection() {

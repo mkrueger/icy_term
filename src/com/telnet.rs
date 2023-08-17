@@ -3,6 +3,7 @@ use crate::address_mod::{Address, Terminal};
 use super::{Com, ConnectionError, TermComResult};
 use icy_engine::Size;
 use std::{
+    backtrace::Backtrace,
     io::{self, ErrorKind, Read, Write},
     net::TcpStream,
     time::Duration,
