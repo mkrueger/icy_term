@@ -67,7 +67,6 @@ impl Ry {
         transfer_info.check_size = self.configuration.get_check_and_size();
         transfer_info.update_bps();
 
-        println!("\t\t\t\t\t\t{:?}", self.recv_state);
         match self.recv_state {
             RecvState::None => {}
 
@@ -75,12 +74,6 @@ impl Ry {
                 transfer_state.current_state = "Start receiving...";
 
                 let start = com.read_u8()?;
-                println!(
-                    "{:02X} {}, {}",
-                    start,
-                    start,
-                    char::from_u32(start as u32).unwrap()
-                );
                 if start == SOH {
                     if self.configuration.is_ymodem() {
                         self.recv_state = RecvState::ReadYModemHeader(0);

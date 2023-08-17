@@ -71,7 +71,7 @@ impl Sz {
     fn _can_use_crc32(&self) -> bool {
         self.receiver_capabilities & super::zrinit_flag::CANFC32 != 0
     }
-    fn _can_esc_control(&self) -> bool {
+    fn can_esc_control(&self) -> bool {
         self.receiver_capabilities & super::zrinit_flag::ESCCTL != 0
     }
     fn _can_esc_8thbit(&self) -> bool {
@@ -96,8 +96,12 @@ impl Sz {
 
     fn encode_subpacket(&self, zcrc_byte: u8, data: &[u8]) -> Vec<u8> {
         match self.get_header_type() {
-            HeaderType::Bin | HeaderType::Hex => Zmodem::encode_subpacket_crc16(zcrc_byte, data),
-            HeaderType::Bin32 => Zmodem::encode_subpacket_crc32(zcrc_byte, data),
+            HeaderType::Bin | HeaderType::Hex => {
+                Zmodem::encode_subpacket_crc16(zcrc_byte, data, self.can_esc_control())
+            }
+            HeaderType::Bin32 => {
+                Zmodem::encode_subpacket_crc32(zcrc_byte, data, self.can_esc_control())
+            }
         }
     }
 
@@ -160,7 +164,7 @@ impl Sz {
                     ZFrameType::Data,
                     self.cur_file_pos as u32,
                 )
-                .write(com)?;
+                .write(com, self.can_esc_control())?;
                 self.state = SendState::SendDataPackages;
             }
             SendState::SendDataPackages => {
@@ -192,7 +196,7 @@ impl Sz {
                             ZFrameType::Eof,
                             end_pos as u32,
                         )
-                        .build(),
+                        .build(self.can_esc_control()),
                     );
                     //transfer_info.write("Done sending file date.".to_string());
                     // transfer_state.current_state = "Done data";
@@ -220,9 +224,6 @@ impl Sz {
                         }
                     }
                 }
-                // for some reason for some BBSes it's too fast - adding a little delay here fixes that
-                // Note that using ZCRCQ doesn't seem to fix that issue.
-                std::thread::sleep(Duration::from_millis(15));
             }
             SendState::Finished => {
                 //                transfer_state.current_state = "Finishing transfer…";
@@ -256,7 +257,6 @@ impl Sz {
         self.errors = 0;
         let res = err.unwrap();
         if let Some(res) = res {
-            println!("Recv header {} {:?}", res, self.state);
             match res.frame_type {
                 ZFrameType::RIinit => {
                     if self.transfered_file {
@@ -344,10 +344,11 @@ impl Sz {
                 }
                 ZFrameType::Challenge => {
                     Header::from_number(self.get_header_type(), ZFrameType::Ack, res.number())
-                        .write(com)?;
+                        .write(com, self.can_esc_control())?;
                 }
                 ZFrameType::Abort | ZFrameType::FErr | ZFrameType::Can => {
-                    Header::empty(self.get_header_type(), ZFrameType::Fin).write(com)?;
+                    Header::empty(self.get_header_type(), ZFrameType::Fin)
+                        .write(com, self.can_esc_control())?;
                     self.state = SendState::Finished;
                 }
                 unk_frame => {
@@ -373,7 +374,7 @@ impl Sz {
                 zfile_flag::ZMNEW,
                 zfile_flag::ZCRESUM,
             )
-            .build(),
+            .build(self.can_esc_control()),
         );
         let cur_file_size = usize::try_from(self.cur_file).unwrap();
         let f = &self.files[cur_file_size];
@@ -419,13 +420,14 @@ impl Sz {
     pub fn send_zrqinit(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
         self.cur_file = -1;
         self.transfered_file = true;
-        Header::empty(self.get_header_type(), ZFrameType::RQInit).write(com)?;
+        Header::empty(self.get_header_type(), ZFrameType::RQInit)
+            .write(com, self.can_esc_control())?;
         Ok(())
     }
 
     pub fn send_zfin(&mut self, com: &mut Box<dyn Com>, size: u32) -> TermComResult<()> {
-        println!("send zfin!");
-        Header::from_number(self.get_header_type(), ZFrameType::Fin, size).write(com)?;
+        Header::from_number(self.get_header_type(), ZFrameType::Fin, size)
+            .write(com, self.can_esc_control())?;
         self.state = SendState::Await;
         Ok(())
     }

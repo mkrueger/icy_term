@@ -578,7 +578,7 @@ impl MainWindow {
                     thread::sleep(Duration::from_millis(25));
                 }
 
-                if let Ok(result) = rx2.try_recv() {
+                while let Ok(result) = rx2.try_recv() {
                     match result {
                         SendData::Data(buf) => {
                             if let Err(err) = handle.lock().unwrap().send(&buf) {
@@ -624,7 +624,8 @@ impl MainWindow {
                                         }
                                     }
                                     Err(err) => {
-                                        eprintln!("Err {err}");
+                                        eprintln!("Error, aborting protocol: {err}");
+                                        transfer_state.lock().unwrap().is_finished = true;
                                         break;
                                     }
                                 }

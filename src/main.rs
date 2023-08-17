@@ -59,6 +59,7 @@ fn main() {
         renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
+
     eframe::run_native(
         &DEFAULT_TITLE,
         options,

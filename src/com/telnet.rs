@@ -3,7 +3,6 @@ use crate::address_mod::{Address, Terminal};
 use super::{Com, ConnectionError, TermComResult};
 use icy_engine::Size;
 use std::{
-    backtrace::Backtrace,
     io::{self, ErrorKind, Read, Write},
     net::TcpStream,
     time::Duration,
@@ -544,6 +543,29 @@ impl Com for ComTelnetImpl {
         let mut b = [0];
         match self.tcp_stream.as_mut().unwrap().read_exact(&mut b) {
             Ok(_) => {
+                if b[0] == telnet_cmd::Iac {
+                    let mut b = [0];
+                    match self.tcp_stream.as_mut().unwrap().read_exact(&mut b) {
+                        Ok(_) => {
+                            self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
+                            if b[0] == telnet_cmd::Iac {
+                                return Ok(b[0]);
+                            }
+                            return Err(Box::new(io::Error::new(
+                                ErrorKind::ConnectionAborted,
+                                format!("sub command not allowed here: 0x{}", b[0]),
+                            )));
+                        }
+                        Err(err) => {
+                            self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
+                            return Err(Box::new(io::Error::new(
+                                ErrorKind::ConnectionAborted,
+                                format!("error while reading single byte from stream: {err}"),
+                            )));
+                        }
+                    }
+                }
+
                 self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
                 Ok(b[0])
             }
@@ -558,10 +580,10 @@ impl Com for ComTelnetImpl {
     }
 
     fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
-        self.tcp_stream.as_mut().unwrap().set_nonblocking(false)?;
-        let mut b = vec![0; len];
-        self.tcp_stream.as_mut().unwrap().read_exact(&mut b)?;
-        self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
+        let mut b = vec![];
+        while b.len() < len {
+            b.push(self.read_u8()?);
+        }
         Ok(b)
     }
 

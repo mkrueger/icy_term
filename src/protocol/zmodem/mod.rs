@@ -17,7 +17,7 @@ use rz::Rz;
 mod error_mod;
 mod tests;
 
-use self::error_mod::TransmissionError;
+use self::{error_mod::TransmissionError, rz::read_zdle_byte};
 
 use super::{FileDescriptor, FileStorageHandler, Protocol, TransferState};
 use crate::com::{Com, TermComResult};
@@ -50,54 +50,49 @@ impl Zmodem {
         Ok(())
     }
 
-    pub fn encode_subpacket_crc16(zcrc_byte: u8, data: &[u8]) -> Vec<u8> {
+    pub fn encode_subpacket_crc16(zcrc_byte: u8, data: &[u8], escape_ctl_chars: bool) -> Vec<u8> {
         let mut v = Vec::new();
         let crc = icy_engine::get_crc16_buggy(data, zcrc_byte);
-        append_zdle_encoded(&mut v, data);
+        append_zdle_encoded(&mut v, data, escape_ctl_chars);
         v.extend_from_slice(&[ZDLE, zcrc_byte]);
-        append_zdle_encoded(&mut v, &u16::to_le_bytes(crc));
+        append_zdle_encoded(&mut v, &u16::to_le_bytes(crc), escape_ctl_chars);
         v
     }
 
-    pub fn encode_subpacket_crc32(zcrc_byte: u8, data: &[u8]) -> Vec<u8> {
+    pub fn encode_subpacket_crc32(zcrc_byte: u8, data: &[u8], escape_ctl_chars: bool) -> Vec<u8> {
         let mut v = Vec::new();
         let mut crc = get_crc32(data);
         crc = !update_crc32(!crc, zcrc_byte);
 
-        append_zdle_encoded(&mut v, data);
+        append_zdle_encoded(&mut v, data, escape_ctl_chars);
         v.extend_from_slice(&[ZDLE, zcrc_byte]);
-        append_zdle_encoded(&mut v, &u32::to_le_bytes(crc));
+        append_zdle_encoded(&mut v, &u32::to_le_bytes(crc), escape_ctl_chars);
         v
     }
 }
 
-pub fn append_zdle_encoded(v: &mut Vec<u8>, data: &[u8]) {
+pub fn append_zdle_encoded(v: &mut Vec<u8>, data: &[u8], escape_ctl_chars: bool) {
     let mut last = 0u8;
     for b in data {
         match *b {
-            ZDLE => v.extend_from_slice(&[ZDLE, ZDLEE]),
-            0x10 => v.extend_from_slice(&[ZDLE, ESC_0X10]),
-            0x90 => v.extend_from_slice(&[ZDLE, ESC_0X90]),
-            0x11 => v.extend_from_slice(&[ZDLE, ESC_0X11]),
-            0x91 => v.extend_from_slice(&[ZDLE, ESC_0X91]),
-            0x13 => v.extend_from_slice(&[ZDLE, ESC_0X13]),
-            0x93 => v.extend_from_slice(&[ZDLE, ESC_0X93]),
-            0x0D => {
-                if last == 0x40 || last == 0xc0 {
-                    v.extend_from_slice(&[ZDLE, ESC_0X0D]);
-                } else {
-                    v.push(0x0D);
-                }
+            DLE | DLE_0x80 | XON | XON_0x80 | XOFF | XOFF_0x80 | ZDLE => {
+                v.extend_from_slice(&[ZDLE, *b ^ 0x40]);
             }
-            0x8D => {
-                if last == 0x40 || last == 0xc0 {
-                    v.extend_from_slice(&[ZDLE, ESC_0X8D]);
+            CR | CR_0x80 => {
+                if escape_ctl_chars && last == b'@' {
+                    v.extend_from_slice(&[ZDLE, *b ^ 0x40]);
                 } else {
-                    v.push(0x8D);
+                    v.push(*b);
                 }
             }
 
-            b => v.push(b),
+            b => {
+                if escape_ctl_chars && (b & 0x60) == 0 {
+                    v.extend_from_slice(&[ZDLE, b ^ 0x40]);
+                } else {
+                    v.push(b);
+                }
+            }
         }
         last = *b;
     }
@@ -105,41 +100,13 @@ pub fn append_zdle_encoded(v: &mut Vec<u8>, data: &[u8]) {
 
 pub fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> TermComResult<Vec<u8>> {
     let mut data = Vec::new();
-    loop {
-        let c = com.read_u8()?;
-        match c {
-            ZDLE => {
-                let c2 = com.read_u8()?;
-                match c2 {
-                    ZDLEE => data.push(ZDLE),
-                    ESC_0X10 => data.push(0x10),
-                    ESC_0X90 => data.push(0x90),
-                    ESC_0X11 => data.push(0x11),
-                    ESC_0X91 => data.push(0x91),
-                    ESC_0X13 => data.push(0x13),
-                    ESC_0X93 => data.push(0x93),
-                    ESC_0X0D => data.push(0x0D),
-                    ESC_0X8D => data.push(0x8D),
-                    ZRUB0 => data.push(0x7F),
-                    ZRUB1 => data.push(0xFF),
-
-                    _ => {
-                        Header::empty(HeaderType::Bin32, ZFrameType::Nak).write(com)?;
-                        return Err(Box::new(TransmissionError::InvalidSubpacket(c2)));
-                    }
-                }
-            }
-            0x11 | 0x91 | 0x13 | 0x93 => {
-                // println!("ignored byte");
-            }
-            _ => {
-                data.push(c);
-            }
-        }
-        if data.len() >= length {
-            return Ok(data);
+    for _ in 0..length {
+        let c = read_zdle_byte(com, false)?;
+        if let rz::ZModemResult::Ok(b) = c {
+            data.push(b);
         }
     }
+    Ok(data)
 }
 
 fn get_hex(n: u8) -> u8 {

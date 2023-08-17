@@ -24,7 +24,15 @@ pub const ZVBINR32: u8 = b'd'; // RLE packed Binary frame with 32 bit FCS
 pub const ZRESC: u8 = 0x7e; // RLE flag/escape character
 pub const ZMAXHLEN: u8 = 16; // Max header information length  NEVER CHANGE
 pub const ZMAXSPLEN: usize = 1024; // Max subpacket length  NEVER CHANGE
+
+pub const CR: u8 = b'\r';
+pub const CR_0x80: u8 = CR | 0x80;
+pub const DLE: u8 = 0x10;
+pub const DLE_0x80: u8 = DLE | 0x80;
 pub const XON: u8 = 0x11;
+pub const XOFF_0x80: u8 = XOFF | 0x80;
+pub const XOFF: u8 = 0x13;
+pub const XON_0x80: u8 = XON | 0x80;
 
 /* ZDLE sequences */
 pub const ZCRCE: u8 = b'h'; /* CRC next, frame ends, header packet follows */
@@ -34,11 +42,13 @@ pub const ZCRCW: u8 = b'k'; /* CRC next, ZACK expected, end of frame */
 pub const ZRUB0: u8 = b'l'; /* Translate to rubout 0177 */
 pub const ZRUB1: u8 = b'm'; /* Translate to rubout 0377 */
 
-pub const ESC_0X10: u8 = 0x10 ^ 0x40;
+pub const ESC_DLE: u8 = DLE ^ 0x40;
 pub const ESC_0X90: u8 = 0x90 ^ 0x40;
-pub const ESC_0X11: u8 = 0x11 ^ 0x40;
+pub const ESC_0XON: u8 = 0x11 ^ 0x40;
+
 pub const ESC_0X91: u8 = 0x91 ^ 0x40;
-pub const ESC_0X13: u8 = 0x13 ^ 0x40;
+pub const ESC_0XOFF: u8 = 0x13 ^ 0x40;
+
 pub const ESC_0X93: u8 = 0x93 ^ 0x40;
 pub const ESC_0X0D: u8 = 0x0D ^ 0x40;
 pub const ESC_0X8D: u8 = 0x8D ^ 0x40;

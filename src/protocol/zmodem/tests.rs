@@ -11,7 +11,7 @@ mod zmodem_test {
 
     #[test]
     fn test_encode_subpckg_crc32() {
-        let pck = Zmodem::encode_subpacket_crc32(ZCRCE, b"a\n");
+        let pck = Zmodem::encode_subpacket_crc32(ZCRCE, b"a\n", false);
         assert_eq!(vec![0x61, 0x0a, 0x18, 0x68, 0xe5, 0x79, 0xd2, 0x0f], pck);
     }
 
@@ -74,7 +74,7 @@ mod zmodem_test {
             .unwrap();
         assert_eq!(ZFrameType::RQInit, header.frame_type);
         Header::from_flags(HeaderType::Hex, ZFrameType::RIinit, 0, 0, 0, 0x23)
-            .write(&mut com.receiver)
+            .write(&mut com.receiver, false)
             .unwrap();
 
         send.update(&mut com.sender, &mut transfer_state, &mut handler)
@@ -87,12 +87,13 @@ mod zmodem_test {
             &mut com.receiver,
             1024,
             header.header_type == HeaderType::Bin32,
+            false,
         )
         .unwrap();
         let file_name = str_from_null_terminated_utf8_unchecked(&block).to_string();
         assert_eq!("foo.bar", file_name);
         Header::from_number(HeaderType::Hex, ZFrameType::RPos, 0)
-            .write(&mut com.receiver)
+            .write(&mut com.receiver, false)
             .unwrap();
 
         send.update(&mut com.sender, &mut transfer_state, &mut handler)
@@ -111,6 +112,7 @@ mod zmodem_test {
             &mut com.receiver,
             1024,
             header.header_type == HeaderType::Bin32,
+            false,
         ) {
             Ok((block_data, last, _)) => {
                 assert!(last);
@@ -128,7 +130,7 @@ mod zmodem_test {
             .unwrap();
         assert_eq!(ZFrameType::Eof, header.frame_type);
         Header::from_flags(HeaderType::Hex, ZFrameType::RIinit, 0, 0, 0, 0x23)
-            .write(&mut com.receiver)
+            .write(&mut com.receiver, false)
             .unwrap();
 
         send.update(&mut com.sender, &mut transfer_state, &mut handler)
@@ -137,5 +139,45 @@ mod zmodem_test {
             .unwrap()
             .unwrap();
         assert_eq!(ZFrameType::Fin, header.frame_type);
+    }
+
+    #[test]
+    fn test_encode_char_table() {
+        for i in 0..255 {
+            let data = vec![i as u8];
+            let encoded = Zmodem::encode_subpacket_crc32(0x6B, &data, true);
+            let mut com = create_channel();
+            com.sender.send(&encoded).unwrap();
+            let (decoded, _, _) = read_subpacket(&mut com.receiver, 1024, true, false).unwrap();
+            compare_data_packages(&data, &decoded);
+        }
+    }
+
+    #[test]
+    fn subpacket_bug() {
+        let data = include_bytes!("sub_package_test1.dat").to_vec();
+        let mut com = create_channel();
+        com.sender.send(&data).unwrap();
+        read_subpacket(&mut com.receiver, 1024, true, false).unwrap();
+    }
+
+    fn compare_data_packages(orig: &[u8], encoded: &[u8]) {
+        let upper: usize = orig.len().min(encoded.len());
+        for i in 0..upper {
+            if orig[i] != encoded[i] {
+                println!("      org:    enc:");
+                for j in i.saturating_sub(5)..(i + 5).min(upper) {
+                    println!(
+                        "{:-4}: 0x{:02X} {} 0x{:02X}",
+                        j,
+                        orig[j],
+                        if orig[j] == encoded[j] { "==" } else { "!=" },
+                        encoded[j]
+                    );
+                }
+                break;
+            }
+        }
+        assert_eq!(orig.len(), encoded.len());
     }
 }

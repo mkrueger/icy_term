@@ -136,22 +136,22 @@ impl Header {
         u32::from_le_bytes(self.data)
     }
 
-    pub fn build(&self) -> Vec<u8> {
+    pub fn build(&self, escape_ctrl_chars: bool) -> Vec<u8> {
         let mut res = Vec::new();
 
         match self.header_type {
             HeaderType::Bin => {
                 res.extend_from_slice(&[ZPAD, ZDLE, ZBIN, self.frame_type as u8]);
-                append_zdle_encoded(&mut res, &self.data);
+                append_zdle_encoded(&mut res, &self.data, escape_ctrl_chars);
                 let crc16 = get_crc16(&res[3..]);
-                append_zdle_encoded(&mut res, &u16::to_le_bytes(crc16));
+                append_zdle_encoded(&mut res, &u16::to_le_bytes(crc16), escape_ctrl_chars);
             }
 
             HeaderType::Bin32 => {
                 res.extend_from_slice(&[ZPAD, ZDLE, ZBIN32, self.frame_type as u8]);
-                append_zdle_encoded(&mut res, &self.data);
+                append_zdle_encoded(&mut res, &self.data, escape_ctrl_chars);
                 let crc32 = get_crc32(&res[3..]);
-                append_zdle_encoded(&mut res, &u32::to_le_bytes(crc32));
+                append_zdle_encoded(&mut res, &u32::to_le_bytes(crc32), escape_ctrl_chars);
             }
 
             HeaderType::Hex => {
@@ -182,9 +182,13 @@ impl Header {
         res
     }
 
-    pub fn write(&mut self, com: &mut Box<dyn Com>) -> TermComResult<usize> {
+    pub fn write(
+        &mut self,
+        com: &mut Box<dyn Com>,
+        escape_ctrl_chars: bool,
+    ) -> TermComResult<usize> {
         // println!("send header: {:?}", self);
-        com.send(&self.build())
+        com.send(&self.build(escape_ctrl_chars))
     }
 
     pub fn get_frame_type(ftype: u8) -> TermComResult<ZFrameType> {
@@ -213,10 +217,7 @@ impl Header {
         }
     }
 
-    pub fn read(
-        com: &mut Box<dyn Com>,
-        can_count: &mut usize,
-    ) -> TermComResult<Option<Header>> {
+    pub fn read(com: &mut Box<dyn Com>, can_count: &mut usize) -> TermComResult<Option<Header>> {
         let zpad = com.read_u8()?;
         if zpad == 0x18 {
             // CAN
@@ -332,7 +333,7 @@ mod tests {
     #[test]
     fn test_from_number() {
         assert_eq!(
-            Header::from_number(HeaderType::Hex, ZFrameType::Fin, 2).build(),
+            Header::from_number(HeaderType::Hex, ZFrameType::Fin, 2).build(false),
             vec![
                 0x2a, 0x2a, 0x18, 0x42, 0x30, 0x38, 0x30, 0x32, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,
                 0x65, 0x66, 0x34, 0x35, 0x0a
@@ -343,7 +344,7 @@ mod tests {
     #[test]
     fn test_bin32_header_data() {
         assert_eq!(
-            Header::empty(HeaderType::Bin32, ZFrameType::Data).build(),
+            Header::empty(HeaderType::Bin32, ZFrameType::Data).build(false),
             vec![ZPAD, ZDLE, ZBIN32, 0x0A, 0, 0, 0, 0, 0xBC, 0xEF, 0x92, 0x8C]
         );
     }
@@ -351,7 +352,7 @@ mod tests {
     #[test]
     fn test_hex_header_data() {
         assert_eq!(
-            Header::empty(HeaderType::Hex, ZFrameType::RPos).build(),
+            Header::empty(HeaderType::Hex, ZFrameType::RPos).build(false),
             vec![
                 ZPAD, ZPAD, ZDLE, ZHEX, b'0', b'9', b'0', b'0', b'0', b'0', b'0', b'0', b'0', b'0',
                 b'a', b'8', b'7', b'c', b'\n', 0x11
@@ -361,35 +362,35 @@ mod tests {
         assert_eq!(
             "**\x18B00000000000000\n\x11".to_string(),
             String::from_utf8(
-                Header::from_flags(HeaderType::Hex, ZFrameType::RQInit, 0, 0, 0, 0).build()
+                Header::from_flags(HeaderType::Hex, ZFrameType::RQInit, 0, 0, 0, 0).build(false)
             )
             .unwrap()
         );
         assert_eq!(
             "**\x18B0100000000aa51\n\x11".to_string(),
             String::from_utf8(
-                Header::from_flags(HeaderType::Hex, ZFrameType::RIinit, 0, 0, 0, 0).build()
+                Header::from_flags(HeaderType::Hex, ZFrameType::RIinit, 0, 0, 0, 0).build(false)
             )
             .unwrap()
         );
         assert_eq!(
             "**\x18B02000000004483\n\x11".to_string(),
             String::from_utf8(
-                Header::from_flags(HeaderType::Hex, ZFrameType::Sinit, 0, 0, 0, 0).build()
+                Header::from_flags(HeaderType::Hex, ZFrameType::Sinit, 0, 0, 0, 0).build(false)
             )
             .unwrap()
         );
         assert_eq!(
             "**\x18B0300000000eed2\n".to_string(),
             String::from_utf8(
-                Header::from_flags(HeaderType::Hex, ZFrameType::Ack, 0, 0, 0, 0).build()
+                Header::from_flags(HeaderType::Hex, ZFrameType::Ack, 0, 0, 0, 0).build(false)
             )
             .unwrap()
         );
         assert_eq!(
             "**\x18B087e0400003ec2\n".to_string(),
             String::from_utf8(
-                Header::from_flags(HeaderType::Hex, ZFrameType::Fin, 126, 4, 0, 0).build()
+                Header::from_flags(HeaderType::Hex, ZFrameType::Fin, 126, 4, 0, 0).build(false)
             )
             .unwrap()
         );
