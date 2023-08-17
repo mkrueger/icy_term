@@ -398,6 +398,16 @@ fn parse_address(value: &Value) -> Address {
             }
         }
 
+        if let Some(Value::String(value)) = table.get("baud_emulation") {
+            match value.to_lowercase().as_str() {
+                "off" => result.baud_emulation = BaudOption::Off,
+                baud => {
+                    let v = baud.parse::<u32>().unwrap_or(0);
+                    result.baud_emulation = BaudOption::Emulation(v);
+                }
+            }
+        }
+
         if let Some(Value::String(name)) = table.get("screen_mode") {
             match name.to_lowercase().as_str() {
                 "vga(80, 25)" => result.screen_mode = ScreenMode::Vga(80, 25),
@@ -443,6 +453,7 @@ fn store_address(file: &mut File, addr: &Address) -> TerminalResult<()> {
     if addr.ansi_music != MusicOption::Off {
         file.write_all(format!("ansi_music = \"{:?}\"\n", addr.ansi_music).as_bytes())?;
     }
+    file.write_all(format!("baud_emulation = \"{}\"\n", addr.baud_emulation).as_bytes())?;
     file.write_all(format!("screen_mode = \"{:?}\"\n", addr.screen_mode).as_bytes())?;
     if !addr.comment.is_empty() {
         file.write_all(format!("comment = \"{}\"\n", escape(&addr.comment)).as_bytes())?;

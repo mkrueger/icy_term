@@ -3,6 +3,7 @@
 use chrono::Utc;
 use eframe::epaint::FontId;
 use i18n_embed_fl::fl;
+use icy_engine::ansi::BaudOption;
 use icy_engine::{ansi, BufferParser};
 use rfd::FileDialog;
 use std::sync::mpsc;
@@ -352,6 +353,12 @@ impl MainWindow {
         self.cur_addr = i;
         self.set_screen_mode(call_adr.screen_mode);
         self.buffer_parser = self.addresses[i].get_terminal_parser(&call_adr);
+
+        let baud_rate_value = match self.addresses[i].baud_emulation {
+            BaudOption::Off => 0,
+            BaudOption::Emulation(baud) => baud.into(),
+        };
+        self.buffer_view.lock().buf.terminal_state.set_baud_rate(baud_rate_value);
 
         self.buffer_view.lock().redraw_font();
         self.buffer_view.lock().redraw_palette();
