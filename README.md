@@ -13,9 +13,10 @@ Features supported so far:
   - [x] Avatar
   - [x] Petscii
   - [x] Built in fonts, many DOS fonts, C64, Amiga & Atari font supported.
-  - [x] ATASCII 
-  - [x] Viewdata 
-- File transfer protocols 
+  - [x] Baud emulation
+  - [x] ATASCII
+  - [x] Viewdata
+- File transfer protocols
   - [x] Xmodem, 1k & 1k-G (implemented but needs testing)
   - [x] Ymodem batch & Ymodem-G (implemented but needs testing)
   - [x] Zmodem/ZedZap (implemented but needs testing)
@@ -61,13 +62,13 @@ Around that time I learned that there are still BBSes in the internet and I star
 
 I tried to use druid & egui for that but none of these libraries felt that it was the way to go.
 
-Now I want to make some small real world projects for each. 
+Now I want to make some small real world projects for each.
 
 - I made a small prototype for the ansi drawer in druid (feels very comfortable to work with but the APP looks bad)
-- Made a game cheating tool with egui - very nice tool but the APPs still have not the look & feel 
+- Made a game cheating tool with egui - very nice tool but the APPs still have not the look & feel
 - Now I made a terminal app with iced - PopOS! is switching to that library.
 
-With all my ansi & buffer routines I've already written it makes sense to make a terminal. I need one program as well - most terminal programs are a bit too old school. Time to change that. 
+With all my ansi & buffer routines I've already written it makes sense to make a terminal. I need one program as well - most terminal programs are a bit too old school. Time to change that.
 
 # Build instructions
 

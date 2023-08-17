@@ -3,6 +3,7 @@
 use chrono::Utc;
 use eframe::epaint::FontId;
 use i18n_embed_fl::fl;
+use icy_engine::ansi::BaudOption;
 use icy_engine::{ansi, BufferParser};
 use rfd::FileDialog;
 use std::sync::mpsc;
@@ -32,6 +33,8 @@ use crate::{
 use super::{screen_modes::ScreenMode, BufferView};
 use super::{Options, PhonebookFilter};
 use crate::com::Connection;
+
+const BITS_PER_BYTE: u32 = 8;
 
 #[derive(PartialEq, Eq)]
 pub enum MainWindowMode {
@@ -351,6 +354,12 @@ impl MainWindow {
         self.set_screen_mode(call_adr.screen_mode);
         self.buffer_parser = self.addresses[i].get_terminal_parser(&call_adr);
 
+        let baud_rate_value = match self.addresses[i].baud_emulation {
+            BaudOption::Off => 0,
+            BaudOption::Emulation(baud) => baud.into(),
+        };
+        self.buffer_view.lock().buf.terminal_state.set_baud_rate(baud_rate_value);
+
         self.buffer_view.lock().redraw_font();
         self.buffer_view.lock().redraw_palette();
         self.buffer_view.lock().redraw_view();
@@ -541,24 +550,21 @@ impl MainWindow {
         let handle: Arc<Mutex<Box<dyn Com>>> = Arc::new(Mutex::new(handle));
         let handle2 = handle.clone();
         let tx3 = tx.clone();
-        //let bits_per_sec = self.buffer_view.lock().buf.terminal_state.get_baud_rate();
-        let bits_per_sec = 57600;
-        let bytes_per_sec = if bits_per_sec == 0 {
-            0
-        } else {
-            bits_per_sec / 8
-        };
+        let mut baud_rate = self.buffer_view.lock().buf.terminal_state.get_baud_rate();
+
         thread::spawn(move || {
             let mut done = false;
             while !done {
+
                 let data = handle2.lock().unwrap().read_data();
                 if let Ok(Some(data)) = data {
-                    if bytes_per_sec == 0 {
+                    if baud_rate == 0 {
                         if let Err(err) = tx3.send(SendData::Data(data)) {
                             eprintln!("{err}");
                             done = true;
                         }
                     } else {
+                        let bytes_per_sec = baud_rate / BITS_PER_BYTE;
                         let bytes_to_send = data.len();
                         if bytes_to_send > 0 {
                             let mut loop_helper = spin_sleep::LoopHelper::builder()
@@ -657,8 +663,8 @@ impl MainWindow {
                             }
                             tx.send(SendData::EndTransfer).unwrap_or_default();
                         }
-                        SendData::SetBaudRate(_) => {
-                            // TODO
+                        SendData::SetBaudRate(baud) => {
+                            baud_rate = baud;
                         }
                         SendData::Disconnect => {
                             done = true;
