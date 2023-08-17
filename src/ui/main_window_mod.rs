@@ -473,7 +473,23 @@ impl MainWindow {
     pub fn send_login(&mut self) {
         let user_name = self.addresses.get(self.cur_addr).unwrap().user_name.clone();
         let password = self.addresses.get(self.cur_addr).unwrap().password.clone();
-        self.output_string(&format!("{user_name}\r{password}\r"));
+        let mut cr: Vec<u8> = [self.buffer_parser.convert_from_unicode('\r') as u8].to_vec();
+        for (k, v) in self.screen_mode.get_input_mode().cur_map() {
+            if *k == Key::Enter as u32 {
+                cr = v.to_vec();
+                break;
+            }
+        }
+        self.output_string(&user_name);
+        if let Some(con) = &mut self.connection_opt {
+            let r = con.send(cr.clone());
+            self.handle_result(r, false);
+        }
+        self.output_string(&password);
+        if let Some(con) = &mut self.connection_opt {
+            let r = con.send(cr);
+            self.handle_result(r, false);
+        }
     }
 
     fn update_title(&self, frame: &mut eframe::Frame) {
