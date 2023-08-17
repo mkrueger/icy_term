@@ -1,9 +1,9 @@
 use crate::ui::screen_modes::ScreenMode;
-use crate::ui::AdressCategory;
+use crate::ui::AddressCategory;
 use crate::TerminalResult;
 use chrono::{Duration, Utc};
 use directories::ProjectDirs;
-use icy_engine::ansi::MusicOption;
+use icy_engine::ansi::{MusicOption, BaudOption};
 use icy_engine::{ansi, ascii, atascii, avatar, petscii, viewdata, BufferParser};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::fs::File;
@@ -83,7 +83,7 @@ pub struct LastCall {
 
     pub date: Option<chrono::DateTime<Utc>>,
     pub last_call_duration: chrono::Duration,
-    pub upladed_bytes: usize,
+    pub uploaded_bytes: usize,
     pub downloaded_bytes: usize,
 }*/
 
@@ -104,6 +104,7 @@ pub struct Address {
 
     pub ice_mode: bool,
     pub ansi_music: MusicOption,
+    pub baud_emulation: BaudOption,
 
     pub font_name: Option<String>,
     pub screen_mode: ScreenMode,
@@ -115,11 +116,11 @@ pub struct Address {
     pub number_of_calls: usize,
     pub last_call: Option<chrono::DateTime<Utc>>,
     pub last_call_duration: chrono::Duration,
-    pub upladed_bytes: usize,
+    pub uploaded_bytes: usize,
     pub downloaded_bytes: usize,
 
     // UI
-    pub adress_category: AdressCategory,
+    pub address_category: AddressCategory,
 }
 
 const TEMPLATE: &str = r#"
@@ -199,9 +200,10 @@ impl Address {
             number_of_calls: 0,
             last_call: None,
             last_call_duration: Duration::zero(),
-            upladed_bytes: 0,
+            uploaded_bytes: 0,
             downloaded_bytes: 0,
-            adress_category: AdressCategory::Server,
+            address_category: AddressCategory::Server,
+            baud_emulation: BaudOption::Off,
         }
     }
 

@@ -6,7 +6,7 @@ use eframe::{
 };
 use egui::{Id, Rect};
 use i18n_embed_fl::fl;
-use icy_engine::ansi::MusicOption;
+use icy_engine::ansi::{MusicOption, BaudOption};
 
 use crate::address_mod::{self, store_phone_book, Address, Terminal};
 
@@ -18,7 +18,7 @@ pub enum PhonebookFilter {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum AdressCategory {
+pub enum AddressCategory {
     Server,
     Login,
     Terminal,
@@ -300,6 +300,25 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
                     }
                 });
             ui.end_row();
+
+            // Baud emulation
+            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(RichText::new(fl!(
+                    crate::LANGUAGE_LOADER,
+                    "phonebook-baud-emulation"
+                )))
+            });
+
+            egui::ComboBox::from_id_source("combobox5")
+                .selected_text(RichText::new(format!("{}", adr.baud_emulation)))
+                .width(250.)
+                .show_ui(ui, |ui| {
+                    for b in &BAUD_EMU_OPTIONS {
+                        let label = RichText::new(format!("{b}"));
+                        ui.selectable_value(&mut adr.baud_emulation, *b, label);
+                    }
+                });
+            ui.end_row();
         });
 }
 
@@ -425,7 +444,7 @@ fn view_edit_bbs(window: &mut MainWindow, ui: &mut egui::Ui) {
         ui.add_space(16.);
         /*
         ui.label("⮉");
-        ui.label(adr.upladed_bytes.to_string());
+        ui.label(adr.uploaded_bytes.to_string());
         ui.add_space(16.);
 
         ui.label("⮋");
@@ -447,36 +466,36 @@ fn view_edit_bbs(window: &mut MainWindow, ui: &mut egui::Ui) {
 
         ui.add_space(16.);
 
-        ui.selectable_value(&mut adr.adress_category, AdressCategory::Server, "Server");
+        ui.selectable_value(&mut adr.address_category, AddressCategory::Server, "Server");
         ui.add_space(8.);
 
-        ui.selectable_value(&mut adr.adress_category, AdressCategory::Login, "Login");
+        ui.selectable_value(&mut adr.address_category, AddressCategory::Login, "Login");
         ui.add_space(8.);
 
         ui.selectable_value(
-            &mut adr.adress_category,
-            AdressCategory::Terminal,
+            &mut adr.address_category,
+            AddressCategory::Terminal,
             "Terminal",
         );
         ui.add_space(8.);
 
-        ui.selectable_value(&mut adr.adress_category, AdressCategory::Notes, "Comment");
+        ui.selectable_value(&mut adr.address_category, AddressCategory::Notes, "Comment");
     });
     ui.separator();
     ui.add_space(8.);
 
-    match window.get_address_mut(window.selected_bbs).adress_category {
-        AdressCategory::Server => {
+    match window.get_address_mut(window.selected_bbs).address_category {
+        AddressCategory::Server => {
             render_server_catogery(window, ui);
         }
-        AdressCategory::Login => {
+        AddressCategory::Login => {
             render_login_category(window, ui);
         }
-        AdressCategory::Terminal => {
+        AddressCategory::Terminal => {
             render_terminal_category(window, ui);
         }
 
-        AdressCategory::Notes => {
+        AddressCategory::Notes => {
             ui.add(
                 TextEdit::multiline(&mut window.get_address_mut(window.selected_bbs).comment)
                     .desired_width(f32::INFINITY),
@@ -497,6 +516,21 @@ const MUSIC_OPTIONS: [MusicOption; 4] = [
     MusicOption::Banana,
     MusicOption::Conflicting,
     MusicOption::Both,
+];
+
+const BAUD_EMU_OPTIONS: [BaudOption; 12] = [
+    BaudOption::Off,
+    BaudOption::Emulation(300),
+    BaudOption::Emulation(600),
+    BaudOption::Emulation(1200),
+    BaudOption::Emulation(2400),
+    BaudOption::Emulation(4800),
+    BaudOption::Emulation(9600),
+    BaudOption::Emulation(19200),
+    BaudOption::Emulation(38400),
+    BaudOption::Emulation(57600),
+    BaudOption::Emulation(76800),
+    BaudOption::Emulation(115_200),
 ];
 
 fn render_terminal_category(window: &mut MainWindow, ui: &mut egui::Ui) {
@@ -564,6 +598,25 @@ fn render_terminal_category(window: &mut MainWindow, ui: &mut egui::Ui) {
                     });
                 ui.end_row();
             }
+
+            // Baud emulation
+            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(RichText::new(fl!(
+                    crate::LANGUAGE_LOADER,
+                    "phonebook-baud-emulation"
+                )))
+            });
+
+            egui::ComboBox::from_id_source("combobox5")
+                .selected_text(RichText::new(format!("{}", adr.baud_emulation)))
+                .width(250.)
+                .show_ui(ui, |ui| {
+                    for b in &BAUD_EMU_OPTIONS {
+                        let label = RichText::new(format!("{b}"));
+                        ui.selectable_value(&mut adr.baud_emulation, *b, label);
+                    }
+                });
+            ui.end_row();
         });
 }
 

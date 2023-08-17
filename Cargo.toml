@@ -44,6 +44,8 @@ i18n-embed-fl = "0.6.7"
 rust-embed = "6.8.1"
 once_cell = "1.18.0"
 
+spin_sleep = "1.1.1"
+
 # possible ssh options:
 
 # libssh-rs =  { version = "0.2.0", features = ["vendored", "vendored-openssl"] }
@@ -54,12 +56,12 @@ once_cell = "1.18.0"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 directories = "5.0.1"
 rfd = "0.11.4"
-i18n-embed = { version = "0.13.9", features = ["fluent-system", "desktop-requester"]} 
+i18n-embed = { version = "0.13.9", features = ["fluent-system", "desktop-requester"]}
 tracing-subscriber = "0.3"
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-i18n-embed = { version = "0.13.9", features = ["fluent-system", "web-sys-requester"]} 
+i18n-embed = { version = "0.13.9", features = ["fluent-system", "web-sys-requester"]}
 console_error_panic_hook = "0.1.7"
 tracing-wasm = "0.2"
 wasm-bindgen-futures = "0.4"
