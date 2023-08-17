@@ -28,8 +28,8 @@ glow = "0.12.2"
 
 #sound
 cpal = "0.15.2"
-icy_engine = { git ="https://github.com/mkrueger/icy_engine" }
-#icy_engine = { path = "../icy_engine" }
+#icy_engine = { git ="https://github.com/mkrueger/icy_engine" }
+icy_engine = { path = "../icy_engine" }
 
 walkdir = "2"
 toml = "0.7.6"
