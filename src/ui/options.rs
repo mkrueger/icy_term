@@ -4,7 +4,6 @@ use std::{
     time::Duration,
 };
 
-use directories::ProjectDirs;
 use toml::Value;
 
 use crate::TerminalResult;
@@ -77,7 +76,8 @@ impl Options {
     }
 
     pub fn load_options() -> Self {
-        if let Some(proj_dirs) = ProjectDirs::from("com", "GitHub", "icy_term") {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
             let options_file = proj_dirs.config_dir().join("options.toml");
             if options_file.exists() {
                 let fs = fs::read_to_string(&options_file).expect("Can't read options");
@@ -88,7 +88,8 @@ impl Options {
     }
 
     pub fn store_options(&self) -> TerminalResult<()> {
-        if let Some(proj_dirs) = ProjectDirs::from("com", "GitHub", "icy_term") {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
             let options_file = proj_dirs.config_dir().join("options.toml");
 
             let mut file = File::create(options_file)?;

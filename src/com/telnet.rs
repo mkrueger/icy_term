@@ -5,7 +5,7 @@ use icy_engine::Size;
 use std::{
     io::{self, ErrorKind, Read, Write},
     net::TcpStream,
-    time::{Duration, SystemTime},
+    time::Duration,
 };
 
 #[derive(Debug)]

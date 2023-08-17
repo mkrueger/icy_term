@@ -5,7 +5,6 @@ use eframe::epaint::FontId;
 use i18n_embed_fl::fl;
 use icy_engine::ansi::BaudOption;
 use icy_engine::{ansi, BufferParser};
-use rfd::FileDialog;
 use std::sync::mpsc;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, SystemTime};
@@ -278,11 +277,14 @@ impl MainWindow {
                 if download {
                     self.start_transfer_thread(protocol_type, download, None);
                 } else {
-                    let files = FileDialog::new().pick_files();
-                    if let Some(path) = files {
-                        let fd = FileDescriptor::from_paths(&path);
-                        if let Ok(files) = fd {
-                            self.start_transfer_thread(protocol_type, download, Some(files));
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        let files = rfd::FileDialog::new().pick_files();
+                        if let Some(path) = files {
+                            let fd = FileDescriptor::from_paths(&path);
+                            if let Ok(files) = fd {
+                                self.start_transfer_thread(protocol_type, download, Some(files));
+                            }
                         }
                     }
                 }
@@ -356,9 +358,13 @@ impl MainWindow {
 
         let baud_rate_value = match self.addresses[i].baud_emulation {
             BaudOption::Off => 0,
-            BaudOption::Emulation(baud) => baud.into(),
+            BaudOption::Emulation(baud) => baud,
         };
-        self.buffer_view.lock().buf.terminal_state.set_baud_rate(baud_rate_value);
+        self.buffer_view
+            .lock()
+            .buf
+            .terminal_state
+            .set_baud_rate(baud_rate_value);
 
         self.buffer_view.lock().redraw_font();
         self.buffer_view.lock().redraw_palette();
@@ -501,6 +507,7 @@ impl MainWindow {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn update_title(&self, frame: &mut eframe::Frame) {
         if let MainWindowMode::ShowPhonebook = self.mode {
             frame.set_window_title(&crate::DEFAULT_TITLE);
@@ -555,7 +562,6 @@ impl MainWindow {
         thread::spawn(move || {
             let mut done = false;
             while !done {
-
                 let data = handle2.lock().unwrap().read_data();
                 if let Ok(Some(data)) = data {
                     if baud_rate == 0 {
@@ -642,6 +648,7 @@ impl MainWindow {
                                     break;
                                 }
                             }
+                            #[cfg(not(target_arch = "wasm32"))]
                             if let Some(user_dirs) = directories::UserDirs::new() {
                                 let dir = user_dirs.download_dir().unwrap();
 
@@ -679,6 +686,7 @@ impl MainWindow {
 }
 impl eframe::App for MainWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        #[cfg(not(target_arch = "wasm32"))]
         self.update_title(frame);
 
         if self.open_connection_promise.is_some()

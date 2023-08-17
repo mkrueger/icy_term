@@ -1,7 +1,5 @@
 use egui::Vec2;
 use glow::HasContext as _;
-use glow::NativeProgram;
-use glow::NativeTexture;
 use icy_engine::Buffer;
 use icy_engine::Position;
 
@@ -10,8 +8,8 @@ use super::BufferView;
 
 pub struct SixelRenderer {
     sixel_cache: Vec<SixelCacheEntry>,
-    sixel_shader: glow::NativeProgram,
-    sixel_render_texture: NativeTexture,
+    sixel_shader: glow::Program,
+    sixel_render_texture: glow::Texture,
     render_buffer_size: Vec2,
 }
 
@@ -42,7 +40,7 @@ impl SixelRenderer {
         gl: &glow::Context,
         view_state: &BufferView,
         output_renderer: &OutputRenderer,
-    ) -> glow::NativeTexture {
+    ) -> glow::Texture {
         let mut render_texture = output_renderer.render_texture;
         let mut sixel_render_texture = self.sixel_render_texture;
         gl.bind_framebuffer(glow::FRAMEBUFFER, Some(output_renderer.framebuffer));
@@ -239,14 +237,14 @@ pub struct SixelCacheEntry {
     pub x_scale: i32,
     pub y_scale: i32,
 
-    pub texture: NativeTexture,
+    pub texture: glow::Texture,
 }
 
 unsafe fn create_sixel_render_texture(
     gl: &glow::Context,
     buf: &Buffer,
     filter: i32,
-) -> NativeTexture {
+) -> glow::Texture {
     let sixel_render_texture = gl.create_texture().unwrap();
     let render_buffer_size = Vec2::new(
         buf.get_font_dimensions().width as f32 * buf.get_buffer_width() as f32,
@@ -303,7 +301,7 @@ unsafe fn create_sixel_render_texture(
     sixel_render_texture
 }
 
-unsafe fn compile_shader(gl: &glow::Context) -> NativeProgram {
+unsafe fn compile_shader(gl: &glow::Context) -> glow::Program {
     let sixel_shader = gl.create_program().expect("Cannot create program");
     let (vertex_shader_source, fragment_shader_source) = (
         r#"#version 330

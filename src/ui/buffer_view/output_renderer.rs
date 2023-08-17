@@ -2,17 +2,17 @@ use egui::PaintCallbackInfo;
 use egui::Rect;
 use egui::Vec2;
 use glow::HasContext as _;
-use glow::NativeTexture;
+use glow::Texture;
 use icy_engine::Buffer;
 
 use crate::ui::MonitorSettings;
 use crate::ui::MONO_COLORS;
 
 pub struct OutputRenderer {
-    output_shader: glow::NativeProgram,
+    output_shader: glow::Program,
 
-    pub framebuffer: glow::NativeFramebuffer,
-    pub render_texture: NativeTexture,
+    pub framebuffer: glow::Framebuffer,
+    pub render_texture: glow::Texture,
     pub render_buffer_size: Vec2,
     pub vertex_array: glow::VertexArray,
 }
@@ -73,7 +73,7 @@ impl OutputRenderer {
         &self,
         gl: &glow::Context,
         info: &PaintCallbackInfo,
-        output_texture: glow::NativeTexture,
+        output_texture: glow::Texture,
         rect: Rect,
         monitor_settings: &MonitorSettings,
     ) {
@@ -287,7 +287,7 @@ impl OutputRenderer {
     }
 }
 
-unsafe fn compile_output_shader(gl: &glow::Context) -> glow::NativeProgram {
+unsafe fn compile_output_shader(gl: &glow::Context) -> glow::Program {
     let draw_program = gl.create_program().expect("Cannot create program");
     let (vertex_shader_source, fragment_shader_source) = (
         r#"#version 330
@@ -355,7 +355,7 @@ unsafe fn create_screen_render_texture(
     gl: &glow::Context,
     render_buffer_size: Vec2,
     filter: i32,
-) -> NativeTexture {
+) -> Texture {
     let render_texture = gl.create_texture().unwrap();
     gl.bind_texture(glow::TEXTURE_2D, Some(render_texture));
     gl.tex_image_2d(

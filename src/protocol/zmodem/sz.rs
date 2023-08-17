@@ -1,6 +1,6 @@
 #![allow(clippy::unused_self)]
 
-use std::{cmp::min, time::Duration};
+use std::cmp::min;
 
 use crate::{
     com::{Com, TermComResult},

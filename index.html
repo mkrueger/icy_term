@@ -7,22 +7,22 @@
 
 <head>
     <!-- change this to your project name -->
-    <title>eframe template</title>
+    <title>Icy Term</title>
 
     <!-- config for our rust wasm binary. go to https://trunkrs.dev/assets/#rust for more customization -->
     <link data-trunk rel="rust" data-wasm-opt="2" />
     <!-- this is the base url relative to which other urls will be constructed. trunk will insert this from the public-url option -->
     <base data-trunk-public-url />
 
-    <link data-trunk rel="icon" href="assets/favicon.ico">
+    <link data-trunk rel="icon" href="build/web/favicon.ico">
 
 
-    <link data-trunk rel="copy-file" href="assets/sw.js" />
-    <link data-trunk rel="copy-file" href="assets/manifest.json" />
-    <link data-trunk rel="copy-file" href="assets/icon-1024.png" />
-    <link data-trunk rel="copy-file" href="assets/icon-256.png" />
-    <link data-trunk rel="copy-file" href="assets/icon_ios_touch_192.png" />
-    <link data-trunk rel="copy-file" href="assets/maskable_icon_x512.png" />
+    <link data-trunk rel="copy-file" href="build/web/sw.js" />
+    <link data-trunk rel="copy-file" href="build/web/manifest.json" />
+    <link data-trunk rel="copy-file" href="build/web/icon-1024.png" />
+    <link data-trunk rel="copy-file" href="build/web/icon-256.png" />
+    <link data-trunk rel="copy-file" href="build/web/icon_ios_touch_192.png" />
+    <link data-trunk rel="copy-file" href="build/web/maskable_icon_x512.png" />
 
 
     <link rel="manifest" href="manifest.json">
@@ -119,9 +119,7 @@
 </head>
 
 <body>
-    <!-- The WASM code will resize the canvas dynamically -->
-    <!-- the id is hardcoded in main.rs . so, make sure both match. -->
-    <canvas id="the_canvas_id"></canvas>
+    <canvas id="icy_term_canvas"></canvas>
 
     <!--Register Service Worker. this will cache the wasm / js scripts for offline use (for PWA functionality). -->
     <!-- Force refresh (Ctrl + F5) to load the latest files instead of cached files  -->
@@ -138,4 +136,3 @@
 </html>
 
 <!-- Powered by egui: https://github.com/emilk/egui/ -->
-

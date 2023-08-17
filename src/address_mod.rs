@@ -2,8 +2,7 @@ use crate::ui::screen_modes::ScreenMode;
 use crate::ui::AddressCategory;
 use crate::TerminalResult;
 use chrono::{Duration, Utc};
-use directories::ProjectDirs;
-use icy_engine::ansi::{MusicOption, BaudOption};
+use icy_engine::ansi::{BaudOption, MusicOption};
 use icy_engine::{ansi, ascii, atascii, avatar, petscii, viewdata, BufferParser};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::fs::File;
@@ -223,7 +222,8 @@ impl Address {
     }
 
     pub fn get_phonebook_file() -> Option<PathBuf> {
-        if let Some(proj_dirs) = ProjectDirs::from("com", "GitHub", "icy_term") {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
             if !proj_dirs.config_dir().exists() {
                 fs::create_dir_all(proj_dirs.config_dir()).unwrap_or_else(|_| {
                     panic!(

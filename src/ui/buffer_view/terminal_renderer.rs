@@ -6,8 +6,6 @@ use std::time::UNIX_EPOCH;
 use egui::epaint::ahash::HashMap;
 use egui::Vec2;
 use glow::HasContext as _;
-use glow::NativeProgram;
-use glow::NativeTexture;
 use icy_engine::Buffer;
 
 use super::Blink;
@@ -18,9 +16,9 @@ pub struct TerminalRenderer {
 
     font_lookup_table: HashMap<usize, usize>,
 
-    terminal_render_texture: NativeTexture,
-    font_texture: NativeTexture,
-    palette_texture: NativeTexture,
+    terminal_render_texture: glow::Texture,
+    font_texture: glow::Texture,
+    palette_texture: glow::Texture,
     vertex_array: glow::VertexArray,
 
     // used to determine if palette needs to be updated - Note: palette only grows.
@@ -571,7 +569,7 @@ impl TerminalRenderer {
     }
 }
 
-unsafe fn compile_shader(gl: &glow::Context) -> NativeProgram {
+unsafe fn compile_shader(gl: &glow::Context) -> glow::Program {
     let program = gl.create_program().expect("Cannot create program");
 
     let (vertex_shader_source, fragment_shader_source) = (
@@ -636,7 +634,7 @@ void main() {
     program
 }
 
-unsafe fn create_buffer_texture(gl: &glow::Context) -> NativeTexture {
+unsafe fn create_buffer_texture(gl: &glow::Context) -> glow::Texture {
     let buffer_texture = gl.create_texture().unwrap();
     gl.bind_texture(glow::TEXTURE_2D_ARRAY, Some(buffer_texture));
     gl.tex_parameter_i32(
@@ -662,8 +660,8 @@ unsafe fn create_buffer_texture(gl: &glow::Context) -> NativeTexture {
     buffer_texture
 }
 
-unsafe fn create_palette_texture(gl: &glow::Context) -> NativeTexture {
-    let palette_texture: NativeTexture = gl.create_texture().unwrap();
+unsafe fn create_palette_texture(gl: &glow::Context) -> glow::Texture {
+    let palette_texture: glow::Texture = gl.create_texture().unwrap();
     gl.bind_texture(glow::TEXTURE_2D, Some(palette_texture));
 
     gl.tex_parameter_i32(
@@ -690,7 +688,7 @@ unsafe fn create_palette_texture(gl: &glow::Context) -> NativeTexture {
     palette_texture
 }
 
-unsafe fn create_font_texture(gl: &glow::Context) -> NativeTexture {
+unsafe fn create_font_texture(gl: &glow::Context) -> glow::Texture {
     let font_texture = gl.create_texture().unwrap();
     gl.bind_texture(glow::TEXTURE_2D_ARRAY, Some(font_texture));
 
