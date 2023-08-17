@@ -20,17 +20,6 @@ pub enum BufferInputMode {
     ViewData,
 }
 
-impl BufferInputMode {
-    pub fn cur_map<'a>(&self) -> &'a [(u32, &[u8])] {
-        match self {
-            super::BufferInputMode::CP437 => super::ANSI_KEY_MAP,
-            super::BufferInputMode::PETscii => super::C64_KEY_MAP,
-            super::BufferInputMode::ATAscii => super::ATASCII_KEY_MAP,
-            //     super::BufferInputMode::VT500 => super::VT500_KEY_MAP,
-            super::BufferInputMode::ViewData => super::VIDEOTERM_KEY_MAP,
-        }
-    }
-}
 pub struct Blink {
     is_on: bool,
     last_blink: u128,

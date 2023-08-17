@@ -33,3 +33,15 @@ pub mod options;
 pub use options::*;
 
 // pub mod simulate;
+
+impl BufferInputMode {
+    pub fn cur_map<'a>(&self) -> &'a [(u32, &[u8])] {
+        match self {
+            BufferInputMode::CP437 => ANSI_KEY_MAP,
+            BufferInputMode::PETscii => C64_KEY_MAP,
+            BufferInputMode::ATAscii => ATASCII_KEY_MAP,
+            //     super::BufferInputMode::VT500 => super::VT500_KEY_MAP,
+            BufferInputMode::ViewData => VIDEOTERM_KEY_MAP,
+        }
+    }
+}
