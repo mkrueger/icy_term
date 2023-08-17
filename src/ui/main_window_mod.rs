@@ -13,6 +13,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use spin_sleep;
+
 use eframe::egui::{self, Key};
 
 use crate::auto_file_transfer::AutoFileTransfer;
@@ -534,14 +536,32 @@ impl MainWindow {
         let handle: Arc<Mutex<Box<dyn Com>>> = Arc::new(Mutex::new(handle));
         let handle2 = handle.clone();
         let tx3 = tx.clone();
+        //let bits_per_sec = self.buffer_view.lock().buf.terminal_state.get_baud_rate();
+        let bits_per_sec = 57600;
+        let bytes_per_sec = if bits_per_sec == 0 { 0 } else { bits_per_sec / 8 };
         thread::spawn(move || {
             let mut done = false;
             while !done {
                 let data = handle2.lock().unwrap().read_data();
                 if let Ok(Some(data)) = data {
-                    if let Err(err) = tx3.send(SendData::Data(data)) {
-                        eprintln!("{err}");
-                        done = true;
+                    if bytes_per_sec == 0 {
+                        if let Err(err) = tx3.send(SendData::Data(data)) {
+                            eprintln!("{err}");
+                            done = true;
+                        }
+                    } else {
+                        let bytes_to_send = data.len();
+                        if bytes_to_send > 0 {
+                            let mut loop_helper = spin_sleep::LoopHelper::builder().build_with_target_rate(bytes_per_sec);
+                            for d in data {
+                                loop_helper.loop_start();
+                                if let Err(err) = tx3.send(SendData::Data([d].to_vec())) {
+                                    eprintln!("{err}");
+                                    done = true;
+                                }
+                                loop_helper.loop_sleep();
+                            }
+                        }
                     }
                 } else {
                     thread::sleep(Duration::from_millis(25));
