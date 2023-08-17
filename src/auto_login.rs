@@ -113,7 +113,12 @@ impl AutoLogin {
         Ok(true)
     }
 
-    pub fn try_login(&mut self, con: &mut Connection, adr: &Address, ch: u8) -> TerminalResult<()> {
+    pub fn try_login(
+        &mut self,
+        con_opt: &mut Option<Connection>,
+        adr: &Address,
+        ch: u8,
+    ) -> TerminalResult<()> {
         if self.logged_in || self.disabled {
             return Ok(());
         }
@@ -130,7 +135,9 @@ impl AutoLogin {
         self.got_name |= self.name_recognizer.push_ch(ch) | self.login_recognizer.push_ch(ch);
 
         if let Some(iemsi) = &mut self.iemsi {
-            self.logged_in |= iemsi.try_login(con, adr, ch)?;
+            if let Some(con) = con_opt {
+                self.logged_in |= iemsi.try_login(con, adr, ch)?;
+            }
         }
         Ok(())
     }

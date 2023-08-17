@@ -37,6 +37,8 @@ impl FileStorageHandler for TestStorageHandler {
         self.cur_file_name = Some(fn_string.clone());
         self.cur_file_size = total_size;
         self.file.insert(fn_string, Vec::new());
+
+        println!("open file: {file_name} with size {total_size}");
     }
 
     fn current_file_name(&self) -> Option<String> {
@@ -45,11 +47,13 @@ impl FileStorageHandler for TestStorageHandler {
 
     fn set_current_size_to(&mut self, size: usize) {
         if let Some(file_name) = &self.cur_file_name {
+            println!("cut from {} to {} bytes.", self.current_file_length(), size);
             self.file.get_mut(file_name).unwrap().resize(size, 0);
         }
     }
 
     fn append(&mut self, data: &[u8]) {
+        println!("append {} bytes.", data.len());
         if let Some(file_name) = &self.cur_file_name {
             self.file
                 .get_mut(file_name)
@@ -58,6 +62,7 @@ impl FileStorageHandler for TestStorageHandler {
         }
     }
     fn close(&mut self) {
+        println!("close file.");
         self.cur_file_name = None;
         self.cur_file_size = 0;
     }
