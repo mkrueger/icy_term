@@ -35,10 +35,20 @@ impl Com for ComRawImpl {
     }
 
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
+        let tcp_stream = self.tcp_stream.as_mut().unwrap();
         let mut buf = [0; 1024 * 256];
-        match self.tcp_stream.as_mut().unwrap().read(&mut buf) {
-            Ok(size) => Ok(Some(buf[0..size].to_vec())),
+        if tcp_stream.peek(&mut buf)? == 0 {
+            return Ok(None);
+        }
+
+        tcp_stream.set_nonblocking(false)?;
+        match tcp_stream.read(&mut buf) {
+            Ok(size) => {
+                tcp_stream.set_nonblocking(true)?;
+                Ok(Some(buf[0..size].to_vec()))
+            }
             Err(ref e) => {
+                tcp_stream.set_nonblocking(true)?;
                 if e.kind() == io::ErrorKind::WouldBlock {
                     return Ok(None);
                 }

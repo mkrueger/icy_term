@@ -5,7 +5,7 @@ use icy_engine::Size;
 use std::{
     io::{self, ErrorKind, Read, Write},
     net::TcpStream,
-    time::Duration,
+    time::{Duration, SystemTime},
 };
 
 #[derive(Debug)]
@@ -523,10 +523,20 @@ impl Com for ComTelnetImpl {
     }
 
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
+        let tcp_stream = self.tcp_stream.as_mut().unwrap();
         let mut buf = [0; 1024 * 256];
-        match self.tcp_stream.as_mut().unwrap().read(&mut buf) {
-            Ok(size) => self.parse(&buf[0..size]),
+        if tcp_stream.peek(&mut buf)? == 0 {
+            return Ok(None);
+        }
+
+        tcp_stream.set_nonblocking(false)?;
+        match tcp_stream.read(&mut buf) {
+            Ok(size) => {
+                tcp_stream.set_nonblocking(true)?;
+                self.parse(&buf[0..size])
+            }
             Err(ref e) => {
+                tcp_stream.set_nonblocking(true)?;
                 if e.kind() == io::ErrorKind::WouldBlock {
                     return Ok(None);
                 }
@@ -547,7 +557,6 @@ impl Com for ComTelnetImpl {
                     let mut b = [0];
                     match self.tcp_stream.as_mut().unwrap().read_exact(&mut b) {
                         Ok(_) => {
-                            self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
                             if b[0] == telnet_cmd::Iac {
                                 return Ok(b[0]);
                             }
@@ -557,7 +566,6 @@ impl Com for ComTelnetImpl {
                             )));
                         }
                         Err(err) => {
-                            self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
                             return Err(Box::new(io::Error::new(
                                 ErrorKind::ConnectionAborted,
                                 format!("error while reading single byte from stream: {err}"),
@@ -565,17 +573,12 @@ impl Com for ComTelnetImpl {
                         }
                     }
                 }
-
-                self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
                 Ok(b[0])
             }
-            Err(err) => {
-                self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
-                Err(Box::new(io::Error::new(
-                    ErrorKind::ConnectionAborted,
-                    format!("error while reading single byte from stream: {err}"),
-                )))
-            }
+            Err(err) => Err(Box::new(io::Error::new(
+                ErrorKind::ConnectionAborted,
+                format!("error while reading single byte from stream: {err}"),
+            ))),
         }
     }
 
