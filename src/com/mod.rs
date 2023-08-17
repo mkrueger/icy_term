@@ -49,6 +49,7 @@ pub enum SendData {
     ),
     EndTransfer,
     CancelTransfer,
+    SetBaudRate(u32),
 }
 
 #[derive(Debug)]
@@ -159,6 +160,11 @@ impl Connection {
             state,
             files_opt,
         ))?;
+        Ok(())
+    }
+
+    pub(crate) fn set_baud_rate(&self, baud_rate: u32) -> TerminalResult<()> {
+        self.tx.send(SendData::SetBaudRate(baud_rate))?;
         Ok(())
     }
 }

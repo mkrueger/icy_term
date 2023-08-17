@@ -217,10 +217,14 @@ impl MainWindow {
             icy_engine::CallbackAction::Beep => {
                 crate::sound::beep();
             }
+            icy_engine::CallbackAction::ChangeBaudRate(baud_rate) => {
+                if let Some(con) = &mut self.connection_opt {
+                    let r = con.set_baud_rate(baud_rate);
+                    self.handle_result(r, false);
+                }
+            }
         }
-        //if !self.update_sixels() {
         self.buffer_view.lock().redraw_view();
-        //}
         Ok(())
     }
 
@@ -394,15 +398,25 @@ impl MainWindow {
 
     pub fn update_state(&mut self) -> TerminalResult<()> {
         //        unsafe { super::simulate::run_sim(self); }
-        let Some(con) = &mut self.connection_opt else {
-            return Ok(());
-        };
-        let mut send_data = Vec::new();
 
-        if con.is_data_available()? {
-            for ch in con.read_buffer() {
+        let data_opt = if let Some(con) = &mut self.connection_opt {
+            if con.is_disconnected() {
+                self.connection_opt = None;
+                return Ok(());
+            }
+            if con.is_data_available()? {
+                Some(con.read_buffer())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        if let Some(data) = data_opt {
+            for ch in data {
                 if let Some(adr) = self.addresses.get(self.cur_addr) {
-                    if let Err(err) = self.auto_login.try_login(con, adr, ch) {
+                    if let Err(err) = self.auto_login.try_login(&mut self.connection_opt, adr, ch) {
                         eprintln!("{err}");
                     }
                 }
@@ -424,42 +438,15 @@ impl MainWindow {
                 }*/
                 // print!("{}", char::from_u32(ch as u32).unwrap());
 
-                let result = self
-                    .buffer_view
-                    .lock()
-                    .print_char(&mut self.buffer_parser, unsafe {
-                        char::from_u32_unchecked(ch as u32)
-                    });
+                self.print_char(ch)?;
 
-                match result {
-                    Ok(icy_engine::CallbackAction::None) => {}
-                    Ok(icy_engine::CallbackAction::SendString(result)) => {
-                        send_data.extend_from_slice(result.as_bytes());
-                    }
-                    Ok(icy_engine::CallbackAction::PlayMusic(music)) => {
-                        crate::sound::play_music(&music);
-                    }
-                    Ok(icy_engine::CallbackAction::Beep) => {
-                        crate::sound::beep();
-                    }
-                    Err(err) => {
-                        eprintln!("{err}");
-                    }
-                }
                 if let Some((protocol_type, download)) = self.auto_file_transfer.try_transfer(ch) {
                     self.initiate_file_transfer(protocol_type, download);
                     return Ok(());
                 }
             }
         }
-        if !send_data.is_empty() {
-            // println!("Sending: {:?}", String::from_utf8_lossy(&send_data).replace('\x1B', "\\x1B"));
-            con.send(send_data)?;
-        }
 
-        if con.is_disconnected() {
-            self.connection_opt = None;
-        }
         self.auto_login.disabled |= self.is_alt_pressed;
         if let Some(adr) = self.addresses.get(self.cur_addr) {
             if let Some(con) = &mut self.connection_opt {
@@ -638,6 +625,9 @@ impl MainWindow {
                                 }
                             }
                             tx.send(SendData::EndTransfer).unwrap_or_default();
+                        }
+                        SendData::SetBaudRate(_) => {
+                            // TODO
                         }
                         SendData::Disconnect => {
                             done = true;
