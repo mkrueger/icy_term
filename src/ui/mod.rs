@@ -94,17 +94,7 @@ impl MainWindow {
 
     pub fn handle_result<T>(&mut self, res: TerminalResult<T>, terminate_connection: bool) {
         if let Err(err) = res {
-            //            self.hangup();
-            //            self.buffer_view.lock().buf.clear();
-            self.println(&format!("\n\r{err}")).unwrap();
             log::error!("{err}");
-            if let Some(con) = &mut self.connection_opt {
-                if con.is_disconnected() {
-                    self.connection_opt = None;
-                    self.open_connection_promise = None;
-                    self.output_string(&format!("\n{err}"));
-                }
-            }
 
             if terminate_connection {
                 self.open_connection_promise = None;
