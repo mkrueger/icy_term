@@ -53,9 +53,10 @@ impl OutputRenderer {
 
     pub(crate) unsafe fn init_output(&self, gl: &glow::Context) {
         gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.framebuffer));
-        gl.framebuffer_texture(
+        gl.framebuffer_texture_2d(
             glow::FRAMEBUFFER,
             glow::COLOR_ATTACHMENT0,
+            glow::TEXTURE_2D,
             Some(self.render_texture),
             0,
         );

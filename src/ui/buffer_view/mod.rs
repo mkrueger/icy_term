@@ -206,6 +206,7 @@ impl BufferView {
         unsafe {
             self.output_renderer.init_output(gl);
             self.terminal_renderer.render_terminal(gl, self);
+
             // draw sixels
             let render_texture = self
                 .sixel_renderer

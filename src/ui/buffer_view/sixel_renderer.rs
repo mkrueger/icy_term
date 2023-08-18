@@ -48,9 +48,10 @@ impl SixelRenderer {
         gl.bind_framebuffer(glow::FRAMEBUFFER, Some(output_renderer.framebuffer));
 
         for sixel in &self.sixel_cache {
-            gl.framebuffer_texture(
+            gl.framebuffer_texture_2d(
                 glow::FRAMEBUFFER,
                 glow::COLOR_ATTACHMENT0,
+                glow::TEXTURE_2D,
                 Some(sixel_render_texture),
                 0,
             );
@@ -292,9 +293,10 @@ unsafe fn create_sixel_render_texture(
         glow::RENDERBUFFER,
         Some(depth_buffer),
     );
-    gl.framebuffer_texture(
+    gl.framebuffer_texture_2d(
         glow::FRAMEBUFFER,
         glow::COLOR_ATTACHMENT0,
+        glow::TEXTURE_2D,
         Some(sixel_render_texture),
         0,
     );
