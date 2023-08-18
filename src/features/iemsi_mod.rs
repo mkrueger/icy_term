@@ -383,6 +383,7 @@ pub fn _encode_ism(data: &[u8]) -> Vec<u8> {
     result
 }
 
+#[derive(Default)]
 pub struct IEmsi {
     irq_requested: bool,
     nak_requested: bool,
@@ -407,27 +408,6 @@ pub struct IEmsi {
 const ISI_START: &[u8; 8] = b"EMSI_ISI";
 
 impl IEmsi {
-    pub fn new() -> Self {
-        Self {
-            irq_requested: false,
-            nak_requested: false,
-            isi: None,
-            retries: 0,
-            stars_read: 0,
-            irq_seq: 0,
-            nak_seq: 0,
-
-            isi_seq: 0,
-            isi_len: 0,
-            isi_crc: 0,
-            isi_check_crc: 0,
-            got_invavid_isi: false,
-            isi_data: Vec::new(),
-            aborted: false,
-            logged_in: false,
-        }
-    }
-
     pub fn parse_char(&mut self, ch: u8) -> TerminalResult<()> {
         if self.stars_read >= 2 {
             if self.isi_seq > 7 {
@@ -705,11 +685,11 @@ fn encode_emsi(data: &[&str]) -> TerminalResult<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    use crate::iemsi_mod::*;
+    use super::*;
 
     #[test]
     fn test_iemsi_irq() {
-        let mut state = IEmsi::new();
+        let mut state = IEmsi::default();
         state.parse_char(b'b').ok();
         assert!(!state.irq_requested);
         for b in EMSI_IRQ {
@@ -720,7 +700,7 @@ mod tests {
 
     #[test]
     fn test_iemsi_nak() {
-        let mut state = IEmsi::new();
+        let mut state = IEmsi::default();
         assert!(!state.nak_requested);
         for b in EMSI_IRQ {
             state.parse_char(*b).ok();
@@ -735,7 +715,7 @@ mod tests {
 
     #[test]
     fn test_iemsi_isi() {
-        let mut state = IEmsi::new();
+        let mut state = IEmsi::default();
         let data = b"<garbage>**EMSI_ISI0080{RemoteAccess,2.62.1,1161}{bbs}{Canada, eh!}{sysop}{63555308}{Copyright 1989-2000 Bruce F. Morse, All Rights Reserved}{\\01}{ZAP}4675DB04\r<garbage>";
         for b in data {
             state.parse_char(*b).ok();
@@ -812,7 +792,7 @@ mod tests {
 
     #[test]
     fn test_auto_logon() {
-        let mut state = IEmsi::new();
+        let mut state = IEmsi::default();
         let mut adr = Address::new(String::new());
         adr.user_name = "foo".to_string();
         adr.password = "bar".to_string();

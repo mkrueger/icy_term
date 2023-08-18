@@ -155,15 +155,15 @@ impl MainWindow {
         egui::CentralPanel::default()
             .frame(frame_no_margins)
             .show(ctx, |ui| {
-                self.custom_painting(ui, top_margin_height);
+                self.show_terminal_area(ui, top_margin_height);
             });
 
         if show_pb {
-            super::view_phonebook(self, ctx);
+            super::dialogs::view_phonebook(self, ctx);
         }
     }
 
-    fn custom_painting(&mut self, ui: &mut egui::Ui, top_margin_height: f32) -> egui::Response {
+    fn show_terminal_area(&mut self, ui: &mut egui::Ui, top_margin_height: f32) -> egui::Response {
         let buf_h = self.buffer_view.lock().buf.get_buffer_height();
         let real_height = self.buffer_view.lock().buf.get_real_buffer_height();
 

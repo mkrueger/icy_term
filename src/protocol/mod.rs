@@ -25,17 +25,6 @@ pub struct FileDescriptor {
 }
 
 impl FileDescriptor {
-    pub fn new() -> Self {
-        Self {
-            path_name: String::new(),
-            file_name: String::new(),
-            size: 0,
-            date: 0,
-            path: PathBuf::new(),
-            data: None,
-        }
-    }
-
     pub fn from_paths(paths: &Vec<PathBuf>) -> TermComResult<Vec<FileDescriptor>> {
         let mut res = Vec::new();
         for p in paths {
@@ -92,6 +81,19 @@ impl FileDescriptor {
     }
 }
 
+impl Default for FileDescriptor {
+    fn default() -> Self {
+        Self {
+            path_name: String::new(),
+            file_name: String::new(),
+            size: 0,
+            date: 0,
+            path: PathBuf::new(),
+            data: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TransferInformation {
     pub file_name: String,
@@ -109,21 +111,6 @@ pub struct TransferInformation {
 }
 
 impl TransferInformation {
-    pub fn new() -> Self {
-        Self {
-            file_name: String::new(),
-            file_size: 0,
-            bytes_transfered: 0,
-            errors: 0,
-            files_finished: Vec::new(),
-            check_size: String::new(),
-            time: SystemTime::now(),
-            output_log: Vec::new(),
-            bytes_transferred_timed: 0,
-            bps: 0,
-        }
-    }
-
     pub fn update_bps(&mut self) {
         let bytes = self
             .bytes_transfered
@@ -155,6 +142,23 @@ impl TransferInformation {
     }
 }
 
+impl Default for TransferInformation {
+    fn default() -> Self {
+        Self {
+            file_name: String::new(),
+            file_size: 0,
+            bytes_transfered: 0,
+            errors: 0,
+            files_finished: Vec::new(),
+            check_size: String::new(),
+            time: SystemTime::now(),
+            output_log: Vec::new(),
+            bytes_transferred_timed: 0,
+            bps: 0,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TransferState {
     pub current_state: &'static str,
@@ -165,15 +169,15 @@ pub struct TransferState {
     pub recieve_state: TransferInformation,
 }
 
-impl TransferState {
-    pub fn new() -> Self {
+impl Default for TransferState {
+    fn default() -> Self {
         Self {
             current_state: "",
             protocol_name: String::new(),
             is_finished: false,
             start_time: SystemTime::now(),
-            send_state: TransferInformation::new(),
-            recieve_state: TransferInformation::new(),
+            send_state: TransferInformation::default(),
+            recieve_state: TransferInformation::default(),
         }
     }
 }

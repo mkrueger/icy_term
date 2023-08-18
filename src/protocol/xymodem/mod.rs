@@ -102,7 +102,11 @@ impl super::Protocol for XYmodem {
         // Add ghost file with no name when receiving with x-modem because this protocol
         // doesn't transfer any file information. User needs to set a file name after download.
         if !self.config.is_ymodem() {
-            self.ry.as_mut().unwrap().files.push(FileDescriptor::new());
+            self.ry
+                .as_mut()
+                .unwrap()
+                .files
+                .push(FileDescriptor::default());
         }
 
         Ok(())

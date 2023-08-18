@@ -1,5 +1,4 @@
 use crate::ui::screen_modes::ScreenMode;
-use crate::ui::AddressCategory;
 use crate::TerminalResult;
 use chrono::{Duration, Utc};
 use icy_engine::ansi::{BaudOption, MusicOption};
@@ -119,7 +118,7 @@ pub struct Address {
     pub downloaded_bytes: usize,
 
     // UI
-    pub address_category: AddressCategory,
+    pub address_category: crate::ui::dialogs::AddressCategory,
 }
 
 const TEMPLATE: &str = r#"
@@ -201,11 +200,12 @@ impl Address {
             last_call_duration: Duration::zero(),
             uploaded_bytes: 0,
             downloaded_bytes: 0,
-            address_category: AddressCategory::Server,
+            address_category: crate::ui::dialogs::AddressCategory::Server,
             baud_emulation: BaudOption::Off,
         }
     }
 
+    #[must_use]
     pub fn get_terminal_parser(&self, addr: &Address) -> Box<dyn BufferParser> {
         match self.terminal_type {
             Terminal::Ansi => {
@@ -221,6 +221,12 @@ impl Address {
         }
     }
 
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    #[must_use]
     pub fn get_phonebook_file() -> Option<PathBuf> {
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
@@ -241,6 +247,12 @@ impl Address {
         None
     }
 
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    #[must_use]
     pub fn read_phone_book() -> Vec<Self> {
         let mut res = Vec::new();
         res.push(Address::new(String::new()));
@@ -259,6 +271,7 @@ impl Address {
 
 pub static mut READ_ADDRESSES: bool = false;
 
+#[must_use]
 pub fn start_read_book() -> Vec<Address> {
     let res = Address::read_phone_book();
 
@@ -274,6 +287,11 @@ pub fn start_read_book() -> Vec<Address> {
     res
 }
 
+/// .
+///
+/// # Errors
+///
+/// This function will return an error if .
 pub fn store_phone_book(addresses: &[Address]) -> TerminalResult<()> {
     if let Some(file_name) = Address::get_phonebook_file() {
         let mut file = File::create(file_name)?;

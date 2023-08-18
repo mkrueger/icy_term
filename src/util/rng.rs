@@ -8,13 +8,6 @@ pub struct Rng {
 }
 
 impl Rng {
-    pub fn new() -> Rng {
-        let start = SystemTime::now();
-        Rng {
-            state: start.duration_since(UNIX_EPOCH).unwrap().as_nanos() as i32,
-        }
-    }
-
     // Lehmer random number generator
     pub fn next(&mut self) -> i32 {
         self.state = ((self.state as u64).wrapping_mul(48271) % 0x7fff_ffff) as i32;
@@ -35,5 +28,16 @@ impl Rng {
         };
 
         res as u32
+    }
+}
+
+impl Default for Rng {
+    fn default() -> Self {
+        Self {
+            state: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos() as i32,
+        }
     }
 }

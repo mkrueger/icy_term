@@ -42,7 +42,7 @@ mod zmodem_test {
 
         let data = vec![1u8, 2, 5, 10];
         let mut com = create_channel();
-        let mut transfer_state = TransferState::new();
+        let mut transfer_state = TransferState::default();
 
         send.initiate_send(
             &mut com.sender,

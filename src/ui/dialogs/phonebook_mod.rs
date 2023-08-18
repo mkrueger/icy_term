@@ -8,9 +8,10 @@ use egui::{Id, Rect};
 use i18n_embed_fl::fl;
 use icy_engine::ansi::{BaudOption, MusicOption};
 
-use crate::address_mod::{self, store_phone_book, Address, Terminal};
-
-use super::{MainWindow, DEFAULT_MODES};
+use crate::{
+    address_mod::{self, store_phone_book, Address, Terminal},
+    ui::{MainWindow, ScreenMode, DEFAULT_MODES},
+};
 
 pub enum PhonebookFilter {
     All,
@@ -273,7 +274,7 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
                 .width(250.)
                 .show_ui(ui, |ui| {
                     for mode in &DEFAULT_MODES {
-                        if matches!(mode, super::ScreenMode::Default) {
+                        if matches!(mode, ScreenMode::Default) {
                             ui.separator();
                             continue;
                         }
@@ -553,7 +554,7 @@ fn render_terminal_category(window: &mut MainWindow, ui: &mut egui::Ui) {
                 .width(250.)
                 .show_ui(ui, |ui| {
                     for mode in &DEFAULT_MODES {
-                        if matches!(mode, super::ScreenMode::Default) {
+                        if matches!(mode, ScreenMode::Default) {
                             ui.separator();
                             continue;
                         }

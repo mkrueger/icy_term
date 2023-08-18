@@ -5,8 +5,8 @@ use glow::HasContext as _;
 use glow::Texture;
 use icy_engine::Buffer;
 
-use crate::ui::MonitorSettings;
-use crate::ui::MONO_COLORS;
+use crate::MONO_COLORS;
+use crate::MonitorSettings;
 
 pub struct OutputRenderer {
     output_shader: glow::Program,

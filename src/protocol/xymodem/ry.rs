@@ -133,8 +133,10 @@ impl Ry {
                     return Ok(());
                 }
 
-                let mut fd = FileDescriptor::new();
-                fd.file_name = str_from_null_terminated_utf8_unchecked(block);
+                let mut fd = FileDescriptor {
+                    file_name: str_from_null_terminated_utf8_unchecked(block),
+                    ..Default::default()
+                };
                 let num =
                     str_from_null_terminated_utf8_unchecked(&block[(fd.file_name.len() + 1)..])
                         .to_string();
@@ -162,7 +164,7 @@ impl Ry {
                             self.data.pop();
                         }
                         if self.files.is_empty() {
-                            self.files.push(FileDescriptor::new());
+                            self.files.push(FileDescriptor::default());
                         }
 
                         let cur_file = self.files.len() - 1;

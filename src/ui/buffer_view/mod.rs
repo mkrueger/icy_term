@@ -6,11 +6,11 @@ use icy_engine::{Buffer, BufferParser, CallbackAction, Caret, EngineResult, Posi
 pub mod selection;
 pub use selection::*;
 
+use crate::{MonitorSettings, Options, Scaling};
+
 mod output_renderer;
 mod sixel_renderer;
 mod terminal_renderer;
-
-use super::{MonitorSettings, Options, Scaling};
 
 #[derive(Clone, Copy)]
 pub enum BufferInputMode {

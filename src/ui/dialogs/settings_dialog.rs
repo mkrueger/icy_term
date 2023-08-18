@@ -1,7 +1,10 @@
 use eframe::egui::{self, RichText};
 use i18n_embed_fl::fl;
 
-use super::{MainWindow, MainWindowMode, Scaling};
+use crate::{
+    ui::{MainWindow, MainWindowMode},
+    MonitorSettings, Scaling,
+};
 const MONITOR_NAMES: [&str; 6] = [
     "Color",
     "Grayscale",
@@ -141,7 +144,7 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
             ui.horizontal(|ui| {
                 if ui.button("Reset").clicked() {
                     window.options.scaling = Scaling::Nearest;
-                    window.buffer_view.lock().monitor_settings = super::MonitorSettings::default();
+                    window.buffer_view.lock().monitor_settings = MonitorSettings::default();
                 }
                 if ui
                     .button(fl!(crate::LANGUAGE_LOADER, "phonebook-ok-button"))

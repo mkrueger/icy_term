@@ -1,5 +1,3 @@
-use crate::protocol::TransferType;
-
 pub struct PatternRecognizer {
     pattern: Vec<u8>,
     cur_idx: usize,
@@ -10,7 +8,7 @@ impl PatternRecognizer {
     pub fn from(data: &[u8], ignore_case: bool) -> Self {
         Self {
             pattern: if ignore_case {
-                data.iter().map(|c| to_upper(*c)).collect()
+                data.iter().map(|c| (*c).to_ascii_uppercase()).collect()
             } else {
                 data.to_vec()
             },
@@ -39,46 +37,9 @@ impl PatternRecognizer {
     }
 }
 
-fn to_upper(ch: u8) -> u8 {
-    if ch.is_ascii_lowercase() {
-        ch - b'a' + b'A'
-    } else {
-        ch
-    }
-}
-
-pub struct AutoFileTransfer {
-    zmodem_dl: PatternRecognizer,
-    zmodem_ul: PatternRecognizer,
-}
-
-impl AutoFileTransfer {
-    pub fn new() -> Self {
-        Self {
-            zmodem_dl: PatternRecognizer::from(b"\x18B00000000000000", true),
-            zmodem_ul: PatternRecognizer::from(b"\x18B0100000023be50", true),
-        }
-    }
-
-    pub fn reset(&mut self) {
-        self.zmodem_dl.reset();
-        self.zmodem_ul.reset();
-    }
-
-    pub fn try_transfer(&mut self, ch: u8) -> Option<(TransferType, bool)> {
-        if self.zmodem_dl.push_ch(ch) {
-            return Some((TransferType::ZModem, true));
-        }
-        if self.zmodem_ul.push_ch(ch) {
-            return Some((TransferType::ZModem, false));
-        }
-        None
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::auto_file_transfer::PatternRecognizer;
+    use super::PatternRecognizer;
 
     #[test]
     fn test_pattern_recognizer() {

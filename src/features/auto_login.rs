@@ -1,11 +1,10 @@
-use crate::{
-    address_mod::Address, auto_file_transfer::PatternRecognizer, com::Connection, iemsi_mod::IEmsi,
-    TerminalResult,
-};
+use crate::{com::Connection, util::PatternRecognizer, Address, TerminalResult};
 use std::{
     io::{self, ErrorKind},
     time::{Duration, SystemTime},
 };
+
+use super::iemsi_mod::IEmsi;
 
 pub struct AutoLogin {
     pub logged_in: bool,
@@ -27,7 +26,7 @@ impl AutoLogin {
         Self {
             logged_in: false,
             disabled: false,
-            iemsi: Some(IEmsi::new()),
+            iemsi: Some(IEmsi::default()),
             first_char_recv: None,
             last_char_recv: SystemTime::now(),
             continue_time: SystemTime::now(),

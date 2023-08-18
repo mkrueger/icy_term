@@ -7,10 +7,10 @@ use egui::FontId;
 use icy_engine::ansi;
 
 use crate::{
-    auto_file_transfer::AutoFileTransfer,
-    auto_login::AutoLogin,
-    rng::Rng,
-    ui::{BufferView, Options, PhonebookFilter, ScreenMode},
+    features::{AutoFileTransfer, AutoLogin},
+    ui::{dialogs::PhonebookFilter, BufferView, ScreenMode},
+    util::Rng,
+    Options,
 };
 
 use super::{MainWindow, MainWindowMode};
@@ -36,7 +36,7 @@ impl MainWindow {
             connection_opt: None,
             options,
             auto_login: AutoLogin::new(""),
-            auto_file_transfer: AutoFileTransfer::new(),
+            auto_file_transfer: AutoFileTransfer::default(),
             screen_mode: ScreenMode::Vga(80, 25),
             current_transfer: None,
             handled_char: false,
@@ -45,7 +45,7 @@ impl MainWindow {
             buffer_parser: Box::<ansi::Parser>::default(),
             open_connection_promise: None,
             phonebook_filter_string: String::new(),
-            rng: Rng::new(),
+            rng: Rng::default(),
         };
         let args: Vec<String> = env::args().collect();
         if let Some(arg) = args.get(1) {
@@ -111,18 +111,18 @@ impl eframe::App for MainWindow {
             }
             MainWindowMode::ShowSettings(in_phonebook) => {
                 if in_phonebook {
-                    super::view_phonebook(self, ctx);
+                    super::dialogs::view_phonebook(self, ctx);
                 } else {
                     let res = self.update_state();
                     self.update_terminal_window(ctx, frame);
                     self.handle_result(res, false);
                     ctx.request_repaint_after(Duration::from_millis(150));
                 }
-                super::show_settings(self, ctx, frame);
+                super::dialogs::show_settings(self, ctx, frame);
             }
             MainWindowMode::SelectProtocol(download) => {
                 self.update_terminal_window(ctx, frame);
-                super::view_selector(self, ctx, frame, download);
+                super::dialogs::view_selector(self, ctx, frame, download);
             }
             MainWindowMode::FileTransfer(download) => {
                 if self.connection_opt.as_mut().unwrap().should_end_transfer() {
@@ -140,7 +140,8 @@ impl eframe::App for MainWindow {
                 self.update_terminal_window(ctx, frame);
                 if let Some(a) = &mut self.current_transfer {
                     // self.print_result(&r);
-                    if !super::view_filetransfer(ctx, frame, &a.lock().unwrap(), download) {
+                    if !super::dialogs::view_filetransfer(ctx, frame, &a.lock().unwrap(), download)
+                    {
                         self.mode = MainWindowMode::ShowTerminal;
                         let res = self.connection_opt.as_mut().unwrap().cancel_transfer();
                         self.handle_result(res, true);

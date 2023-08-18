@@ -3,7 +3,7 @@ use i18n_embed_fl::fl;
 
 use crate::protocol::TransferType;
 
-use super::{MainWindow, MainWindowMode};
+use crate::ui::{MainWindow, MainWindowMode};
 
 fn create_button_row(
     ui: &mut egui::Ui,

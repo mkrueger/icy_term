@@ -8,8 +8,9 @@ use toml::Value;
 
 use crate::TerminalResult;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Scaling {
+    #[default]
     Nearest,
     Linear,
 }
@@ -59,7 +60,7 @@ impl Default for MonitorSettings {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Options {
     pub scaling: Scaling,
     pub connect_timeout: Duration,
@@ -67,14 +68,12 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn new() -> Self {
-        Options {
-            connect_timeout: Duration::from_secs(10),
-            scaling: Scaling::Linear,
-            monitor_settings: MonitorSettings::default(),
-        }
-    }
-
+    /// .
+    ///
+    /// # Panics
+    ///
+    /// Panics if .
+    #[must_use]
     pub fn load_options() -> Self {
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
@@ -84,9 +83,14 @@ impl Options {
                 return Options::from_str(&fs);
             }
         }
-        Options::new()
+        Options::default()
     }
 
+    /// Returns the store options of this [`Options`].
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if .
     pub fn store_options(&self) -> TerminalResult<()> {
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
@@ -146,7 +150,7 @@ impl Options {
 
     fn from_str(input_text: &str) -> Options {
         let value = input_text.parse::<Value>().unwrap();
-        let mut result = Options::new();
+        let mut result = Options::default();
         parse_value(&mut result, &value);
         result
     }

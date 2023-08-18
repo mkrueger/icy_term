@@ -11,11 +11,11 @@ use std::time::{Duration, SystemTime};
 
 use eframe::egui::{self, Key};
 
-use crate::auto_file_transfer::AutoFileTransfer;
-use crate::auto_login::AutoLogin;
 use crate::com::{Com, TermComResult};
+use crate::features::{AutoFileTransfer, AutoLogin};
 use crate::protocol::{TestStorageHandler, TransferState};
-use crate::rng::Rng;
+use crate::util::{beep, play_music, Rng};
+use crate::Options;
 use crate::{
     address_mod::{store_phone_book, Address},
     com::{ComRawImpl, ComTelnetImpl, SendData},
@@ -35,30 +35,10 @@ pub use buffer_view::*;
 pub mod terminal_window;
 pub use terminal_window::*;
 
-/*
-pub mod hover_list;
-pub use hover_list::*;
-*/
-pub mod screen_modes;
-pub use screen_modes::*;
+pub mod util;
+pub use util::*;
 
-pub mod phonebook_mod;
-pub use phonebook_mod::*;
-
-pub mod protocol_selector;
-pub use protocol_selector::*;
-
-pub mod file_transfer;
-pub use file_transfer::*;
-
-pub mod keymaps;
-pub use keymaps::*;
-
-pub mod settings_dialog;
-pub use settings_dialog::*;
-
-pub mod options;
-pub use options::*;
+pub mod dialogs;
 
 // pub mod simulate;
 
@@ -83,7 +63,7 @@ pub struct MainWindow {
     pub handled_char: bool,
     pub cur_addr: usize,
     pub selected_bbs: Option<usize>,
-    pub phonebook_filter: PhonebookFilter,
+    pub phonebook_filter: dialogs::PhonebookFilter,
     pub phonebook_filter_string: String,
 
     pub options: Options,
@@ -181,10 +161,10 @@ impl MainWindow {
                 }
             }
             icy_engine::CallbackAction::PlayMusic(music) => {
-                crate::sound::play_music(&music);
+                play_music(&music);
             }
             icy_engine::CallbackAction::Beep => {
-                crate::sound::beep();
+                beep();
             }
             icy_engine::CallbackAction::ChangeBaudRate(baud_rate) => {
                 if let Some(con) = &mut self.connection_opt {
@@ -204,7 +184,7 @@ impl MainWindow {
         files_opt: Option<Vec<FileDescriptor>>,
     ) {
         self.mode = MainWindowMode::FileTransfer(download);
-        let state = Arc::new(Mutex::new(TransferState::new()));
+        let state = Arc::new(Mutex::new(TransferState::default()));
         self.current_transfer = Some(state.clone());
         let res = self.connection_opt.as_mut().unwrap().start_file_transfer(
             protocol_type,
@@ -379,8 +359,6 @@ impl MainWindow {
     }
 
     pub fn update_state(&mut self) -> TerminalResult<()> {
-        //        unsafe { super::simulate::run_sim(self); }
-
         let data_opt = if let Some(con) = &mut self.connection_opt {
             if con.is_disconnected() {
                 self.connection_opt = None;

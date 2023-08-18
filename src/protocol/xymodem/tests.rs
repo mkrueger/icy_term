@@ -17,7 +17,7 @@ pub fn run_protocols(
     let handle1 = std::thread::spawn(move || {
         println!("start send thread.");
         let mut storage_handler: TestStorageHandler = TestStorageHandler::new();
-        let mut transfer_state: TransferState = TransferState::new();
+        let mut transfer_state: TransferState = TransferState::default();
         send.initiate_send(&mut com.sender, files, &mut transfer_state)
             .expect("error.");
         while !transfer_state.is_finished {
@@ -30,7 +30,7 @@ pub fn run_protocols(
     let handle2 = thread::spawn(move || {
         println!("start recv thread.");
         let mut storage_handler: TestStorageHandler = TestStorageHandler::new();
-        let mut transfer_state: TransferState = TransferState::new();
+        let mut transfer_state: TransferState = TransferState::default();
         recv.initiate_recv(&mut com.receiver, &mut transfer_state)
             .expect("error.");
 

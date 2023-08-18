@@ -21,15 +21,13 @@ pub type TerminalResult<T> = Result<T, Box<dyn Error>>;
 use i18n_embed::fluent::{fluent_language_loader, FluentLanguageLoader};
 use rust_embed::RustEmbed;
 
-mod address_mod;
 mod com;
+pub mod data;
+pub use data::*;
 
-mod auto_file_transfer;
-mod auto_login;
-mod iemsi_mod;
+mod features;
 mod protocol;
-mod rng;
-mod sound;
+mod util;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 

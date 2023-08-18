@@ -1,6 +1,6 @@
 use eframe::egui::Key;
 
-use super::BufferInputMode;
+use crate::ui::BufferInputMode;
 
 pub const CTRL_MOD: u32 = 0b1000_0000_0000_0000_0000;
 pub const SHIFT_MOD: u32 = 0b0100_0000_0000_0000_0000;
