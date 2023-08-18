@@ -364,8 +364,8 @@ impl MainWindow {
         };
 
         if let Some(data) = data_opt {
-            for ch in data {
-                if let Some(adr) = self.addresses.get(self.cur_addr) {
+                        for ch in data {
+                                if let Some(adr) = self.addresses.get(self.cur_addr) {
                     if let Err(err) = self.auto_login.try_login(&mut self.connection_opt, adr, ch) {
                         log::error!("{err}");
                     }
@@ -388,7 +388,9 @@ impl MainWindow {
                 }*/
                 // print!("{}", char::from_u32(ch as u32).unwrap());
 
-                self.print_char(ch)?;
+                if let Err(err) = self.print_char(ch) {
+                    log::error!("{err}");
+                }
 
                 if let Some((protocol_type, download)) = self.auto_file_transfer.try_transfer(ch) {
                     self.initiate_file_transfer(protocol_type, download);
