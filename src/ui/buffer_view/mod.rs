@@ -208,9 +208,9 @@ impl BufferView {
             self.terminal_renderer.render_terminal(gl, self);
             // draw sixels
             let render_texture = self
-                            .sixel_renderer
-                            .render_sixels(gl, self, &self.output_renderer);
-            
+                .sixel_renderer
+                .render_sixels(gl, self, &self.output_renderer);
+
             self.output_renderer.render_to_screen(
                 gl,
                 info,

@@ -71,12 +71,11 @@ impl OutputRenderer {
     ) {
         gl.bind_framebuffer(glow::FRAMEBUFFER, None);
         gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
-
         gl.viewport(
             info.clip_rect.left() as i32,
             (info.screen_size_px[1] as f32 - info.clip_rect.max.y * info.pixels_per_point) as i32,
-            (info.viewport.width() * info.pixels_per_point) as i32,
-            (info.viewport.height() * info.pixels_per_point) as i32,
+            (info.clip_rect.width() * info.pixels_per_point) as i32,
+            (info.clip_rect.height() * info.pixels_per_point) as i32,
         );
         gl.use_program(Some(self.output_shader));
         gl.active_texture(glow::TEXTURE0);
