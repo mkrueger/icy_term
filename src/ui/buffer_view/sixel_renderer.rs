@@ -87,26 +87,29 @@ impl SixelRenderer {
                 self.render_buffer_size.x,
                 self.render_buffer_size.y,
             );
+            gl.uniform_2_f32(
+                gl.get_uniform_location(self.sixel_shader, "u_sixel_scale")
+                    .as_ref(),
+                sixel.x_scale as f32,
+                sixel.y_scale as f32,
+            );
 
             let fontdim: icy_engine::Size<u8> = buffer_view.buf.get_font_dimensions();
             let fh: f32 = fontdim.height as f32;
-            let scroll_offset = (buffer_view.viewport_top / buffer_view.char_size.y * fh) % fh;
 
             let x = sixel.pos.x as f32 * buffer_view.buf.get_font_dimensions().width as f32;
             let y = sixel.pos.y as f32 * buffer_view.buf.get_font_dimensions().height as f32
-                + scroll_offset
-                - buffer_view.viewport_top;
+                - (buffer_view.viewport_top / buffer_view.char_size.y * fh);
 
-            let w = sixel.size.width as f32 * sixel.x_scale as f32;
-            let h = sixel.size.height as f32 * sixel.y_scale as f32;
-
+            let w = sixel.size.width as f32;
+            let h = sixel.size.height as f32;
             gl.uniform_4_f32(
                 gl.get_uniform_location(self.sixel_shader, "u_sixel_rectangle")
                     .as_ref(),
-                x,
-                y,
-                x + w,
-                y + h,
+                x / output_renderer.render_buffer_size.x,
+                y / (output_renderer.render_buffer_size.y),
+                (x + w) / output_renderer.render_buffer_size.x,
+                (y + h) / (output_renderer.render_buffer_size.y),
             );
 
             gl.bind_vertex_array(Some(output_renderer.vertex_array));
@@ -179,7 +182,7 @@ impl SixelRenderer {
                 gl.tex_image_2d(
                     glow::TEXTURE_2D,
                     0,
-                    glow::RGB as i32,
+                    glow::RGBA32F as i32,
                     sixel.width() as i32,
                     sixel.height() as i32,
                     0,
@@ -218,7 +221,7 @@ impl SixelRenderer {
         gl.tex_image_2d(
             glow::TEXTURE_2D,
             0,
-            glow::RGBA as i32,
+            glow::RGBA32F as i32,
             render_buffer_size.x as i32,
             render_buffer_size.y as i32,
             0,
@@ -269,7 +272,7 @@ unsafe fn create_sixel_render_texture(
     gl.tex_image_2d(
         glow::TEXTURE_2D,
         0,
-        glow::RGBA as i32,
+        glow::RGBA32F as i32,
         render_buffer_size.x as i32,
         render_buffer_size.y as i32,
         0,
