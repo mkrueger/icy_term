@@ -406,15 +406,29 @@ impl MainWindow {
 
                             egui::Event::PointerMoved(pos) => {
                                 if terminal_rect.contains(pos - Vec2::new(0., top_margin_height)) {
+                                    let click_pos = (pos
+                                        - terminal_rect.min
+                                        - Vec2::new(0., top_margin_height))
+                                        / char_size
+                                        + Vec2::new(0.0, first_line as f32);
                                     let buffer_view = self.buffer_view.clone();
+                                    // Dev feature in debug mode - print char under cursor
+                                    // when shift is pressed
+                                    if cfg!(debug_assertions)
+                                        && ui.input(|i| i.modifiers.shift_only())
+                                    {
+                                        let ch = buffer_view
+                                            .lock()
+                                            .buf
+                                            .get_char_xy(click_pos.x as i32, click_pos.y as i32);
+                                        if let Some(ch) = ch {
+                                            println!("ch: {:?}", ch);
+                                        }
+                                    }
+
                                     let mut l = buffer_view.lock();
                                     if let Some(sel) = &mut l.get_selection() {
                                         if !sel.locked {
-                                            let click_pos = (pos
-                                                - terminal_rect.min
-                                                - Vec2::new(0., top_margin_height))
-                                                / char_size
-                                                + Vec2::new(0.0, first_line as f32);
                                             sel.set_lead(click_pos);
                                             sel.block_selection = ui.input(|i| i.modifiers.alt);
                                             l.redraw_view();
