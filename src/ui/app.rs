@@ -30,7 +30,7 @@ impl MainWindow {
             buffer_view: Arc::new(eframe::epaint::mutex::Mutex::new(view)),
             //address_list: HoverList::new(),
             mode: MainWindowMode::ShowPhonebook,
-            addresses: crate::address_mod::start_read_book(),
+            addresses: crate::addresses::start_read_book(),
             cur_addr: 0,
             selected_bbs: None,
             connection_opt: None,

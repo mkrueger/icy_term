@@ -5,7 +5,7 @@ use std::cmp::min;
 use crate::{
     com::{Com, TermComResult},
     protocol::{
-        zfile_flag, zmodem::error_mod::TransmissionError, FileDescriptor, Header, HeaderType,
+        zfile_flag, zmodem::err::TransmissionError, FileDescriptor, Header, HeaderType,
         TransferState, ZFrameType, Zmodem, ZCRCE, ZCRCG,
     },
 };

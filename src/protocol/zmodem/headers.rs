@@ -10,7 +10,7 @@ use crate::protocol::{frame_types::ZACK, XON};
 
 use super::{
     append_zdle_encoded,
-    error_mod::TransmissionError,
+    err::TransmissionError,
     frame_types::{self},
     from_hex, get_hex, read_zdle_bytes, ZBIN, ZBIN32, ZDLE, ZHEX, ZPAD,
 };
@@ -182,11 +182,7 @@ impl Header {
         res
     }
 
-    pub fn write(
-        &mut self,
-        com: &mut Box<dyn Com>,
-        escape_ctrl_chars: bool,
-    ) -> TermComResult<usize> {
+    pub fn write(&self, com: &mut Box<dyn Com>, escape_ctrl_chars: bool) -> TermComResult<usize> {
         // println!("send header: {:?}", self);
         com.send(&self.build(escape_ctrl_chars))
     }
@@ -325,9 +321,12 @@ impl Header {
 
 #[cfg(test)]
 mod tests {
-    use crate::protocol::{
-        zmodem::header_mod::{Header, HeaderType},
-        ZFrameType, ZBIN32, ZDLE, ZHEX, ZPAD,
+    use crate::{
+        com::TestChannel,
+        protocol::{
+            zmodem::headers::{Header, HeaderType},
+            ZFrameType, ZBIN32, ZDLE, ZHEX, ZPAD,
+        },
     };
 
     #[test]
@@ -395,36 +394,34 @@ mod tests {
             .unwrap()
         );
     }
-    /*
-       #[test]
-       fn test_bin_header() {
-           let mut com = TestChannel::new();
-           let header = Header::from_flags(HeaderType::Bin, FrameType::ZDATA, 3, 2, 1, 0);
-           let mut i = 0;
-           com.sender.write(&header.build()).expect("err");
-           let read_header = Header::read(&mut com.receiver, &mut i).unwrap().unwrap();
-           assert_eq!(read_header, header);
-       }
+    #[test]
+    fn test_bin_header() {
+        let mut com = TestChannel::new();
+        let header = Header::from_flags(HeaderType::Bin, ZFrameType::Data, 3, 2, 1, 0);
+        let mut i = 0;
+        header.write(&mut com.sender, false).expect("err");
+        let read_header = Header::read(&mut com.receiver, &mut i).unwrap().unwrap();
+        assert_eq!(read_header, header);
+    }
 
-       #[test]
-       fn test_bin32_header() {
-           let mut com = TestChannel::new();
-           let header = Header::from_flags(HeaderType::Bin32, FrameType::ZDATA, 3, 2, 1, 0);
-           com.sender.write(&header.build()).expect("err");
-           let mut i = 0;
-           let read_header = Header::read(&mut com.receiver, &mut i).unwrap().unwrap();
-           assert_eq!(read_header, header);
-       }
+    #[test]
+    fn test_bin32_header() {
+        let mut com = TestChannel::new();
+        let header = Header::from_flags(HeaderType::Bin32, ZFrameType::Data, 3, 2, 1, 0);
+        header.write(&mut com.sender, false).expect("err");
+        let mut i = 0;
+        let read_header = Header::read(&mut com.receiver, &mut i).unwrap().unwrap();
+        assert_eq!(read_header, header);
+    }
 
-       #[test]
-       fn test_hex_header() {
-           let mut com = TestChannel::new();
-           let header = Header::from_flags(HeaderType::Hex, FrameType::ZDATA, 3, 2, 1, 0);
-           com.sender.write(&header.build()).expect("err");
-           let mut i = 0;
+    #[test]
+    fn test_hex_header() {
+        let mut com = TestChannel::new();
+        let header = Header::from_flags(HeaderType::Hex, ZFrameType::Data, 3, 2, 1, 0);
+        header.write(&mut com.sender, false).expect("err");
+        let mut i = 0;
 
-           let read_header = Header::read(&mut com.receiver, &mut i).unwrap().unwrap();
-           assert_eq!(read_header, header);
-       }
-    */
+        let read_header = Header::read(&mut com.receiver, &mut i).unwrap().unwrap();
+        assert_eq!(read_header, header);
+    }
 }

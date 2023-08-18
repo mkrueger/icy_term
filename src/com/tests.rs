@@ -4,7 +4,7 @@ use std::{collections::HashMap, thread};
 
 use eframe::epaint::mutex::Mutex;
 
-use crate::address_mod::Address;
+use crate::addresses::Address;
 
 use super::{Com, TermComResult};
 
@@ -24,7 +24,7 @@ impl Com for TestCom {
         "Test_Com"
     }
 
-    fn set_terminal_type(&mut self, _terminal: crate::address_mod::Terminal) {}
+    fn set_terminal_type(&mut self, _terminal: crate::addresses::Terminal) {}
 
     fn connect(&mut self, _addr: &Address, _timeout: Duration) -> TermComResult<bool> {
         Ok(true)

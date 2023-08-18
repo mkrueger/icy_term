@@ -1,13 +1,13 @@
 use crate::com::{Com, TermComResult};
 mod constants;
-mod error_mod;
+mod err;
 mod ry;
 mod sy;
 pub(crate) mod tests;
 
 use self::{
     constants::{CAN, DEFAULT_BLOCK_LENGTH, EXT_BLOCK_LENGTH},
-    error_mod::TransmissionError,
+    err::TransmissionError,
 };
 
 use super::{FileDescriptor, FileStorageHandler, TransferState};

@@ -4,5 +4,5 @@ pub use auto_file_transfer::*;
 mod auto_login;
 pub use auto_login::*;
 
-mod iemsi_mod;
-pub use iemsi_mod::*;
+mod iemsi_com;
+pub use iemsi_com::*;

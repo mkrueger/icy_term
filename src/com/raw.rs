@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::address_mod::Address;
+use crate::addresses::Address;
 
 use super::{Com, TermComResult};
 use std::{
@@ -23,7 +23,7 @@ impl Com for ComRawImpl {
     fn get_name(&self) -> &'static str {
         "Raw"
     }
-    fn set_terminal_type(&mut self, _terminal: crate::address_mod::Terminal) {}
+    fn set_terminal_type(&mut self, _terminal: crate::addresses::Terminal) {}
 
     fn connect(&mut self, addr: &Address, timeout: Duration) -> TermComResult<bool> {
         let tcp_stream = TcpStream::connect(&addr.address)?;

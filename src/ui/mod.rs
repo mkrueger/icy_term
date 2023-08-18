@@ -17,7 +17,7 @@ use crate::protocol::{TestStorageHandler, TransferState};
 use crate::util::{beep, play_music, Rng};
 use crate::Options;
 use crate::{
-    address_mod::{store_phone_book, Address},
+    addresses::{store_phone_book, Address},
     com::{ComRawImpl, ComTelnetImpl, SendData},
     protocol::FileDescriptor,
     TerminalResult,
@@ -329,9 +329,9 @@ impl MainWindow {
 
         self.open_connection_promise = Some(thread::spawn(move || {
             let mut com: Box<dyn Com> = match ct {
-                crate::address_mod::Protocol::Telnet => Box::new(ComTelnetImpl::new(window_size)),
-                crate::address_mod::Protocol::Raw => Box::new(ComRawImpl::new()),
-                crate::address_mod::Protocol::Ssh => panic!(), //Box::new(crate::com::SSHCom::new()),
+                crate::addresses::Protocol::Telnet => Box::new(ComTelnetImpl::new(window_size)),
+                crate::addresses::Protocol::Raw => Box::new(ComRawImpl::new()),
+                crate::addresses::Protocol::Ssh => panic!(), //Box::new(crate::com::SSHCom::new()),
             };
             if let Err(err) = com.connect(&call_adr, timeout) {
                 Err(err)

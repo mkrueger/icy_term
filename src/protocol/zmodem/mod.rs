@@ -4,8 +4,8 @@
 pub mod constants;
 
 pub use constants::*;
-mod header_mod;
-pub use header_mod::*;
+mod headers;
+pub use headers::*;
 use icy_engine::{get_crc32, update_crc32};
 
 mod sz;
@@ -14,10 +14,10 @@ use sz::Sz;
 mod rz;
 use rz::Rz;
 
-mod error_mod;
+mod err;
 mod tests;
 
-use self::{error_mod::TransmissionError, rz::read_zdle_byte};
+use self::{err::TransmissionError, rz::read_zdle_byte};
 
 use super::{FileDescriptor, FileStorageHandler, Protocol, TransferState};
 use crate::com::{Com, TermComResult};

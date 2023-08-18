@@ -4,7 +4,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use super::iemsi_mod::IEmsi;
+use super::iemsi_com::IEmsi;
 
 pub struct AutoLogin {
     pub logged_in: bool,

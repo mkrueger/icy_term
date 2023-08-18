@@ -9,7 +9,7 @@ use i18n_embed_fl::fl;
 use icy_engine::ansi::{BaudOption, MusicOption};
 
 use crate::{
-    address_mod::{self, store_phone_book, Address, Terminal},
+    addresses::{self, store_phone_book, Address, Terminal},
     ui::{MainWindow, ScreenMode, DEFAULT_MODES},
 };
 
@@ -254,7 +254,7 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
             egui::ComboBox::from_id_source("combobox1")
                 .selected_text(RichText::new(format!("{:?}", adr.protocol)))
                 .show_ui(ui, |ui| {
-                    for ct in &address_mod::Protocol::ALL {
+                    for ct in &addresses::Protocol::ALL {
                         let label = RichText::new(format!("{ct:?}"));
                         ui.selectable_value(&mut adr.protocol, *ct, label);
                     }
@@ -709,7 +709,7 @@ fn render_server_catogery(window: &mut MainWindow, ui: &mut egui::Ui) {
             egui::ComboBox::from_id_source("combobox1")
                 .selected_text(RichText::new(format!("{:?}", adr.protocol)))
                 .show_ui(ui, |ui| {
-                    for ct in &address_mod::Protocol::ALL {
+                    for ct in &addresses::Protocol::ALL {
                         let label = RichText::new(format!("{ct:?}"));
                         ui.selectable_value(&mut adr.protocol, *ct, label);
                     }

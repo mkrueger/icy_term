@@ -1,4 +1,4 @@
-use crate::address_mod::{Address, Terminal};
+use crate::addresses::{Address, Terminal};
 
 use super::{Com, ConnectionError, TermComResult};
 use icy_engine::Size;
@@ -509,7 +509,7 @@ impl Com for ComTelnetImpl {
     fn get_name(&self) -> &'static str {
         "Telnet"
     }
-    fn set_terminal_type(&mut self, terminal: crate::address_mod::Terminal) {
+    fn set_terminal_type(&mut self, terminal: crate::addresses::Terminal) {
         self.terminal = terminal;
     }
 

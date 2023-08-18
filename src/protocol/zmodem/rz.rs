@@ -11,7 +11,7 @@ use crate::{
     },
 };
 
-use super::{constants::*, error_mod::TransmissionError, read_zdle_bytes, zrinit_flag::CANFDX};
+use super::{constants::*, err::TransmissionError, read_zdle_bytes, zrinit_flag::CANFDX};
 
 #[derive(Debug)]
 pub enum RevcState {

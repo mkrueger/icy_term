@@ -19,7 +19,7 @@ pub use raw::*;
 // pub mod ssh;
 
 use crate::{
-    address_mod::{Address, Terminal},
+    addresses::{Address, Terminal},
     TerminalResult,
 };
 pub type TermComResult<T> = Result<T, Box<dyn Error + Send + Sync>>;

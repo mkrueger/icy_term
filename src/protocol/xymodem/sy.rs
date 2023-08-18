@@ -3,7 +3,7 @@ use std::cmp::min;
 
 use super::{
     constants::{CAN, DEFAULT_BLOCK_LENGTH},
-    error_mod::TransmissionError,
+    err::TransmissionError,
     get_checksum, Checksum, XYModemConfiguration, XYModemVariant,
 };
 use crate::{

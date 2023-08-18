@@ -8,7 +8,7 @@ use std::{
 
 use icy_engine::{get_crc16, get_crc32, update_crc32};
 
-use crate::{address_mod::Address, com::Connection, TerminalResult, VERSION};
+use crate::{addresses::Address, com::Connection, TerminalResult, VERSION};
 
 /// EMSI Inquiry is transmitted by the calling system to identify it as
 /// EMSI capable. If an `EMSI_REQ` sequence is received in response, it is
