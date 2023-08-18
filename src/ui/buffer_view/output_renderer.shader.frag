@@ -1,4 +1,11 @@
-#version 330
+#version 300 es
+precision highp float;
+/*
+out vec3 color;
+
+void main() {
+	color = vec3(1.0);
+}*/
 in vec2 UV;
 
 uniform sampler2D u_render_texture;
@@ -116,4 +123,4 @@ void main() {
 	} else {
 		color = vec3(0.25, 0.27, 0.29);
 	}
-}    
+}

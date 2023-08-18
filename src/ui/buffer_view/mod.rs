@@ -208,9 +208,9 @@ impl BufferView {
             self.terminal_renderer.render_terminal(gl, self);
             // draw sixels
             let render_texture = self
-                .sixel_renderer
-                .render_sixels(gl, self, &self.output_renderer);
-
+                            .sixel_renderer
+                            .render_sixels(gl, self, &self.output_renderer);
+            
             self.output_renderer.render_to_screen(
                 gl,
                 info,
@@ -249,3 +249,35 @@ impl BufferView {
         self.scaling = scaling;
     }
 }
+
+const SHADER_SOURCE: &str = r#"#version 300 es
+precision highp float;
+
+const float low  = -1.0;
+const float high = 1.0;
+
+void main() {
+    vec2 vert = vec2(0, 0);
+    switch (gl_VertexID) {
+        case 0:
+            vert = vec2(low, high);
+            break;
+        case 1:
+            vert = vec2(high, high);
+            break;
+        case 2:
+            vert = vec2(high, low);
+            break;
+        case 3:
+            vert = vec2(low, high);
+            break;
+        case 4:
+            vert = vec2(low, low);
+            break;
+        case 5:
+            vert = vec2(high, low);
+            break;
+    }
+    gl_Position = vec4(vert, 0.3, 1.0);
+}
+"#;

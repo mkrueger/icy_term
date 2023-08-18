@@ -7,7 +7,7 @@ use icy_engine::BufferParser;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant};
 
 use eframe::egui::{self, Key};
 
@@ -456,9 +456,7 @@ impl MainWindow {
             frame.set_window_title(&crate::DEFAULT_TITLE);
         } else {
             let str = if let Some(con) = &self.connection_opt {
-                let d = SystemTime::now()
-                    .duration_since(con.get_connection_time())
-                    .unwrap();
+                let d = Instant::now().duration_since(con.get_connection_time());
                 let sec = d.as_secs();
                 let minutes = sec / 60;
                 let hours = minutes / 60;

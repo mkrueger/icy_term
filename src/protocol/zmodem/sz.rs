@@ -145,12 +145,12 @@ impl Sz {
             }
             SendState::SendZRQInit => {
                 //                transfer_state.current_state = "Negotiating transfer";
-                //    let now = SystemTime::now();
+                //    let now = Instant::now();
                 //     if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
                 self.send_zrqinit(com)?;
                 self.state = SendState::Await;
                 self.retries += 1;
-                //         self.last_send = SystemTime::now();
+                //         self.last_send = Instant::now();
                 //     }
             }
             SendState::SendZDATA => {
@@ -227,7 +227,7 @@ impl Sz {
             }
             SendState::Finished => {
                 //                transfer_state.current_state = "Finishing transfer…";
-                // let now = SystemTime::now();
+                // let now = Instant::now();
                 //if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
                 self.send_zfin(com, 0)?;
                 //}

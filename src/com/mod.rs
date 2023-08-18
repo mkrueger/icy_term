@@ -2,7 +2,7 @@ use std::{
     collections::VecDeque,
     error::Error,
     sync::mpsc,
-    time::{Duration, SystemTime},
+    time::{Duration, Instant},
 };
 
 #[cfg(test)]
@@ -54,7 +54,7 @@ pub enum SendData {
 
 #[derive(Debug)]
 pub struct Connection {
-    connection_time: SystemTime,
+    connection_time: Instant,
     is_disconnected: bool,
     pub rx: mpsc::Receiver<SendData>,
     pub tx: mpsc::Sender<SendData>,
@@ -66,7 +66,7 @@ pub struct Connection {
 impl Connection {
     pub fn new(rx: mpsc::Receiver<SendData>, tx: mpsc::Sender<SendData>) -> Self {
         Self {
-            connection_time: SystemTime::now(),
+            connection_time: Instant::now(),
             is_disconnected: false,
             end_transfer: false,
             rx,
@@ -80,7 +80,7 @@ impl Connection {
         self.end_transfer
     }
 
-    pub fn get_connection_time(&self) -> SystemTime {
+    pub fn get_connection_time(&self) -> Instant {
         self.connection_time
     }
 

@@ -103,7 +103,7 @@ impl Sy {
             }
 
             SendState::AckSendYmodemHeader(retries) => {
-                //let now = SystemTime::now();
+                // let now = Instant::now();
                 let ack = self.read_command(com)?;
                 if ack == NAK {
                     transfer_state.current_state = "Encountered error";

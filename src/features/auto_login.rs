@@ -1,7 +1,7 @@
 use crate::{com::Connection, util::PatternRecognizer, Address, TerminalResult};
 use std::{
     io::{self, ErrorKind},
-    time::{Duration, SystemTime},
+    time::{Duration, Instant},
 };
 
 use super::iemsi_com::IEmsi;
@@ -10,9 +10,9 @@ pub struct AutoLogin {
     pub logged_in: bool,
     pub disabled: bool,
     pub iemsi: Option<IEmsi>,
-    last_char_recv: SystemTime,
-    first_char_recv: Option<SystemTime>,
-    continue_time: SystemTime,
+    last_char_recv: Instant,
+    first_char_recv: Option<Instant>,
+    continue_time: Instant,
 
     login_expr: Vec<u8>,
     cur_expr_idx: usize,
@@ -28,8 +28,8 @@ impl AutoLogin {
             disabled: false,
             iemsi: Some(IEmsi::default()),
             first_char_recv: None,
-            last_char_recv: SystemTime::now(),
-            continue_time: SystemTime::now(),
+            last_char_recv: Instant::now(),
+            continue_time: Instant::now(),
             login_expr: login_expr.as_bytes().to_vec(),
             cur_expr_idx: 0,
             got_name: false,
@@ -52,9 +52,8 @@ impl AutoLogin {
                 // wait until data came in
                 match self.first_char_recv {
                     Some(_) => {
-                        if SystemTime::now()
+                        if Instant::now()
                             .duration_since(self.last_char_recv)
-                            .unwrap()
                             .as_millis()
                             < 500
                         {
@@ -127,10 +126,10 @@ impl AutoLogin {
         }
 
         if self.first_char_recv.is_none() && (ch.is_ascii_uppercase() || ch.is_ascii_lowercase()) {
-            self.first_char_recv = Some(SystemTime::now());
+            self.first_char_recv = Some(Instant::now());
         }
 
-        self.last_char_recv = SystemTime::now();
+        self.last_char_recv = Instant::now();
         self.got_name |= self.name_recognizer.push_ch(ch) | self.login_recognizer.push_ch(ch);
 
         if let Some(iemsi) = &mut self.iemsi {
@@ -154,7 +153,7 @@ impl AutoLogin {
             return Ok(());
         }
 
-        if SystemTime::now() < self.continue_time {
+        if Instant::now() < self.continue_time {
             return Ok(());
         }
         if self.cur_expr_idx < self.login_expr.len() {
@@ -194,7 +193,7 @@ impl AutoLogin {
                         }
                         self.cur_expr_idx += 1; // escape
                     }
-                    self.last_char_recv = SystemTime::now();
+                    self.last_char_recv = Instant::now();
                 }
                 ch => {
                     con.send(vec![*ch])?;

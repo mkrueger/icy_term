@@ -1,6 +1,6 @@
 #![allow(unsafe_code, clippy::wildcard_imports)]
 
-use std::{env, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use eframe::egui::{self};
 use egui::FontId;
@@ -63,7 +63,8 @@ impl MainWindow {
             phonebook_filter_string: String::new(),
             rng: Rng::default(),
         };
-        let args: Vec<String> = env::args().collect();
+
+        let args: Vec<String> = std::env::args().collect();
         if let Some(arg) = args.get(1) {
             view.addresses[0].address = arg.clone();
             view.call_bbs(0);

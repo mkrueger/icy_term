@@ -3,6 +3,8 @@ use glow::HasContext as _;
 use icy_engine::Buffer;
 use icy_engine::Position;
 
+use crate::ui::buffer_view::SHADER_SOURCE;
+
 use super::output_renderer::OutputRenderer;
 use super::BufferView;
 
@@ -303,28 +305,8 @@ unsafe fn create_sixel_render_texture(
 
 unsafe fn compile_shader(gl: &glow::Context) -> glow::Program {
     let sixel_shader = gl.create_program().expect("Cannot create program");
-    let (vertex_shader_source, fragment_shader_source) = (
-        r#"#version 330
-const float low  =  -1.0;
-const float high = 1.0;
-
-const vec2 verts[6] = vec2[6](
-    vec2(low, high),
-    vec2(high, high),
-    vec2(high, low),
-
-    vec2(low, high),
-    vec2(low, low),
-    vec2(high, low)
-);
-
-void main() {
-    vec2 vert = verts[gl_VertexID];
-    gl_Position = vec4(vert, 0.3, 1.0);
-}
-"#,
-        include_str!("sixel_renderer.shader.frag"),
-    );
+    let (vertex_shader_source, fragment_shader_source) =
+        (SHADER_SOURCE, include_str!("sixel_renderer.shader.frag"));
     let shader_sources = [
         (glow::VERTEX_SHADER, vertex_shader_source),
         (glow::FRAGMENT_SHADER, fragment_shader_source),

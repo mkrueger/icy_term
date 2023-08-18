@@ -1,5 +1,5 @@
 use std::cmp::max;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant};
 
 use eframe::egui::{self, ProgressBar, RichText};
 use eframe::epaint::Color32;
@@ -46,7 +46,7 @@ pub fn view_filetransfer(
 
             let bb = BytesConfig::default();
 
-            let elapsed_time = SystemTime::now().duration_since(state.start_time).unwrap();
+            let elapsed_time = Instant::now().duration_since(state.start_time);
             let elapsed_time = format!(
                 "{:02}:{:02}",
                 elapsed_time.as_secs() / 60,

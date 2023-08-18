@@ -2,7 +2,7 @@
 
 use std::fs;
 use std::path::PathBuf;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant};
 
 pub mod file_storage_handler;
 pub use file_storage_handler::*;
@@ -37,10 +37,8 @@ impl FileDescriptor {
     pub fn create(path: &PathBuf) -> TermComResult<Self> {
         let data = fs::metadata(path)?;
         let size = usize::try_from(data.len()).unwrap();
-        let date_duration = data
-            .modified()?
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap();
+        // TODO: wasm plaftorm? Maybe desktop only?
+        let date_duration = Duration::from_secs(1); //data.modified()?.duration_since(crate::START_TIME).unwrap();
 
         Ok(Self {
             path_name: path.to_str().unwrap().to_string(),
@@ -103,7 +101,7 @@ pub struct TransferInformation {
     pub errors: usize,
     pub files_finished: Vec<String>,
     pub check_size: String,
-    time: SystemTime,
+    time: Instant,
     bytes_transferred_timed: usize,
     pub bps: u64,
 
@@ -115,7 +113,7 @@ impl TransferInformation {
         let bytes = self
             .bytes_transfered
             .saturating_sub(self.bytes_transferred_timed);
-        let length = SystemTime::now().duration_since(self.time).unwrap();
+        let length = Instant::now().duration_since(self.time);
 
         if length > Duration::from_secs(10) {
             self.bytes_transferred_timed = self.bytes_transfered;
@@ -126,10 +124,10 @@ impl TransferInformation {
             self.bps = self.bps / 2 + bytes as u64 / length;
         }
 
-        let length = SystemTime::now().duration_since(self.time).unwrap();
+        let length = Instant::now().duration_since(self.time);
         if length > Duration::from_secs(5) {
             self.bytes_transferred_timed = self.bytes_transfered;
-            self.time = SystemTime::now();
+            self.time = Instant::now();
         }
     }
 
@@ -151,7 +149,7 @@ impl Default for TransferInformation {
             errors: 0,
             files_finished: Vec::new(),
             check_size: String::new(),
-            time: SystemTime::now(),
+            time: Instant::now(),
             output_log: Vec::new(),
             bytes_transferred_timed: 0,
             bps: 0,
@@ -164,7 +162,7 @@ pub struct TransferState {
     pub current_state: &'static str,
     pub is_finished: bool,
     pub protocol_name: String,
-    pub start_time: SystemTime,
+    pub start_time: Instant,
     pub send_state: TransferInformation,
     pub recieve_state: TransferInformation,
 }
@@ -175,7 +173,7 @@ impl Default for TransferState {
             current_state: "",
             protocol_name: String::new(),
             is_finished: false,
-            start_time: SystemTime::now(),
+            start_time: Instant::now(),
             send_state: TransferInformation::default(),
             recieve_state: TransferInformation::default(),
         }

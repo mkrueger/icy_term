@@ -1,12 +1,11 @@
 #![allow(clippy::float_cmp)]
 use std::cmp::max;
-use std::time::SystemTime;
-use std::time::UNIX_EPOCH;
 
 use egui::epaint::ahash::HashMap;
 use egui::Vec2;
 use glow::HasContext as _;
 use icy_engine::Buffer;
+use instant::Instant;
 
 use super::Blink;
 use super::BufferView;
@@ -115,10 +114,8 @@ impl TerminalRenderer {
 
     // Redraw whole terminal on caret or character blink update.
     fn check_blink_timers(&mut self) {
-        let start: SystemTime = SystemTime::now();
-        let since_the_epoch = start
-            .duration_since(UNIX_EPOCH)
-            .expect("Time went backwards");
+        let start: Instant = Instant::now();
+        let since_the_epoch = start.duration_since(crate::START_TIME.to_owned());
         let cur_ms = since_the_epoch.as_millis();
         if self.caret_blink.update(cur_ms) || self.character_blink.update(cur_ms) {
             self.redraw_terminal();
@@ -573,25 +570,7 @@ unsafe fn compile_shader(gl: &glow::Context) -> glow::Program {
     let program = gl.create_program().expect("Cannot create program");
 
     let (vertex_shader_source, fragment_shader_source) = (
-        r#"#version 330
-const float low  =  -1.0;
-const float high = 1.0;
-
-const vec2 verts[6] = vec2[6](
-    vec2(low, high),
-    vec2(high, high),
-    vec2(high, low),
-
-    vec2(low, high),
-    vec2(low, low),
-    vec2(high, low)
-);
-
-void main() {
-    vec2 vert = verts[gl_VertexID];
-    gl_Position = vec4(vert, 0.3, 1.0);
-}
-"#,
+        crate::ui::buffer_view::SHADER_SOURCE,
         include_str!("terminal_renderer.shader.frag"),
     );
     let shader_sources = [

@@ -1,7 +1,6 @@
-use std::{
-    ops::{Bound, RangeBounds},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::ops::{Bound, RangeBounds};
+
+use instant::Instant;
 
 pub struct Rng {
     state: i32,
@@ -34,9 +33,8 @@ impl Rng {
 impl Default for Rng {
     fn default() -> Self {
         Self {
-            state: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
+            state: Instant::now()
+                .duration_since(crate::START_TIME.to_owned())
                 .as_nanos() as i32,
         }
     }

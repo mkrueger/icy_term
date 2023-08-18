@@ -15,6 +15,7 @@ mod ui;
 use std::error::Error;
 
 use eframe::egui;
+use instant::Instant;
 use lazy_static::lazy_static;
 use ui::MainWindow;
 pub type TerminalResult<T> = Result<T, Box<dyn Error>>;
@@ -67,6 +68,9 @@ fn main() {
     .unwrap();
 }
 
+lazy_static! {
+    static ref START_TIME: Instant = Instant::now();
+}
 #[cfg(target_arch = "wasm32")]
 fn main() {
     // Redirect `log` message to `console.log` and friends:
@@ -85,7 +89,7 @@ fn main() {
             .expect("failed to start eframe");
     });
 }
-/// We derive Deserialize/Serialize so we can persist app state on shutdown.
+/*
 pub struct TemplateApp {
     // Example stuff:
     label: String,
@@ -103,7 +107,6 @@ impl Default for TemplateApp {
         }
     }
 }
-
 impl TemplateApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
@@ -190,3 +193,4 @@ impl eframe::App for TemplateApp {
         }
     }
 }
+*/

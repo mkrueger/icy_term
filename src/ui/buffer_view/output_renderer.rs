@@ -5,8 +5,9 @@ use glow::HasContext as _;
 use glow::Texture;
 use icy_engine::Buffer;
 
-use crate::MONO_COLORS;
+use crate::ui::buffer_view::SHADER_SOURCE;
 use crate::MonitorSettings;
+use crate::MONO_COLORS;
 
 pub struct OutputRenderer {
     output_shader: glow::Program,
@@ -230,7 +231,7 @@ impl OutputRenderer {
         }
         unsafe {
             use glow::HasContext as _;
-            gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.framebuffer));
+            //gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.framebuffer));
             gl.delete_texture(self.render_texture);
 
             let render_texture = gl.create_texture().unwrap();
@@ -289,28 +290,8 @@ impl OutputRenderer {
 
 unsafe fn compile_output_shader(gl: &glow::Context) -> glow::Program {
     let draw_program = gl.create_program().expect("Cannot create program");
-    let (vertex_shader_source, fragment_shader_source) = (
-        r#"#version 330
-    const float low  =  -1.0;
-    const float high = 1.0;
-    
-    const vec2 verts[6] = vec2[6](
-        vec2(low, high),
-        vec2(high, high),
-        vec2(high, low),
-    
-        vec2(low, high),
-        vec2(low, low),
-        vec2(high, low)
-    );
-    
-    void main() {
-        vec2 vert = verts[gl_VertexID];
-        gl_Position = vec4(vert, 0.3, 1.0);
-    }
-    "#,
-        include_str!("output_renderer.shader.frag"),
-    );
+    let (vertex_shader_source, fragment_shader_source) =
+        (SHADER_SOURCE, include_str!("output_renderer.shader.frag"));
     let shader_sources = [
         (glow::VERTEX_SHADER, vertex_shader_source),
         (glow::FRAGMENT_SHADER, fragment_shader_source),

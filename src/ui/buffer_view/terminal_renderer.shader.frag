@@ -1,5 +1,7 @@
-#version 330
+#version 300 es
+
 precision highp float;
+precision lowp sampler2DArray;
 
 uniform sampler2DArray u_fonts;
 uniform sampler2D u_palette;
@@ -84,7 +86,7 @@ void main (void) {
         }
     }
 
-    if (char_data.x > 0.5 && (ch_attr[3] == 0.0 || u_blink > 0)) {
+    if (char_data.x > 0.5 && (ch_attr[3] == 0.0 || u_blink > 0.0)) {
         fragColor = fg;
     } else {
         fragColor = bg;
@@ -111,7 +113,7 @@ void main (void) {
         }
     }
 
-    if (u_selection_attr < 0.0 && u_caret_position.z > 0 && floor(fb_pos) == u_caret_position.xy) {
+    if (u_selection_attr < 0.0 && u_caret_position.z > 0.0 && floor(fb_pos) == u_caret_position.xy) {
         if (u_caret_position.w == 0.0) { // underscore
             if (fract_fb_pos.y >= 13.0 / 16.0 && fract_fb_pos.y <= 15.0 / 16.0) {
                 fragColor = get_palette_color(ch.y);

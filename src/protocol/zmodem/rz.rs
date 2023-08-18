@@ -1,7 +1,8 @@
 #![allow(clippy::unused_self, clippy::wildcard_imports)]
-use std::{cmp::Ordering, time::SystemTime};
+use std::cmp::Ordering;
 
 use icy_engine::{get_crc32, update_crc32};
+use instant::Instant;
 
 use crate::{
     com::{Com, TermComResult},
@@ -31,7 +32,7 @@ pub struct Rz {
     block_length: usize,
     sender_flags: u8,
     use_crc32: bool,
-    last_send: SystemTime,
+    last_send: Instant,
 
     can_fullduplex: bool,
     can_esc_control: bool,
@@ -51,7 +52,7 @@ impl Rz {
             errors: 0,
             sender_flags: 0,
             use_crc32: false,
-            last_send: SystemTime::now(),
+            last_send: Instant::now(),
             can_fullduplex: true,
             can_esc_control: false,
             can_break: false,
@@ -105,19 +106,19 @@ impl Rz {
                 if self.read_header(com, storage_handler)? {
                     return Ok(());
                 }
-                /*  let now = SystemTime::now();
+                /*  let now = Instant::now();
                  if now.duration_since(self.last_send).unwrap().as_millis() > 3000 {
                     self.send_zrinit(com)?;
                     self.retries += 1;
-                    self.last_send = SystemTime::now();
+                    self.last_send = Instant::now();
                 }*/
             }
             RevcState::AwaitZDATA => {
-                let now = SystemTime::now();
-                if now.duration_since(self.last_send).unwrap().as_millis() > 500 {
+                let now = Instant::now();
+                if now.duration_since(self.last_send).as_millis() > 500 {
                     self.request_zpos(com, storage_handler.current_file_length() as u32)?;
                     self.retries += 1;
-                    self.last_send = SystemTime::now();
+                    self.last_send = Instant::now();
                 }
                 self.read_header(com, storage_handler)?;
             }

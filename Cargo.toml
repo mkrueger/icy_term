@@ -46,6 +46,9 @@ once_cell = "1.18.0"
 
 spin_sleep = "1.1.1"
 log = "0.4"
+
+instant = "0.1.12" # for wasm compatible time measurement 
+
 # possible ssh options:
 
 # libssh-rs =  { version = "0.2.0", features = ["vendored", "vendored-openssl"] }
