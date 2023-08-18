@@ -97,7 +97,7 @@ impl MainWindow {
             //            self.hangup();
             //            self.buffer_view.lock().buf.clear();
             self.println(&format!("\n\r{err}")).unwrap();
-            eprintln!("{err}");
+            log::error!("{err}");
             if let Some(con) = &mut self.connection_opt {
                 if con.is_disconnected() {
                     self.connection_opt = None;
@@ -122,7 +122,7 @@ impl MainWindow {
             let r = con.send(vec![translated_char as u8]);
             self.handle_result(r, false);
         } else if let Err(err) = self.print_char(translated_char as u8) {
-            eprintln!("{err}");
+            log::error!("{err}");
         }
     }
 
@@ -139,7 +139,7 @@ impl MainWindow {
             for ch in str.chars() {
                 let translated_char = self.buffer_parser.convert_from_unicode(ch);
                 if let Err(err) = self.print_char(translated_char as u8) {
-                    eprintln!("{err}");
+                    log::error!("{err}");
                 }
             }
         }
@@ -206,7 +206,7 @@ impl MainWindow {
     self.current_transfer = Some(Arc::new(Mutex::new(state)));
     }
                                     Err(error) => {
-                                        eprintln!("{}", error);
+                                        log::error!("{}", error);
                                     }
                                 }
 
@@ -235,7 +235,7 @@ impl MainWindow {
                 }
             }
             None => {
-                eprintln!("Communication error.");
+                log::error!("Communication error.");
             }
         }
     }
@@ -377,7 +377,7 @@ impl MainWindow {
             for ch in data {
                 if let Some(adr) = self.addresses.get(self.cur_addr) {
                     if let Err(err) = self.auto_login.try_login(&mut self.connection_opt, adr, ch) {
-                        eprintln!("{err}");
+                        log::error!("{err}");
                     }
                 }
                 /*
@@ -411,7 +411,7 @@ impl MainWindow {
         if let Some(adr) = self.addresses.get(self.cur_addr) {
             if let Some(con) = &mut self.connection_opt {
                 if let Err(err) = self.auto_login.run_autologin(con, adr) {
-                    eprintln!("{err}");
+                    log::error!("{err}");
                 }
             }
         }
@@ -507,7 +507,7 @@ impl MainWindow {
                 if let Ok(Some(data)) = data {
                     if baud_rate == 0 {
                         if let Err(err) = tx3.send(SendData::Data(data)) {
-                            eprintln!("{err}");
+                            log::error!("{err}");
                             done = true;
                         }
                     } else {
@@ -519,7 +519,7 @@ impl MainWindow {
                             for d in data {
                                 loop_helper.loop_start();
                                 if let Err(err) = tx3.send(SendData::Data([d].to_vec())) {
-                                    eprintln!("{err}");
+                                    log::error!("{err}");
                                     done = true;
                                 }
                                 loop_helper.loop_sleep();
@@ -535,7 +535,7 @@ impl MainWindow {
                     match result {
                         SendData::Data(buf) => {
                             if let Err(err) = handle.lock().unwrap().send(&buf) {
-                                eprintln!("{err}");
+                                log::error!("{err}");
                                 done = true;
                             }
                         }
@@ -559,7 +559,7 @@ impl MainWindow {
                                     &mut transfer_state.lock().unwrap(),
                                 )
                             } {
-                                eprintln!("{err}");
+                                log::error!("{err}");
                                 break;
                             }
                             let mut storage_handler: TestStorageHandler = TestStorageHandler::new();
@@ -577,7 +577,7 @@ impl MainWindow {
                                         }
                                     }
                                     Err(err) => {
-                                        eprintln!("Error, aborting protocol: {err}");
+                                        log::error!("Error, aborting protocol: {err}");
                                         transfer_state.lock().unwrap().is_finished = true;
                                         break;
                                     }

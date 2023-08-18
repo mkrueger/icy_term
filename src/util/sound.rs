@@ -129,7 +129,7 @@ where
         sample_clock,
         nchannels,
     };
-    let err_fn = |err| eprintln!("Error building output sound stream: {err}");
+    let err_fn = |err| log::error!("Error building output sound stream: {err}");
     let mut on_sample = on_sample;
     let stream = device.build_output_stream(
         config,

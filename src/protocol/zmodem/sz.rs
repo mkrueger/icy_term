@@ -216,7 +216,7 @@ impl Sz {
                                 self.cur_file_pos = header.number() as usize;
                             }
                             _ => {
-                                eprintln!("unexpected header {header:?}");
+                                log::error!("unexpected header {header:?}");
                                 // cancel
                                 self.state = SendState::Finished;
                                 Zmodem::cancel(com)?;

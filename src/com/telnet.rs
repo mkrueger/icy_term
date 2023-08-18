@@ -405,11 +405,11 @@ impl ComTelnetImpl {
                         self.state = ParserState::SubCommand(-1);
                     }
                     Err(err) => {
-                        eprintln!("{err}");
+                        log::error!("error parsing IAC: {}", err);
                         self.state = ParserState::Data;
                     }
                     Ok(cmd) => {
-                        eprintln!("unsupported IAC: {}", telnet_cmd::to_string(cmd));
+                        log::error!("unsupported IAC: {}", telnet_cmd::to_string(cmd));
                         self.state = ParserState::Data;
                     }
                 },
@@ -433,7 +433,7 @@ impl ComTelnetImpl {
                                 telnet_option::SuppressGoAhead,
                             ))?;
                         } else {
-                            eprintln!("unsupported will option {}", telnet_option::to_string(opt));
+                            log::warn!("unsupported will option {}", telnet_option::to_string(opt));
                             stream.write_all(&telnet_cmd::make_cmd_with_option(
                                 telnet_cmd::Dont,
                                 opt,
@@ -445,7 +445,7 @@ impl ComTelnetImpl {
                 }
                 ParserState::Wont => {
                     let opt = telnet_option::check(*b)?;
-                    eprintln!("Won't {opt:?}");
+                    log::info!("Wont {opt:?}");
                     self.state = ParserState::Data;
                 }
                 ParserState::Do => {
@@ -480,7 +480,7 @@ impl ComTelnetImpl {
                                 stream.write_all(&buf)?;
                             }
                             _ => {
-                                eprintln!(
+                                log::warn!(
                                     "unsupported do option {}",
                                     telnet_option::to_string(opt)
                                 );
@@ -496,7 +496,7 @@ impl ComTelnetImpl {
                 }
                 ParserState::Dont => {
                     let opt = telnet_option::check(*b)?;
-                    eprintln!("Don't {opt:?}");
+                    log::info!("Dont {opt:?}");
                     self.state = ParserState::Data;
                 }
             }

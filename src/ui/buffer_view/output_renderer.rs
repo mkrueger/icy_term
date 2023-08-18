@@ -60,13 +60,13 @@ impl OutputRenderer {
             self.render_buffer_size.x as i32,
             self.render_buffer_size.y as i32,
         );
-        gl.framebuffer_texture_2d(
-            glow::FRAMEBUFFER,
-            glow::COLOR_ATTACHMENT0,
-            glow::TEXTURE_2D,
-            Some(self.render_texture),
-            0,
-        );
+           gl.framebuffer_texture_2d(
+               glow::FRAMEBUFFER,
+               glow::COLOR_ATTACHMENT0,
+               glow::TEXTURE_2D,
+               Some(self.render_texture),
+               0,
+           );
 
         gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
         gl.clear_color(0., 0., 0., 1.0);
@@ -311,7 +311,7 @@ unsafe fn create_screen_render_texture(
     gl.tex_image_2d(
         glow::TEXTURE_2D,
         0,
-        glow::RGBA as i32,
+        glow::RGBA16F as i32,
         render_buffer_size.x as i32,
         render_buffer_size.y as i32,
         0,
@@ -319,7 +319,7 @@ unsafe fn create_screen_render_texture(
         glow::UNSIGNED_BYTE,
         None,
     );
-    gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, filter);
+        gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, filter);
     gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, filter);
     gl.tex_parameter_i32(
         glow::TEXTURE_2D,

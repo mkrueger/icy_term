@@ -172,7 +172,7 @@ impl TerminalRenderer {
                             }
                         }
                     } else {
-                        eprintln!("error in font {} can't get line {y}", font.0);
+                        log::error!("error in font {} can't get line {y}", font.0);
                         font_data.extend(vec![0xFF; w * 4]);
                     }
                 }
@@ -185,7 +185,7 @@ impl TerminalRenderer {
             gl.tex_image_3d(
                 glow::TEXTURE_2D_ARRAY,
                 0,
-                glow::RGB as i32,
+                glow::RGBA16F as i32,
                 line_width as i32 / 4,
                 height as i32,
                 buf.font_count() as i32,
@@ -211,7 +211,7 @@ impl TerminalRenderer {
             gl.tex_image_2d(
                 glow::TEXTURE_2D,
                 0,
-                i32::try_from(glow::RGB).unwrap(),
+                i32::try_from(glow::RGBA16F).unwrap(),
                 i32::try_from(buf.palette.colors.len()).unwrap(),
                 1,
                 0,
@@ -219,6 +219,7 @@ impl TerminalRenderer {
                 glow::UNSIGNED_BYTE,
                 Some(&palette_data),
             );
+            crate::check_gl_error!(gl, "update_palette_texture");
         }
     }
 
@@ -374,7 +375,7 @@ impl TerminalRenderer {
             gl.tex_image_3d(
                 glow::TEXTURE_2D_ARRAY,
                 0,
-                glow::RGBA32F as i32,
+                glow::RGBA16F as i32,
                 buf.get_buffer_width(),
                 buf_h + 1,
                 2,
@@ -383,6 +384,7 @@ impl TerminalRenderer {
                 glow::UNSIGNED_BYTE,
                 Some(&buffer_data),
             );
+            crate::check_gl_error!(gl, "update_terminal_texture");
         }
     }
 
@@ -406,6 +408,8 @@ impl TerminalRenderer {
             gl.bind_vertex_array(Some(self.vertex_array));
             gl.draw_arrays(glow::TRIANGLES, 0, 3);
             gl.draw_arrays(glow::TRIANGLES, 3, 3);
+
+            crate::check_gl_error!(gl, "render_terminal");
         }
     }
 
@@ -569,6 +573,7 @@ impl TerminalRenderer {
                 );
             }
         }
+        crate::check_gl_error!(gl, "run_shader");
     }
 }
 
@@ -616,6 +621,8 @@ unsafe fn compile_shader(gl: &glow::Context) -> glow::Program {
         gl.detach_shader(program, shader);
         gl.delete_shader(shader);
     }
+    crate::check_gl_error!(gl, "compile_shader");
+
     program
 }
 
@@ -642,6 +649,8 @@ unsafe fn create_buffer_texture(gl: &glow::Context) -> glow::Texture {
         glow::TEXTURE_WRAP_T,
         glow::CLAMP_TO_EDGE as i32,
     );
+    crate::check_gl_error!(gl, "create_buffer_texture");
+
     buffer_texture
 }
 
@@ -669,6 +678,7 @@ unsafe fn create_palette_texture(gl: &glow::Context) -> glow::Texture {
         glow::TEXTURE_WRAP_T,
         glow::CLAMP_TO_EDGE as i32,
     );
+    crate::check_gl_error!(gl, "create_palette_texture");
 
     palette_texture
 }
@@ -697,6 +707,8 @@ unsafe fn create_font_texture(gl: &glow::Context) -> glow::Texture {
         glow::TEXTURE_WRAP_T,
         glow::CLAMP_TO_EDGE as i32,
     );
+    crate::check_gl_error!(gl, "create_font_texture");
+
     font_texture
 }
 

@@ -3,10 +3,11 @@ use std::cmp::{max, min};
 use egui::Vec2;
 use icy_engine::{Buffer, BufferParser, CallbackAction, Caret, EngineResult, Position};
 
+pub mod glerror;
 pub mod selection;
 pub use selection::*;
 
-use crate::{MonitorSettings, Options, Scaling};
+use crate::{check_gl_error, MonitorSettings, Options, Scaling};
 
 mod output_renderer;
 mod sixel_renderer;
@@ -218,6 +219,7 @@ impl BufferView {
                 &self.monitor_settings,
             );
         }
+        check_gl_error!(gl, "buffer_view.render_contents");
     }
 
     pub fn update_contents(&mut self, gl: &glow::Context) {
@@ -236,6 +238,7 @@ impl BufferView {
         );
         self.output_renderer
             .update_render_buffer(gl, &self.buf, scale_filter);
+        check_gl_error!(gl, "buffer_view.update_contents");
     }
 
     pub fn destroy(&self, gl: &glow::Context) {

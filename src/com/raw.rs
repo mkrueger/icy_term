@@ -25,7 +25,7 @@ impl Com for ComRawImpl {
     }
     fn set_terminal_type(&mut self, _terminal: crate::addresses::Terminal) {}
 
-    fn connect(&mut self, addr: &Address, timeout: Duration) -> TermComResult<bool> {
+    fn connect(&mut self, addr: &Address, _timeout: Duration) -> TermComResult<bool> {
         let tcp_stream = TcpStream::connect(&addr.address)?;
         tcp_stream.set_nonblocking(true)?;
         tcp_stream.set_read_timeout(Some(Duration::from_secs(2)))?;

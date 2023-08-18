@@ -114,6 +114,8 @@ impl SixelRenderer {
             gl.draw_arrays(glow::TRIANGLES, 3, 3);
             std::mem::swap(&mut render_texture, &mut sixel_render_texture);
         }
+        crate::check_gl_error!(gl, "render_sixels");
+
         render_texture
     }
 
@@ -177,7 +179,7 @@ impl SixelRenderer {
                 gl.tex_image_2d(
                     glow::TEXTURE_2D,
                     0,
-                    glow::RGB as i32,
+                    glow::RGBA16F as i32,
                     sixel.width() as i32,
                     sixel.height() as i32,
                     0,
@@ -199,6 +201,7 @@ impl SixelRenderer {
                 self.sixel_cache.push(new_entry);
             }
         }
+        crate::check_gl_error!(gl, "update_sixels");
     }
 
     pub(crate) unsafe fn create_sixel_render_texture(
@@ -215,7 +218,7 @@ impl SixelRenderer {
         gl.tex_image_2d(
             glow::TEXTURE_2D,
             0,
-            glow::RGBA as i32,
+            glow::RGBA16F as i32,
             render_buffer_size.x as i32,
             render_buffer_size.y as i32,
             0,
@@ -235,6 +238,8 @@ impl SixelRenderer {
             glow::TEXTURE_WRAP_T,
             glow::CLAMP_TO_EDGE as i32,
         );
+
+        crate::check_gl_error!(gl, "create_sixel_render_texture");
 
         self.sixel_render_texture = sixel_render_texture;
     }
@@ -264,7 +269,7 @@ unsafe fn create_sixel_render_texture(
     gl.tex_image_2d(
         glow::TEXTURE_2D,
         0,
-        glow::RGBA as i32,
+        glow::RGBA16F as i32,
         render_buffer_size.x as i32,
         render_buffer_size.y as i32,
         0,
@@ -284,6 +289,7 @@ unsafe fn create_sixel_render_texture(
         glow::TEXTURE_WRAP_T,
         glow::CLAMP_TO_EDGE as i32,
     );
+    crate::check_gl_error!(gl, "create_sixel_render_texture");
 
     sixel_render_texture
 }
@@ -329,5 +335,7 @@ unsafe fn compile_shader(gl: &glow::Context) -> glow::Program {
         gl.detach_shader(sixel_shader, shader);
         gl.delete_shader(shader);
     }
+    crate::check_gl_error!(gl, "compile_shader");
+
     sixel_shader
 }

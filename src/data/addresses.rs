@@ -228,7 +228,7 @@ impl Address {
             if !proj_dirs.config_dir().exists()
                 && fs::create_dir_all(proj_dirs.config_dir()).is_err()
             {
-                eprintln!(
+                log::error!(
                     "Can't create configuration directory {:?}",
                     proj_dirs.config_dir()
                 );
@@ -237,10 +237,7 @@ impl Address {
             let phonebook = proj_dirs.config_dir().join("phonebook.toml");
             if !phonebook.exists() {
                 if let Err(err) = fs::write(&phonebook, TEMPLATE) {
-                    eprintln!(
-                        "Can't create phonebook {:?} : {err}",
-                        proj_dirs.config_dir()
-                    );
+                    log::error!("Can't create phonebook {phonebook:?} : {err}");
                     return None;
                 }
             }

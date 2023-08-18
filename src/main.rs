@@ -80,13 +80,14 @@ static LANGUAGE_LOADER: Lazy<FluentLanguageLoader> = Lazy::new(|| {
 });
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
+    env_logger::init();
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1284. + 8., 839.)),
         multisampling: 0,
         renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
-
+    log::info!("starting up");
     eframe::run_native(
         &DEFAULT_TITLE,
         options,

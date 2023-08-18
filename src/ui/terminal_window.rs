@@ -446,7 +446,7 @@ impl MainWindow {
                                         } else {
                                             for c in *m {
                                                 if let Err(err) = self.print_char(*c) {
-                                                    eprintln!("{err}");
+                                                    log::error!("Error printing char: {}", err);
                                                 }
                                             }
                                         }

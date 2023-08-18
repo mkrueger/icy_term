@@ -222,7 +222,7 @@ fn show_content(window: &mut MainWindow, ui: &mut egui::Ui) {
 
 pub fn store_phonebook(window: &MainWindow) {
     if let Err(err) = store_phone_book(&window.addresses) {
-        eprintln!("{err}");
+        log::error!("Failed to store phonebook: {err}");
     }
 }
 

@@ -139,7 +139,7 @@ impl Rz {
                     }
                     Err(err) => {
                         self.errors += 1;
-                        eprintln!("{err}");
+                        log::error!("{err}");
                         transfer_info._write(format!("sub package error: {err}"));
                         if storage_handler.current_file_name().is_some() {
                             Header::from_number(
@@ -207,7 +207,7 @@ impl Rz {
                         }
                         Err(err) => {
                             //transfer_state.write(format!("{}", err));
-                            eprintln!("{err}");
+                            log::error!("{err}");
                             Header::empty(self.get_header_type(), ZFrameType::Nak)
                                 .write(com, self.can_esc_control)?;
                             return Ok(false);
@@ -246,7 +246,7 @@ impl Rz {
                             return Ok(true);
                         }
                         Err(err) => {
-                            eprintln!("{err}");
+                            log::error!("{err}");
                             self.errors += 1;
                             Header::empty(HeaderType::Hex, ZFrameType::Nak)
                                 .write(com, self.can_esc_control)?;
@@ -316,12 +316,12 @@ impl Rz {
                     match &package {
                         Ok((block, _, _)) => {
                             let cmd = str_from_null_terminated_utf8_unchecked(block);
-                            eprintln!(
+                            log::error!(
                                 "Remote wanted to execute {cmd} on the system. (did not execute)"
                             );
                         }
                         Err(err) => {
-                            eprintln!("{err}");
+                            log::error!("{err}");
                         }
                     }
                     Header::from_number(self.get_header_type(), ZFrameType::Compl, 0)
@@ -456,7 +456,7 @@ pub fn read_zdle_byte(
             }
             XON | XON_0x80 | XOFF | XOFF_0x80 => {
                 // they should be ignored, not errored according to spec
-                // eprintln!("ignored byte");
+                // log::info("ignored byte");
                 continue;
             }
             _ => {

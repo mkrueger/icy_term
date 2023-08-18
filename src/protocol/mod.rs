@@ -71,7 +71,7 @@ impl FileDescriptor {
             match res {
                 Ok(res) => res,
                 Err(err) => {
-                    eprintln!("error {err}");
+                    log::error!("Error reading file: {err}");
                     Vec::new()
                 }
             }

@@ -27,7 +27,7 @@ impl MainWindow {
         let options = match Options::load_options() {
             Ok(options) => options,
             Err(e) => {
-                eprintln!("Error reading phonebook: {e}");
+                log::error!("Error reading phonebook: {e}");
                 Options::default()
             }
         };
@@ -37,7 +37,7 @@ impl MainWindow {
         let addresses = match crate::addresses::start_read_book() {
             Ok(addresses) => addresses,
             Err(e) => {
-                eprintln!("Error reading phonebook: {e}");
+                log::error!("Error reading phonebook: {e}");
                 vec![crate::Address::new(String::new())]
             }
         };
@@ -156,7 +156,7 @@ impl eframe::App for MainWindow {
                         self.handle_result(res, true);
                     }
                 } else {
-                    eprintln!("error - in file transfer but no current protocol.");
+                    log::error!("In file transfer but no current protocol.");
                     self.mode = MainWindowMode::ShowTerminal;
                 }
                 ctx.request_repaint_after(Duration::from_millis(150));

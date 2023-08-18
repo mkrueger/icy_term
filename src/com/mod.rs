@@ -86,7 +86,7 @@ impl Connection {
 
     pub fn send(&mut self, vec: Vec<u8>) -> TerminalResult<()> {
         if let Err(err) = self.tx.send(SendData::Data(vec)) {
-            eprintln!("{err}");
+            log::error!("Error sending data: {err}");
             self.is_disconnected = true;
             self.disconnect()?;
         }
