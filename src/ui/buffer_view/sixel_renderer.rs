@@ -89,7 +89,7 @@ impl SixelRenderer {
             );
 
             let fontdim: icy_engine::Size<u8> = buffer_view.buf.get_font_dimensions();
-            let fh = fontdim.height as f32;
+            let fh: f32 = fontdim.height as f32;
             let scroll_offset = (buffer_view.viewport_top / buffer_view.char_size.y * fh) % fh;
 
             let x = sixel.pos.x as f32 * buffer_view.buf.get_font_dimensions().width as f32;

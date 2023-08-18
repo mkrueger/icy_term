@@ -5,19 +5,19 @@ precision lowp sampler2DArray;
 
 uniform sampler2DArray u_fonts;
 uniform sampler2D u_palette;
-uniform sampler2DArray u_buffer;
+uniform sampler2DArray u_terminal_buffer;
 
 uniform vec2        u_resolution;
-uniform vec2        u_buffer_texture_resolution;
+uniform vec2        u_output_resolution;
 
 uniform vec2        u_position;
 uniform vec2        u_terminal_size;
-uniform vec4        u_caret_position;
+uniform vec4        u_caret_rectangle;
 
 uniform vec4        u_selection;
 uniform float       u_selection_attr;
 
-uniform float       u_blink;
+uniform float       u_character_blink;
 
 out     vec4        fragColor;
 
@@ -53,11 +53,11 @@ void main (void) {
 
     vec2 fb_pos = view_coord * u_terminal_size;
 
-    vec2 view_coord2 = (gl_FragCoord.xy - u_position) / u_buffer_texture_resolution;
-    view_coord2 = vec2(view_coord2.s, 1.0 - view_coord2.t);
-
-    vec4 ch = texture(u_buffer, vec3(view_coord2, 0.0));
-    vec4 ch_attr = texture(u_buffer, vec3(view_coord2, 1.0));
+    // get char and attributs from the terminal background buffer
+    vec2 terminal_buffer_coordinates = (gl_FragCoord.xy - u_position) / u_output_resolution;
+    terminal_buffer_coordinates = vec2(terminal_buffer_coordinates.s, 1.0 - terminal_buffer_coordinates.t);
+    vec4 ch = texture(u_terminal_buffer, vec3(terminal_buffer_coordinates, 0.0));
+    vec4 ch_attr = texture(u_terminal_buffer, vec3(terminal_buffer_coordinates, 1.0));
     
     vec2 fract_fb_pos = fract(vec2(fb_pos.x, fb_pos.y));
 
@@ -85,8 +85,7 @@ void main (void) {
             fg = tmp;
         }
     }
-
-    if (char_data.x > 0.5 && (ch_attr[3] == 0.0 || u_blink > 0.0)) {
+    if (char_data.x > 0.5 && (ch_attr[3] == 0.0 || u_character_blink > 0.0)) {
         fragColor = fg;
     } else {
         fragColor = bg;
@@ -113,15 +112,16 @@ void main (void) {
         }
     }
 
-    if (u_selection_attr < 0.0 && u_caret_position.z > 0.0 && floor(fb_pos) == u_caret_position.xy) {
-        if (u_caret_position.w == 0.0) { // underscore
-            if (fract_fb_pos.y >= 13.0 / 16.0 && fract_fb_pos.y <= 15.0 / 16.0) {
-                fragColor = get_palette_color(ch.y);
-            }
-        } else if (u_caret_position.w == 1.0) { // half height
-            if (fract_fb_pos.y >= 0.5) {
-                fragColor = get_palette_color(ch.y);
-            }
-        }
-    }
+
+    // paint caret
+
+    vec2 upper_left = u_caret_rectangle.xy;
+    vec2 bottom_right = u_caret_rectangle.zw;
+
+    if (upper_left.x <= terminal_buffer_coordinates.x && 
+        upper_left.y <= terminal_buffer_coordinates.y && 
+        terminal_buffer_coordinates.x < bottom_right.x && 
+        terminal_buffer_coordinates.y < bottom_right.y) {
+        fragColor = get_palette_color(ch.y);
+    } 
 }

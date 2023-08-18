@@ -431,7 +431,7 @@ impl TerminalRenderer {
         );
 
         gl.uniform_2_f32(
-            gl.get_uniform_location(self.terminal_shader, "u_buffer_texture_resolution")
+            gl.get_uniform_location(self.terminal_shader, "u_output_resolution")
                 .as_ref(),
             render_buffer_size.x,
             render_buffer_size.y + fh,
@@ -453,25 +453,37 @@ impl TerminalRenderer {
         let scroll_back_line = max(0, max_lines - first_line) - 1;
 
         let sbl = (buffer_view.buf.get_first_visible_line() - scroll_back_line) as f32;
+        let dims = buffer_view.buf.get_font_dimensions();
+
+        let caret_x = buffer_view.caret.get_position().x as f32 * dims.width as f32;
+
+        let caret_h = if buffer_view.caret.insert_mode {
+            dims.height as f32 / 2.0
+        } else {
+            2.0
+        };
+
+        let caret_y = buffer_view.caret.get_position().y as f32 * dims.height as f32
+            + dims.height as f32
+            - caret_h
+            - (buffer_view.viewport_top / buffer_view.char_size.y * fh)
+            + scroll_offset;
+        let caret_w = if self.caret_blink.is_on() && buffer_view.caret.is_visible {
+            dims.width as f32
+        } else {
+            0.0
+        };
         gl.uniform_4_f32(
-            gl.get_uniform_location(self.terminal_shader, "u_caret_position")
+            gl.get_uniform_location(self.terminal_shader, "u_caret_rectangle")
                 .as_ref(),
-            buffer_view.caret.get_position().x as f32,
-            buffer_view.caret.get_position().y as f32 - sbl + scroll_offset,
-            if self.caret_blink.is_on() && buffer_view.caret.is_visible {
-                1.0
-            } else {
-                0.0
-            },
-            if buffer_view.caret.insert_mode {
-                1.0
-            } else {
-                0.0
-            }, // shape
+            caret_x / render_buffer_size.x,
+            caret_y / (render_buffer_size.y + fh),
+            (caret_x + caret_w) / render_buffer_size.x,
+            (caret_y + caret_h) / (render_buffer_size.y + fh),
         );
 
         gl.uniform_1_f32(
-            gl.get_uniform_location(self.terminal_shader, "u_blink")
+            gl.get_uniform_location(self.terminal_shader, "u_character_blink")
                 .as_ref(),
             if self.character_blink.is_on() {
                 1.0
@@ -498,7 +510,7 @@ impl TerminalRenderer {
             PALETTE_TEXTURE_SLOT as i32,
         );
         gl.uniform_1_i32(
-            gl.get_uniform_location(self.terminal_shader, "u_buffer")
+            gl.get_uniform_location(self.terminal_shader, "u_terminal_buffer")
                 .as_ref(),
             BUFFER_TEXTURE_SLOT as i32,
         );
