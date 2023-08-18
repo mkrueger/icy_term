@@ -185,7 +185,7 @@ impl TerminalRenderer {
             gl.tex_image_3d(
                 glow::TEXTURE_2D_ARRAY,
                 0,
-                glow::RGBA16F as i32,
+                glow::RGB as i32,
                 line_width as i32 / 4,
                 height as i32,
                 buf.font_count() as i32,
@@ -211,7 +211,7 @@ impl TerminalRenderer {
             gl.tex_image_2d(
                 glow::TEXTURE_2D,
                 0,
-                i32::try_from(glow::RGBA16F).unwrap(),
+                i32::try_from(glow::RGB).unwrap(),
                 i32::try_from(buf.palette.colors.len()).unwrap(),
                 1,
                 0,
@@ -375,7 +375,7 @@ impl TerminalRenderer {
             gl.tex_image_3d(
                 glow::TEXTURE_2D_ARRAY,
                 0,
-                glow::RGBA16F as i32,
+                glow::RGBA32F as i32,
                 buf.get_buffer_width(),
                 buf_h + 1,
                 2,

@@ -179,7 +179,7 @@ impl SixelRenderer {
                 gl.tex_image_2d(
                     glow::TEXTURE_2D,
                     0,
-                    glow::RGBA16F as i32,
+                    glow::RGB as i32,
                     sixel.width() as i32,
                     sixel.height() as i32,
                     0,
@@ -218,7 +218,7 @@ impl SixelRenderer {
         gl.tex_image_2d(
             glow::TEXTURE_2D,
             0,
-            glow::RGBA16F as i32,
+            glow::RGBA as i32,
             render_buffer_size.x as i32,
             render_buffer_size.y as i32,
             0,
@@ -269,7 +269,7 @@ unsafe fn create_sixel_render_texture(
     gl.tex_image_2d(
         glow::TEXTURE_2D,
         0,
-        glow::RGBA16F as i32,
+        glow::RGBA as i32,
         render_buffer_size.x as i32,
         render_buffer_size.y as i32,
         0,
@@ -291,6 +291,7 @@ unsafe fn create_sixel_render_texture(
     );
     crate::check_gl_error!(gl, "create_sixel_render_texture");
 
+    gl.bind_framebuffer(glow::FRAMEBUFFER, None);
     sixel_render_texture
 }
 
