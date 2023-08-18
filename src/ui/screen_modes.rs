@@ -4,7 +4,7 @@ use icy_engine::{
     BitFont, Palette, Size, ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, VIEWDATA_PALETTE,
 };
 
-use super::{main_window_mod::MainWindow, BufferInputMode};
+use super::{BufferInputMode, MainWindow};
 
 //use super::{BufferInputMode, BufferView};
 

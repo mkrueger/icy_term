@@ -1,10 +1,7 @@
 use eframe::egui::{self, RichText};
 use i18n_embed_fl::fl;
 
-use super::{
-    main_window_mod::{MainWindow, MainWindowMode},
-    Scaling,
-};
+use super::{MainWindow, MainWindowMode, Scaling};
 const MONITOR_NAMES: [&str; 6] = [
     "Color",
     "Grayscale",

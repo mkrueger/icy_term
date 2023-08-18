@@ -8,7 +8,7 @@ use eframe::{
 };
 use i18n_embed_fl::fl;
 
-use super::main_window_mod::{MainWindow, MainWindowMode};
+use super::{MainWindow, MainWindowMode};
 
 fn encode_mouse_button(button: i32) -> char {
     unsafe { char::from_u32_unchecked(b' '.saturating_add(button as u8) as u32) }

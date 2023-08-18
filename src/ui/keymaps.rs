@@ -1,5 +1,7 @@
 use eframe::egui::Key;
 
+use super::BufferInputMode;
+
 pub const CTRL_MOD: u32 = 0b1000_0000_0000_0000_0000;
 pub const SHIFT_MOD: u32 = 0b0100_0000_0000_0000_0000;
 
@@ -254,3 +256,15 @@ pub static VIDEOTERM_KEY_MAP: &[(u32, &[u8])] = &[
     (Key::ArrowRight as u32, &[b'\t']),
     (Key::ArrowLeft as u32, &[0x08]),
 ];
+
+impl BufferInputMode {
+    pub fn cur_map<'a>(&self) -> &'a [(u32, &[u8])] {
+        match self {
+            BufferInputMode::CP437 => ANSI_KEY_MAP,
+            BufferInputMode::PETscii => C64_KEY_MAP,
+            BufferInputMode::ATAscii => ATASCII_KEY_MAP,
+            //     super::BufferInputMode::VT500 => super::VT500_KEY_MAP,
+            BufferInputMode::ViewData => VIDEOTERM_KEY_MAP,
+        }
+    }
+}

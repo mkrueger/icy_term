@@ -6,11 +6,11 @@ use eframe::{
 };
 use egui::{Id, Rect};
 use i18n_embed_fl::fl;
-use icy_engine::ansi::{MusicOption, BaudOption};
+use icy_engine::ansi::{BaudOption, MusicOption};
 
 use crate::address_mod::{self, store_phone_book, Address, Terminal};
 
-use super::{main_window_mod::MainWindow, DEFAULT_MODES};
+use super::{MainWindow, DEFAULT_MODES};
 
 pub enum PhonebookFilter {
     All,
