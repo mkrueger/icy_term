@@ -187,8 +187,6 @@ impl OutputRenderer {
             info.clip_rect.height() * info.pixels_per_point,
         );
 
-        println!("{:?} --- {:?}", info.clip_rect, rect);
-
         gl.uniform_4_f32(
             gl.get_uniform_location(self.output_shader, "u_terminal_rect")
                 .as_ref(),

@@ -2,7 +2,7 @@
 use std::cmp::Ordering;
 
 use icy_engine::{get_crc32, update_crc32};
-use instant::Instant;
+use web_time::Instant;
 
 use crate::{
     com::{Com, TermComResult},

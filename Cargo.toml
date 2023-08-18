@@ -47,7 +47,7 @@ once_cell = "1.18.0"
 spin_sleep = "1.1.1"
 log = "0.4"
 
-instant = "0.1.12" # for wasm compatible time measurement 
+web-time = "0.2.0" # for wasm compatible time measurement 
 
 # possible ssh options:
 

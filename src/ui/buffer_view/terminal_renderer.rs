@@ -5,7 +5,7 @@ use egui::epaint::ahash::HashMap;
 use egui::Vec2;
 use glow::HasContext as _;
 use icy_engine::Buffer;
-use instant::Instant;
+use web_time::Instant;
 
 use super::Blink;
 use super::BufferView;

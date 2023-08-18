@@ -1,6 +1,6 @@
 use std::ops::{Bound, RangeBounds};
 
-use instant::Instant;
+use web_time::Instant;
 
 pub struct Rng {
     state: i32,

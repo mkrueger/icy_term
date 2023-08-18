@@ -1,7 +1,9 @@
+use web_time::Instant;
+
 use crate::{com::Connection, util::PatternRecognizer, Address, TerminalResult};
 use std::{
     io::{self, ErrorKind},
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use super::iemsi_com::IEmsi;
