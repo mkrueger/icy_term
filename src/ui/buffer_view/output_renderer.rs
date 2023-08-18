@@ -59,15 +59,6 @@ impl OutputRenderer {
             Some(self.render_texture),
             0,
         );
-        gl.bind_texture(glow::TEXTURE_2D, Some(self.render_texture));
-        gl.viewport(
-            0,
-            0,
-            self.render_buffer_size.x as i32,
-            self.render_buffer_size.y as i32,
-        );
-        gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
-        gl.clear_color(0., 0., 0., 1.0);
     }
 
     pub unsafe fn render_to_screen(
@@ -89,12 +80,13 @@ impl OutputRenderer {
         );
         gl.use_program(Some(self.output_shader));
         gl.active_texture(glow::TEXTURE0);
+        gl.bind_texture(glow::TEXTURE_2D, Some(output_texture));
+
         gl.uniform_1_i32(
             gl.get_uniform_location(self.output_shader, "u_render_texture")
                 .as_ref(),
             0,
         );
-        gl.bind_texture(glow::TEXTURE_2D, Some(output_texture));
 
         gl.uniform_1_f32(
             gl.get_uniform_location(self.output_shader, "u_effect")
@@ -188,7 +180,7 @@ impl OutputRenderer {
         );
 
         gl.uniform_4_f32(
-            gl.get_uniform_location(self.output_shader, "u_draw_rect")
+            gl.get_uniform_location(self.output_shader, "u_clip_rect")
                 .as_ref(),
             info.clip_rect.left() * info.pixels_per_point,
             info.clip_rect.top() * info.pixels_per_point,
@@ -196,8 +188,10 @@ impl OutputRenderer {
             info.clip_rect.height() * info.pixels_per_point,
         );
 
+        println!("{:?} --- {:?}", info.clip_rect, rect);
+
         gl.uniform_4_f32(
-            gl.get_uniform_location(self.output_shader, "u_draw_area")
+            gl.get_uniform_location(self.output_shader, "u_terminal_rect")
                 .as_ref(),
             (rect.left() - 3.) * info.pixels_per_point,
             (rect.top() - info.clip_rect.top() - 4.) * info.pixels_per_point,
@@ -260,28 +254,6 @@ impl OutputRenderer {
                 glow::CLAMP_TO_EDGE as i32,
             );
 
-            let depth_buffer = gl.create_renderbuffer().unwrap();
-            gl.bind_renderbuffer(glow::RENDERBUFFER, Some(depth_buffer));
-            gl.renderbuffer_storage(
-                glow::RENDERBUFFER,
-                glow::DEPTH_COMPONENT,
-                render_buffer_size.x as i32,
-                render_buffer_size.y as i32,
-            );
-            gl.framebuffer_renderbuffer(
-                glow::FRAMEBUFFER,
-                glow::DEPTH_ATTACHMENT,
-                glow::RENDERBUFFER,
-                Some(depth_buffer),
-            );
-            gl.framebuffer_texture(
-                glow::FRAMEBUFFER,
-                glow::COLOR_ATTACHMENT0,
-                Some(render_texture),
-                0,
-            );
-
-            gl.bind_framebuffer(glow::FRAMEBUFFER, None);
             self.render_texture = render_texture;
             self.render_buffer_size = render_buffer_size;
         }
@@ -363,25 +335,5 @@ unsafe fn create_screen_render_texture(
         glow::CLAMP_TO_EDGE as i32,
     );
 
-    let depth_buffer = gl.create_renderbuffer().unwrap();
-    gl.bind_renderbuffer(glow::RENDERBUFFER, Some(depth_buffer));
-    gl.renderbuffer_storage(
-        glow::RENDERBUFFER,
-        glow::DEPTH_COMPONENT,
-        render_buffer_size.x as i32,
-        render_buffer_size.y as i32,
-    );
-    gl.framebuffer_renderbuffer(
-        glow::FRAMEBUFFER,
-        glow::DEPTH_ATTACHMENT,
-        glow::RENDERBUFFER,
-        Some(depth_buffer),
-    );
-    gl.framebuffer_texture(
-        glow::FRAMEBUFFER,
-        glow::COLOR_ATTACHMENT0,
-        Some(render_texture),
-        0,
-    );
     render_texture
 }

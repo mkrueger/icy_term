@@ -1,19 +1,12 @@
 #version 300 es
 precision highp float;
-/*
-out vec3 color;
-
-void main() {
-	color = vec3(1.0);
-}*/
-in vec2 UV;
 
 uniform sampler2D u_render_texture;
 uniform vec2      u_resolution;
 uniform vec2      u_position;
 uniform float     u_effect;
-uniform vec4      u_draw_rect;
-uniform vec4      u_draw_area;
+uniform vec4      u_clip_rect;
+uniform vec4      u_terminal_rect;
 uniform vec2      u_size;
 
 uniform float gamma;
@@ -31,7 +24,7 @@ out vec3 color;
 
 // Shader used: 
 // https://www.shadertoy.com/view/XdyGzR
-
+ 
 vec3 postEffects(in vec3 rgb, in vec2 xy) {
     rgb = pow(rgb, vec3(gamma));
     rgb = mix(vec3(.5), mix(vec3(dot(vec3(.2125, .7154, .0721), rgb * brightness)), rgb * brightness, saturation), contrast);
@@ -104,9 +97,9 @@ void scanlines2(vec2 coord)
 }
 
 void main() {
-	vec2 uv   = (gl_FragCoord.xy - u_draw_rect.xy) / u_draw_rect.zw;
-	vec2 from = u_draw_area.xy / u_draw_rect.zw;
-	vec2 to   = u_draw_area.zw / u_draw_rect.zw;
+	vec2 uv   = (gl_FragCoord.xy - u_clip_rect.xy) / u_clip_rect.zw;
+	vec2 from = u_terminal_rect.xy / u_clip_rect.zw;
+	vec2 to   = u_terminal_rect.zw / u_clip_rect.zw;
 
 	if (from.x <= uv.x && uv.x < to.x && 
 		from.y <= uv.y && uv.y < to.y) {
