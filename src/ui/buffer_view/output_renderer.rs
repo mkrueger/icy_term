@@ -60,6 +60,15 @@ impl OutputRenderer {
             Some(self.render_texture),
             0,
         );
+        gl.bind_texture(glow::TEXTURE_2D, Some(self.render_texture));
+        gl.viewport(
+            0,
+            0,
+            self.render_buffer_size.x as i32,
+            self.render_buffer_size.y as i32,
+        );
+        gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
+        gl.clear_color(0., 0., 0., 1.0);
     }
 
     pub unsafe fn render_to_screen(
