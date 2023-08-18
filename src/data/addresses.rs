@@ -221,26 +221,28 @@ impl Address {
         }
     }
 
-    /// .
-    ///
-    /// # Panics
-    ///
-    /// Panics if .
     #[must_use]
     pub fn get_phonebook_file() -> Option<PathBuf> {
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
-            if !proj_dirs.config_dir().exists() {
-                fs::create_dir_all(proj_dirs.config_dir()).unwrap_or_else(|_| {
-                    panic!(
-                        "Can't create configuration directory {:?}",
-                        proj_dirs.config_dir()
-                    )
-                });
+            if !proj_dirs.config_dir().exists()
+                && fs::create_dir_all(proj_dirs.config_dir()).is_err()
+            {
+                eprintln!(
+                    "Can't create configuration directory {:?}",
+                    proj_dirs.config_dir()
+                );
+                return None;
             }
             let phonebook = proj_dirs.config_dir().join("phonebook.toml");
             if !phonebook.exists() {
-                fs::write(&phonebook, TEMPLATE).expect("Can't create phonebook");
+                if let Err(err) = fs::write(&phonebook, TEMPLATE) {
+                    eprintln!(
+                        "Can't create phonebook {:?} : {err}",
+                        proj_dirs.config_dir()
+                    );
+                    return None;
+                }
             }
             return Some(phonebook);
         }
@@ -249,32 +251,39 @@ impl Address {
 
     /// .
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if .
-    #[must_use]
-    pub fn read_phone_book() -> Vec<Self> {
+    /// This function will return an error if .
+    pub fn read_phone_book() -> TerminalResult<Vec<Self>> {
         let mut res = Vec::new();
         res.push(Address::new(String::new()));
+        #[cfg(not(target_arch = "wasm32"))]
         if let Some(phonebook) = Address::get_phonebook_file() {
-            let input_text = fs::read_to_string(phonebook).expect("Can't read phonebook");
-            match input_text.parse::<Value>() {
-                Ok(value) => parse_addresses(&mut res, &value),
-                Err(err) => {
-                    eprintln!("Error parsing phonebook: {err}");
-                }
+            match fs::read_to_string(phonebook) {
+                Ok(input_text) => match input_text.parse::<Value>() {
+                    Ok(value) => parse_addresses(&mut res, &value),
+                    Err(err) => {
+                        return Err(format!("Error parsing phonebook: {err}").into());
+                    }
+                },
+                Err(err) => return Err(err.into()),
             }
         }
-        res
+        Ok(res)
     }
 }
 
 pub static mut READ_ADDRESSES: bool = false;
 
-#[must_use]
-pub fn start_read_book() -> Vec<Address> {
+/// .
+///
+/// # Errors
+///
+/// This function will return an error if .
+pub fn start_read_book() -> TerminalResult<Vec<Address>> {
     let res = Address::read_phone_book();
 
+    #[cfg(not(target_arch = "wasm32"))]
     if let Some(phonebook) = Address::get_phonebook_file() {
         thread::spawn(move || loop {
             if let Some(path) = phonebook.parent() {

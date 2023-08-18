@@ -24,13 +24,29 @@ impl MainWindow {
             .gl
             .as_ref()
             .expect("You need to run eframe with the glow backend");
-        let options = Options::load_options();
+        let options = match Options::load_options() {
+            Ok(options) => options,
+            Err(e) => {
+                eprintln!("Error reading phonebook: {e}");
+                Options::default()
+            }
+        };
+
         let view = BufferView::new(gl, &options);
+
+        let addresses = match crate::addresses::start_read_book() {
+            Ok(addresses) => addresses,
+            Err(e) => {
+                eprintln!("Error reading phonebook: {e}");
+                vec![crate::Address::new(String::new())]
+            }
+        };
+
         let mut view = MainWindow {
             buffer_view: Arc::new(eframe::epaint::mutex::Mutex::new(view)),
             //address_list: HoverList::new(),
             mode: MainWindowMode::ShowPhonebook,
-            addresses: crate::addresses::start_read_book(),
+            addresses,
             cur_addr: 0,
             selected_bbs: None,
             connection_opt: None,
@@ -126,14 +142,6 @@ impl eframe::App for MainWindow {
             }
             MainWindowMode::FileTransfer(download) => {
                 if self.connection_opt.as_mut().unwrap().should_end_transfer() {
-                    /*  if guard.1.is_finished {
-                        for f in guard.0.get_received_files() {
-                            f.save_file_in_downloads(
-                                guard.1.recieve_state.as_mut().unwrap(),
-                            )
-                            .expect("error saving file.");
-                        }
-                    } else */
                     self.auto_file_transfer.reset();
                 }
 

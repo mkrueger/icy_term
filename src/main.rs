@@ -79,7 +79,7 @@ fn main() {
             .start(
                 "icy_term_canvas",
                 web_options,
-                Box::new(|cc| Box::new(TemplateApp::new(cc))),
+                Box::new(|cc| Box::new(MainWindow::new(cc))),
             )
             .await
             .expect("failed to start eframe");

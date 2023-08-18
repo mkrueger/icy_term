@@ -70,20 +70,25 @@ pub struct Options {
 impl Options {
     /// .
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if .
-    #[must_use]
-    pub fn load_options() -> Self {
+    /// This function will return an error if .
+    pub fn load_options() -> TerminalResult<Self> {
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
             let options_file = proj_dirs.config_dir().join("options.toml");
             if options_file.exists() {
-                let fs = fs::read_to_string(&options_file).expect("Can't read options");
-                return Options::from_str(&fs);
+                match fs::read_to_string(&options_file) {
+                    Ok(content) => {
+                        return Ok(Options::from_str(&content));
+                    }
+                    Err(err) => {
+                        return Err(err.into());
+                    }
+                }
             }
         }
-        Options::default()
+        Ok(Options::default())
     }
 
     /// Returns the store options of this [`Options`].
