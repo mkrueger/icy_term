@@ -53,13 +53,6 @@ impl OutputRenderer {
 
     pub(crate) unsafe fn init_output(&self, gl: &glow::Context) {
         gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.framebuffer));
-        gl.framebuffer_texture_2d(
-            glow::FRAMEBUFFER,
-            glow::COLOR_ATTACHMENT0,
-            glow::TEXTURE_2D,
-            Some(self.render_texture),
-            0,
-        );
         gl.bind_texture(glow::TEXTURE_2D, Some(self.render_texture));
         gl.viewport(
             0,
@@ -67,6 +60,14 @@ impl OutputRenderer {
             self.render_buffer_size.x as i32,
             self.render_buffer_size.y as i32,
         );
+        gl.framebuffer_texture_2d(
+            glow::FRAMEBUFFER,
+            glow::COLOR_ATTACHMENT0,
+            glow::TEXTURE_2D,
+            Some(self.render_texture),
+            0,
+        );
+
         gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
         gl.clear_color(0., 0., 0., 1.0);
     }
@@ -237,17 +238,6 @@ impl OutputRenderer {
 
             let render_texture = gl.create_texture().unwrap();
             gl.bind_texture(glow::TEXTURE_2D, Some(render_texture));
-            gl.tex_image_2d(
-                glow::TEXTURE_2D,
-                0,
-                glow::RGBA as i32,
-                render_buffer_size.x as i32,
-                render_buffer_size.y as i32,
-                0,
-                glow::RGBA,
-                glow::UNSIGNED_BYTE,
-                None,
-            );
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, scale_filter);
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, scale_filter);
             gl.tex_parameter_i32(

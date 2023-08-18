@@ -10,6 +10,10 @@ use web_time::Instant;
 use super::Blink;
 use super::BufferView;
 
+const FONT_TEXTURE_SLOT: u32 = 6;
+const PALETTE_TEXTURE_SLOT: u32 = 8;
+const BUFFER_TEXTURE_SLOT: u32 = 10;
+
 pub struct TerminalRenderer {
     terminal_shader: glow::Program,
 
@@ -176,7 +180,7 @@ impl TerminalRenderer {
         }
 
         unsafe {
-            gl.active_texture(glow::TEXTURE0);
+            gl.active_texture(glow::TEXTURE0 + FONT_TEXTURE_SLOT);
             gl.bind_texture(glow::TEXTURE_2D_ARRAY, Some(self.font_texture));
             gl.tex_image_3d(
                 glow::TEXTURE_2D_ARRAY,
@@ -365,7 +369,7 @@ impl TerminalRenderer {
             }
         }
         unsafe {
-            gl.active_texture(glow::TEXTURE0 + 4);
+            gl.active_texture(glow::TEXTURE0 + BUFFER_TEXTURE_SLOT);
             gl.bind_texture(glow::TEXTURE_2D_ARRAY, Some(self.terminal_render_texture));
             gl.tex_image_3d(
                 glow::TEXTURE_2D_ARRAY,
@@ -384,18 +388,20 @@ impl TerminalRenderer {
 
     pub(crate) fn render_terminal(&self, gl: &glow::Context, view_state: &BufferView) {
         unsafe {
+            gl.active_texture(glow::TEXTURE0 + FONT_TEXTURE_SLOT);
+            gl.bind_texture(glow::TEXTURE_2D_ARRAY, Some(self.font_texture));
+
+            gl.active_texture(glow::TEXTURE0 + PALETTE_TEXTURE_SLOT);
+            gl.bind_texture(glow::TEXTURE_2D, Some(self.palette_texture));
+
+            gl.active_texture(glow::TEXTURE0 + BUFFER_TEXTURE_SLOT);
+            gl.bind_texture(glow::TEXTURE_2D_ARRAY, Some(self.terminal_render_texture));
+
             self.run_shader(
                 gl,
                 view_state,
                 view_state.output_renderer.render_buffer_size,
             );
-
-            gl.active_texture(glow::TEXTURE0);
-            gl.bind_texture(glow::TEXTURE_2D, Some(self.font_texture));
-            gl.active_texture(glow::TEXTURE0 + 2);
-            gl.bind_texture(glow::TEXTURE_2D, Some(self.palette_texture));
-            gl.active_texture(glow::TEXTURE0 + 4);
-            gl.bind_texture(glow::TEXTURE_2D, Some(self.terminal_render_texture));
 
             gl.bind_vertex_array(Some(self.vertex_array));
             gl.draw_arrays(glow::TRIANGLES, 0, 3);
@@ -480,17 +486,17 @@ impl TerminalRenderer {
         gl.uniform_1_i32(
             gl.get_uniform_location(self.terminal_shader, "u_fonts")
                 .as_ref(),
-            0,
+            FONT_TEXTURE_SLOT as i32,
         );
         gl.uniform_1_i32(
             gl.get_uniform_location(self.terminal_shader, "u_palette")
                 .as_ref(),
-            2,
+            PALETTE_TEXTURE_SLOT as i32,
         );
         gl.uniform_1_i32(
             gl.get_uniform_location(self.terminal_shader, "u_buffer")
                 .as_ref(),
-            4,
+            BUFFER_TEXTURE_SLOT as i32,
         );
 
         match &buffer_view.selection_opt {

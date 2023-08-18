@@ -281,12 +281,7 @@ unsafe fn create_sixel_render_texture(
 
     let depth_buffer = gl.create_renderbuffer().unwrap();
     gl.bind_renderbuffer(glow::RENDERBUFFER, Some(depth_buffer));
-    gl.renderbuffer_storage(
-        glow::RENDERBUFFER,
-        glow::DEPTH_COMPONENT,
-        render_buffer_size.x as i32,
-        render_buffer_size.y as i32,
-    );
+
     gl.framebuffer_renderbuffer(
         glow::FRAMEBUFFER,
         glow::DEPTH_ATTACHMENT,
