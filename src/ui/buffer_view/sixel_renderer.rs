@@ -93,10 +93,9 @@ impl SixelRenderer {
             let scroll_offset = (buffer_view.viewport_top / buffer_view.char_size.y * fh) % fh;
 
             let x = sixel.pos.x as f32 * buffer_view.buf.get_font_dimensions().width as f32;
-            let mut y = sixel.pos.y as f32 * buffer_view.buf.get_font_dimensions().height as f32
-                + scroll_offset;
-
-            y -= buffer_view.viewport_top;
+            let y = sixel.pos.y as f32 * buffer_view.buf.get_font_dimensions().height as f32
+                + scroll_offset
+                - buffer_view.viewport_top;
 
             let w = sixel.size.width as f32 * sixel.x_scale as f32;
             let h = sixel.size.height as f32 * sixel.y_scale as f32;
@@ -286,24 +285,6 @@ unsafe fn create_sixel_render_texture(
         glow::CLAMP_TO_EDGE as i32,
     );
 
-    let depth_buffer = gl.create_renderbuffer().unwrap();
-    gl.bind_renderbuffer(glow::RENDERBUFFER, Some(depth_buffer));
-
-    gl.framebuffer_renderbuffer(
-        glow::FRAMEBUFFER,
-        glow::DEPTH_ATTACHMENT,
-        glow::RENDERBUFFER,
-        Some(depth_buffer),
-    );
-    gl.framebuffer_texture_2d(
-        glow::FRAMEBUFFER,
-        glow::COLOR_ATTACHMENT0,
-        glow::TEXTURE_2D,
-        Some(sixel_render_texture),
-        0,
-    );
-
-    gl.bind_framebuffer(glow::FRAMEBUFFER, None);
     sixel_render_texture
 }
 
