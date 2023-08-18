@@ -415,7 +415,7 @@ impl TerminalRenderer {
         buffer_view: &BufferView,
         render_buffer_size: egui::Vec2,
     ) {
-        let fontdim = buffer_view.buf.get_font_dimensions();
+        let fontdim: icy_engine::Size<u8> = buffer_view.buf.get_font_dimensions();
         let fh = fontdim.height as f32;
 
         gl.use_program(Some(self.terminal_shader));

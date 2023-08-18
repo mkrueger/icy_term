@@ -11,13 +11,16 @@ out vec4 color;
 
 void main (void) {
     vec2 view_coord = gl_FragCoord.xy / u_resolution;
-    vec2 view_coord2 = vec2(view_coord.s, 1.0 - view_coord.t);
+    vec2 flipped_view_coord = vec2(view_coord.s, 1.0 - view_coord.t);
 
-    vec2 start = u_sixel_rectangle.xy / u_resolution;
-    vec2 end = u_sixel_rectangle.zw / u_resolution;
+    vec2 upper_left = u_sixel_rectangle.xy / u_resolution;
+    vec2 bottom_right = u_sixel_rectangle.zw / u_resolution;
     
-    if (start.x <= view_coord2.x && start.y <= view_coord2.y && view_coord2.x < end.x && view_coord2.y < end.y) {
-        color = texture(u_sixel, vec2((view_coord2 - start) / (end - start)));
+    if (upper_left.x <= flipped_view_coord.x && 
+        upper_left.y <= flipped_view_coord.y && 
+        flipped_view_coord.x < bottom_right.x && 
+        flipped_view_coord.y < bottom_right.y) {
+        color = texture(u_sixel, vec2((flipped_view_coord - upper_left) / (bottom_right - upper_left)));
     } else {
         color = texture(u_render_texture, view_coord);
     }

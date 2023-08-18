@@ -40,7 +40,7 @@ impl SixelRenderer {
     pub unsafe fn render_sixels(
         &self,
         gl: &glow::Context,
-        view_state: &BufferView,
+        buffer_view: &BufferView,
         output_renderer: &OutputRenderer,
     ) -> glow::Texture {
         let mut render_texture = output_renderer.render_texture;
@@ -88,8 +88,15 @@ impl SixelRenderer {
                 self.render_buffer_size.y,
             );
 
-            let x = sixel.pos.x as f32 * view_state.buf.get_font_dimensions().width as f32;
-            let y = sixel.pos.y as f32 * view_state.buf.get_font_dimensions().height as f32;
+            let fontdim: icy_engine::Size<u8> = buffer_view.buf.get_font_dimensions();
+            let fh = fontdim.height as f32;
+            let scroll_offset = (buffer_view.viewport_top / buffer_view.char_size.y * fh) % fh;
+
+            let x = sixel.pos.x as f32 * buffer_view.buf.get_font_dimensions().width as f32;
+            let mut y = sixel.pos.y as f32 * buffer_view.buf.get_font_dimensions().height as f32
+                + scroll_offset;
+
+            y -= buffer_view.viewport_top;
 
             let w = sixel.size.width as f32 * sixel.x_scale as f32;
             let h = sixel.size.height as f32 * sixel.y_scale as f32;
