@@ -1,78 +1,133 @@
 #![allow(dead_code)]
 
 use super::{Com, TermComResult};
-use crate::address_mod::Address;
-use async_trait::async_trait;
+use crate::addresses::Address;
+use icy_engine::Size;
 use libssh_rs::{Channel, Session, SshOption};
 use std::{
-    collections::VecDeque,
     sync::{Arc, Mutex},
     time::Duration,
+    io::ErrorKind,
+    io::{Read, Write},
 };
-pub struct SSHCom {
+pub struct SSHComImpl {
+    window_size: Size<u16>, // width, height
     session: Option<Session>,
     channel: Option<Arc<Mutex<Channel>>>,
 }
 
-impl SSHCom {
-    pub fn new() -> Self {
+impl SSHComImpl {
+    pub fn new(window_size: Size<u16>) -> Self {
         Self {
+            window_size,
             session: None,
             channel: None,
         }
     }
+
+    fn default_port() -> u16 {
+        22
+    }
+
+    fn parse_address(addr: &Address) -> TermComResult<(String, u16)> {
+        let components: Vec<&str> = addr.address.split(":").collect();
+        match components.get(0) {
+            Some(host) => {
+                match components.get(1) {
+                    Some(port_str) => {
+                        let port = port_str.parse()?;
+                        Ok((host.to_string(), port))
+                    }
+                    _ => Ok((host.to_string(),  Self::default_port()))
+                }
+            }
+            _ => Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid address")))
+        }
+    }
 }
 
-#[async_trait]
-impl Com for SSHCom {
+
+impl Com for SSHComImpl {
     fn get_name(&self) -> &'static str {
         "SSH"
     }
-    fn set_terminal_type(&mut self, _terminal: crate::address_mod::Terminal) {}
 
-    async fn connect(&mut self, addr: &Address, _timeout: Duration) -> TermComResult<bool> {
+    fn default_port(&self) -> u16 {
+        SSHComImpl::default_port()
+    }
+
+    fn set_terminal_type(&mut self, _terminal: crate::addresses::Terminal) {}
+
+    fn connect(&mut self, addr: &Address, _timeout: Duration) -> TermComResult<bool> {
         let sess = Session::new()?;
-        sess.set_auth_callback(move |prompt, echo, verify, identity| Ok("<pw>".to_string()));
-        sess.set_option(SshOption::Hostname("<addr>".to_string()))?;
-        sess.set_option(SshOption::Port(2020))?;
-        sess.set_option(SshOption::User(Some("<user>".to_string())))?;
-        sess.set_option(SshOption::PublicKeyAcceptedTypes(
-            "ssh-rsa,rsa-sha2-256,ssh-dss,ecdh-sha2-nistp256".to_string(),
-        ))?;
+        let (host, port) = Self::parse_address(addr)?;
+
+        sess.set_option(SshOption::Hostname(host))?;
+        sess.set_option(SshOption::Port(port))?;
+        // sess.set_option(SshOption::PublicKeyAcceptedTypes(
+        //     ACCEPTED_PK_TYPES.to_string(),
+        // ))?;
         sess.options_parse_config(None)?;
         sess.connect()?;
-        let auth_methods = sess.userauth_list(Some(&addr.user_name))?;
 
-        sess.userauth_agent(Some(&addr.user_name))?;
+        //  :TODO: SECURITY: verify_known_hosts() implemented here -- ie: user must accept & we save somewhere
+
+        sess.userauth_password(Some(addr.user_name.as_str()), Some(addr.password.as_str()))?;
+
         let chan = sess.new_channel()?;
-        let mut result = [0u8; 1024];
-        let size: usize = chan.read_timeout(&mut result, false, None)?;
+        chan.open_session()?;
+        let terminal_type = addr.terminal_type.to_string().to_lowercase();
+        chan.request_pty(terminal_type.as_str(), self.window_size.width as u32, self.window_size.height as u32)?;
+        chan.request_shell()?;
 
         self.channel = Some(Arc::new(Mutex::new(chan)));
         self.session = Some(sess);
+
         Ok(true)
     }
 
-    async fn read_data(&mut self) -> TermComResult<Vec<u8>> {
-        Ok(vec![])
+    fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
+        let channel = self.channel.as_mut().unwrap().clone();
+        let mut buf = [0; 1024 * 256];
+        let locked = channel.lock().unwrap();
+        let mut stdout = locked.stdout();
+        match stdout.read(&mut buf) {
+            Ok(size) => {
+                Ok(Some(buf[0..size].to_vec()))
+            }
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::WouldBlock {
+                    return Ok(None);
+                }
+                Err(Box::new(std::io::Error::new(
+                    ErrorKind::ConnectionAborted,
+                    format!("Connection aborted: {e}"),
+                )))
+            }
+        }
     }
 
-    async fn read_u8(&mut self) -> TermComResult<u8> {
+    fn read_u8(&mut self) -> TermComResult<u8> {
         Ok(0)
     }
 
-    async fn read_exact(&mut self, _len: usize) -> TermComResult<Vec<u8>> {
+    fn read_exact(&mut self, _len: usize) -> TermComResult<Vec<u8>> {
         Ok(Vec::new())
     }
 
-    async fn send<'a>(&mut self, buf: &'a [u8]) -> TermComResult<usize> {
-        Ok(0)
+    fn send<'a>(&mut self, buf: &'a [u8]) -> TermComResult<usize> {
+        let channel = self.channel.as_mut().unwrap().clone();
+        let locked = channel.lock().unwrap();
+        locked.stdin().write_all(&buf)?;
+        Ok(buf.len())
     }
 
-    async fn disconnect(&mut self) -> TermComResult<()> {
+    fn disconnect(&mut self) -> TermComResult<()> {
+        self.session.as_mut().unwrap().disconnect();
         Ok(())
     }
 }
+
 
 /* Trushh:
 #![allow(dead_code)]

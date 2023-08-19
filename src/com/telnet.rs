@@ -510,6 +510,11 @@ impl Com for ComTelnetImpl {
     fn get_name(&self) -> &'static str {
         "Telnet"
     }
+
+    fn default_port(&self) -> u16 {
+        23
+    }
+
     fn set_terminal_type(&mut self, terminal: crate::addresses::Terminal) {
         self.terminal = terminal;
     }
