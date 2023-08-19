@@ -1,7 +1,7 @@
 use crate::ui::screen_modes::ScreenMode;
 use crate::TerminalResult;
 use chrono::{Duration, Utc};
-use icy_engine::ansi::{BaudOption, MusicOption};
+use icy_engine::ansi::{BaudEmulation, MusicOption};
 use icy_engine::{ansi, ascii, atascii, avatar, petscii, viewdata, BufferParser};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::fs::File;
@@ -102,7 +102,7 @@ pub struct Address {
 
     pub ice_mode: bool,
     pub ansi_music: MusicOption,
-    pub baud_emulation: BaudOption,
+    pub baud_emulation: BaudEmulation,
 
     pub font_name: Option<String>,
     pub screen_mode: ScreenMode,
@@ -210,7 +210,7 @@ impl Address {
             uploaded_bytes: 0,
             downloaded_bytes: 0,
             address_category: crate::ui::dialogs::AddressCategory::Server,
-            baud_emulation: BaudOption::Off,
+            baud_emulation: BaudEmulation::Off,
         }
     }
 
@@ -433,10 +433,10 @@ fn parse_address(value: &Value) -> Address {
 
         if let Some(Value::String(value)) = table.get("baud_emulation") {
             match value.to_lowercase().as_str() {
-                "off" => result.baud_emulation = BaudOption::Off,
+                "off" => result.baud_emulation = BaudEmulation::Off,
                 baud => {
                     let v = baud.parse::<u32>().unwrap_or(0);
-                    result.baud_emulation = BaudOption::Emulation(v);
+                    result.baud_emulation = BaudEmulation::Rate(v);
                 }
             }
         }

@@ -2,8 +2,9 @@
 
 use chrono::Utc;
 use i18n_embed_fl::fl;
-use icy_engine::ansi::BaudOption;
+use icy_engine::ansi::BaudEmulation;
 use icy_engine::BufferParser;
+use std::collections::VecDeque;
 use std::io::Write;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
@@ -74,6 +75,7 @@ pub struct MainWindow {
     pub capture_session: bool,
     /// debug spew prevention
     pub show_capture_error: bool,
+    pub has_baud_rate: bool,
 
     pub rng: Rng,
     pub auto_file_transfer: AutoFileTransfer,
@@ -167,9 +169,9 @@ impl MainWindow {
                     beep();
                 }
             }
-            icy_engine::CallbackAction::ChangeBaudRate(baud_rate) => {
+            icy_engine::CallbackAction::ChangeBaudEmulation(baud_emulation) => {
                 if let Some(con) = &mut self.connection_opt {
-                    let r = con.set_baud_rate(baud_rate);
+                    let r = con.set_baud_rate(baud_emulation.get_baud_rate());
                     self.handle_result(r, false);
                 }
             }
@@ -301,16 +303,13 @@ impl MainWindow {
         self.cur_addr = i;
         self.set_screen_mode(call_adr.screen_mode);
         self.buffer_parser = self.addresses[i].get_terminal_parser(&call_adr);
+        self.has_baud_rate = self.addresses[i].baud_emulation != BaudEmulation::Off;
 
-        let baud_rate_value = match self.addresses[i].baud_emulation {
-            BaudOption::Off => 0,
-            BaudOption::Emulation(baud) => baud,
-        };
         self.buffer_view
             .lock()
             .buf
             .terminal_state
-            .set_baud_rate(baud_rate_value);
+            .set_baud_rate(self.addresses[i].baud_emulation);
 
         self.buffer_view.lock().redraw_font();
         self.buffer_view.lock().redraw_palette();
@@ -525,37 +524,58 @@ impl MainWindow {
         let handle: Arc<Mutex<Box<dyn Com>>> = Arc::new(Mutex::new(handle));
         let handle2 = handle.clone();
         let tx3 = tx.clone();
-        let mut baud_rate = self.buffer_view.lock().buf.terminal_state.get_baud_rate();
+        let mut baud_rate = self
+            .buffer_view
+            .lock()
+            .buf
+            .terminal_state
+            .get_baud_emulation()
+            .get_baud_rate();
 
         thread::spawn(move || {
             let mut done = false;
+
+            let mut data_buffer = VecDeque::<u8>::new();
+            let mut time = Instant::now();
+
             while !done {
-                let data = handle2.lock().unwrap().read_data();
-                if let Ok(Some(data)) = data {
-                    if baud_rate == 0 {
-                        if let Err(err) = tx3.send(SendData::Data(data)) {
-                            log::error!("{err}");
-                            done = true;
+                if data_buffer.is_empty() {
+                    if let Ok(Some(data)) = handle2.lock().unwrap().read_data() {
+                        if baud_rate == 0 {
+                            if let Err(err) = tx3.send(SendData::Data(data)) {
+                                log::error!("{err}");
+                                done = true;
+                            }
+                            ctx.request_repaint();
+                        } else {
+                            data_buffer.extend(data);
                         }
                     } else {
-                        let bytes_per_sec = baud_rate / BITS_PER_BYTE;
-                        let bytes_to_send = data.len();
-                        if bytes_to_send > 0 {
-                            let mut loop_helper = spin_sleep::LoopHelper::builder()
-                                .build_with_target_rate(bytes_per_sec);
-                            for d in data {
-                                loop_helper.loop_start();
-                                if let Err(err) = tx3.send(SendData::Data([d].to_vec())) {
-                                    log::error!("{err}");
-                                    done = true;
-                                }
-                                loop_helper.loop_sleep();
-                            }
-                        }
+                        thread::sleep(Duration::from_millis(25));
+                    }
+                } else if baud_rate == 0 {
+                    if let Err(err) = tx3.send(SendData::Data(data_buffer.drain(..).collect())) {
+                        log::error!("{err}");
+                        done = true;
                     }
                     ctx.request_repaint();
                 } else {
-                    thread::sleep(Duration::from_millis(25));
+                    let cur_time = Instant::now();
+                    let bytes_per_sec = baud_rate / BITS_PER_BYTE;
+                    let elapsed_ms = cur_time.duration_since(time).as_millis() as u32;
+                    let bytes_to_send: usize = ((bytes_per_sec * elapsed_ms) / 1000)
+                        .min(data_buffer.len() as u32)
+                        as usize;
+
+                    if bytes_to_send > 0 {
+                        if let Err(err) =
+                            tx3.send(SendData::Data(data_buffer.drain(..bytes_to_send).collect()))
+                        {
+                            log::error!("{err}");
+                            done = true;
+                        }
+                        time = cur_time;
+                    }
                 }
 
                 while let Ok(result) = rx2.try_recv() {

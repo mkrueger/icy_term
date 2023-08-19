@@ -64,10 +64,12 @@ impl MainWindow {
             rng: Rng::default(),
             capture_session: false,
             show_capture_error: false,
+            has_baud_rate: false,
             settings_category: 0,
             file_transfer_dialog: crate::ui::dialogs::FileTransferDialog::default(),
         };
 
+        #[cfg(not(target_arch = "wasm32"))]
         parse_command_line(&mut view);
 
         //view.address_list.selected_item = 1;

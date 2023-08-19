@@ -6,7 +6,7 @@ use eframe::{
 };
 use egui::{Id, Rect};
 use i18n_embed_fl::fl;
-use icy_engine::ansi::{BaudOption, MusicOption};
+use icy_engine::ansi::{BaudEmulation, MusicOption};
 
 use crate::{
     addresses::{self, store_phone_book, Address, Terminal},
@@ -314,7 +314,7 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
                 .selected_text(RichText::new(format!("{}", adr.baud_emulation)))
                 .width(250.)
                 .show_ui(ui, |ui| {
-                    for b in &BAUD_EMU_OPTIONS {
+                    for b in &BaudEmulation::OPTIONS {
                         let label = RichText::new(format!("{b}"));
                         ui.selectable_value(&mut adr.baud_emulation, *b, label);
                     }
@@ -519,21 +519,6 @@ const MUSIC_OPTIONS: [MusicOption; 4] = [
     MusicOption::Both,
 ];
 
-const BAUD_EMU_OPTIONS: [BaudOption; 12] = [
-    BaudOption::Off,
-    BaudOption::Emulation(300),
-    BaudOption::Emulation(600),
-    BaudOption::Emulation(1200),
-    BaudOption::Emulation(2400),
-    BaudOption::Emulation(4800),
-    BaudOption::Emulation(9600),
-    BaudOption::Emulation(19200),
-    BaudOption::Emulation(38400),
-    BaudOption::Emulation(57600),
-    BaudOption::Emulation(76800),
-    BaudOption::Emulation(115_200),
-];
-
 fn render_terminal_category(window: &mut MainWindow, ui: &mut egui::Ui) {
     let adr = window.get_address_mut(window.selected_bbs);
     egui::Grid::new("some_unique_id")
@@ -612,7 +597,7 @@ fn render_terminal_category(window: &mut MainWindow, ui: &mut egui::Ui) {
                 .selected_text(RichText::new(format!("{}", adr.baud_emulation)))
                 .width(250.)
                 .show_ui(ui, |ui| {
-                    for b in &BAUD_EMU_OPTIONS {
+                    for b in &BaudEmulation::OPTIONS {
                         let label = RichText::new(format!("{b}"));
                         ui.selectable_value(&mut adr.baud_emulation, *b, label);
                     }
