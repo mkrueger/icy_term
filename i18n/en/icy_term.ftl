@@ -46,6 +46,7 @@ terminal-phonebook = Dialing directory
 terminal-menu = Menu
 terminal-menu-copy = Copy
 terminal-menu-paste = Paste
+terminal-menu-export = Export buffer…
 
 protocol-select-download = Select download protocol
 protocol-select-upload = Select upload protocol

@@ -10,6 +10,9 @@ Features supported so far:
   - [x] Raw
 - Terminal encoding support
   - [x] Ansi
+    - Ansi music
+    - Sixel support
+    - Loadable fonts
   - [x] Avatar
   - [x] Petscii
   - [x] Built in fonts, many DOS fonts, C64, Amiga & Atari font supported.
@@ -25,7 +28,7 @@ Features supported so far:
   - [x] Terminate style auto login system
 - Misc features
   - [x] Scrollback buffer (scrollwheel)
-  - [ ] Exporting buffer to disk
+  - [x] Exporting buffer to disk & capture session
   - [ ] IEMSI/Autologin editor (you need to edit it as text for the moment)
   - [x] Better rendering engine (maybe switching the UI to OpenGL)
   - [x] Copy & Paste

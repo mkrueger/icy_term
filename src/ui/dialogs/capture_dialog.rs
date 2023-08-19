@@ -38,7 +38,7 @@ pub fn show_dialog(window: &mut MainWindow, ctx: &egui::Context) {
                     changed = true;
                 }
                 if ui.button("…").clicked() {
-                    let files = rfd::FileDialog::new().save_file();
+                    let files: Option<std::path::PathBuf> = rfd::FileDialog::new().save_file();
                     if let Some(path) = files {
                         if let Some(s) = path.to_str() {
                             window.options.capture_filename = s.to_string();

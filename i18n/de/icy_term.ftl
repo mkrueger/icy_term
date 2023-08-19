@@ -43,6 +43,7 @@ terminal-autologin = Username/Passwort senden
 terminal-phonebook = Telefonbuch
 terminal-menu-copy = Kopieren
 terminal-menu-paste = Einfügen
+terminal-menu-export = Buffer exportieren…
 
 protocol-select-download = Download-Protokoll wählen
 protocol-select-upload = Upload-Protokoll wählen

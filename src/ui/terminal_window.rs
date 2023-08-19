@@ -1,5 +1,5 @@
 #![allow(clippy::float_cmp)]
-use std::cmp::max;
+use std::{cmp::max, ffi::OsStr, fs::File, io::Write};
 
 use clipboard::{ClipboardContext, ClipboardProvider};
 use eframe::{
@@ -7,6 +7,7 @@ use eframe::{
     epaint::{Color32, FontFamily, FontId, Rect, Vec2},
 };
 use i18n_embed_fl::fl;
+use icy_engine::SaveOptions;
 
 use super::{MainWindow, MainWindowMode};
 
@@ -266,7 +267,7 @@ impl MainWindow {
                 // if self.buffer_view.lock().buf.terminal_state.mouse_mode
                 //     != icy_engine::MouseMode::VT200
                 {
-                    response = response.context_menu(terminal_context_menu);
+                    response = response.context_menu(|ui| terminal_context_menu(ui, self));
                 }
 
                 if matches!(self.mode, MainWindowMode::ShowTerminal) && ui.is_enabled() {
@@ -515,7 +516,7 @@ impl MainWindow {
     }
 }
 
-fn terminal_context_menu(ui: &mut egui::Ui) {
+fn terminal_context_menu(ui: &mut egui::Ui, window: &MainWindow) {
     ui.input_mut(|i| i.events.clear());
 
     if ui
@@ -535,5 +536,44 @@ fn terminal_context_menu(ui: &mut egui::Ui) {
             ui.input_mut(|i| i.events.push(egui::Event::Paste(text)));
         }
         ui.close_menu();
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        ui.separator();
+        if ui
+            .add(egui::Button::new(fl!(crate::LANGUAGE_LOADER, "terminal-menu-export")).wrap(false))
+            .clicked()
+        {
+            let files: Option<std::path::PathBuf> = rfd::FileDialog::new().save_file();
+            if let Some(path) = files {
+                if let Some(file_name) = path.to_str() {
+                    if let Ok(mut file) = File::create(file_name) {
+                        let content = if let Some(ext) = path.extension() {
+                            let ext = OsStr::to_str(ext).unwrap().to_lowercase();
+                            window
+                                .buffer_view
+                                .lock()
+                                .buf
+                                .to_bytes(ext.as_str(), &SaveOptions::new())
+                        } else {
+                            window
+                                .buffer_view
+                                .lock()
+                                .buf
+                                .to_bytes("ans", &SaveOptions::new())
+                        };
+                        let r = match content {
+                            Ok(content) => file.write_all(&content),
+                            Err(err) => file.write_all(err.to_string().as_bytes()),
+                        };
+                        if let Err(err) = r {
+                            log::error!("Error writing file: {}", err);
+                        }
+                    }
+                }
+            }
+            ui.close_menu();
+        }
     }
 }
