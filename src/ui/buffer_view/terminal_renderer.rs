@@ -7,6 +7,8 @@ use glow::HasContext as _;
 use icy_engine::Buffer;
 use web_time::Instant;
 
+use crate::prepare_shader;
+
 use super::Blink;
 use super::BufferView;
 
@@ -589,8 +591,8 @@ unsafe fn compile_shader(gl: &glow::Context) -> glow::Program {
     let program = gl.create_program().expect("Cannot create program");
 
     let (vertex_shader_source, fragment_shader_source) = (
-        crate::ui::buffer_view::SHADER_SOURCE,
-        include_str!("terminal_renderer.shader.frag"),
+        prepare_shader!(crate::ui::buffer_view::SHADER_SOURCE),
+        prepare_shader!(include_str!("terminal_renderer.shader.frag")),
     );
     let shader_sources = [
         (glow::VERTEX_SHADER, vertex_shader_source),

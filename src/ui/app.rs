@@ -95,6 +95,7 @@ impl MainWindow {
 
         let mut style: egui::Style = (*ctx.style()).clone();
         style.spacing.window_margin = egui::Margin::same(8.0);
+
         //        style.spacing.button_padding = Vec2::new(4., 2.);
         style.text_styles = [
             (Heading, FontId::new(24.0, Proportional)),

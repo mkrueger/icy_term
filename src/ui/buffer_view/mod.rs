@@ -252,8 +252,20 @@ impl BufferView {
     }
 }
 
-const SHADER_SOURCE: &str = r#"#version 300 es
-precision highp float;
+#[cfg(not(target_arch = "wasm32"))]
+const SHADER_VERSION: &str = "#version 330";
+
+#[cfg(target_arch = "wasm32")]
+const SHADER_VERSION: &str = "#version 300 es";
+
+#[macro_export]
+macro_rules! prepare_shader {
+    ($shader: expr) => {{
+        format!("{}\n{}", $crate::ui::buffer_view::SHADER_VERSION, $shader)
+    }};
+}
+
+const SHADER_SOURCE: &str = r#"precision highp float;
 
 const float low  = -1.0;
 const float high = 1.0;
