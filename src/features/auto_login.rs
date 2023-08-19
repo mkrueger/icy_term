@@ -113,7 +113,7 @@ impl AutoLogin {
 
     pub fn try_login(
         &mut self,
-        con_opt: &mut Option<Connection>,
+        connection: &mut Connection,
         adr: &Address,
         ch: u8,
         options: &Options,
@@ -133,9 +133,7 @@ impl AutoLogin {
         self.last_char_recv = Instant::now();
         self.got_name |= self.name_recognizer.push_ch(ch) | self.login_recognizer.push_ch(ch);
 
-        if let Some(con) = con_opt {
-            self.logged_in |= self.iemsi.try_login(con, adr, ch, options)?;
-        }
+        self.logged_in |= self.iemsi.try_login(connection, adr, ch, options)?;
         Ok(())
     }
 

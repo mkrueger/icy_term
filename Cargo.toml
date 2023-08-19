@@ -68,6 +68,7 @@ i18n-embed = { version = "0.13.9", features = ["fluent-system", "web-sys-request
 console_error_panic_hook = "0.1.7"
 tracing-wasm = "0.2"
 wasm-bindgen-futures = "0.4"
+wasm_thread = { version = "0.2.0", features = ["es_modules"]}
 
 [build-dependencies]
 winres = "0.1"
