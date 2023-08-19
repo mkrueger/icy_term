@@ -264,28 +264,6 @@ impl OutputRenderer {
                 glow::CLAMP_TO_EDGE as i32,
             );
 
-            let depth_buffer = gl.create_renderbuffer().unwrap();
-            gl.bind_renderbuffer(glow::RENDERBUFFER, Some(depth_buffer));
-            gl.renderbuffer_storage(
-                glow::RENDERBUFFER,
-                glow::DEPTH_COMPONENT,
-                render_buffer_size.x as i32,
-                render_buffer_size.y as i32,
-            );
-            gl.framebuffer_renderbuffer(
-                glow::FRAMEBUFFER,
-                glow::DEPTH_ATTACHMENT,
-                glow::RENDERBUFFER,
-                Some(depth_buffer),
-            );
-            gl.framebuffer_texture_2d(
-                glow::FRAMEBUFFER,
-                glow::COLOR_ATTACHMENT0,
-                glow::TEXTURE_2D,
-                Some(render_texture),
-                0,
-            );
-
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
             self.render_texture = render_texture;
             self.render_buffer_size = render_buffer_size;
@@ -370,26 +348,5 @@ unsafe fn create_screen_render_texture(
         glow::CLAMP_TO_EDGE as i32,
     );
 
-    let depth_buffer = gl.create_renderbuffer().unwrap();
-    gl.bind_renderbuffer(glow::RENDERBUFFER, Some(depth_buffer));
-    gl.renderbuffer_storage(
-        glow::RENDERBUFFER,
-        glow::DEPTH_COMPONENT,
-        render_buffer_size.x as i32,
-        render_buffer_size.y as i32,
-    );
-    gl.framebuffer_renderbuffer(
-        glow::FRAMEBUFFER,
-        glow::DEPTH_ATTACHMENT,
-        glow::RENDERBUFFER,
-        Some(depth_buffer),
-    );
-    gl.framebuffer_texture_2d(
-        glow::FRAMEBUFFER,
-        glow::COLOR_ATTACHMENT0,
-        glow::TEXTURE_2D,
-        Some(render_texture),
-        0,
-    );
     render_texture
 }
