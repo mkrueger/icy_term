@@ -84,7 +84,7 @@ impl FileTransferDialog {
                                 "transfer-protocol"
                             )));
                             ui.label(
-                                RichText::new(state.protocol_name.clone()).color(Color32::WHITE),
+                                RichText::new(state.protocol_name.clone()),
                             );
                         });
                     });
@@ -95,7 +95,7 @@ impl FileTransferDialog {
                                 crate::LANGUAGE_LOADER,
                                 "transfer-checksize"
                             )));
-                            ui.label(RichText::new(check).color(Color32::WHITE));
+                            ui.label(RichText::new(check));
                         });
 
                         row.col(|ui| {
@@ -103,14 +103,14 @@ impl FileTransferDialog {
                                 crate::LANGUAGE_LOADER,
                                 "transfer-elapsedtime"
                             )));
-                            ui.label(RichText::new(elapsed_time).color(Color32::WHITE));
+                            ui.label(RichText::new(elapsed_time));
                         });
                     });
                 });
 
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-file")));
-                    ui.label(RichText::new(file_name).color(Color32::WHITE));
+                    ui.label(RichText::new(file_name));
                 });
                 ui.add(
                     ProgressBar::new(
@@ -127,8 +127,7 @@ impl FileTransferDialog {
                     ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-rate")));
                     let bps = bb.bytes(transfer_info.get_bps()).to_string();
                     ui.label(
-                        RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-bps", bps = bps))
-                            .color(Color32::WHITE),
+                        RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-bps", bps = bps)),
                     );
                 });
 

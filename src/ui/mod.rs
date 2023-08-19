@@ -20,7 +20,7 @@ use crate::util::{beep, play_music, Rng};
 use crate::Options;
 use crate::{
     addresses::{store_phone_book, Address},
-    com::{ComRawImpl, ComTelnetImpl, SendData},
+    com::{ComRawImpl, ComTelnetImpl, ssh::SSHComImpl, SendData},
     protocol::FileDescriptor,
     TerminalResult,
 };
@@ -39,8 +39,8 @@ pub use terminal_window::*;
 
 pub mod util;
 pub use util::*;
-
 pub mod dialogs;
+
 
 // pub mod simulate;
 
@@ -331,7 +331,7 @@ impl MainWindow {
             let mut com: Box<dyn Com> = match ct {
                 crate::addresses::Protocol::Telnet => Box::new(ComTelnetImpl::new(window_size)),
                 crate::addresses::Protocol::Raw => Box::new(ComRawImpl::new()),
-                crate::addresses::Protocol::Ssh => panic!(), //Box::new(crate::com::SSHCom::new()),
+                crate::addresses::Protocol::Ssh => Box::new(SSHComImpl::new(window_size)),
             };
             if let Err(err) = com.connect(&call_adr, timeout) {
                 Err(err)

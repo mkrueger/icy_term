@@ -740,12 +740,10 @@ impl egui::Widget for AddressRow {
             star_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
         let star_text_size = star_text.size();
 
-        let mut rt = RichText::new(addr.system_name.clone())
+        let rt = RichText::new(addr.system_name.clone())
             .font(FontId::new(16., FontFamily::Proportional))
             .strong();
-        if !centered {
-            rt = rt.color(Color32::WHITE);
-        }
+
         let name_text = WidgetText::from(rt);
         let name_text = name_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
         let name_text_size = name_text.size();

@@ -25,6 +25,7 @@ eframe = { version = "0.22.0", default-features = false, features = [
 egui_extras = { version="0.22.0" }
 egui_glow = "0.22.0"
 glow = "0.12.2"
+dark-light = "1.0.0"
 
 #sound
 cpal = "0.15.2"
@@ -50,7 +51,7 @@ env_logger = "0.9.0"
 web-time = "0.2.0"
 # possible ssh options:
 
-# libssh-rs =  { version = "0.2.0", features = ["vendored", "vendored-openssl"] }
+libssh-rs =  { version = "0.2.0", features = ["vendored", "vendored-openssl"] }
 
 # thrussh = "0.34.0"
 # thrussh-keys = "0.22.1"
