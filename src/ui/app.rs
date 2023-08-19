@@ -8,7 +8,6 @@ use icy_engine::ansi;
 
 use crate::{
     features::{AutoFileTransfer, AutoLogin},
-    protocol::TransferState,
     ui::{dialogs::PhonebookFilter, BufferView, ScreenMode},
     util::Rng,
     Options,

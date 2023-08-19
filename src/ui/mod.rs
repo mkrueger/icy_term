@@ -163,7 +163,9 @@ impl MainWindow {
                 play_music(&music);
             }
             icy_engine::CallbackAction::Beep => {
-                beep();
+                if self.options.console_beep {
+                    beep();
+                }
             }
             icy_engine::CallbackAction::ChangeBaudRate(baud_rate) => {
                 if let Some(con) = &mut self.connection_opt {

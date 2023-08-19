@@ -67,6 +67,8 @@ pub struct Options {
     pub monitor_settings: MonitorSettings,
     pub capture_filename: String,
 
+    pub console_beep: bool,
+
     pub iemsi_autologin: bool,
     pub iemsi_alias: String,
     pub iemsi_location: String,
@@ -86,6 +88,7 @@ impl Default for Options {
             iemsi_location: String::default(),
             iemsi_data_phone: String::default(),
             iemsi_voice_phone: String::default(),
+            console_beep: true,
         }
     }
 }
@@ -171,6 +174,8 @@ impl Options {
                 )
                 .as_bytes(),
             )?;
+
+            file.write_all(format!("console_beep = {}\n", self.console_beep).as_bytes())?;
 
             file.write_all("[IEMSI]\n".to_string().as_bytes())?;
 
@@ -275,9 +280,9 @@ fn parse_value(options: &mut Options, value: &Value) {
                         }
                     }
 
-                    "iemsi_autologin" => {
-                        if let Value::String(str) = v {
-                            options.capture_filename = str.clone();
+                    "console_beep" => {
+                        if let Value::Boolean(b) = v {
+                            options.console_beep = *b;
                         }
                     }
 

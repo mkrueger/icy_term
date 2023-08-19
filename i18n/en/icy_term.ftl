@@ -32,6 +32,9 @@ settings-monitor-futuristic = Futuristic
 settings-scaling-nearest = Nearest
 settings-scaling-linear = Linear
 
+settings-terminal-category = Terminal
+settings-terminal-console-beep-checkbox = Console beep
+
 phonebook-connect-to = Quick connect to…
 phonebook-new_bbs = New BBS
 phonebook-name-placeholder = BBS name

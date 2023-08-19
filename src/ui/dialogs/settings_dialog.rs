@@ -52,11 +52,21 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
                 {
                     window.settings_category = 1;
                 }
+                if ui
+                    .selectable_label(
+                        window.settings_category == 2,
+                        fl!(crate::LANGUAGE_LOADER, "settings-terminal-category"),
+                    )
+                    .clicked()
+                {
+                    window.settings_category = 2;
+                }
             });
             ui.separator();
             match window.settings_category {
                 0 => show_monitor_settings(window, ui),
                 1 => show_iemsi_settings(window, ui),
+                2 => show_terminal_settings(window, ui),
                 _ => log::error!("Invalid settings category"),
             }
             ui.separator();
@@ -68,9 +78,10 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
                 {
                     close_dialog = true;
                 }
-                if ui
-                    .button(fl!(crate::LANGUAGE_LOADER, "settings-reset-button"))
-                    .clicked()
+                if window.settings_category == 0
+                    && ui
+                        .button(fl!(crate::LANGUAGE_LOADER, "settings-reset-button"))
+                        .clicked()
                 {
                     window.options.scaling = Scaling::Nearest;
                     window.buffer_view.lock().monitor_settings = MonitorSettings::default();
@@ -139,6 +150,21 @@ fn show_iemsi_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.end_row();
         });
     if old_options != window.options {
+        window.handle_result(window.options.store_options(), false);
+    }
+}
+
+fn show_terminal_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
+    if ui
+        .checkbox(
+            &mut window.options.console_beep,
+            fl!(
+                crate::LANGUAGE_LOADER,
+                "settings-terminal-console-beep-checkbox"
+            ),
+        )
+        .changed()
+    {
         window.handle_result(window.options.store_options(), false);
     }
 }
