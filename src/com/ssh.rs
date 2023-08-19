@@ -30,15 +30,15 @@ impl SSHComImpl {
     }
 
     fn parse_address(addr: &Address) -> TermComResult<(String, u16)> {
-        let components: Vec<&str> = addr.address.split(":").collect();
-        match components.get(0) {
+        let components: Vec<&str> = addr.address.split(':').collect();
+        match components.first() {
             Some(host) => {
                 match components.get(1) {
                     Some(port_str) => {
                         let port = port_str.parse()?;
-                        Ok((host.to_string(), port))
+                        Ok(((*host).to_string(), port))
                     }
-                    _ => Ok((host.to_string(),  Self::default_port()))
+                    _ => Ok(((*host).to_string(),  Self::default_port()))
                 }
             }
             _ => Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid address")))
@@ -64,9 +64,6 @@ impl Com for SSHComImpl {
 
         sess.set_option(SshOption::Hostname(host))?;
         sess.set_option(SshOption::Port(port))?;
-        // sess.set_option(SshOption::PublicKeyAcceptedTypes(
-        //     ACCEPTED_PK_TYPES.to_string(),
-        // ))?;
         sess.options_parse_config(None)?;
         sess.connect()?;
 
@@ -115,10 +112,10 @@ impl Com for SSHComImpl {
         Ok(Vec::new())
     }
 
-    fn send<'a>(&mut self, buf: &'a [u8]) -> TermComResult<usize> {
+    fn send(&mut self, buf: &[u8]) -> TermComResult<usize> {
         let channel = self.channel.as_mut().unwrap().clone();
         let locked = channel.lock().unwrap();
-        locked.stdin().write_all(&buf)?;
+        locked.stdin().write_all(buf)?;
         Ok(buf.len())
     }
 
