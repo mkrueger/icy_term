@@ -180,7 +180,9 @@ impl eframe::App for MainWindow {
                         };
                         state.clone()
                     };
-
+                    if state.is_finished {
+                        self.mode = MainWindowMode::ShowTerminal;
+                    }
                     if !self
                         .file_transfer_dialog
                         .show_dialog(ctx, frame, &state, download)

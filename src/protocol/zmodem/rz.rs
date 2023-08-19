@@ -240,7 +240,7 @@ impl Rz {
                                 file_size = file_size * 10 + (*b - b'0') as usize;
                             }
                             transfer_info.log_info(format!(
-                                "Start file tranfer: {file_name} ({file_size} bytes)"
+                                "Start file transfer: {file_name} ({file_size} bytes)"
                             ));
                             storage_handler.open_file(&file_name, file_size);
 

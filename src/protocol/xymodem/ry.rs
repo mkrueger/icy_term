@@ -170,7 +170,7 @@ impl Ry {
 
                         let cur_file = self.files.len() - 1;
                         let fd = self.files.get_mut(cur_file).unwrap();
-                        transfer_info.log_info(format!("Start file tranfer: {}", fd.file_name));
+                        transfer_info.log_info(format!("Start file transfer: {}", fd.file_name));
 
                         storage_handler.open_file(&fd.file_name, 0);
                         storage_handler.append(&self.data);

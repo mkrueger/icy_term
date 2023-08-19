@@ -131,6 +131,7 @@ where
     };
     let err_fn = |err| log::error!("Error building output sound stream: {err}");
     let mut on_sample = on_sample;
+
     let stream = device.build_output_stream(
         config,
         move |output: &mut [T], _: &cpal::OutputCallbackInfo| {
