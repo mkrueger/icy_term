@@ -165,7 +165,16 @@ system_name = "dura-bbs.net:6359"
 address = "dura-bbs.net:6359"
 protocol = "Telnet"
 terminal_type = "Ansi"
+screen_mode = "Vga(80, 25)
+
+[[addresses]]
+system_name = "Xibalba"
+is_favored = false
+address = "xibalba.l33t.codes:44510"
+protocol = "Telnet"
+terminal_type = "Ansi"
 screen_mode = "Vga(80, 25)"
+comment = "ENiGMA½ WHQ""
 "#;
 
 static mut current_id: usize = 0;
