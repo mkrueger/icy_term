@@ -55,6 +55,7 @@ impl Ry {
         transfer_state: &mut TransferState,
         storage_handler: &mut dyn FileStorageHandler,
     ) -> TermComResult<()> {
+        transfer_state.update_time();
         let transfer_info = &mut transfer_state.recieve_state;
         if !self.files.is_empty() {
             let cur_file = self.files.len() - 1;
@@ -169,8 +170,13 @@ impl Ry {
 
                         let cur_file = self.files.len() - 1;
                         let fd = self.files.get_mut(cur_file).unwrap();
+                        transfer_info.log_info(format!("Start file tranfer: {}", fd.file_name));
+
                         storage_handler.open_file(&fd.file_name, 0);
                         storage_handler.append(&self.data);
+                        transfer_info.log_info("File transferred.");
+                        transfer_info.files_finished.push(fd.file_name.to_string());
+
                         storage_handler.close();
                         self.data = Vec::new();
 

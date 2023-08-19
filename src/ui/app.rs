@@ -8,6 +8,7 @@ use icy_engine::ansi;
 
 use crate::{
     features::{AutoFileTransfer, AutoLogin},
+    protocol::TransferState,
     ui::{dialogs::PhonebookFilter, BufferView, ScreenMode},
     util::Rng,
     Options,
@@ -65,13 +66,10 @@ impl MainWindow {
             capture_session: false,
             show_capture_error: false,
             settings_category: 0,
+            file_transfer_dialog: crate::ui::dialogs::FileTransferDialog::default(),
         };
 
-        let args: Vec<String> = std::env::args().collect();
-        if let Some(arg) = args.get(1) {
-            view.addresses[0].address = arg.clone();
-            view.call_bbs(0);
-        }
+        parse_command_line(&mut view);
 
         //view.address_list.selected_item = 1;
         // view.set_screen_mode(&ScreenMode::Viewdata);
@@ -81,7 +79,17 @@ impl MainWindow {
             view.mode = MainWindowMode::ShowTerminal;
             super::simulate::run_sim(&mut view);
         }*/
+        /*
+                view.mode = MainWindowMode::FileTransfer(true);
 
+                let mut transfer = TransferState::default();
+
+                {}
+                transfer.recieve_state.log_info("Hello World");
+                transfer.recieve_state.log_warning("Hello World");
+                transfer.recieve_state.log_error("Hello World");
+                view.current_transfer = Some(Arc::new(std::sync::Mutex::new(transfer)));
+        */
         let ctx = &cc.egui_ctx;
 
         let mut style: egui::Style = (*ctx.style()).clone();
@@ -98,6 +106,15 @@ impl MainWindow {
         ctx.set_style(style);
 
         view
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn parse_command_line(view: &mut MainWindow) {
+    let args: Vec<String> = std::env::args().collect();
+    if let Some(arg) = args.get(1) {
+        view.addresses[0].address = arg.clone();
+        view.call_bbs(0);
     }
 }
 
@@ -146,19 +163,37 @@ impl eframe::App for MainWindow {
                 self.update_terminal_window(ctx, frame);
                 super::dialogs::view_selector(self, ctx, frame, download);
             }
+
             MainWindowMode::FileTransfer(download) => {
-                if self.connection_opt.as_mut().unwrap().should_end_transfer() {
-                    self.auto_file_transfer.reset();
+                if let Some(con) = self.connection_opt.as_mut() {
+                    if con.should_end_transfer() {
+                        self.auto_file_transfer.reset();
+                    }
                 }
 
                 self.update_terminal_window(ctx, frame);
                 if let Some(a) = &mut self.current_transfer {
-                    // self.print_result(&r);
-                    if !super::dialogs::view_filetransfer(ctx, frame, &a.lock().unwrap(), download)
+                    let state = {
+                        let Ok(state) = a.lock() else {
+                            log::error!("In file transfer but can't lock state.");
+                            self.mode = MainWindowMode::ShowTerminal;
+                            return;
+                        };
+                        state.clone()
+                    };
+
+                    if !self
+                        .file_transfer_dialog
+                        .show_dialog(ctx, frame, &state, download)
                     {
                         self.mode = MainWindowMode::ShowTerminal;
-                        let res = self.connection_opt.as_mut().unwrap().cancel_transfer();
-                        self.handle_result(res, true);
+                        if let Some(con) = self.connection_opt.as_mut() {
+                            let res = con.cancel_transfer();
+                            self.handle_result(res, true);
+                        } else {
+                            log::error!("In file transfer but connection lost.");
+                            self.mode = MainWindowMode::ShowTerminal;
+                        }
                     }
                 } else {
                     log::error!("In file transfer but no current protocol.");

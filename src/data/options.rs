@@ -207,21 +207,6 @@ impl Options {
 
 fn parse_value(options: &mut Options, value: &Value) {
     match value {
-        Value::String(string) => {
-            println!("a string --> {string}");
-        }
-        Value::Integer(integer) => {
-            println!("an integer --> {integer}");
-        }
-        Value::Float(float) => {
-            println!("a float --> {float}");
-        }
-        Value::Boolean(boolean) => {
-            println!("a boolean --> {boolean}");
-        }
-        Value::Datetime(datetime) => {
-            println!("a datetime --> {datetime}");
-        }
         Value::Array(array) => {
             for v in array {
                 parse_value(options, v);
@@ -300,6 +285,7 @@ fn parse_value(options: &mut Options, value: &Value) {
                 }
             }
         }
+        _ => {}
     }
 }
 

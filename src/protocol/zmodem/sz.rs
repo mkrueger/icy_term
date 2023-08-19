@@ -127,6 +127,7 @@ impl Sz {
             return Ok(());
         }
 
+        transfer_state.update_time();
         let transfer_info = &mut transfer_state.send_state;
         if self.cur_file >= 0 {
             if let Some(fd) = self.files.get(usize::try_from(self.cur_file).unwrap()) {
@@ -138,7 +139,6 @@ impl Sz {
         transfer_info.errors = self.errors;
         transfer_info.check_size = format!("Crc32/{}", self.package_len);
         transfer_info.update_bps();
-        println!("sender state: {:?}", self.state);
         match self.state {
             SendState::Await | SendState::AwaitZRPos => {
                 self.read_next_header(com)?;

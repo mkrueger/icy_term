@@ -84,6 +84,8 @@ pub struct MainWindow {
     pub open_connection_promise: Option<JoinHandle<TermComResult<Box<dyn Com>>>>,
 
     pub settings_category: usize,
+
+    file_transfer_dialog: dialogs::FileTransferDialog,
 }
 
 impl MainWindow {
@@ -369,7 +371,7 @@ impl MainWindow {
         } else {
             None
         };
-        
+
         if let Some(data) = data_opt {
             if self.capture_session {
                 if let Ok(mut data_file) = std::fs::OpenOptions::new()
@@ -568,18 +570,17 @@ impl MainWindow {
                             transfer_state,
                             files_opt,
                         ) => {
+                            let mut copy_state = transfer_state.lock().unwrap().clone();
+
                             let mut protocol = protocol_type.create();
 
                             if let Err(err) = if download {
-                                protocol.initiate_recv(
-                                    &mut handle.lock().unwrap(),
-                                    &mut transfer_state.lock().unwrap(),
-                                )
+                                protocol.initiate_recv(&mut handle.lock().unwrap(), &mut copy_state)
                             } else {
                                 protocol.initiate_send(
                                     &mut handle.lock().unwrap(),
                                     files_opt.unwrap(),
-                                    &mut transfer_state.lock().unwrap(),
+                                    &mut copy_state,
                                 )
                             } {
                                 log::error!("{err}");
@@ -590,7 +591,7 @@ impl MainWindow {
                             loop {
                                 let v = protocol.update(
                                     &mut handle.lock().unwrap(),
-                                    &mut transfer_state.lock().unwrap(),
+                                    &mut copy_state,
                                     &mut storage_handler,
                                 );
                                 match v {
@@ -601,7 +602,7 @@ impl MainWindow {
                                     }
                                     Err(err) => {
                                         log::error!("Error, aborting protocol: {err}");
-                                        transfer_state.lock().unwrap().is_finished = true;
+                                        copy_state.is_finished = true;
                                         break;
                                     }
                                 }
@@ -611,7 +612,9 @@ impl MainWindow {
                                         .unwrap_or_default();
                                     break;
                                 }
+                                *transfer_state.lock().unwrap() = copy_state.clone();
                             }
+                            *transfer_state.lock().unwrap() = copy_state.clone();
                             #[cfg(not(target_arch = "wasm32"))]
                             if let Some(user_dirs) = directories::UserDirs::new() {
                                 let dir = user_dirs.download_dir().unwrap();

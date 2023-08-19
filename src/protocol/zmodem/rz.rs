@@ -8,7 +8,7 @@ use crate::{
     com::{Com, TermComResult},
     protocol::{
         str_from_null_terminated_utf8_unchecked, FileStorageHandler, Header, HeaderType,
-        TransferState, ZFrameType, Zmodem, ZCRCE, ZCRCG, ZCRCW,
+        TransferInformation, TransferState, ZFrameType, Zmodem, ZCRCE, ZCRCG, ZCRCW,
     },
 };
 
@@ -91,6 +91,7 @@ impl Rz {
             self.cancel(com)?;
             return Ok(());
         }
+        transfer_state.update_time();
         let transfer_info = &mut transfer_state.recieve_state;
 
         if let Some(file) = storage_handler.current_file_name() {
@@ -103,7 +104,7 @@ impl Rz {
         transfer_info.update_bps();
         match self.state {
             RevcState::SendZRINIT => {
-                if self.read_header(com, storage_handler)? {
+                if self.read_header(com, storage_handler, transfer_info)? {
                     return Ok(());
                 }
                 /*  let now = Instant::now();
@@ -120,7 +121,7 @@ impl Rz {
                     self.retries += 1;
                     self.last_send = Instant::now();
                 }
-                self.read_header(com, storage_handler)?;
+                self.read_header(com, storage_handler, transfer_info)?;
             }
             RevcState::AwaitFileData => {
                 let pck =
@@ -133,14 +134,13 @@ impl Rz {
                         }
                         storage_handler.append(&block);
                         if is_last {
-                            storage_handler.close();
                             self.state = RevcState::AwaitEOF;
                         }
                     }
                     Err(err) => {
                         self.errors += 1;
                         log::error!("{err}");
-                        transfer_info._write(format!("sub package error: {err}"));
+                        transfer_info.log_error(format!("sub package error: {err}"));
                         if storage_handler.current_file_name().is_some() {
                             Header::from_number(
                                 self.get_header_type(),
@@ -155,7 +155,7 @@ impl Rz {
                 }
             }
             _ => {
-                self.read_header(com, storage_handler)?;
+                self.read_header(com, storage_handler, transfer_info)?;
             }
         }
         Ok(())
@@ -170,6 +170,7 @@ impl Rz {
         &mut self,
         com: &mut Box<dyn Com>,
         storage_handler: &mut dyn FileStorageHandler,
+        transfer_info: &mut TransferInformation,
     ) -> TermComResult<bool> {
         let result = Header::read(com, &mut self.can_count);
         if result.is_err() {
@@ -238,6 +239,9 @@ impl Rz {
                                 }
                                 file_size = file_size * 10 + (*b - b'0') as usize;
                             }
+                            transfer_info.log_info(format!(
+                                "Start file tranfer: {file_name} ({file_size} bytes)"
+                            ));
                             storage_handler.open_file(&file_name, file_size);
 
                             self.state = RevcState::AwaitZDATA;
@@ -283,8 +287,13 @@ impl Rz {
                 }
                 ZFrameType::Eof => {
                     self.send_zrinit(com)?;
+                    transfer_info.log_info("File transferred.");
+
+                    transfer_info
+                        .files_finished
+                        .push(storage_handler.current_file_name().unwrap().clone());
+
                     storage_handler.close();
-                    //transfer_state.write("Got eof".to_string());
                     self.state = RevcState::SendZRINIT;
                     return Ok(true);
                 }

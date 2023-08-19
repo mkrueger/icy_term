@@ -13,7 +13,7 @@ pub fn show_dialog(window: &mut MainWindow, ctx: &egui::Context) {
     let mut open = true;
     let mut close_dialog = false;
     let mut changed = true;
-    if ctx.input(|i| i.key_down(egui::Key::Escape)) {
+    if ctx.input(|i: &egui::InputState| i.key_down(egui::Key::Escape)) {
         open = false;
     }
     let window_frame = Frame::window(&ctx.style());

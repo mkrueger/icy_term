@@ -66,6 +66,7 @@ impl Sy {
         com: &mut Box<dyn Com>,
         transfer_state: &mut TransferState,
     ) -> TermComResult<()> {
+        transfer_state.update_time();
         let transfer_info = &mut transfer_state.send_state;
         if self.cur_file < self.files.len() {
             let f = &self.files[self.cur_file];

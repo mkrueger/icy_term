@@ -93,19 +93,27 @@ impl Default for FileDescriptor {
 }
 
 #[derive(Debug, Clone)]
+pub enum OutputLogMessage {
+    Info(String),
+    Warning(String),
+    Error(String),
+}
+
+#[derive(Debug, Clone)]
 pub struct TransferInformation {
     pub file_name: String,
     pub file_size: usize,
     pub bytes_transfered: usize,
 
-    pub errors: usize,
+    errors: usize,
+    warnings: usize,
     pub files_finished: Vec<String>,
     pub check_size: String,
     time: Instant,
     bytes_transferred_timed: usize,
     pub bps: u64,
 
-    pub output_log: Vec<String>,
+    output_log: Vec<OutputLogMessage>,
 }
 
 impl TransferInformation {
@@ -135,8 +143,54 @@ impl TransferInformation {
         self.bps
     }
 
-    pub fn _write(&mut self, txt: String) {
-        self.output_log.push(txt);
+    pub fn has_log_entries(&self) -> bool {
+        !self.output_log.is_empty()
+    }
+
+    pub fn errors(&self) -> usize {
+        self.errors
+    }
+
+    pub fn warnings(&self) -> usize {
+        self.warnings
+    }
+
+    pub fn log_count(&self) -> usize {
+        self.output_log.len()
+    }
+
+    /// Get's a log message where
+    /// `category` 0 = all, 1 = warnings, 2 = errors
+    /// `index` is the index of the message
+    pub fn get_log_message(&self, category: usize, index: usize) -> Option<&OutputLogMessage> {
+        match category {
+            0 => self.output_log.get(index),
+            1 => self
+                .output_log
+                .iter()
+                .filter(|p| matches!(p, OutputLogMessage::Warning(_)))
+                .nth(index),
+            2 => self
+                .output_log
+                .iter()
+                .filter(|p| matches!(p, OutputLogMessage::Error(_)))
+                .nth(index),
+            _ => None,
+        }
+    }
+
+    pub fn log_info(&mut self, txt: impl Into<String>) {
+        self.output_log.push(OutputLogMessage::Info(txt.into()));
+    }
+
+    pub fn log_warning(&mut self, txt: impl Into<String>) {
+        self.warnings += 1;
+        self.output_log.push(OutputLogMessage::Warning(txt.into()));
+    }
+
+    pub fn log_error(&mut self, txt: impl Into<String>) {
+        self.errors += 1;
+        self.output_log.push(OutputLogMessage::Error(txt.into()));
     }
 }
 
@@ -147,6 +201,7 @@ impl Default for TransferInformation {
             file_size: 0,
             bytes_transfered: 0,
             errors: 0,
+            warnings: 0,
             files_finished: Vec::new(),
             check_size: String::new(),
             time: Instant::now(),
@@ -163,6 +218,7 @@ pub struct TransferState {
     pub is_finished: bool,
     pub protocol_name: String,
     pub start_time: Instant,
+    pub end_time: Instant,
     pub send_state: TransferInformation,
     pub recieve_state: TransferInformation,
 }
@@ -174,9 +230,16 @@ impl Default for TransferState {
             protocol_name: String::new(),
             is_finished: false,
             start_time: Instant::now(),
+            end_time: Instant::now(),
             send_state: TransferInformation::default(),
             recieve_state: TransferInformation::default(),
         }
+    }
+}
+
+impl TransferState {
+    pub fn update_time(&mut self) {
+        self.end_time = Instant::now();
     }
 }
 

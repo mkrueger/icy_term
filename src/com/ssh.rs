@@ -42,15 +42,11 @@ impl Com for SSHCom {
         sess.options_parse_config(None)?;
         sess.connect()?;
         let auth_methods = sess.userauth_list(Some(&addr.user_name))?;
-        println!("auth method: {:?}", auth_methods);
 
         sess.userauth_agent(Some(&addr.user_name))?;
-        println!("connect!!!");
         let chan = sess.new_channel()?;
         let mut result = [0u8; 1024];
         let size: usize = chan.read_timeout(&mut result, false, None)?;
-
-        println!("{:?}", &result[..size]);
 
         self.channel = Some(Arc::new(Mutex::new(chan)));
         self.session = Some(sess);

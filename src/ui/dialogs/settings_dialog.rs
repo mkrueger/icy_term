@@ -1,5 +1,5 @@
 use eframe::egui::{self, RichText};
-use egui::{Align, Layout, TextEdit, Vec2};
+use egui::{Layout, TextEdit, Vec2};
 use i18n_embed_fl::fl;
 
 use crate::{
