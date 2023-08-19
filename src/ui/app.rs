@@ -3,7 +3,7 @@
 use std::{sync::Arc, time::Duration};
 
 use eframe::egui::{self};
-use egui::FontId;
+use egui::{FontId, Vec2};
 use icy_engine::ansi;
 
 use crate::{
@@ -84,6 +84,8 @@ impl MainWindow {
         let ctx = &cc.egui_ctx;
 
         let mut style: egui::Style = (*ctx.style()).clone();
+        style.spacing.window_margin = egui::Margin::same(8.0);
+        //        style.spacing.button_padding = Vec2::new(4., 2.);
         style.text_styles = [
             (Heading, FontId::new(24.0, Proportional)),
             (Body, FontId::new(18.0, Proportional)),

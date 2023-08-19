@@ -76,3 +76,6 @@ toolbar-stop-capture=Aufnahmestopp
 
 capture-dialog-capture-checkbox=Sitzung aufnehmen
 capture-dialog-capture-label=Dateiname:
+capture-dialog-capture-title=Aufnahme
+capture-dialog-capture-button=Start
+capture-dialog-open-folder-button=Verzeichnis öffnen…

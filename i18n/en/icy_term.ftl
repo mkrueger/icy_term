@@ -77,5 +77,7 @@ menu-item-capture-dialog=Capture…
 
 toolbar-stop-capture=Stop capture
 
-capture-dialog-capture-checkbox=Record session
 capture-dialog-capture-label=Capture file:
+capture-dialog-capture-title=Capture
+capture-dialog-capture-button=Start
+capture-dialog-open-folder-button=Open folder…

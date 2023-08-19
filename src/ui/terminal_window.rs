@@ -6,6 +6,7 @@ use eframe::{
     egui::{self, CursorIcon, PointerButton, RichText, ScrollArea},
     epaint::{Color32, FontFamily, FontId, Rect, Vec2},
 };
+use egui::Button;
 use i18n_embed_fl::fl;
 use icy_engine::SaveOptions;
 
@@ -34,10 +35,10 @@ impl MainWindow {
                 }
                 ui.horizontal(|ui| {
                     let r = ui
-                        .button(
+                        .add(Button::new(
                             RichText::new("⬆")
                                 .font(FontId::new(img_size, FontFamily::Proportional)),
-                        )
+                        ))
                         .on_hover_ui(|ui| {
                             ui.label(
                                 RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-upload"))

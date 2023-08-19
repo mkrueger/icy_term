@@ -1,4 +1,5 @@
 use eframe::egui::{self, RichText};
+use egui::Layout;
 use i18n_embed_fl::fl;
 
 use crate::{
@@ -26,8 +27,8 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
         .open(&mut open)
         .collapsible(false)
         .resizable(false)
+        .frame(egui::Frame::window(&ctx.style()))
         .show(ctx, |ui| {
-            ui.add_space(8.0);
             egui::ComboBox::from_label(fl!(crate::LANGUAGE_LOADER, "settings-scaling"))
                 .selected_text(RichText::new(format!("{:?}", window.options.scaling)))
                 .show_ui(ui, |ui| {
@@ -139,21 +140,21 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
                 .text("Scanlines"),
             );
             ui.add_space(8.0);
-
             ui.separator();
-            ui.horizontal(|ui| {
+            ui.add_space(4.0);
+            ui.with_layout(Layout::right_to_left(egui::Align::TOP), |ui| {
+                if ui
+                    .button(fl!(crate::LANGUAGE_LOADER, "phonebook-ok-button"))
+                    .clicked()
+                {
+                    close_dialog = true;
+                }
                 if ui
                     .button(fl!(crate::LANGUAGE_LOADER, "settings-reset-button"))
                     .clicked()
                 {
                     window.options.scaling = Scaling::Nearest;
                     window.buffer_view.lock().monitor_settings = MonitorSettings::default();
-                }
-                if ui
-                    .button(fl!(crate::LANGUAGE_LOADER, "phonebook-ok-button"))
-                    .clicked()
-                {
-                    close_dialog = true;
                 }
             });
 
