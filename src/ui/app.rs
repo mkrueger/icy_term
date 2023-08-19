@@ -62,6 +62,8 @@ impl MainWindow {
             open_connection_promise: None,
             phonebook_filter_string: String::new(),
             rng: Rng::default(),
+            capture_session: false,
+            show_capture_error: false,
         };
 
         let args: Vec<String> = std::env::args().collect();
@@ -159,6 +161,14 @@ impl eframe::App for MainWindow {
                     log::error!("In file transfer but no current protocol.");
                     self.mode = MainWindowMode::ShowTerminal;
                 }
+                ctx.request_repaint_after(Duration::from_millis(150));
+            }
+            MainWindowMode::ShowCaptureDialog => {
+                let res = self.update_state();
+                self.update_terminal_window(ctx, frame);
+                self.handle_result(res, false);
+                super::dialogs::show_dialog(self, ctx);
+
                 ctx.request_repaint_after(Duration::from_millis(150));
             } // MainWindowMode::AskDeleteEntry => todo!(),
         }

@@ -142,7 +142,10 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
 
             ui.separator();
             ui.horizontal(|ui| {
-                if ui.button("Reset").clicked() {
+                if ui
+                    .button(fl!(crate::LANGUAGE_LOADER, "settings-reset-button"))
+                    .clicked()
+                {
                     window.options.scaling = Scaling::Nearest;
                     window.buffer_view.lock().monitor_settings = MonitorSettings::default();
                 }

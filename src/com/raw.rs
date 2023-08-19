@@ -64,7 +64,7 @@ impl Com for ComRawImpl {
         self.tcp_stream.as_mut().unwrap().set_nonblocking(false)?;
         let mut b = [0];
         match self.tcp_stream.as_mut().unwrap().read_exact(&mut b) {
-            Ok(_) => {
+            Ok(()) => {
                 self.tcp_stream.as_mut().unwrap().set_nonblocking(true)?;
                 Ok(b[0])
             }

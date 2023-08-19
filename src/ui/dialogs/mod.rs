@@ -9,3 +9,6 @@ pub use file_transfer::*;
 
 pub mod settings_dialog;
 pub use settings_dialog::*;
+
+pub mod capture_dialog;
+pub use capture_dialog::*;

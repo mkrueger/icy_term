@@ -101,6 +101,17 @@ impl MainWindow {
                         self.show_phonebook();
                     }
 
+                    if self.capture_session {
+                        let r: egui::Response = ui.add(egui::Button::new(
+                            RichText::new(fl!(crate::LANGUAGE_LOADER, "toolbar-stop-capture"))
+                                .font(FontId::new(img_size, FontFamily::Monospace)),
+                        ));
+
+                        if r.clicked() {
+                            self.capture_session = false;
+                        }
+                    }
+
                     let size = ui.available_size_before_wrap();
                     ui.add_space(size.x - 70.0);
 
@@ -137,6 +148,15 @@ impl MainWindow {
                                 ui.close_menu();
                             }
                             ui.separator();
+                            #[cfg(not(target_arch = "wasm32"))]
+                            if ui
+                                .button(fl!(crate::LANGUAGE_LOADER, "menu-item-capture-dialog"))
+                                .clicked()
+                            {
+                                self.mode = MainWindowMode::ShowCaptureDialog;
+                                ui.close_menu();
+                            }
+
                             if ui
                                 .button(fl!(crate::LANGUAGE_LOADER, "menu-item-settings"))
                                 .clicked()

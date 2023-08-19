@@ -65,6 +65,7 @@ pub struct Options {
     pub scaling: Scaling,
     pub connect_timeout: Duration,
     pub monitor_settings: MonitorSettings,
+    pub capture_filename: String,
 }
 
 impl Options {
@@ -148,6 +149,13 @@ impl Options {
                 )
                 .as_bytes(),
             )?;
+
+            if !self.capture_filename.is_empty() {
+                file.write_all(
+                    format!("capture_filename = \"{}\"\n", self.capture_filename).as_bytes(),
+                )?;
+            }
+
             file.flush()?;
         }
         Ok(())
@@ -238,6 +246,11 @@ fn parse_value(options: &mut Options, value: &Value) {
                     "monitor_scanlines" => {
                         if let Value::Float(f) = v {
                             options.monitor_settings.scanlines = *f as f32;
+                        }
+                    }
+                    "capture_filename" => {
+                        if let Value::String(str) = v {
+                            options.capture_filename = str.clone();
                         }
                     }
                     _ => {}

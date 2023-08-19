@@ -552,11 +552,11 @@ impl Com for ComTelnetImpl {
         self.tcp_stream.as_mut().unwrap().set_nonblocking(false)?;
         let mut b = [0];
         match self.tcp_stream.as_mut().unwrap().read_exact(&mut b) {
-            Ok(_) => {
+            Ok(()) => {
                 if b[0] == telnet_cmd::Iac {
                     let mut b = [0];
                     match self.tcp_stream.as_mut().unwrap().read_exact(&mut b) {
-                        Ok(_) => {
+                        Ok(()) => {
                             if b[0] == telnet_cmd::Iac {
                                 return Ok(b[0]);
                             }

@@ -6,6 +6,7 @@ title-offline   = iCY TERM { $version } - Keine Verbindung
 settings-heading = Einstellungen
 settings-scaling = Skalierung
 settings-monitor-type = Monitor
+settings-reset-button = Zurücksetzen
 
 phonebook-connect-to = Verbinde zu…
 phonebook-new_bbs = Neue BBS
@@ -68,3 +69,9 @@ transfer-bps = { $bps } pro Sekunde
 menu-item-discuss=Forum
 menu-item-report-bug=Fehler melden
 menu-item-settings={ settings-heading }
+menu-item-capture-dialog=Aufnehmen…
+
+toolbar-stop-capture=Aufnahmestopp
+
+capture-dialog-capture-checkbox=Sitzung aufnehmen
+capture-dialog-capture-label=Dateiname:

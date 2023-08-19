@@ -4,6 +4,7 @@ use chrono::Utc;
 use i18n_embed_fl::fl;
 use icy_engine::ansi::BaudOption;
 use icy_engine::BufferParser;
+use std::io::Write;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -49,7 +50,7 @@ pub enum MainWindowMode {
     ShowSettings(bool),
     SelectProtocol(bool),
     FileTransfer(bool),
-    //   AskDeleteEntry
+    ShowCaptureDialog, //   AskDeleteEntry
 }
 
 pub struct MainWindow {
@@ -69,6 +70,9 @@ pub struct MainWindow {
     pub options: Options,
     pub screen_mode: ScreenMode,
     pub auto_login: AutoLogin,
+    pub capture_session: bool,
+    /// debug spew prevention
+    pub show_capture_error: bool,
 
     pub rng: Rng,
     pub auto_file_transfer: AutoFileTransfer,
@@ -364,12 +368,28 @@ impl MainWindow {
         };
 
         if let Some(data) = data_opt {
-                        for ch in data {
-                                if let Some(adr) = self.addresses.get(self.cur_addr) {
+            if self.capture_session {
+                if let Ok(mut data_file) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&self.options.capture_filename)
+                {
+                    if let Err(err) = data_file.write_all(&data) {
+                        if !self.show_capture_error {
+                            self.show_capture_error = true;
+                            log::error!("{err}");
+                        }
+                    }
+                }
+            }
+
+            for ch in data {
+                if let Some(adr) = self.addresses.get(self.cur_addr) {
                     if let Err(err) = self.auto_login.try_login(&mut self.connection_opt, adr, ch) {
                         log::error!("{err}");
                     }
                 }
+
                 /*
                 match ch {
                     b'\\' => print!("\\\\"),
@@ -386,7 +406,6 @@ impl MainWindow {
                         }
                     }
                 }*/
-                // print!("{}", char::from_u32(ch as u32).unwrap());
 
                 if let Err(err) = self.print_char(ch) {
                     log::error!("{err}");
