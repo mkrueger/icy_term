@@ -3,7 +3,7 @@
 use std::{sync::Arc, time::Duration};
 
 use eframe::egui::{self};
-use egui::{FontId, Vec2};
+use egui::FontId;
 use icy_engine::ansi;
 
 use crate::{
@@ -64,6 +64,7 @@ impl MainWindow {
             rng: Rng::default(),
             capture_session: false,
             show_capture_error: false,
+            settings_category: 0,
         };
 
         let args: Vec<String> = std::env::args().collect();
@@ -170,7 +171,13 @@ impl eframe::App for MainWindow {
                 self.update_terminal_window(ctx, frame);
                 self.handle_result(res, false);
                 super::dialogs::show_dialog(self, ctx);
-
+                ctx.request_repaint_after(Duration::from_millis(150));
+            }
+            MainWindowMode::ShowIEMSI => {
+                let res = self.update_state();
+                self.update_terminal_window(ctx, frame);
+                self.handle_result(res, false);
+                super::dialogs::show_iemsi(self, ctx);
                 ctx.request_repaint_after(Duration::from_millis(150));
             } // MainWindowMode::AskDeleteEntry => todo!(),
         }

@@ -8,7 +8,7 @@ use std::{
 
 use icy_engine::{get_crc16, get_crc32, update_crc32};
 
-use crate::{addresses::Address, com::Connection, TerminalResult, VERSION};
+use crate::{addresses::Address, com::Connection, Options, TerminalResult, VERSION};
 
 /// EMSI Inquiry is transmitted by the calling system to identify it as
 /// EMSI capable. If an `EMSI_REQ` sequence is received in response, it is
@@ -338,6 +338,7 @@ pub fn get_length_string(len: usize) -> String {
 /// The ISI packet is used by the Server to transmit its configuration
 /// and Client-related information to the Client. It contains Server data
 /// and capabilities.
+#[derive(Clone)]
 pub struct EmsiISI {
     /// The name, version number, and optionally the serial number of the
     /// Server software. Eg. {RemoteAccess,1.10/b5,CS000001}.
@@ -397,7 +398,7 @@ pub struct IEmsi {
     isi_len: usize,
     isi_crc: usize,
     isi_check_crc: u32,
-    pub got_invavid_isi: bool,
+    pub got_invalid_isi: bool,
     isi_data: Vec<u8>,
 
     pub aborted: bool,
@@ -408,7 +409,7 @@ pub struct IEmsi {
 const ISI_START: &[u8; 8] = b"EMSI_ISI";
 
 impl IEmsi {
-    pub fn parse_char(&mut self, ch: u8) -> TerminalResult<()> {
+    pub fn parse_char(&mut self, ch: u8) -> TerminalResult<bool> {
         if self.stars_read >= 2 {
             if self.isi_seq > 7 {
                 match self.isi_seq {
@@ -416,7 +417,7 @@ impl IEmsi {
                         self.isi_check_crc = update_crc32(self.isi_check_crc, ch);
                         self.isi_len = self.isi_len * 16 + get_value(ch);
                         self.isi_seq += 1;
-                        return Ok(());
+                        return Ok(false);
                     }
                     12.. => {
                         if self.isi_seq < self.isi_len + 12 {
@@ -443,22 +444,24 @@ impl IEmsi {
                                             wait: group[6].clone(),
                                             capabilities: group[7].clone(),
                                         });
-                                    } else {
-                                        self.got_invavid_isi = true;
+                                        self.stars_read = 0;
+                                        self.reset_sequences();
+                                        return Ok(true);
                                     }
+                                    self.got_invalid_isi = true;
                                 } else {
-                                    self.got_invavid_isi = true;
+                                    self.got_invalid_isi = true;
                                 }
                             }
                             self.stars_read = 0;
                             self.reset_sequences();
                         }
                         self.isi_seq += 1;
-                        return Ok(());
+                        return Ok(false);
                     }
                     _ => {}
                 }
-                return Ok(());
+                return Ok(false);
             }
             let mut got_seq = false;
 
@@ -496,7 +499,7 @@ impl IEmsi {
             }
 
             if got_seq {
-                return Ok(());
+                return Ok(false);
             }
             self.stars_read = 0;
             self.reset_sequences();
@@ -505,11 +508,11 @@ impl IEmsi {
         if ch == b'*' {
             self.stars_read += 1;
             self.reset_sequences();
-            return Ok(());
+            return Ok(false);
         }
         self.stars_read = 0;
 
-        Ok(())
+        Ok(false)
     }
 
     pub fn try_login(
@@ -517,17 +520,23 @@ impl IEmsi {
         con: &mut Connection,
         adr: &Address,
         ch: u8,
+        options: &Options,
     ) -> TerminalResult<bool> {
         if self.aborted {
             return Ok(false);
         }
-        if let Some(data) = self.advance_char(adr, ch)? {
+        if let Some(data) = self.advance_char(adr, ch, options)? {
             con.send(data)?;
         }
         Ok(self.logged_in)
     }
 
-    pub fn advance_char(&mut self, adr: &Address, ch: u8) -> TerminalResult<Option<Vec<u8>>> {
+    pub fn advance_char(
+        &mut self,
+        adr: &Address,
+        ch: u8,
+        options: &Options,
+    ) -> TerminalResult<Option<Vec<u8>>> {
         if self.aborted {
             return Ok(None);
         }
@@ -545,8 +554,8 @@ impl IEmsi {
             self.aborted = true;
             self.logged_in = true;
             return Ok(Some(EMSI_2ACK.to_vec()));
-        } else if self.got_invavid_isi {
-            self.got_invavid_isi = false;
+        } else if self.got_invalid_isi {
+            self.got_invalid_isi = false;
             // self.log_file.push("Got invalid IEMSI server info…".to_string());
             self.aborted = true;
             self.logged_in = true;
@@ -558,6 +567,10 @@ impl IEmsi {
                 let mut data = EmsiICI::new();
                 data.name = adr.user_name.clone();
                 data.password = adr.password.clone();
+                data.location = options.iemsi_location.clone();
+                data.alias = options.iemsi_alias.clone();
+                data.data_telephone = options.iemsi_data_phone.clone();
+                data.voice_telephone = options.iemsi_voice_phone.clone();
                 self.retries += 1;
                 return Ok(Some(data.encode()?));
             }
@@ -799,7 +812,7 @@ mod tests {
 
         let mut back_data = Vec::new();
         for b in EMSI_IRQ {
-            if let Some(data) = state.advance_char(&adr, *b).unwrap() {
+            if let Some(data) = state.advance_char(&adr, *b, &Options::default()).unwrap() {
                 back_data = data;
             }
         }

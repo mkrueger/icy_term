@@ -7,6 +7,30 @@ settings-heading = Settings
 settings-scaling = Scaling
 settings-monitor-type = Monitor
 settings-reset-button = Reset
+settings-monitor-category = Monitor
+settings-monitor-use-crt-filter-checkbox = Use CRT filter
+settings-monitor-brightness = Brightness
+settings-monitor-contrast = Contrast
+settings-monitor-saturation = Saturation
+settings-monitor-gamma = Gamma
+settings-monitor-blur = Blur
+settings-monitor-curve = Curve
+settings-monitor-scanlines = Scanlines
+settings-iemsi-category = IEMSI
+settings-iemsi-autologin-checkbox = Use IEMSI autologoin
+settings-iemsi-alias = Alias:
+settings-iemsi-location = Location:
+settings-iemsi-data-phone = Data phone:
+settings-iemsi-voice-phone = Voice phone:
+
+settings-monitor-color = Color
+settings-monitor-grayscale = Grayscale
+settings-monitor-amber = Amber
+settings-monitor-green = Green
+settings-monitor-apple2 = Apple ][
+settings-monitor-futuristic = Futuristic
+settings-scaling-nearest = Nearest
+settings-scaling-linear = Linear
 
 phonebook-connect-to = Quick connect to…
 phonebook-new_bbs = New BBS
@@ -76,8 +100,18 @@ menu-item-settings={ settings-heading }
 menu-item-capture-dialog=Capture…
 
 toolbar-stop-capture=Stop capture
+toolbar-show-iemsi=Show IEMSI
+toolbar-hide-iemsi=Hide IEMSI
 
 capture-dialog-capture-label=Capture file:
 capture-dialog-capture-title=Capture
 capture-dialog-capture-button=Start
 capture-dialog-open-folder-button=Open folder…
+
+show-iemsi-dialog-heading=IEMSI Server information
+show-iemsi-dialog-name=Name:
+show-iemsi-dialog-location=Location:
+show-iemsi-dialog-operator=Sysop:
+show-iemsi-dialog-notice=Notice:
+show-iemsi-dialog-capabilities=Capabilities:
+show-iemsi-dialog-id=Id:

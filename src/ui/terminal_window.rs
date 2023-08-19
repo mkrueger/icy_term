@@ -103,11 +103,33 @@ impl MainWindow {
                         self.show_phonebook();
                     }
 
+                    if self.auto_login.iemsi.isi.is_some() {
+                        if self.mode == MainWindowMode::ShowIEMSI {
+                            let r: egui::Response = ui.add(egui::Button::new(RichText::new(fl!(
+                                crate::LANGUAGE_LOADER,
+                                "toolbar-hide-iemsi"
+                            ))));
+
+                            if r.clicked() {
+                                self.mode = MainWindowMode::ShowTerminal;
+                            }
+                        } else {
+                            let r: egui::Response = ui.add(egui::Button::new(RichText::new(fl!(
+                                crate::LANGUAGE_LOADER,
+                                "toolbar-show-iemsi"
+                            ))));
+
+                            if r.clicked() {
+                                self.mode = MainWindowMode::ShowIEMSI;
+                            }
+                        }
+                    }
+
                     if self.capture_session {
-                        let r: egui::Response = ui.add(egui::Button::new(
-                            RichText::new(fl!(crate::LANGUAGE_LOADER, "toolbar-stop-capture"))
-                                .font(FontId::new(img_size, FontFamily::Monospace)),
-                        ));
+                        let r: egui::Response = ui.add(egui::Button::new(RichText::new(fl!(
+                            crate::LANGUAGE_LOADER,
+                            "toolbar-stop-capture"
+                        ))));
 
                         if r.clicked() {
                             self.capture_session = false;

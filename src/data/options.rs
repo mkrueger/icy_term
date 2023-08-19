@@ -60,12 +60,34 @@ impl Default for MonitorSettings {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Options {
     pub scaling: Scaling,
     pub connect_timeout: Duration,
     pub monitor_settings: MonitorSettings,
     pub capture_filename: String,
+
+    pub iemsi_autologin: bool,
+    pub iemsi_alias: String,
+    pub iemsi_location: String,
+    pub iemsi_data_phone: String,
+    pub iemsi_voice_phone: String,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            scaling: Scaling::default(),
+            connect_timeout: Duration::default(),
+            monitor_settings: MonitorSettings::default(),
+            capture_filename: String::default(),
+            iemsi_autologin: true,
+            iemsi_alias: String::default(),
+            iemsi_location: String::default(),
+            iemsi_data_phone: String::default(),
+            iemsi_voice_phone: String::default(),
+        }
+    }
 }
 
 impl Options {
@@ -150,9 +172,23 @@ impl Options {
                 .as_bytes(),
             )?;
 
-            if !self.capture_filename.is_empty() {
+            file.write_all("[IEMSI]\n".to_string().as_bytes())?;
+
+            if !self.iemsi_autologin {
+                file.write_all(format!("autologin = {}\n", self.iemsi_autologin).as_bytes())?;
+            }
+            if !self.iemsi_location.is_empty() {
+                file.write_all(format!("location = \"{}\"\n", self.iemsi_location).as_bytes())?;
+            }
+            if !self.iemsi_alias.is_empty() {
+                file.write_all(format!("alias = \"{}\"\n", self.iemsi_alias).as_bytes())?;
+            }
+            if !self.iemsi_data_phone.is_empty() {
+                file.write_all(format!("data_phone = \"{}\"\n", self.iemsi_data_phone).as_bytes())?;
+            }
+            if !self.iemsi_voice_phone.is_empty() {
                 file.write_all(
-                    format!("capture_filename = \"{}\"\n", self.capture_filename).as_bytes(),
+                    format!("voice_phone = \"{}\"\n", self.iemsi_voice_phone).as_bytes(),
                 )?;
             }
 
@@ -248,14 +284,54 @@ fn parse_value(options: &mut Options, value: &Value) {
                             options.monitor_settings.scanlines = *f as f32;
                         }
                     }
-                    "capture_filename" => {
+                    "IEMSI" => {
+                        if let Value::Table(iemsi_settings) = v {
+                            parse_iemsi_settings(options, iemsi_settings);
+                        }
+                    }
+
+                    "iemsi_autologin" => {
                         if let Value::String(str) = v {
                             options.capture_filename = str.clone();
                         }
                     }
+
                     _ => {}
                 }
             }
+        }
+    }
+}
+
+fn parse_iemsi_settings(options: &mut Options, iemsi_settings: &toml::map::Map<String, Value>) {
+    for (k, v) in iemsi_settings {
+        match k.as_str() {
+            "autologin" => {
+                if let Value::Boolean(autologin) = v {
+                    options.iemsi_autologin = *autologin;
+                }
+            }
+            "location" => {
+                if let Value::String(str) = v {
+                    options.iemsi_location = str.clone();
+                }
+            }
+            "alias" => {
+                if let Value::String(str) = v {
+                    options.iemsi_alias = str.clone();
+                }
+            }
+            "data_phone" => {
+                if let Value::String(str) = v {
+                    options.iemsi_data_phone = str.clone();
+                }
+            }
+            "voice_phone" => {
+                if let Value::String(str) = v {
+                    options.iemsi_voice_phone = str.clone();
+                }
+            }
+            _ => {}
         }
     }
 }

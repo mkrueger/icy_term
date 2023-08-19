@@ -50,7 +50,8 @@ pub enum MainWindowMode {
     ShowSettings(bool),
     SelectProtocol(bool),
     FileTransfer(bool),
-    ShowCaptureDialog, //   AskDeleteEntry
+    ShowCaptureDialog,
+    ShowIEMSI, //   AskDeleteEntry
 }
 
 pub struct MainWindow {
@@ -81,6 +82,8 @@ pub struct MainWindow {
     pub is_alt_pressed: bool,
 
     pub open_connection_promise: Option<JoinHandle<TermComResult<Box<dyn Com>>>>,
+
+    pub settings_category: usize,
 }
 
 impl MainWindow {
@@ -366,7 +369,7 @@ impl MainWindow {
         } else {
             None
         };
-
+        
         if let Some(data) = data_opt {
             if self.capture_session {
                 if let Ok(mut data_file) = std::fs::OpenOptions::new()
@@ -384,9 +387,16 @@ impl MainWindow {
             }
 
             for ch in data {
-                if let Some(adr) = self.addresses.get(self.cur_addr) {
-                    if let Err(err) = self.auto_login.try_login(&mut self.connection_opt, adr, ch) {
-                        log::error!("{err}");
+                if self.options.iemsi_autologin {
+                    if let Some(adr) = self.addresses.get(self.cur_addr) {
+                        if let Err(err) = self.auto_login.try_login(
+                            &mut self.connection_opt,
+                            adr,
+                            ch,
+                            &self.options,
+                        ) {
+                            log::error!("{err}");
+                        }
                     }
                 }
 
@@ -419,10 +429,12 @@ impl MainWindow {
         }
 
         self.auto_login.disabled |= self.is_alt_pressed;
-        if let Some(adr) = self.addresses.get(self.cur_addr) {
-            if let Some(con) = &mut self.connection_opt {
-                if let Err(err) = self.auto_login.run_autologin(con, adr) {
-                    log::error!("{err}");
+        if self.options.iemsi_autologin {
+            if let Some(adr) = self.addresses.get(self.cur_addr) {
+                if let Some(con) = &mut self.connection_opt {
+                    if let Err(err) = self.auto_login.run_autologin(con, adr) {
+                        log::error!("{err}");
+                    }
                 }
             }
         }

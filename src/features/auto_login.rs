@@ -1,6 +1,6 @@
 use web_time::Instant;
 
-use crate::{com::Connection, util::PatternRecognizer, Address, TerminalResult};
+use crate::{com::Connection, util::PatternRecognizer, Address, Options, TerminalResult};
 use std::{
     io::{self, ErrorKind},
     time::Duration,
@@ -11,7 +11,7 @@ use super::iemsi_com::IEmsi;
 pub struct AutoLogin {
     pub logged_in: bool,
     pub disabled: bool,
-    pub iemsi: Option<IEmsi>,
+    pub iemsi: IEmsi,
     last_char_recv: Instant,
     first_char_recv: Option<Instant>,
     continue_time: Instant,
@@ -28,7 +28,7 @@ impl AutoLogin {
         Self {
             logged_in: false,
             disabled: false,
-            iemsi: Some(IEmsi::default()),
+            iemsi: IEmsi::default(),
             first_char_recv: None,
             last_char_recv: Instant::now(),
             continue_time: Instant::now(),
@@ -100,9 +100,7 @@ impl AutoLogin {
             b'I' => {
                 // Disable IEMSI in this session
                 self.cur_expr_idx += 2;
-                if let Some(iemsi) = &mut self.iemsi {
-                    iemsi.aborted = true;
-                }
+                self.iemsi.aborted = true;
             }
             ch => {
                 con.send(vec![ch])?;
@@ -118,6 +116,7 @@ impl AutoLogin {
         con_opt: &mut Option<Connection>,
         adr: &Address,
         ch: u8,
+        options: &Options,
     ) -> TerminalResult<()> {
         if self.logged_in || self.disabled {
             return Ok(());
@@ -134,10 +133,8 @@ impl AutoLogin {
         self.last_char_recv = Instant::now();
         self.got_name |= self.name_recognizer.push_ch(ch) | self.login_recognizer.push_ch(ch);
 
-        if let Some(iemsi) = &mut self.iemsi {
-            if let Some(con) = con_opt {
-                self.logged_in |= iemsi.try_login(con, adr, ch)?;
-            }
+        if let Some(con) = con_opt {
+            self.logged_in |= self.iemsi.try_login(con, adr, ch, options)?;
         }
         Ok(())
     }
