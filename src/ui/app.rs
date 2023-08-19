@@ -208,6 +208,7 @@ impl eframe::App for MainWindow {
                 let res = self.update_state();
                 self.update_terminal_window(ctx, frame);
                 self.handle_result(res, false);
+                #[cfg(not(target_arch = "wasm32"))]
                 super::dialogs::show_dialog(self, ctx);
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
