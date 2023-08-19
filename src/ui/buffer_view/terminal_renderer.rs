@@ -185,7 +185,7 @@ impl TerminalRenderer {
             gl.tex_image_3d(
                 glow::TEXTURE_2D_ARRAY,
                 0,
-                glow::RGBA32F as i32,
+                glow::RGBA as i32,
                 line_width as i32 / 4,
                 height as i32,
                 buf.font_count() as i32,
@@ -211,7 +211,7 @@ impl TerminalRenderer {
             gl.tex_image_2d(
                 glow::TEXTURE_2D,
                 0,
-                i32::try_from(glow::RGBA32F).unwrap(),
+                glow::RGBA as i32,
                 i32::try_from(buf.palette.colors.len()).unwrap(),
                 1,
                 0,
@@ -370,12 +370,11 @@ impl TerminalRenderer {
             }
         }
         unsafe {
-            gl.active_texture(glow::TEXTURE0 + BUFFER_TEXTURE_SLOT);
             gl.bind_texture(glow::TEXTURE_2D_ARRAY, Some(self.terminal_render_texture));
             gl.tex_image_3d(
                 glow::TEXTURE_2D_ARRAY,
                 0,
-                glow::RGBA32F as i32,
+                glow::RGBA as i32,
                 buf.get_buffer_width(),
                 buf_h + 1,
                 2,
@@ -404,11 +403,8 @@ impl TerminalRenderer {
                 view_state,
                 view_state.output_renderer.render_buffer_size,
             );
-
             gl.bind_vertex_array(Some(self.vertex_array));
-            gl.draw_arrays(glow::TRIANGLES, 0, 3);
-            gl.draw_arrays(glow::TRIANGLES, 3, 3);
-
+            gl.draw_arrays(glow::TRIANGLES, 0, 6);
             crate::check_gl_error!(gl, "render_terminal");
         }
     }

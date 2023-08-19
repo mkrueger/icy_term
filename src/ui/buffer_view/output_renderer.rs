@@ -70,6 +70,7 @@ impl OutputRenderer {
 
         gl.clear(glow::COLOR_BUFFER_BIT);
         gl.clear_color(0., 0., 0., 1.0);
+        crate::check_gl_error!(gl, "init_output");
     }
 
     pub unsafe fn render_to_screen(
@@ -215,8 +216,7 @@ impl OutputRenderer {
         );
 
         gl.bind_vertex_array(Some(self.vertex_array));
-        gl.draw_arrays(glow::TRIANGLES, 0, 3);
-        gl.draw_arrays(glow::TRIANGLES, 3, 3);
+        gl.draw_arrays(glow::TRIANGLES, 0, 6);
     }
 
     pub(crate) fn update_render_buffer(
@@ -242,7 +242,7 @@ impl OutputRenderer {
             gl.tex_image_2d(
                 glow::TEXTURE_2D,
                 0,
-                glow::RGBA32F as i32,
+                glow::RGBA as i32,
                 render_buffer_size.x as i32,
                 render_buffer_size.y as i32,
                 0,
@@ -346,7 +346,7 @@ unsafe fn create_screen_render_texture(
     gl.tex_image_2d(
         glow::TEXTURE_2D,
         0,
-        glow::RGBA32F as i32,
+        glow::RGBA as i32,
         render_buffer_size.x as i32,
         render_buffer_size.y as i32,
         0,

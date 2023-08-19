@@ -113,8 +113,7 @@ impl SixelRenderer {
             );
 
             gl.bind_vertex_array(Some(output_renderer.vertex_array));
-            gl.draw_arrays(glow::TRIANGLES, 0, 3);
-            gl.draw_arrays(glow::TRIANGLES, 3, 3);
+            gl.draw_arrays(glow::TRIANGLES, 0, 6);
             std::mem::swap(&mut render_texture, &mut sixel_render_texture);
         }
         crate::check_gl_error!(gl, "render_sixels");
@@ -182,7 +181,7 @@ impl SixelRenderer {
                 gl.tex_image_2d(
                     glow::TEXTURE_2D,
                     0,
-                    glow::RGBA32F as i32,
+                    glow::RGBA as i32,
                     sixel.width() as i32,
                     sixel.height() as i32,
                     0,
@@ -221,7 +220,7 @@ impl SixelRenderer {
         gl.tex_image_2d(
             glow::TEXTURE_2D,
             0,
-            glow::RGBA32F as i32,
+            glow::RGBA as i32,
             render_buffer_size.x as i32,
             render_buffer_size.y as i32,
             0,
@@ -231,18 +230,7 @@ impl SixelRenderer {
         );
         gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, scale_filter);
         gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, scale_filter);
-        gl.tex_parameter_i32(
-            glow::TEXTURE_2D,
-            glow::TEXTURE_WRAP_S,
-            glow::CLAMP_TO_EDGE as i32,
-        );
-        gl.tex_parameter_i32(
-            glow::TEXTURE_2D,
-            glow::TEXTURE_WRAP_T,
-            glow::CLAMP_TO_EDGE as i32,
-        );
-
-        crate::check_gl_error!(gl, "create_sixel_render_texture");
+        crate::check_gl_error!(gl, "create_sixel_render_texture 1");
 
         self.sixel_render_texture = sixel_render_texture;
     }
@@ -272,7 +260,7 @@ unsafe fn create_sixel_render_texture(
     gl.tex_image_2d(
         glow::TEXTURE_2D,
         0,
-        glow::RGBA32F as i32,
+        glow::RGBA as i32,
         render_buffer_size.x as i32,
         render_buffer_size.y as i32,
         0,
