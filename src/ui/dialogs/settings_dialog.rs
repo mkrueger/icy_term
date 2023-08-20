@@ -35,6 +35,8 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
         .frame(egui::Frame::window(&ctx.style()))
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
+                egui::widgets::global_dark_light_mode_switch(ui);
+
                 if ui
                     .selectable_label(
                         window.settings_category == 0,

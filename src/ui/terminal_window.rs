@@ -23,8 +23,9 @@ fn encode_mouse_position(pos: i32) -> char {
 
 impl MainWindow {
     pub fn update_terminal_window(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let toolbar_bg_color = ctx.style().visuals.extreme_bg_color;
         let button_frame = egui::containers::Frame::none()
-            .fill(Color32::from_rgb(0x20, 0x22, 0x25))
+            .fill(toolbar_bg_color)
             .inner_margin(egui::style::Margin::same(6.0));
         let top_margin_height = 38.;
         let show_pb = matches!(self.mode, MainWindowMode::ShowPhonebook);

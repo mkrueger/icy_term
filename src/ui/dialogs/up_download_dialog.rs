@@ -184,14 +184,18 @@ impl FileTransferDialog {
                                     Some(msg) => match msg {
                                         OutputLogMessage::Error(msg) => {
                                             ui.add(
-                                                Label::new(RichText::new(msg).color(Color32::RED))
-                                                    .wrap(false),
+                                                Label::new(
+                                                    RichText::new(msg)
+                                                        .color(ctx.style().visuals.error_fg_color),
+                                                )
+                                                .wrap(false),
                                             );
                                         }
                                         OutputLogMessage::Warning(msg) => {
                                             ui.add(
                                                 Label::new(
-                                                    RichText::new(msg).color(Color32::YELLOW),
+                                                    RichText::new(msg)
+                                                        .color(ctx.style().visuals.warn_fg_color),
                                                 )
                                                 .wrap(false),
                                             );

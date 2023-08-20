@@ -167,7 +167,7 @@ impl MainWindow {
                 check_error!(self, r, false);
             }
             icy_engine::CallbackAction::ResizeTerminal(_, _) => {
-                self.buffer_view.lock().redraw_view()
+                self.buffer_view.lock().redraw_view();
             }
         }
         self.buffer_view.lock().redraw_view();

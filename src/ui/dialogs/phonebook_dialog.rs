@@ -199,7 +199,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            show_content(window, ui);
+            show_content(ctx, window, ui);
         });
     });
 
@@ -208,10 +208,10 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
     }
 }
 
-fn show_content(window: &mut MainWindow, ui: &mut egui::Ui) {
+fn show_content(ctx: &egui::Context, window: &mut MainWindow, ui: &mut egui::Ui) {
     if window.selected_bbs.is_some() {
         let sav: Address = window.get_address_mut(window.selected_bbs).clone();
-        view_edit_bbs(window, ui);
+        view_edit_bbs(ctx, window, ui);
         if sav != *window.get_address_mut(window.selected_bbs) {
             store_phonebook(window);
         }
@@ -391,7 +391,7 @@ fn filter_bbs(window: &MainWindow, a: &Address) -> bool {
 }
 
 #[allow(clippy::range_plus_one)]
-fn view_edit_bbs(window: &mut MainWindow, ui: &mut egui::Ui) {
+fn view_edit_bbs(ctx: &egui::Context, window: &mut MainWindow, ui: &mut egui::Ui) {
     // Name row
 
     ui.horizontal(|ui| {
@@ -408,7 +408,7 @@ fn view_edit_bbs(window: &mut MainWindow, ui: &mut egui::Ui) {
         let text = if adr.is_favored {
             RichText::new("★")
                 .font(FontId::new(20.0, FontFamily::Proportional))
-                .color(Color32::YELLOW)
+                .color(ctx.style().visuals.warn_fg_color)
         } else {
             RichText::new("☆").font(FontId::new(20.0, FontFamily::Proportional))
         };
@@ -734,7 +734,7 @@ impl egui::Widget for AddressRow {
         let star_text = WidgetText::from(
             RichText::new("★")
                 .font(FontId::new(14.0, FontFamily::Proportional))
-                .color(Color32::YELLOW),
+                .color(ui.ctx().style().visuals.warn_fg_color),
         );
         let star_text: egui::widget_text::WidgetTextGalley =
             star_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
