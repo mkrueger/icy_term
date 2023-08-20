@@ -10,9 +10,8 @@ pub use telnet::*;
 
 pub mod raw;
 pub use raw::*;
+pub mod ssh;
 use web_time::Instant;
-
-// pub mod ssh;
 
 use crate::{
     addresses::{Address, Terminal},
@@ -22,6 +21,7 @@ pub type TermComResult<T> = Result<T, Box<dyn Error + Send + Sync>>;
 
 pub trait Com: Sync + Send {
     fn get_name(&self) -> &'static str;
+    fn default_port(&self) -> u16;
 
     fn send(&mut self, buf: &[u8]) -> TermComResult<usize>;
     fn connect(&mut self, addr: &Address, timeout: Duration) -> TermComResult<bool>;

@@ -92,6 +92,9 @@ impl MainWindow {
         */
         let ctx = &cc.egui_ctx;
 
+        // try to detect dark vs light mode from the host system; default to dark
+        ctx.set_visuals(if dark_light::detect() == dark_light::Mode::Light { egui::Visuals::light() } else { egui::Visuals::dark() });
+
         let mut style: egui::Style = (*ctx.style()).clone();
         style.spacing.window_margin = egui::Margin::same(8.0);
 

@@ -347,6 +347,7 @@ impl ComTelnetImpl {
                                 ];
 
                                 match self.terminal {
+                                    //  :TODO: Let's extend this to allow for some of the semi-standard BBS IDs, e.g. "xterm" (ANSI), "ansi-256-color", etc.
                                     Terminal::Ansi => buf.extend_from_slice(b"ANSI"),
                                     Terminal::PETscii => buf.extend_from_slice(b"PETSCII"),
                                     Terminal::ATAscii => buf.extend_from_slice(b"ATASCII"),
@@ -366,7 +367,7 @@ impl ComTelnetImpl {
                             }
                         }
                         24 => {
-                            // Ternminal type
+                            // Terminal type
                             self.state =
                                 ParserState::SubCommand(telnet_option::TerminalType as i32);
                         }
@@ -509,6 +510,11 @@ impl Com for ComTelnetImpl {
     fn get_name(&self) -> &'static str {
         "Telnet"
     }
+
+    fn default_port(&self) -> u16 {
+        23
+    }
+
     fn set_terminal_type(&mut self, terminal: crate::addresses::Terminal) {
         self.terminal = terminal;
     }

@@ -16,6 +16,8 @@ use crate::util::{beep, play_music, Rng};
 use crate::Options;
 use crate::{
     addresses::{store_phone_book, Address},
+  // TODO
+//    com::{ComRawImpl, ComTelnetImpl, ssh::SSHComImpl, SendData},
     protocol::FileDescriptor,
     TerminalResult,
 };
@@ -32,7 +34,6 @@ pub use terminal_window::*;
 
 pub mod util;
 pub use util::*;
-
 pub mod dialogs;
 
 pub mod com_thread;
@@ -305,10 +306,12 @@ impl MainWindow {
 
         let timeout = self.options.connect_timeout;
         let window_size = self.screen_mode.get_window_size();
-
         self.connection_opt
             .Connect(call_adr, timeout, window_size)
             .unwrap_or_default();
+// TODO:
+      //                      crate::addresses::Protocol::Ssh => Box::new(SSHComImpl::new(window_size)),
+
     }
 
     pub fn select_bbs(&mut self, uuid: Option<usize>) {

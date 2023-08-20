@@ -23,6 +23,11 @@ impl Com for ComRawImpl {
     fn get_name(&self) -> &'static str {
         "Raw"
     }
+
+    fn default_port(&self) -> u16 {
+        0
+    }
+
     fn set_terminal_type(&mut self, _terminal: crate::addresses::Terminal) {}
 
     fn connect(&mut self, addr: &Address, _timeout: Duration) -> TermComResult<bool> {
