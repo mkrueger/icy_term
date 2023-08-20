@@ -6,7 +6,7 @@ Visit https://www.telnetbbsguide.com/ for a start to enter the BBS world.
 Features supported so far:
 - Connection
   - [x] Telnet
-  - [ ] SSH
+  - [x] SSH
   - [x] Raw
 - Terminal encoding support
   - [x] Ansi
