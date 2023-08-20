@@ -38,7 +38,8 @@ impl SSHComImpl {
             connection_data.window_size.height as u32,
         )?;
         chan.request_shell()?;
-
+        sess.set_blocking(false);
+      
         Ok(Self {
             session,
             channel: Arc::new(Mutex::new(chan)),
