@@ -311,6 +311,10 @@ impl MainWindow {
         let window_size = self.screen_mode.get_window_size();
         let r = self.connection.connect(&call_adr, timeout, window_size);
         check_error!(self, r, false);
+        let r = self
+            .connection
+            .set_baud_rate(call_adr.baud_emulation.get_baud_rate());
+        check_error!(self, r, false);
     }
 
     pub fn select_bbs(&mut self, uuid: Option<usize>) {
