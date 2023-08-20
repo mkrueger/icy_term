@@ -1,14 +1,12 @@
 #![allow(dead_code)]
 
-use super::{Com, TermComResult};
-use crate::addresses::Address;
+use super::{Com, OpenConnectionData, TermComResult};
 use icy_engine::Size;
 use libssh_rs::{Channel, Session, SshOption};
 use std::{
-    sync::{Arc, Mutex},
-    time::Duration,
     io::ErrorKind,
     io::{Read, Write},
+    sync::{Arc, Mutex},
 };
 pub struct SSHComImpl {
     window_size: Size<u16>, // width, height
@@ -29,23 +27,23 @@ impl SSHComImpl {
         22
     }
 
-    fn parse_address(addr: &Address) -> TermComResult<(String, u16)> {
-        let components: Vec<&str> = addr.address.split(':').collect();
+    fn parse_address(addr: &str) -> TermComResult<(String, u16)> {
+        let components: Vec<&str> = addr.split(':').collect();
         match components.first() {
-            Some(host) => {
-                match components.get(1) {
-                    Some(port_str) => {
-                        let port = port_str.parse()?;
-                        Ok(((*host).to_string(), port))
-                    }
-                    _ => Ok(((*host).to_string(),  Self::default_port()))
+            Some(host) => match components.get(1) {
+                Some(port_str) => {
+                    let port = port_str.parse()?;
+                    Ok(((*host).to_string(), port))
                 }
-            }
-            _ => Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid address")))
+                _ => Ok(((*host).to_string(), Self::default_port())),
+            },
+            _ => Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Invalid address",
+            ))),
         }
     }
 }
-
 
 impl Com for SSHComImpl {
     fn get_name(&self) -> &'static str {
@@ -58,9 +56,9 @@ impl Com for SSHComImpl {
 
     fn set_terminal_type(&mut self, _terminal: crate::addresses::Terminal) {}
 
-    fn connect(&mut self, addr: &Address, _timeout: Duration) -> TermComResult<bool> {
+    fn connect(&mut self, connection_data: &OpenConnectionData) -> TermComResult<bool> {
         let sess = Session::new()?;
-        let (host, port) = Self::parse_address(addr)?;
+        let (host, port) = Self::parse_address(&connection_data.address)?;
 
         sess.set_option(SshOption::Hostname(host))?;
         sess.set_option(SshOption::Port(port))?;
@@ -69,12 +67,19 @@ impl Com for SSHComImpl {
 
         //  :TODO: SECURITY: verify_known_hosts() implemented here -- ie: user must accept & we save somewhere
 
-        sess.userauth_password(Some(addr.user_name.as_str()), Some(addr.password.as_str()))?;
+        sess.userauth_password(
+            Some(connection_data.user_name.as_str()),
+            Some(connection_data.password.as_str()),
+        )?;
 
         let chan = sess.new_channel()?;
         chan.open_session()?;
-        let terminal_type = addr.terminal_type.to_string().to_lowercase();
-        chan.request_pty(terminal_type.as_str(), self.window_size.width as u32, self.window_size.height as u32)?;
+        let terminal_type = connection_data.terminal.to_string().to_lowercase();
+        chan.request_pty(
+            terminal_type.as_str(),
+            self.window_size.width as u32,
+            self.window_size.height as u32,
+        )?;
         chan.request_shell()?;
 
         self.channel = Some(Arc::new(Mutex::new(chan)));
@@ -89,9 +94,7 @@ impl Com for SSHComImpl {
         let locked = channel.lock().unwrap();
         let mut stdout = locked.stdout();
         match stdout.read(&mut buf) {
-            Ok(size) => {
-                Ok(Some(buf[0..size].to_vec()))
-            }
+            Ok(size) => Ok(Some(buf[0..size].to_vec())),
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::WouldBlock {
                     return Ok(None);
@@ -124,7 +127,6 @@ impl Com for SSHComImpl {
         Ok(())
     }
 }
-
 
 /* Trushh:
 #![allow(dead_code)]

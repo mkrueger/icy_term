@@ -4,8 +4,6 @@ use std::{collections::HashMap, thread};
 
 use eframe::epaint::mutex::Mutex;
 
-use crate::addresses::Address;
-
 use super::{Com, TermComResult};
 
 pub struct TestCom {
@@ -26,7 +24,7 @@ impl Com for TestCom {
 
     fn set_terminal_type(&mut self, _terminal: crate::addresses::Terminal) {}
 
-    fn connect(&mut self, _addr: &Address, _timeout: Duration) -> TermComResult<bool> {
+    fn connect(&mut self, _connection_data: &super::OpenConnectionData) -> TermComResult<bool> {
         Ok(true)
     }
 
@@ -118,6 +116,10 @@ impl Com for TestCom {
     fn disconnect(&mut self) -> TermComResult<()> {
         // nothing
         Ok(())
+    }
+
+    fn default_port(&self) -> u16 {
+        0
     }
 }
 

@@ -1,8 +1,6 @@
 #![allow(dead_code)]
 
-use crate::addresses::Address;
-
-use super::{Com, TermComResult};
+use super::{Com, OpenConnectionData, TermComResult};
 use std::{
     io::{self, ErrorKind, Read, Write},
     net::TcpStream,
@@ -30,8 +28,8 @@ impl Com for ComRawImpl {
 
     fn set_terminal_type(&mut self, _terminal: crate::addresses::Terminal) {}
 
-    fn connect(&mut self, addr: &Address, _timeout: Duration) -> TermComResult<bool> {
-        let tcp_stream = TcpStream::connect(&addr.address)?;
+    fn connect(&mut self, connection_data: &OpenConnectionData) -> TermComResult<bool> {
+        let tcp_stream = TcpStream::connect(&connection_data.address)?;
         tcp_stream.set_nonblocking(true)?;
         tcp_stream.set_read_timeout(Some(Duration::from_secs(2)))?;
 

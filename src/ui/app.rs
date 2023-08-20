@@ -49,7 +49,7 @@ impl MainWindow {
             addresses,
             cur_addr: 0,
             selected_bbs: None,
-            connection_opt: MainWindow::open_connection(),
+            connection: MainWindow::open_connection(),
             options,
             auto_login: AutoLogin::new(""),
             auto_file_transfer: AutoFileTransfer::default(),
@@ -93,7 +93,11 @@ impl MainWindow {
         let ctx = &cc.egui_ctx;
 
         // try to detect dark vs light mode from the host system; default to dark
-        ctx.set_visuals(if dark_light::detect() == dark_light::Mode::Light { egui::Visuals::light() } else { egui::Visuals::dark() });
+        ctx.set_visuals(if dark_light::detect() == dark_light::Mode::Light {
+            egui::Visuals::light()
+        } else {
+            egui::Visuals::dark()
+        });
 
         let mut style: egui::Style = (*ctx.style()).clone();
         style.spacing.window_margin = egui::Margin::same(8.0);
@@ -151,7 +155,7 @@ impl eframe::App for MainWindow {
             }
 
             MainWindowMode::FileTransfer(download) => {
-                if self.connection_opt.should_end_transfer() {
+                if self.connection.should_end_transfer() {
                     self.auto_file_transfer.reset();
                 }
 
@@ -173,7 +177,7 @@ impl eframe::App for MainWindow {
                         .show_dialog(ctx, frame, &state, download)
                     {
                         self.mode = MainWindowMode::ShowTerminal;
-                        let res = self.connection_opt.cancel_transfer();
+                        let res = self.connection.cancel_transfer();
                         self.handle_result(res, true);
                     }
                 } else {

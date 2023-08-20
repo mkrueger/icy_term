@@ -87,7 +87,6 @@ fn main() {
         renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
-    log::info!("starting up");
     eframe::run_native(
         &DEFAULT_TITLE,
         options,
@@ -104,8 +103,6 @@ fn main() {
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();
     let web_options = eframe::WebOptions::default();
-
-    log::debug!("Starting eframe...");
     wasm_bindgen_futures::spawn_local(async {
         eframe::WebRunner::new()
             .start(

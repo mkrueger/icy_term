@@ -1,4 +1,4 @@
-use crate::addresses::{Address, Terminal};
+use crate::addresses::Terminal;
 
 use super::{Com, ConnectionError, TermComResult};
 use icy_engine::Size;
@@ -519,8 +519,8 @@ impl Com for ComTelnetImpl {
         self.terminal = terminal;
     }
 
-    fn connect(&mut self, addr: &Address, _timeout: Duration) -> TermComResult<bool> {
-        let tcp_stream = TcpStream::connect(&addr.address)?;
+    fn connect(&mut self, connection_data: &super::OpenConnectionData) -> TermComResult<bool> {
+        let tcp_stream = TcpStream::connect(&connection_data.address)?;
         tcp_stream.set_nonblocking(true)?;
         tcp_stream.set_read_timeout(Some(Duration::from_secs(2)))?;
 

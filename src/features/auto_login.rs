@@ -1,6 +1,8 @@
 use web_time::Instant;
 
-use crate::{com::Connection, util::PatternRecognizer, Address, Options, TerminalResult};
+use crate::{
+    ui::connection::Connection, util::PatternRecognizer, Address, Options, TerminalResult,
+};
 use std::{
     io::{self, ErrorKind},
     time::Duration,

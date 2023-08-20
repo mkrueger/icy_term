@@ -16,15 +16,12 @@ use crate::util::{beep, play_music, Rng};
 use crate::Options;
 use crate::{
     addresses::{store_phone_book, Address},
-  // TODO
-//    com::{ComRawImpl, ComTelnetImpl, ssh::SSHComImpl, SendData},
     protocol::FileDescriptor,
     TerminalResult,
 };
 
-use crate::com::Connection;
-
 pub mod app;
+pub mod connection;
 
 pub mod buffer_view;
 pub use buffer_view::*;
@@ -34,6 +31,8 @@ pub use terminal_window::*;
 
 pub mod util;
 pub use util::*;
+
+use self::connection::Connection;
 pub mod dialogs;
 
 pub mod com_thread;
@@ -55,7 +54,7 @@ pub struct MainWindow {
     pub buffer_view: Arc<eframe::epaint::mutex::Mutex<BufferView>>,
     pub buffer_parser: Box<dyn BufferParser>,
 
-    pub connection_opt: Connection,
+    pub connection: Connection,
 
     pub mode: MainWindowMode,
     pub addresses: Vec<Address>,
@@ -100,17 +99,18 @@ impl MainWindow {
     pub fn handle_result<T>(&mut self, res: TerminalResult<T>, terminate_connection: bool) {
         if let Err(err) = res {
             log::error!("{err}");
+            self.output_string(format!("\n\r{err}\n\r").as_str());
 
             if terminate_connection {
-                self.connection_opt.disconnect().unwrap_or_default();
+                self.connection.disconnect().unwrap_or_default();
             }
         }
     }
 
     pub fn output_char(&mut self, ch: char) {
         let translated_char = self.buffer_parser.convert_from_unicode(ch);
-        if self.connection_opt.is_connected() {
-            let r = self.connection_opt.send(vec![translated_char as u8]);
+        if self.connection.is_connected() {
+            let r = self.connection.send(vec![translated_char as u8]);
             self.handle_result(r, false);
         } else if let Err(err) = self.print_char(translated_char as u8) {
             log::error!("{err}");
@@ -118,13 +118,13 @@ impl MainWindow {
     }
 
     pub fn output_string(&mut self, str: &str) {
-        if self.connection_opt.is_connected() {
+        if self.connection.is_connected() {
             let mut v = Vec::new();
             for ch in str.chars() {
                 let translated_char = self.buffer_parser.convert_from_unicode(ch);
                 v.push(translated_char as u8);
             }
-            let r = self.connection_opt.send(v);
+            let r = self.connection.send(v);
             self.handle_result(r, false);
         } else {
             for ch in str.chars() {
@@ -146,7 +146,7 @@ impl MainWindow {
         match result {
             icy_engine::CallbackAction::None => {}
             icy_engine::CallbackAction::SendString(result) => {
-                let r = self.connection_opt.send(result.as_bytes().to_vec());
+                let r = self.connection.send(result.as_bytes().to_vec());
                 self.handle_result(r, false);
             }
             icy_engine::CallbackAction::PlayMusic(music) => {
@@ -159,7 +159,7 @@ impl MainWindow {
             }
             icy_engine::CallbackAction::ChangeBaudEmulation(baud_emulation) => {
                 let r = self
-                    .connection_opt
+                    .connection
                     .set_baud_rate(baud_emulation.get_baud_rate());
                 self.handle_result(r, false);
             }
@@ -177,9 +177,9 @@ impl MainWindow {
         self.mode = MainWindowMode::FileTransfer(download);
         let state = Arc::new(Mutex::new(TransferState::default()));
         self.current_transfer = Some(state.clone());
-        let res =
-            self.connection_opt
-                .start_file_transfer(protocol_type, download, state, files_opt);
+        let res = self
+            .connection
+            .start_file_transfer(protocol_type, download, state, files_opt);
         self.handle_result(res, true);
     }
 
@@ -205,7 +205,7 @@ impl MainWindow {
         download: bool,
     ) {
         self.mode = MainWindowMode::ShowTerminal;
-        if self.connection_opt.is_disconnected() {
+        if self.connection.is_disconnected() {
             return;
         }
         if download {
@@ -306,12 +306,8 @@ impl MainWindow {
 
         let timeout = self.options.connect_timeout;
         let window_size = self.screen_mode.get_window_size();
-        self.connection_opt
-            .Connect(call_adr, timeout, window_size)
-            .unwrap_or_default();
-// TODO:
-      //                      crate::addresses::Protocol::Ssh => Box::new(SSHComImpl::new(window_size)),
-
+        let r = self.connection.connect(&call_adr, timeout, window_size);
+        self.handle_result(r, false);
     }
 
     pub fn select_bbs(&mut self, uuid: Option<usize>) {
@@ -332,11 +328,13 @@ impl MainWindow {
     }
 
     pub fn update_state(&mut self) -> TerminalResult<()> {
-        if self.connection_opt.is_disconnected() {
+        let r = self.connection.update_state();
+        self.handle_result(r, false);
+        if self.connection.is_disconnected() {
             return Ok(());
         }
-        let data_opt = if self.connection_opt.is_data_available()? {
-            Some(self.connection_opt.read_buffer())
+        let data_opt = if self.connection.is_data_available()? {
+            Some(self.connection.read_buffer())
         } else {
             None
         };
@@ -360,12 +358,10 @@ impl MainWindow {
             for ch in data {
                 if self.options.iemsi_autologin {
                     if let Some(adr) = self.addresses.get(self.cur_addr) {
-                        if let Err(err) = self.auto_login.try_login(
-                            &mut self.connection_opt,
-                            adr,
-                            ch,
-                            &self.options,
-                        ) {
+                        if let Err(err) =
+                            self.auto_login
+                                .try_login(&mut self.connection, adr, ch, &self.options)
+                        {
                             log::error!("{err}");
                         }
                     }
@@ -402,8 +398,8 @@ impl MainWindow {
         self.auto_login.disabled |= self.is_alt_pressed;
         if self.options.iemsi_autologin {
             if let Some(adr) = self.addresses.get(self.cur_addr) {
-                if self.connection_opt.is_connected() {
-                    if let Err(err) = self.auto_login.run_autologin(&mut self.connection_opt, adr) {
+                if self.connection.is_connected() {
+                    if let Err(err) = self.auto_login.run_autologin(&mut self.connection, adr) {
                         log::error!("{err}");
                     }
                 }
@@ -414,7 +410,7 @@ impl MainWindow {
     }
 
     pub fn hangup(&mut self) {
-        self.connection_opt.disconnect().unwrap_or_default();
+        self.handle_result(self.connection.disconnect(), false);
         self.mode = MainWindowMode::ShowPhonebook;
     }
 
@@ -429,10 +425,10 @@ impl MainWindow {
             }
         }
         self.output_string(&user_name);
-        let r = self.connection_opt.send(cr.clone());
+        let r = self.connection.send(cr.clone());
         self.handle_result(r, false);
         self.output_string(&password);
-        let r = self.connection_opt.send(cr);
+        let r = self.connection.send(cr);
         self.handle_result(r, false);
     }
 
@@ -441,8 +437,8 @@ impl MainWindow {
         if let MainWindowMode::ShowPhonebook = self.mode {
             frame.set_window_title(&crate::DEFAULT_TITLE);
         } else {
-            let str = if self.connection_opt.is_connected() {
-                let d = Instant::now().duration_since(self.connection_opt.get_connection_time());
+            let str = if self.connection.is_connected() {
+                let d = Instant::now().duration_since(self.connection.get_connection_time());
                 let sec = d.as_secs();
                 let minutes = sec / 60;
                 let hours = minutes / 60;

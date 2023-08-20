@@ -11,14 +11,10 @@ use wasm_thread as thread;
 
 use std::time::{Duration, Instant};
 
-use eframe::egui::{self};
-
 use crate::com::Com;
-use crate::com::SendData;
 use crate::protocol::TestStorageHandler;
 
-use crate::com::Connection;
-
+use super::connection::{Connection, SendData};
 use super::MainWindow;
 
 const BITS_PER_BYTE: u32 = 8;
@@ -32,73 +28,56 @@ impl MainWindow {
             let mut baud_rate = 0;
             let mut handle: Box<dyn Com> = Box::new(crate::com::NullConnection {});
 
-            let mut done = false;
-
             let mut data_buffer = VecDeque::<u8>::new();
             let mut time = Instant::now();
+            let mut done = false;
+            let mut is_connected = false;
 
             while !done {
-                if data_buffer.is_empty() {
-                    if let Ok(Some(data)) = handle.read_data() {
-                        if baud_rate == 0 {
-                            if let Err(err) = tx.send(SendData::Data(data)) {
-                                log::error!("{err}");
-                                done = true;
-                            }
-                            // ctx.request_repaint();
-                        } else {
-                            data_buffer.extend(data);
-                        }
-                    } else {
-                        wasm_thread::sleep(Duration::from_millis(25));
-                    }
-                } else if baud_rate == 0 {
-                    if let Err(err) = tx.send(SendData::Data(data_buffer.drain(..).collect())) {
-                        log::error!("{err}");
-                        done = true;
-                    }
+                if is_connected {
+                    read_data(
+                        &mut data_buffer,
+                        &mut handle,
+                        baud_rate,
+                        &tx,
+                        &mut done,
+                        &mut time,
+                    );
                 } else {
-                    let cur_time = Instant::now();
-                    let bytes_per_sec = baud_rate / BITS_PER_BYTE;
-                    let elapsed_ms = cur_time.duration_since(time).as_millis() as u32;
-                    let bytes_to_send: usize = ((bytes_per_sec * elapsed_ms) / 1000)
-                        .min(data_buffer.len() as u32)
-                        as usize;
-
-                    if bytes_to_send > 0 {
-                        if let Err(err) =
-                            tx.send(SendData::Data(data_buffer.drain(..bytes_to_send).collect()))
-                        {
-                            log::error!("{err}");
-                            done = true;
-                        }
-                        time = cur_time;
-                    }
+                    thread::sleep(Duration::from_millis(100));
                 }
 
                 while let Ok(result) = rx2.try_recv() {
                     match result {
-                        SendData::OpenConnection(call_adr, timeout, window_size) => {
-                            let mut com: Box<dyn Com> = match call_adr.protocol {
+                        SendData::OpenConnection(connection_data) => {
+                            let mut com: Box<dyn Com> = match connection_data.protocol {
                                 crate::addresses::Protocol::Telnet => {
-                                    Box::new(crate::com::ComTelnetImpl::new(window_size))
+                                    Box::new(crate::com::ComTelnetImpl::new(connection_data.size))
                                 }
                                 crate::addresses::Protocol::Raw => {
                                     Box::new(crate::com::ComRawImpl::new())
                                 }
-                                crate::addresses::Protocol::Ssh => panic!(), //Box::new(crate::com::SSHCom::new()),
+                                crate::addresses::Protocol::Ssh => {
+                                    Box::new(crate::com::ssh::SSHComImpl::new(connection_data.size))
+                                }
                             };
-                            if let Err(err) = com.connect(&call_adr, timeout) {
-                                tx.send(SendData::ConnectionError(err.to_string()));
+                            if let Err(err) = com.connect(&connection_data) {
+                                done |=
+                                    tx.send(SendData::ConnectionError(err.to_string())).is_err();
+                                is_connected = false;
+                                handle = Box::new(crate::com::NullConnection {});
                             } else {
-                                tx.send(SendData::Connected);
+                                done |= tx.send(SendData::Connected).is_err();
+                                is_connected = true;
+                                handle = com;
                             }
-                            handle = com;
                         }
                         SendData::Data(buf) => {
                             if let Err(err) = handle.send(&buf) {
                                 log::error!("{err}");
-                                done = true;
+                                let _ = tx.send(SendData::Disconnect);
+                                handle = Box::new(crate::com::NullConnection {});
+                                is_connected = false;
                             }
                         }
                         SendData::StartTransfer(
@@ -108,9 +87,7 @@ impl MainWindow {
                             files_opt,
                         ) => {
                             let mut copy_state = transfer_state.lock().unwrap().clone();
-
                             let mut protocol = protocol_type.create();
-
                             if let Err(err) = if download {
                                 protocol.initiate_recv(&mut handle, &mut copy_state)
                             } else {
@@ -170,22 +147,71 @@ impl MainWindow {
                                     std::fs::write(file_name, file.1.clone()).unwrap_or_default();
                                 }
                             }
-                            tx.send(SendData::EndTransfer).unwrap_or_default();
+                            done |= tx.send(SendData::EndTransfer).is_err();
                         }
                         SendData::SetBaudRate(baud) => {
                             baud_rate = baud;
                         }
                         SendData::Disconnect => {
-                            done = true;
+                            is_connected = false;
+                            baud_rate = 0;
+                            data_buffer.clear();
+                            handle = Box::new(crate::com::NullConnection {});
                         }
                         _ => {}
                     }
                 }
             }
-
-            tx.send(SendData::Disconnect);
+            log::error!(
+                "communication thread closed because it lost connection with the ui thread."
+            );
         });
         Connection::new(rx, tx2)
+    }
+}
+
+fn read_data(
+    data_buffer: &mut VecDeque<u8>,
+    handle: &mut Box<dyn Com>,
+    baud_rate: u32,
+    tx: &mpsc::Sender<SendData>,
+    done: &mut bool,
+    time: &mut Instant,
+) {
+    if data_buffer.is_empty() {
+        if let Ok(Some(data)) = handle.read_data() {
+            if baud_rate == 0 {
+                if let Err(err) = tx.send(SendData::Data(data)) {
+                    log::error!("{err}");
+                    *done |= tx.send(SendData::Disconnect).is_err();
+                }
+                // ctx.request_repaint();
+            } else {
+                data_buffer.extend(data);
+            }
+        } else {
+            thread::sleep(Duration::from_millis(25));
+        }
+    } else if baud_rate == 0 {
+        if let Err(err) = tx.send(SendData::Data(data_buffer.drain(..).collect())) {
+            log::error!("{err}");
+            *done |= tx.send(SendData::Disconnect).is_err();
+        }
+    } else {
+        let cur_time = Instant::now();
+        let bytes_per_sec = baud_rate / BITS_PER_BYTE;
+        let elapsed_ms = cur_time.duration_since(*time).as_millis() as u32;
+        let bytes_to_send: usize =
+            ((bytes_per_sec * elapsed_ms) / 1000).min(data_buffer.len() as u32) as usize;
+
+        if bytes_to_send > 0 {
+            if let Err(err) = tx.send(SendData::Data(data_buffer.drain(..bytes_to_send).collect()))
+            {
+                log::error!("{err}");
+                *done |= tx.send(SendData::Disconnect).is_err();
+            }
+            *time = cur_time;
+        }
     }
 }
 
