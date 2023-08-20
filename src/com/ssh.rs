@@ -72,6 +72,7 @@ impl Com for SSHComImpl {
             Some(connection_data.password.as_str()),
         )?;
 
+
         let chan = sess.new_channel()?;
         chan.open_session()?;
         let terminal_type = connection_data.terminal.to_string().to_lowercase();
@@ -81,6 +82,8 @@ impl Com for SSHComImpl {
             self.window_size.height as u32,
         )?;
         chan.request_shell()?;
+
+        sess.set_blocking(false);
 
         self.channel = Some(Arc::new(Mutex::new(chan)));
         self.session = Some(sess);
@@ -93,6 +96,7 @@ impl Com for SSHComImpl {
         let mut buf = [0; 1024 * 256];
         let locked = channel.lock().unwrap();
         let mut stdout = locked.stdout();
+
         match stdout.read(&mut buf) {
             Ok(size) => Ok(Some(buf[0..size].to_vec())),
             Err(e) => {
