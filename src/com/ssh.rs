@@ -111,11 +111,35 @@ impl Com for SSHComImpl {
     }
 
     fn read_u8(&mut self) -> TermComResult<u8> {
-        Ok(0)
+        let mut buf: [u8; 1] = [0];
+        match self.channel.lock() {
+            Ok(locked) => {
+                let mut stdout = locked.stdout();
+                match stdout.read(&mut buf) {
+                    Ok(size) => {
+                        Ok(buf[0])
+                    }
+                    Err(err) => {
+                        return Err(Box::new(std::io::Error::new(
+                            ErrorKind::ConnectionAborted,
+                            format!("error while reading single byte from stream: {err}"),
+                        )));
+                    }
+                }
+            }
+            Err(err) => Err(Box::new(std::io::Error::new(
+                ErrorKind::ConnectionAborted,
+                format!("error while reading single byte from stream: {err}"),
+            ))),
+        }
     }
 
-    fn read_exact(&mut self, _len: usize) -> TermComResult<Vec<u8>> {
-        Ok(Vec::new())
+    fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
+        let mut b = vec![];
+        while b.len() < len {
+            b.push(self.read_u8()?);
+        }
+        Ok(b)
     }
 
     fn send(&mut self, buf: &[u8]) -> TermComResult<usize> {
