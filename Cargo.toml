@@ -28,7 +28,7 @@ glow = "0.12.2"
 dark-light = "1.0.0"
 
 #sound
-cpal = "0.15.2"
+rodio = "0.17.1"
 icy_engine = { git ="https://github.com/mkrueger/icy_engine" }
 #icy_engine = { path = "../icy_engine" }
 
