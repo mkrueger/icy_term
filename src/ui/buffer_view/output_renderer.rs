@@ -5,6 +5,7 @@ use glow::HasContext as _;
 use glow::Texture;
 use icy_engine::Buffer;
 
+use crate::prepare_shader;
 use crate::ui::buffer_view::SHADER_SOURCE;
 use crate::MonitorSettings;
 use crate::MONO_COLORS;
@@ -70,6 +71,7 @@ impl OutputRenderer {
 
         gl.clear(glow::COLOR_BUFFER_BIT);
         gl.clear_color(0., 0., 0., 1.0);
+        crate::check_gl_error!(gl, "init_output");
     }
 
     pub unsafe fn render_to_screen(
@@ -215,8 +217,7 @@ impl OutputRenderer {
         );
 
         gl.bind_vertex_array(Some(self.vertex_array));
-        gl.draw_arrays(glow::TRIANGLES, 0, 3);
-        gl.draw_arrays(glow::TRIANGLES, 3, 3);
+        gl.draw_arrays(glow::TRIANGLES, 0, 6);
     }
 
     pub(crate) fn update_render_buffer(
@@ -242,7 +243,7 @@ impl OutputRenderer {
             gl.tex_image_2d(
                 glow::TEXTURE_2D,
                 0,
-                glow::RGBA32F as i32,
+                glow::RGBA as i32,
                 render_buffer_size.x as i32,
                 render_buffer_size.y as i32,
                 0,
@@ -263,27 +264,6 @@ impl OutputRenderer {
                 glow::CLAMP_TO_EDGE as i32,
             );
 
-            let depth_buffer = gl.create_renderbuffer().unwrap();
-            gl.bind_renderbuffer(glow::RENDERBUFFER, Some(depth_buffer));
-            gl.renderbuffer_storage(
-                glow::RENDERBUFFER,
-                glow::DEPTH_COMPONENT,
-                render_buffer_size.x as i32,
-                render_buffer_size.y as i32,
-            );
-            gl.framebuffer_renderbuffer(
-                glow::FRAMEBUFFER,
-                glow::DEPTH_ATTACHMENT,
-                glow::RENDERBUFFER,
-                Some(depth_buffer),
-            );
-            gl.framebuffer_texture(
-                glow::FRAMEBUFFER,
-                glow::COLOR_ATTACHMENT0,
-                Some(render_texture),
-                0,
-            );
-
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);
             self.render_texture = render_texture;
             self.render_buffer_size = render_buffer_size;
@@ -293,8 +273,10 @@ impl OutputRenderer {
 
 unsafe fn compile_output_shader(gl: &glow::Context) -> glow::Program {
     let draw_program = gl.create_program().expect("Cannot create program");
-    let (vertex_shader_source, fragment_shader_source) =
-        (SHADER_SOURCE, include_str!("output_renderer.shader.frag"));
+    let (vertex_shader_source, fragment_shader_source) = (
+        prepare_shader!(SHADER_SOURCE),
+        prepare_shader!(include_str!("output_renderer.shader.frag")),
+    );
     let shader_sources = [
         (glow::VERTEX_SHADER, vertex_shader_source),
         (glow::FRAGMENT_SHADER, fragment_shader_source),
@@ -345,7 +327,7 @@ unsafe fn create_screen_render_texture(
     gl.tex_image_2d(
         glow::TEXTURE_2D,
         0,
-        glow::RGBA32F as i32,
+        glow::RGBA as i32,
         render_buffer_size.x as i32,
         render_buffer_size.y as i32,
         0,
@@ -366,25 +348,5 @@ unsafe fn create_screen_render_texture(
         glow::CLAMP_TO_EDGE as i32,
     );
 
-    let depth_buffer = gl.create_renderbuffer().unwrap();
-    gl.bind_renderbuffer(glow::RENDERBUFFER, Some(depth_buffer));
-    gl.renderbuffer_storage(
-        glow::RENDERBUFFER,
-        glow::DEPTH_COMPONENT,
-        render_buffer_size.x as i32,
-        render_buffer_size.y as i32,
-    );
-    gl.framebuffer_renderbuffer(
-        glow::FRAMEBUFFER,
-        glow::DEPTH_ATTACHMENT,
-        glow::RENDERBUFFER,
-        Some(depth_buffer),
-    );
-    gl.framebuffer_texture(
-        glow::FRAMEBUFFER,
-        glow::COLOR_ATTACHMENT0,
-        Some(render_texture),
-        0,
-    );
     render_texture
 }

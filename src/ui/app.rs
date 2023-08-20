@@ -49,7 +49,7 @@ impl MainWindow {
             addresses,
             cur_addr: 0,
             selected_bbs: None,
-            connection_opt: None,
+            connection_opt: MainWindow::open_connection(),
             options,
             auto_login: AutoLogin::new(""),
             auto_file_transfer: AutoFileTransfer::default(),
@@ -59,7 +59,6 @@ impl MainWindow {
             is_alt_pressed: false,
             phonebook_filter: PhonebookFilter::All,
             buffer_parser: Box::<ansi::Parser>::default(),
-            open_connection_promise: None,
             phonebook_filter_string: String::new(),
             rng: Rng::default(),
             capture_session: false,
@@ -98,6 +97,7 @@ impl MainWindow {
 
         let mut style: egui::Style = (*ctx.style()).clone();
         style.spacing.window_margin = egui::Margin::same(8.0);
+
         //        style.spacing.button_padding = Vec2::new(4., 2.);
         style.text_styles = [
             (Heading, FontId::new(24.0, Proportional)),
@@ -127,24 +127,6 @@ impl eframe::App for MainWindow {
         #[cfg(not(target_arch = "wasm32"))]
         self.update_title(frame);
 
-        if self.open_connection_promise.is_some()
-            && self.open_connection_promise.as_ref().unwrap().is_finished()
-        {
-            if let Some(join_handle) = self.open_connection_promise.take() {
-                let handle = join_handle.join();
-                if let Ok(handle) = handle {
-                    match handle {
-                        Ok(handle) => {
-                            self.open_connection(ctx, handle);
-                        }
-                        Err(err) => {
-                            self.println(&format!("\n\r{err}")).unwrap();
-                        }
-                    }
-                }
-            }
-        }
-
         match self.mode {
             MainWindowMode::ShowTerminal | MainWindowMode::ShowPhonebook => {
                 let res = self.update_state();
@@ -169,10 +151,8 @@ impl eframe::App for MainWindow {
             }
 
             MainWindowMode::FileTransfer(download) => {
-                if let Some(con) = self.connection_opt.as_mut() {
-                    if con.should_end_transfer() {
-                        self.auto_file_transfer.reset();
-                    }
+                if self.connection_opt.should_end_transfer() {
+                    self.auto_file_transfer.reset();
                 }
 
                 self.update_terminal_window(ctx, frame);
@@ -193,13 +173,8 @@ impl eframe::App for MainWindow {
                         .show_dialog(ctx, frame, &state, download)
                     {
                         self.mode = MainWindowMode::ShowTerminal;
-                        if let Some(con) = self.connection_opt.as_mut() {
-                            let res = con.cancel_transfer();
-                            self.handle_result(res, true);
-                        } else {
-                            log::error!("In file transfer but connection lost.");
-                            self.mode = MainWindowMode::ShowTerminal;
-                        }
+                        let res = self.connection_opt.cancel_transfer();
+                        self.handle_result(res, true);
                     }
                 } else {
                     log::error!("In file transfer but no current protocol.");
@@ -211,6 +186,7 @@ impl eframe::App for MainWindow {
                 let res = self.update_state();
                 self.update_terminal_window(ctx, frame);
                 self.handle_result(res, false);
+                #[cfg(not(target_arch = "wasm32"))]
                 super::dialogs::show_dialog(self, ctx);
                 ctx.request_repaint_after(Duration::from_millis(150));
             }

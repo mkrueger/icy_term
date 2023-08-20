@@ -498,8 +498,8 @@ impl MainWindow {
                                 for (k, m) in key_map {
                                     if *k == key_code {
                                         self.handled_char = true;
-                                        if let Some(con) = &mut self.connection_opt {
-                                            let res = con.send(m.to_vec());
+                                        if self.connection_opt.is_connected() {
+                                            let res = self.connection_opt.send(m.to_vec());
                                             self.handle_result(res, true);
                                         } else {
                                             for c in *m {

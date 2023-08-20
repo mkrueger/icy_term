@@ -1,9 +1,4 @@
-use std::{
-    collections::VecDeque,
-    error::Error,
-    sync::mpsc,
-    time::{Duration, Instant},
-};
+use std::{collections::VecDeque, error::Error, sync::mpsc, time::Duration};
 
 #[cfg(test)]
 pub mod tests;
@@ -16,6 +11,7 @@ pub use telnet::*;
 pub mod raw;
 pub use raw::*;
 pub mod ssh;
+use web_time::Instant;
 
 use crate::{
     addresses::{Address, Terminal},
@@ -36,9 +32,44 @@ pub trait Com: Sync + Send {
 
     fn disconnect(&mut self) -> TermComResult<()>;
 }
+pub struct NullConnection {}
+impl Com for NullConnection {
+    fn get_name(&self) -> &'static str {
+        ""
+    }
 
+    fn send(&mut self, buf: &[u8]) -> TermComResult<usize> {
+        Ok(0)
+    }
+
+    fn connect(&mut self, addr: &Address, timeout: Duration) -> TermComResult<bool> {
+        Ok(false)
+    }
+
+    fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
+        Ok(Some(Vec::new()))
+    }
+
+    fn read_u8(&mut self) -> TermComResult<u8> {
+        Ok(0)
+    }
+
+    fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
+        Ok(Vec::new())
+    }
+
+    fn set_terminal_type(&mut self, terminal: Terminal) {}
+
+    fn disconnect(&mut self) -> TermComResult<()> {
+        Ok(())
+    }
+}
 #[derive(Debug)]
 pub enum SendData {
+    OpenConnection(Address, Duration, icy_engine::Size<u16>),
+    ConnectionError(String),
+    Connected,
+
     Data(Vec<u8>),
     Disconnect,
     StartTransfer(
@@ -108,6 +139,16 @@ impl Connection {
                         self.end_transfer = true;
                         break;
                     }
+                    SendData::Connected => {
+                        self.is_disconnected = false;
+                        break;
+                    }
+                    SendData::ConnectionError(err) => {
+                        log::error!("Connection error: {}", err);
+                        self.is_disconnected = true;
+                        self.end_transfer = true;
+                        break;
+                    }
                     _ => {}
                 },
 
@@ -146,6 +187,10 @@ impl Connection {
         self.is_disconnected
     }
 
+    pub fn is_connected(&self) -> bool {
+        !self.is_disconnected
+    }
+
     pub(crate) fn start_file_transfer(
         &mut self,
         protocol_type: crate::protocol::TransferType,
@@ -165,6 +210,19 @@ impl Connection {
 
     pub(crate) fn set_baud_rate(&self, baud_rate: u32) -> TerminalResult<()> {
         self.tx.send(SendData::SetBaudRate(baud_rate))?;
+        Ok(())
+    }
+
+    pub(crate) fn Connect(
+        &self,
+        call_adr: Address,
+        timeout: Duration,
+        window_size: icy_engine::Size<u16>,
+    ) -> TerminalResult<()> {
+        log::info!("Connecting to {:?}", call_adr);
+        self.tx
+            .send(SendData::OpenConnection(call_adr, timeout, window_size))?;
+        log::info!("Connected done");
         Ok(())
     }
 }
