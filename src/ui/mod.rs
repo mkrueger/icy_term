@@ -166,6 +166,9 @@ impl MainWindow {
                     .set_baud_rate(baud_emulation.get_baud_rate());
                 check_error!(self, r, false);
             }
+            icy_engine::CallbackAction::ResizeTerminal(_, _) => {
+                self.buffer_view.lock().redraw_view()
+            }
         }
         self.buffer_view.lock().redraw_view();
         Ok(())
