@@ -12,6 +12,9 @@ pub struct SSHComImpl {
     channel: Arc<Mutex<Channel>>,
 }
 
+const SUPPORTED_CIPHERS: &str = "aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm,aes128-gcm@openssh.com,aes256-gcm,aes256-gcm@openssh.com,aes256-cbc,aes192-cbc,aes128-cbc,blowfish-cbc,3des-cbc,arcfour256,arcfour128,cast128-cbc,arcfour";
+const SUPPORTED_KEY_EXCHANGES: &str = "ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group14-sha1,diffie-hellman-group1-sha1";
+
 impl SSHComImpl {
     pub fn connect(connection_data: &OpenConnectionData) -> TermComResult<Self> {
         let session = Session::new()?;
@@ -19,7 +22,10 @@ impl SSHComImpl {
 
         session.set_option(SshOption::Hostname(host))?;
         session.set_option(SshOption::Port(port))?;
-        session.options_parse_config(None)?;
+        session.set_option(SshOption::KeyExchange(SUPPORTED_KEY_EXCHANGES.to_string()))?;
+        session.set_option(SshOption::CiphersCS(SUPPORTED_CIPHERS.to_string()))?;
+        session.set_option(SshOption::CiphersSC(SUPPORTED_CIPHERS.to_string()))?;
+
         session.connect()?;
 
         //  :TODO: SECURITY: verify_known_hosts() implemented here -- ie: user must accept & we save somewhere
