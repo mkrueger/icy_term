@@ -167,7 +167,7 @@ pub struct OpenConnectionData {
     pub password: String,
     pub protocol: crate::Protocol,
     pub timeout: Duration,
-    pub size: icy_engine::Size<u16>,
+    pub window_size: icy_engine::Size<u16>,
 }
 
 impl OpenConnectionData {
@@ -179,7 +179,7 @@ impl OpenConnectionData {
             terminal: call_adr.terminal_type,
             protocol: call_adr.protocol,
             timeout,
-            size: window_size,
+            window_size,
         }
     }
 }

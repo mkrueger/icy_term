@@ -24,10 +24,6 @@ impl Com for TestCom {
 
     fn set_terminal_type(&mut self, _terminal: crate::addresses::Terminal) {}
 
-    fn connect(&mut self, _connection_data: &super::OpenConnectionData) -> TermComResult<bool> {
-        Ok(true)
-    }
-
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
         if self.name == "receiver" {
             indent_receiver();
