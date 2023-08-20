@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use super::{Com, OpenConnectionData, TermComResult};
-use icy_engine::Size;
 use libssh_rs::{Channel, Session, SshOption};
 use std::{
     io::ErrorKind,
@@ -9,18 +8,41 @@ use std::{
     sync::{Arc, Mutex},
 };
 pub struct SSHComImpl {
-    window_size: Size<u16>, // width, height
-    session: Option<Session>,
-    channel: Option<Arc<Mutex<Channel>>>,
+    session: Session,
+    channel: Arc<Mutex<Channel>>,
 }
 
 impl SSHComImpl {
-    pub fn new(window_size: Size<u16>) -> Self {
-        Self {
-            window_size,
-            session: None,
-            channel: None,
-        }
+    pub fn connect(connection_data: &OpenConnectionData) -> TermComResult<Self> {
+        let session = Session::new()?;
+        let (host, port) = Self::parse_address(&connection_data.address)?;
+
+        session.set_option(SshOption::Hostname(host))?;
+        session.set_option(SshOption::Port(port))?;
+        session.options_parse_config(None)?;
+        session.connect()?;
+
+        //  :TODO: SECURITY: verify_known_hosts() implemented here -- ie: user must accept & we save somewhere
+
+        session.userauth_password(
+            Some(connection_data.user_name.as_str()),
+            Some(connection_data.password.as_str()),
+        )?;
+
+        let chan = session.new_channel()?;
+        chan.open_session()?;
+        let terminal_type = connection_data.terminal.to_string().to_lowercase();
+        chan.request_pty(
+            terminal_type.as_str(),
+            connection_data.window_size.width as u32,
+            connection_data.window_size.height as u32,
+        )?;
+        chan.request_shell()?;
+
+        Ok(Self {
+            session,
+            channel: Arc::new(Mutex::new(chan)),
+        })
     }
 
     fn default_port() -> u16 {
@@ -56,54 +78,28 @@ impl Com for SSHComImpl {
 
     fn set_terminal_type(&mut self, _terminal: crate::addresses::Terminal) {}
 
-    fn connect(&mut self, connection_data: &OpenConnectionData) -> TermComResult<bool> {
-        let sess = Session::new()?;
-        let (host, port) = Self::parse_address(&connection_data.address)?;
-
-        sess.set_option(SshOption::Hostname(host))?;
-        sess.set_option(SshOption::Port(port))?;
-        sess.options_parse_config(None)?;
-        sess.connect()?;
-
-        //  :TODO: SECURITY: verify_known_hosts() implemented here -- ie: user must accept & we save somewhere
-
-        sess.userauth_password(
-            Some(connection_data.user_name.as_str()),
-            Some(connection_data.password.as_str()),
-        )?;
-
-        let chan = sess.new_channel()?;
-        chan.open_session()?;
-        let terminal_type = connection_data.terminal.to_string().to_lowercase();
-        chan.request_pty(
-            terminal_type.as_str(),
-            self.window_size.width as u32,
-            self.window_size.height as u32,
-        )?;
-        chan.request_shell()?;
-
-        self.channel = Some(Arc::new(Mutex::new(chan)));
-        self.session = Some(sess);
-
-        Ok(true)
-    }
-
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
-        let channel = self.channel.as_mut().unwrap().clone();
         let mut buf = [0; 1024 * 256];
-        let locked = channel.lock().unwrap();
-        let mut stdout = locked.stdout();
-        match stdout.read(&mut buf) {
-            Ok(size) => Ok(Some(buf[0..size].to_vec())),
-            Err(e) => {
-                if e.kind() == std::io::ErrorKind::WouldBlock {
-                    return Ok(None);
+        match self.channel.lock() {
+            Ok(locked) => {
+                let mut stdout = locked.stdout();
+                match stdout.read(&mut buf) {
+                    Ok(size) => Ok(Some(buf[0..size].to_vec())),
+                    Err(e) => {
+                        if e.kind() == std::io::ErrorKind::WouldBlock {
+                            return Ok(None);
+                        }
+                        Err(Box::new(std::io::Error::new(
+                            ErrorKind::ConnectionAborted,
+                            format!("Connection aborted: {e}"),
+                        )))
+                    }
                 }
-                Err(Box::new(std::io::Error::new(
-                    ErrorKind::ConnectionAborted,
-                    format!("Connection aborted: {e}"),
-                )))
             }
+            Err(err) => Err(Box::new(std::io::Error::new(
+                ErrorKind::ConnectionAborted,
+                format!("Can't lock channel: {err}"),
+            ))),
         }
     }
 
@@ -116,14 +112,20 @@ impl Com for SSHComImpl {
     }
 
     fn send(&mut self, buf: &[u8]) -> TermComResult<usize> {
-        let channel = self.channel.as_mut().unwrap().clone();
-        let locked = channel.lock().unwrap();
-        locked.stdin().write_all(buf)?;
-        Ok(buf.len())
+        match self.channel.lock() {
+            Ok(locked) => {
+                locked.stdin().write_all(buf)?;
+                Ok(buf.len())
+            }
+            Err(err) => Err(Box::new(std::io::Error::new(
+                ErrorKind::ConnectionAborted,
+                format!("Can't lock channel: {err}"),
+            ))),
+        }
     }
 
     fn disconnect(&mut self) -> TermComResult<()> {
-        self.session.as_mut().unwrap().disconnect();
+        self.session.disconnect();
         Ok(())
     }
 }

@@ -1,6 +1,6 @@
 use crate::addresses::Terminal;
 
-use super::{Com, ConnectionError, TermComResult};
+use super::{Com, TermComResult};
 use icy_engine::Size;
 use std::{
     io::{self, ErrorKind, Read, Write},
@@ -10,7 +10,7 @@ use std::{
 
 #[derive(Debug)]
 pub struct ComTelnetImpl {
-    tcp_stream: Option<TcpStream>,
+    tcp_stream: TcpStream,
     state: ParserState,
     window_size: Size<u16>, // width, height
     terminal: Terminal,
@@ -305,14 +305,18 @@ mod telnet_option {
 
 #[allow(dead_code)]
 impl ComTelnetImpl {
-    pub fn new(window_size: Size<u16>) -> Self {
-        Self {
-            tcp_stream: None,
+    pub fn connect(connection_data: &super::OpenConnectionData) -> TermComResult<Self> {
+        let tcp_stream = TcpStream::connect(&connection_data.address)?;
+        tcp_stream.set_nonblocking(true)?;
+        tcp_stream.set_read_timeout(Some(Duration::from_secs(2)))?;
+
+        Ok(Self {
+            tcp_stream,
             state: ParserState::Data,
-            window_size,
+            window_size: connection_data.window_size,
             terminal: Terminal::Ansi,
             use_raw_transfer: false,
-        }
+        })
     }
 
     fn parse(&mut self, data: &[u8]) -> TermComResult<Option<Vec<u8>>> {
@@ -359,11 +363,7 @@ impl ComTelnetImpl {
 
                                 //println!("Sending terminal type: {:?}", buf);
 
-                                if let Some(stream) = self.tcp_stream.as_mut() {
-                                    stream.write_all(&buf)?;
-                                } else {
-                                    return Err(Box::new(ConnectionError::ConnectionLost));
-                                }
+                                self.tcp_stream.write_all(&buf)?;
                             }
                         }
                         24 => {
@@ -377,11 +377,8 @@ impl ComTelnetImpl {
                 ParserState::Iac => match telnet_cmd::check(*b) {
                     Ok(telnet_cmd::Ayt) => {
                         self.state = ParserState::Data;
-                        if let Some(stream) = self.tcp_stream.as_mut() {
-                            stream.write_all(&telnet_cmd::make_cmd(telnet_cmd::Nop))?;
-                        } else {
-                            return Err(Box::new(ConnectionError::ConnectionLost));
-                        }
+                        self.tcp_stream
+                            .write_all(&telnet_cmd::make_cmd(telnet_cmd::Nop))?;
                     }
                     Ok(telnet_cmd::SE | telnet_cmd::Nop | telnet_cmd::GA) => {
                         self.state = ParserState::Data;
@@ -417,31 +414,28 @@ impl ComTelnetImpl {
                 ParserState::Will => {
                     self.state = ParserState::Data;
                     let opt = telnet_option::check(*b)?;
-                    if let Some(stream) = self.tcp_stream.as_mut() {
-                        if let telnet_option::TransmitBinary = opt {
-                            stream.write_all(&telnet_cmd::make_cmd_with_option(
+                    if let telnet_option::TransmitBinary = opt {
+                        self.tcp_stream
+                            .write_all(&telnet_cmd::make_cmd_with_option(
                                 telnet_cmd::DO,
                                 telnet_option::TransmitBinary,
                             ))?;
-                        } else if let telnet_option::Echo = opt {
-                            stream.write_all(&telnet_cmd::make_cmd_with_option(
+                    } else if let telnet_option::Echo = opt {
+                        self.tcp_stream
+                            .write_all(&telnet_cmd::make_cmd_with_option(
                                 telnet_cmd::DO,
                                 telnet_option::Echo,
                             ))?;
-                        } else if let telnet_option::SuppressGoAhead = opt {
-                            stream.write_all(&telnet_cmd::make_cmd_with_option(
+                    } else if let telnet_option::SuppressGoAhead = opt {
+                        self.tcp_stream
+                            .write_all(&telnet_cmd::make_cmd_with_option(
                                 telnet_cmd::DO,
                                 telnet_option::SuppressGoAhead,
                             ))?;
-                        } else {
-                            log::warn!("unsupported will option {}", telnet_option::to_string(opt));
-                            stream.write_all(&telnet_cmd::make_cmd_with_option(
-                                telnet_cmd::Dont,
-                                opt,
-                            ))?;
-                        }
                     } else {
-                        return Err(Box::new(ConnectionError::ConnectionLost));
+                        log::warn!("unsupported will option {}", telnet_option::to_string(opt));
+                        self.tcp_stream
+                            .write_all(&telnet_cmd::make_cmd_with_option(telnet_cmd::Dont, opt))?;
                     }
                 }
                 ParserState::Wont => {
@@ -452,47 +446,43 @@ impl ComTelnetImpl {
                 ParserState::Do => {
                     self.state = ParserState::Data;
                     let opt = telnet_option::check(*b)?;
-                    if let Some(stream) = self.tcp_stream.as_mut() {
-                        match opt {
-                            telnet_option::TransmitBinary => {
-                                stream.write_all(&telnet_cmd::make_cmd_with_option(
+                    match opt {
+                        telnet_option::TransmitBinary => {
+                            self.tcp_stream
+                                .write_all(&telnet_cmd::make_cmd_with_option(
                                     telnet_cmd::Will,
                                     telnet_option::TransmitBinary,
                                 ))?;
-                            }
-                            telnet_option::TerminalType => {
-                                stream.write_all(&telnet_cmd::make_cmd_with_option(
+                        }
+                        telnet_option::TerminalType => {
+                            self.tcp_stream
+                                .write_all(&telnet_cmd::make_cmd_with_option(
                                     telnet_cmd::Will,
                                     telnet_option::TerminalType,
                                 ))?;
-                            }
-                            telnet_option::NegotiateAboutWindowSize => {
-                                // NAWS: send our current window size
-                                let mut buf: Vec<u8> = telnet_cmd::make_cmd_with_option(
-                                    telnet_cmd::SB,
-                                    telnet_option::NegotiateAboutWindowSize,
-                                )
-                                .to_vec();
-                                buf.extend(self.window_size.width.to_be_bytes());
-                                buf.extend(self.window_size.height.to_be_bytes());
-                                buf.push(telnet_cmd::Iac);
-                                buf.push(telnet_cmd::SE);
+                        }
+                        telnet_option::NegotiateAboutWindowSize => {
+                            // NAWS: send our current window size
+                            let mut buf: Vec<u8> = telnet_cmd::make_cmd_with_option(
+                                telnet_cmd::SB,
+                                telnet_option::NegotiateAboutWindowSize,
+                            )
+                            .to_vec();
+                            buf.extend(self.window_size.width.to_be_bytes());
+                            buf.extend(self.window_size.height.to_be_bytes());
+                            buf.push(telnet_cmd::Iac);
+                            buf.push(telnet_cmd::SE);
 
-                                stream.write_all(&buf)?;
-                            }
-                            _ => {
-                                log::warn!(
-                                    "unsupported do option {}",
-                                    telnet_option::to_string(opt)
-                                );
-                                stream.write_all(&telnet_cmd::make_cmd_with_option(
+                            self.tcp_stream.write_all(&buf)?;
+                        }
+                        _ => {
+                            log::warn!("unsupported do option {}", telnet_option::to_string(opt));
+                            self.tcp_stream
+                                .write_all(&telnet_cmd::make_cmd_with_option(
                                     telnet_cmd::Wont,
                                     opt,
                                 ))?;
-                            }
                         }
-                    } else {
-                        return Err(Box::new(ConnectionError::ConnectionLost));
                     }
                 }
                 ParserState::Dont => {
@@ -519,30 +509,20 @@ impl Com for ComTelnetImpl {
         self.terminal = terminal;
     }
 
-    fn connect(&mut self, connection_data: &super::OpenConnectionData) -> TermComResult<bool> {
-        let tcp_stream = TcpStream::connect(&connection_data.address)?;
-        tcp_stream.set_nonblocking(true)?;
-        tcp_stream.set_read_timeout(Some(Duration::from_secs(2)))?;
-
-        self.tcp_stream = Some(tcp_stream);
-        Ok(true)
-    }
-
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
-        let tcp_stream = self.tcp_stream.as_mut().unwrap();
         let mut buf = [0; 1024 * 256];
-        if tcp_stream.peek(&mut buf)? == 0 {
+        if self.tcp_stream.peek(&mut buf)? == 0 {
             return Ok(None);
         }
 
-        tcp_stream.set_nonblocking(false)?;
-        match tcp_stream.read(&mut buf) {
+        self.tcp_stream.set_nonblocking(false)?;
+        match self.tcp_stream.read(&mut buf) {
             Ok(size) => {
-                tcp_stream.set_nonblocking(true)?;
+                self.tcp_stream.set_nonblocking(true)?;
                 self.parse(&buf[0..size])
             }
             Err(ref e) => {
-                tcp_stream.set_nonblocking(true)?;
+                self.tcp_stream.set_nonblocking(true)?;
                 if e.kind() == io::ErrorKind::WouldBlock {
                     return Ok(None);
                 }
@@ -555,13 +535,13 @@ impl Com for ComTelnetImpl {
     }
 
     fn read_u8(&mut self) -> TermComResult<u8> {
-        self.tcp_stream.as_mut().unwrap().set_nonblocking(false)?;
+        self.tcp_stream.set_nonblocking(false)?;
         let mut b = [0];
-        match self.tcp_stream.as_mut().unwrap().read_exact(&mut b) {
+        match self.tcp_stream.read_exact(&mut b) {
             Ok(()) => {
                 if b[0] == telnet_cmd::Iac {
                     let mut b = [0];
-                    match self.tcp_stream.as_mut().unwrap().read_exact(&mut b) {
+                    match self.tcp_stream.read_exact(&mut b) {
                         Ok(()) => {
                             if b[0] == telnet_cmd::Iac {
                                 return Ok(b[0]);
@@ -598,7 +578,7 @@ impl Com for ComTelnetImpl {
 
     fn send(&mut self, buf: &[u8]) -> TermComResult<usize> {
         if self.use_raw_transfer {
-            self.tcp_stream.as_mut().unwrap().write_all(buf)?;
+            self.tcp_stream.write_all(buf)?;
         } else {
             let mut data = Vec::with_capacity(buf.len());
             for b in buf {
@@ -608,16 +588,13 @@ impl Com for ComTelnetImpl {
                     data.push(*b);
                 }
             }
-            self.tcp_stream.as_mut().unwrap().write_all(&data)?;
+            self.tcp_stream.write_all(&data)?;
         }
         Ok(buf.len())
     }
 
     fn disconnect(&mut self) -> TermComResult<()> {
-        self.tcp_stream
-            .as_mut()
-            .unwrap()
-            .shutdown(std::net::Shutdown::Both)?;
+        self.tcp_stream.shutdown(std::net::Shutdown::Both)?;
 
         Ok(())
     }

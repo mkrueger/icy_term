@@ -20,7 +20,6 @@ pub trait Com: Sync + Send {
     fn default_port(&self) -> u16;
 
     fn send(&mut self, buf: &[u8]) -> TermComResult<usize>;
-    fn connect(&mut self, connection_data: &OpenConnectionData) -> TermComResult<bool>;
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>>;
     fn read_u8(&mut self) -> TermComResult<u8>;
     fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>>;
@@ -36,10 +35,6 @@ impl Com for NullConnection {
 
     fn send(&mut self, _buf: &[u8]) -> TermComResult<usize> {
         Ok(0)
-    }
-
-    fn connect(&mut self, _connection_data: &OpenConnectionData) -> TermComResult<bool> {
-        Ok(false)
     }
 
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
@@ -64,7 +59,7 @@ impl Com for NullConnection {
         0
     }
 }
-
+/*
 #[derive(Debug, Clone, Copy)]
 pub enum ConnectionError {
     ConnectionLost,
@@ -93,3 +88,4 @@ impl Error for ConnectionError {
         self.source()
     }
 }
+*/

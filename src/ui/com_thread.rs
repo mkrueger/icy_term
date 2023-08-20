@@ -11,10 +11,10 @@ use wasm_thread as thread;
 
 use std::time::{Duration, Instant};
 
-use crate::com::Com;
+use crate::com::{Com, TermComResult};
 use crate::protocol::TestStorageHandler;
 
-use super::connection::{Connection, SendData};
+use super::connection::{Connection, OpenConnectionData, SendData};
 use super::MainWindow;
 
 const BITS_PER_BYTE: u32 = 8;
@@ -77,6 +77,21 @@ impl ConnectionThreadData {
             }
         }
     }
+
+    fn try_connect(&mut self, connection_data: &OpenConnectionData) -> TermComResult<()> {
+        self.com = match connection_data.protocol {
+            crate::addresses::Protocol::Telnet => {
+                Box::new(crate::com::ComTelnetImpl::connect(connection_data)?)
+            }
+            crate::addresses::Protocol::Raw => {
+                Box::new(crate::com::ComRawImpl::connect(connection_data)?)
+            }
+            crate::addresses::Protocol::Ssh => {
+                Box::new(crate::com::ssh::SSHComImpl::connect(connection_data)?)
+            }
+        };
+        Ok(())
+    }
 }
 
 impl MainWindow {
@@ -104,25 +119,16 @@ impl MainWindow {
                 while let Ok(result) = rx2.try_recv() {
                     match result {
                         SendData::OpenConnection(connection_data) => {
-                            let mut com: Box<dyn Com> = match connection_data.protocol {
-                                crate::addresses::Protocol::Telnet => {
-                                    Box::new(crate::com::ComTelnetImpl::new(connection_data.size))
+                            match data.try_connect(&connection_data) {
+                                Ok(()) => {
+                                    data.thread_is_running &= tx.send(SendData::Connected).is_ok();
+                                    data.is_connected = true;
                                 }
-                                crate::addresses::Protocol::Raw => {
-                                    Box::new(crate::com::ComRawImpl::new())
+                                Err(err) => {
+                                    data.thread_is_running &=
+                                        tx.send(SendData::ConnectionError(err.to_string())).is_ok();
+                                    data.disconnect();
                                 }
-                                crate::addresses::Protocol::Ssh => {
-                                    Box::new(crate::com::ssh::SSHComImpl::new(connection_data.size))
-                                }
-                            };
-                            if let Err(err) = com.connect(&connection_data) {
-                                data.thread_is_running &=
-                                    tx.send(SendData::ConnectionError(err.to_string())).is_ok();
-                                data.disconnect();
-                            } else {
-                                data.thread_is_running &= tx.send(SendData::Connected).is_ok();
-                                data.is_connected = true;
-                                data.com = com;
                             }
                         }
                         SendData::Data(buf) => {
