@@ -83,9 +83,7 @@ impl FileTransferDialog {
                                 crate::LANGUAGE_LOADER,
                                 "transfer-protocol"
                             )));
-                            ui.label(
-                                RichText::new(state.protocol_name.clone()),
-                            );
+                            ui.label(RichText::new(state.protocol_name.clone()));
                         });
                     });
 
@@ -126,9 +124,11 @@ impl FileTransferDialog {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-rate")));
                     let bps = bb.bytes(transfer_info.get_bps()).to_string();
-                    ui.label(
-                        RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-bps", bps = bps)),
-                    );
+                    ui.label(RichText::new(fl!(
+                        crate::LANGUAGE_LOADER,
+                        "transfer-bps",
+                        bps = bps
+                    )));
                 });
 
                 if cur_state.has_log_entries() {
