@@ -10,6 +10,8 @@ pub use telnet::*;
 
 pub mod raw;
 pub use raw::*;
+
+#[cfg(not(target_arch = "wasm32"))]
 pub mod ssh;
 
 use crate::{addresses::Terminal, ui::connection::OpenConnectionData};

@@ -5,7 +5,6 @@ use icy_engine::Size;
 use std::{
     io::{self, ErrorKind, Read, Write},
     net::TcpStream,
-    time::Duration,
 };
 
 #[derive(Debug)]
@@ -307,9 +306,7 @@ mod telnet_option {
 impl ComTelnetImpl {
     pub fn connect(connection_data: &super::OpenConnectionData) -> TermComResult<Self> {
         let tcp_stream = TcpStream::connect(&connection_data.address)?;
-        tcp_stream.set_nonblocking(true)?;
-        tcp_stream.set_read_timeout(Some(Duration::from_secs(2)))?;
-
+        //tcp_stream.set_nonblocking(true)?;
         Ok(Self {
             tcp_stream,
             state: ParserState::Data,
@@ -515,14 +512,14 @@ impl Com for ComTelnetImpl {
             return Ok(None);
         }
 
-        self.tcp_stream.set_nonblocking(false)?;
+        // self.tcp_stream.set_nonblocking(false)?;
         match self.tcp_stream.read(&mut buf) {
             Ok(size) => {
-                self.tcp_stream.set_nonblocking(true)?;
+                // self.tcp_stream.set_nonblocking(true)?;
                 self.parse(&buf[0..size])
             }
             Err(ref e) => {
-                self.tcp_stream.set_nonblocking(true)?;
+                //self.tcp_stream.set_nonblocking(true)?;
                 if e.kind() == io::ErrorKind::WouldBlock {
                     return Ok(None);
                 }
@@ -535,7 +532,7 @@ impl Com for ComTelnetImpl {
     }
 
     fn read_u8(&mut self) -> TermComResult<u8> {
-        self.tcp_stream.set_nonblocking(false)?;
+        //        self.tcp_stream.set_nonblocking(false)?;
         let mut b = [0];
         match self.tcp_stream.read_exact(&mut b) {
             Ok(()) => {

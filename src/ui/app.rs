@@ -7,6 +7,7 @@ use egui::FontId;
 use icy_engine::ansi;
 
 use crate::{
+    check_error,
     features::{AutoFileTransfer, AutoLogin},
     ui::{dialogs::PhonebookFilter, BufferView, ScreenMode},
     util::Rng,
@@ -41,6 +42,10 @@ impl MainWindow {
                 vec![crate::Address::new(String::new())]
             }
         };
+        #[cfg(not(target_arch = "wasm32"))]
+        let connection = MainWindow::start_com_thread();
+        #[cfg(target_arch = "wasm32")]
+        let (connection, poll_thread) = MainWindow::start_poll_thead();
 
         let mut view = MainWindow {
             buffer_view: Arc::new(eframe::epaint::mutex::Mutex::new(view)),
@@ -49,7 +54,7 @@ impl MainWindow {
             addresses,
             cur_addr: 0,
             selected_bbs: None,
-            connection: MainWindow::open_connection(),
+            connection,
             options,
             auto_login: AutoLogin::new(""),
             auto_file_transfer: AutoFileTransfer::default(),
@@ -66,6 +71,8 @@ impl MainWindow {
             has_baud_rate: false,
             settings_category: 0,
             file_transfer_dialog: crate::ui::dialogs::FileTransferDialog::default(),
+            #[cfg(target_arch = "wasm32")]
+            poll_thread,
         };
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -135,7 +142,7 @@ impl eframe::App for MainWindow {
             MainWindowMode::ShowTerminal | MainWindowMode::ShowPhonebook => {
                 let res = self.update_state();
                 self.update_terminal_window(ctx, frame);
-                self.handle_result(res, false);
+                check_error!(self, res, false);
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowSettings(in_phonebook) => {
@@ -144,7 +151,7 @@ impl eframe::App for MainWindow {
                 } else {
                     let res = self.update_state();
                     self.update_terminal_window(ctx, frame);
-                    self.handle_result(res, false);
+                    check_error!(self, res, false);
                     ctx.request_repaint_after(Duration::from_millis(150));
                 }
                 super::dialogs::show_settings(self, ctx, frame);
@@ -178,7 +185,7 @@ impl eframe::App for MainWindow {
                     {
                         self.mode = MainWindowMode::ShowTerminal;
                         let res = self.connection.cancel_transfer();
-                        self.handle_result(res, true);
+                        check_error!(self, res, true);
                     }
                 } else {
                     log::error!("In file transfer but no current protocol.");
@@ -189,7 +196,7 @@ impl eframe::App for MainWindow {
             MainWindowMode::ShowCaptureDialog => {
                 let res = self.update_state();
                 self.update_terminal_window(ctx, frame);
-                self.handle_result(res, false);
+                check_error!(self, res, false);
                 #[cfg(not(target_arch = "wasm32"))]
                 super::dialogs::show_dialog(self, ctx);
                 ctx.request_repaint_after(Duration::from_millis(150));
@@ -197,7 +204,7 @@ impl eframe::App for MainWindow {
             MainWindowMode::ShowIEMSI => {
                 let res = self.update_state();
                 self.update_terminal_window(ctx, frame);
-                self.handle_result(res, false);
+                check_error!(self, res, false);
                 super::dialogs::show_iemsi(self, ctx);
                 ctx.request_repaint_after(Duration::from_millis(150));
             } // MainWindowMode::AskDeleteEntry => todo!(),

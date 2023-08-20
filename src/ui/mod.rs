@@ -37,7 +37,19 @@ pub mod dialogs;
 
 pub mod com_thread;
 
-// pub mod simulate;
+#[macro_export]
+macro_rules! check_error {
+    ($main_window: expr, $res: expr, $terminate_connection: expr) => {{
+        if let Err(err) = $res {
+            log::error!("{err}");
+            $main_window.output_string(format!("\n\r{err}\n\r").as_str());
+
+            if $terminate_connection {
+                $main_window.connection.disconnect().unwrap_or_default();
+            }
+        }
+    }};
+}
 
 #[derive(PartialEq, Eq)]
 pub enum MainWindowMode {
@@ -81,6 +93,9 @@ pub struct MainWindow {
     pub settings_category: usize,
 
     file_transfer_dialog: dialogs::FileTransferDialog,
+
+    #[cfg(target_arch = "wasm32")]
+    poll_thread: com_thread::ConnectionThreadData,
 }
 
 impl MainWindow {
@@ -95,23 +110,11 @@ impl MainWindow {
         }
         Ok(())
     }
-
-    pub fn handle_result<T>(&mut self, res: TerminalResult<T>, terminate_connection: bool) {
-        if let Err(err) = res {
-            log::error!("{err}");
-            self.output_string(format!("\n\r{err}\n\r").as_str());
-
-            if terminate_connection {
-                self.connection.disconnect().unwrap_or_default();
-            }
-        }
-    }
-
     pub fn output_char(&mut self, ch: char) {
         let translated_char = self.buffer_parser.convert_from_unicode(ch);
         if self.connection.is_connected() {
             let r = self.connection.send(vec![translated_char as u8]);
-            self.handle_result(r, false);
+            check_error!(self, r, false);
         } else if let Err(err) = self.print_char(translated_char as u8) {
             log::error!("{err}");
         }
@@ -125,7 +128,7 @@ impl MainWindow {
                 v.push(translated_char as u8);
             }
             let r = self.connection.send(v);
-            self.handle_result(r, false);
+            check_error!(self, r, false);
         } else {
             for ch in str.chars() {
                 let translated_char = self.buffer_parser.convert_from_unicode(ch);
@@ -147,7 +150,7 @@ impl MainWindow {
             icy_engine::CallbackAction::None => {}
             icy_engine::CallbackAction::SendString(result) => {
                 let r = self.connection.send(result.as_bytes().to_vec());
-                self.handle_result(r, false);
+                check_error!(self, r, false);
             }
             icy_engine::CallbackAction::PlayMusic(music) => {
                 play_music(&music);
@@ -161,7 +164,7 @@ impl MainWindow {
                 let r = self
                     .connection
                     .set_baud_rate(baud_emulation.get_baud_rate());
-                self.handle_result(r, false);
+                check_error!(self, r, false);
             }
         }
         self.buffer_view.lock().redraw_view();
@@ -180,7 +183,7 @@ impl MainWindow {
         let res = self
             .connection
             .start_file_transfer(protocol_type, download, state, files_opt);
-        self.handle_result(res, true);
+        check_error!(self, res, false);
     }
 
     /*
@@ -307,7 +310,7 @@ impl MainWindow {
         let timeout = self.options.connect_timeout;
         let window_size = self.screen_mode.get_window_size();
         let r = self.connection.connect(&call_adr, timeout, window_size);
-        self.handle_result(r, false);
+        check_error!(self, r, false);
     }
 
     pub fn select_bbs(&mut self, uuid: Option<usize>) {
@@ -323,13 +326,16 @@ impl MainWindow {
                 }
             }
         }
-        let res = store_phone_book(&self.addresses);
-        self.handle_result(res, true);
+        let r = store_phone_book(&self.addresses);
+        check_error!(self, r, false);
     }
 
     pub fn update_state(&mut self) -> TerminalResult<()> {
+        #[cfg(target_arch = "wasm32")]
+        self.poll_thread.poll();
+
         let r = self.connection.update_state();
-        self.handle_result(r, false);
+        check_error!(self, r, false);
         if self.connection.is_disconnected() {
             return Ok(());
         }
@@ -410,7 +416,7 @@ impl MainWindow {
     }
 
     pub fn hangup(&mut self) {
-        self.handle_result(self.connection.disconnect(), false);
+        check_error!(self, self.connection.disconnect(), false);
         self.mode = MainWindowMode::ShowPhonebook;
     }
 
@@ -426,10 +432,10 @@ impl MainWindow {
         }
         self.output_string(&user_name);
         let r = self.connection.send(cr.clone());
-        self.handle_result(r, false);
+        check_error!(self, r, false);
         self.output_string(&password);
         let r = self.connection.send(cr);
-        self.handle_result(r, false);
+        check_error!(self, r, false);
     }
 
     #[cfg(not(target_arch = "wasm32"))]

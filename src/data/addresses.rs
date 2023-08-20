@@ -63,7 +63,10 @@ impl Display for Protocol {
 }
 
 impl Protocol {
+    #[cfg(not(target_arch = "wasm32"))]
     pub const ALL: [Protocol; 3] = [Protocol::Telnet, Protocol::Raw, Protocol::Ssh];
+    #[cfg(target_arch = "wasm32")]
+    pub const ALL: [Protocol; 2] = [Protocol::Telnet, Protocol::Raw];
 }
 
 #[derive(Debug, Clone)]

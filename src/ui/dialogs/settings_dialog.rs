@@ -3,6 +3,7 @@ use egui::{Layout, TextEdit, Vec2};
 use i18n_embed_fl::fl;
 
 use crate::{
+    check_error,
     ui::{MainWindow, MainWindowMode},
     MonitorSettings, Scaling,
 };
@@ -150,7 +151,7 @@ fn show_iemsi_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.end_row();
         });
     if old_options != window.options {
-        window.handle_result(window.options.store_options(), false);
+        check_error!(window, window.options.store_options(), false);
     }
 }
 
@@ -165,7 +166,7 @@ fn show_terminal_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
         )
         .changed()
     {
-        window.handle_result(window.options.store_options(), false);
+        check_error!(window, window.options.store_options(), false);
     }
 }
 
@@ -183,7 +184,8 @@ fn show_monitor_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
                 let label = RichText::new(format!("{t:?}"));
                 let resp = ui.selectable_value(&mut window.options.scaling, *t, label);
                 if resp.changed() {
-                    window.handle_result(window.options.store_options(), false);
+                    check_error!(window, window.options.store_options(), false);
+
                     window
                         .buffer_view
                         .lock()
@@ -205,7 +207,7 @@ fn show_monitor_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
                     label,
                 );
                 if resp.changed() {
-                    window.handle_result(window.options.store_options(), false);
+                    check_error!(window, window.options.store_options(), false);
                     window.buffer_view.lock().monitor_settings.monitor_type = i;
                 }
             });
@@ -292,6 +294,6 @@ fn show_monitor_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
     let new_settings = window.buffer_view.lock().monitor_settings.clone();
     if old_settings != new_settings {
         window.options.monitor_settings = new_settings;
-        window.handle_result(window.options.store_options(), false);
+        check_error!(window, window.options.store_options(), false);
     }
 }

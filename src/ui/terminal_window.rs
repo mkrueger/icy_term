@@ -10,6 +10,8 @@ use egui::Button;
 use i18n_embed_fl::fl;
 use icy_engine::SaveOptions;
 
+use crate::check_error;
+
 use super::{MainWindow, MainWindowMode};
 
 fn encode_mouse_button(button: i32) -> char {
@@ -500,7 +502,7 @@ impl MainWindow {
                                         self.handled_char = true;
                                         if self.connection.is_connected() {
                                             let res = self.connection.send(m.to_vec());
-                                            self.handle_result(res, true);
+                                            check_error!(self, res, true);
                                         } else {
                                             for c in *m {
                                                 if let Err(err) = self.print_char(*c) {

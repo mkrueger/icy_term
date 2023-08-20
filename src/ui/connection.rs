@@ -69,7 +69,6 @@ impl Connection {
                         break;
                     }
                     SendData::ConnectionError(err) => {
-                        log::error!("Connection error: {}", err);
                         self.is_connected = false;
                         self.end_transfer = true;
                         return Err(Box::new(std::io::Error::new(

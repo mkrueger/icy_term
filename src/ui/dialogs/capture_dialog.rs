@@ -10,6 +10,8 @@ pub fn show_dialog(window: &mut MainWindow, ctx: &egui::Context) {
 
     use egui::{Frame, Layout};
 
+    use crate::check_error;
+
     let mut open = true;
     let mut close_dialog = false;
     let mut changed = true;
@@ -93,7 +95,7 @@ pub fn show_dialog(window: &mut MainWindow, ctx: &egui::Context) {
 
     if changed {
         window.show_capture_error = false;
-        window.handle_result(window.options.store_options(), false);
+        check_error!(window, window.options.store_options(), false);
     }
 
     if !open || close_dialog {
