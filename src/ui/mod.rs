@@ -12,7 +12,7 @@ use eframe::egui::Key;
 
 use crate::features::{AutoFileTransfer, AutoLogin};
 use crate::protocol::TransferState;
-use crate::util::{beep, play_music, Rng};
+use crate::util::{Rng, SoundThread};
 use crate::Options;
 use crate::{
     addresses::{store_phone_book, Address},
@@ -67,6 +67,8 @@ pub struct MainWindow {
     pub buffer_parser: Box<dyn BufferParser>,
 
     pub connection: Connection,
+
+    sound_thread: SoundThread,
 
     pub mode: MainWindowMode,
     pub addresses: Vec<Address>,
@@ -153,11 +155,11 @@ impl MainWindow {
                 check_error!(self, r, false);
             }
             icy_engine::CallbackAction::PlayMusic(music) => {
-                play_music(&music);
+                self.sound_thread.play_music(&music);
             }
             icy_engine::CallbackAction::Beep => {
                 if self.options.console_beep {
-                    beep();
+                    self.sound_thread.beep();
                 }
             }
             icy_engine::CallbackAction::ChangeBaudEmulation(baud_emulation) => {
@@ -342,6 +344,8 @@ impl MainWindow {
         self.poll_thread.poll();
 
         let r = self.connection.update_state();
+        check_error!(self, r, false);
+        let r = self.sound_thread.update_state();
         check_error!(self, r, false);
         if self.connection.is_disconnected() {
             return Ok(());

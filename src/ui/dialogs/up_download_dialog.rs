@@ -2,7 +2,6 @@ use std::cmp::max;
 use std::time::Duration;
 
 use eframe::egui::{self, ProgressBar, RichText};
-use eframe::epaint::Color32;
 use egui::{Label, Layout, ScrollArea};
 use egui_extras::{Column, TableBuilder};
 use gabi::BytesConfig;

@@ -127,6 +127,22 @@ impl MainWindow {
                             }
                         }
                     }
+                    if self.sound_thread.is_playing() {
+                        let button_text = match self.sound_thread.stop_button {
+                            0 => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing1"),
+                            1 => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing2"),
+                            2 => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing3"),
+                            3 => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing4"),
+                            4 => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing5"),
+                            _ => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing6"),
+                        };
+
+                        let r: egui::Response =
+                            ui.add(egui::Button::new(RichText::new(button_text)));
+                        if r.clicked() {
+                            self.sound_thread.clear();
+                        }
+                    }
 
                     if self.capture_session {
                         let r: egui::Response = ui.add(egui::Button::new(RichText::new(fl!(

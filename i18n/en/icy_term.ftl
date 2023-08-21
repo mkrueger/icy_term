@@ -103,6 +103,12 @@ menu-item-capture-dialog=Capture…
 toolbar-stop-capture=Stop capture
 toolbar-show-iemsi=Show IEMSI
 toolbar-hide-iemsi=Hide IEMSI
+toolbar-stop-playing1 = Stop PLZ
+toolbar-stop-playing2 = My ears BL33D
+toolbar-stop-playing3 = ST0P THIS M4DNEZZ
+toolbar-stop-playing4 = I'm begging you
+toolbar-stop-playing5 = MERCY
+toolbar-stop-playing6 = Enough already
 
 capture-dialog-capture-label=Capture file:
 capture-dialog-capture-title=Capture

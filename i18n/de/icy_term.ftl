@@ -101,6 +101,12 @@ menu-item-capture-dialog=Aufnehmen…
 toolbar-stop-capture=Aufnahmestopp
 toolbar-show-iemsi=IEMSI anzeigen
 toolbar-hide-iemsi=IEMSI verstecken
+toolbar-stop-playing1 = Bitte AUFHÖREN
+toolbar-stop-playing2 = Meine Ohren BLUTEN
+toolbar-stop-playing3 = ST0P DEN WAHNSINN
+toolbar-stop-playing4 = RUHE!!!
+toolbar-stop-playing5 = GNADE
+toolbar-stop-playing6 = Genug
 
 capture-dialog-capture-checkbox=Sitzung aufnehmen
 capture-dialog-capture-label=Dateiname:

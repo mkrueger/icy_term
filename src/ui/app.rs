@@ -10,7 +10,7 @@ use crate::{
     check_error,
     features::{AutoFileTransfer, AutoLogin},
     ui::{dialogs::PhonebookFilter, BufferView, ScreenMode},
-    util::Rng,
+    util::{Rng, SoundThread},
     Options,
 };
 
@@ -73,6 +73,7 @@ impl MainWindow {
             file_transfer_dialog: crate::ui::dialogs::FileTransferDialog::default(),
             #[cfg(target_arch = "wasm32")]
             poll_thread,
+            sound_thread: SoundThread::new(),
         };
 
         #[cfg(not(target_arch = "wasm32"))]

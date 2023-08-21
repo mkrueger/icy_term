@@ -2,7 +2,7 @@ use chrono::{DateTime, Local};
 use eframe::{
     egui::{self, Layout, RichText, ScrollArea, TextEdit, WidgetText},
     emath::NumExt,
-    epaint::{Color32, FontFamily, FontId, Vec2},
+    epaint::{FontFamily, FontId, Vec2},
 };
 use egui::{Id, Rect};
 use i18n_embed_fl::fl;
