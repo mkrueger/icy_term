@@ -37,7 +37,6 @@ pub struct SoundThread {
 }
 
 impl SoundThread {
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn new() -> Self {
         let (tx, rx) = mpsc::channel::<SoundData>();
         let (tx2, rx2) = mpsc::channel::<SoundData>();
@@ -88,6 +87,12 @@ impl SoundThread {
         let _ = self.tx.send(SoundData::Clear);
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn update_state(&mut self) -> TerminalResult<()> {
+        Ok(())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn update_state(&mut self) -> TerminalResult<()> {
         if self.last_stop_cycle.elapsed().as_secs() > 5 {
             self.stop_button = self.rng.gen_range(0..6);
