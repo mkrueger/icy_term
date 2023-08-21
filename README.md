@@ -8,9 +8,10 @@ Features supported so far:
   - [x] Telnet
   - [x] SSH
   - [x] Raw
+  - [x] WebSockets (both secure and non-secure)
 - Terminal encoding support
-  - [x] Ansi
-    - Ansi music
+  - [x] ANSI
+    - ANSI music
     - Sixel support
     - Loadable fonts
   - [x] Avatar
