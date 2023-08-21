@@ -92,6 +92,9 @@ impl ConnectionThreadData {
             crate::addresses::Protocol::Ssh => {
                 Box::new(crate::com::ssh::SSHComImpl::connect(connection_data)?)
             }
+            crate::addresses::Protocol::WebSocket(_) => Box::new(
+                crate::com::websocket::WebSocketComImpl::connect(connection_data)?,
+            ),
 
             #[cfg(target_arch = "wasm32")]
             crate::addresses::Protocol::Ssh => Box::new(crate::com::NullConnection {}),
