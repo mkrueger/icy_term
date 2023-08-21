@@ -61,7 +61,7 @@ mod xy_modem_tests {
         cmd_table.insert(0x06, "ACK".to_string());
         cmd_table.insert(0x15, "NAK".to_string());
         cmd_table.insert(0x18, "CAN".to_string());
-        TestChannel::from_cmd_table(cmd_table)
+        TestChannel::from_cmd_table(cmd_table, false)
     }
 
     #[test]

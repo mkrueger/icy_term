@@ -6,7 +6,7 @@ mod zmodem_test {
     };
 
     fn create_channel() -> TestChannel {
-        TestChannel::new()
+        TestChannel::new(false)
     }
 
     #[test]

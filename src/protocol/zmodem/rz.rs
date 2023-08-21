@@ -115,12 +115,6 @@ impl Rz {
                 }*/
             }
             RevcState::AwaitZDATA => {
-                let now = Instant::now();
-                if now.duration_since(self.last_send).as_millis() > 500 {
-                    self.request_zpos(com, storage_handler.current_file_length() as u32)?;
-                    self.retries += 1;
-                    self.last_send = Instant::now();
-                }
                 self.read_header(com, storage_handler, transfer_info)?;
             }
             RevcState::AwaitFileData => {

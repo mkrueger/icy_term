@@ -396,7 +396,7 @@ mod tests {
     }
     #[test]
     fn test_bin_header() {
-        let mut com = TestChannel::new();
+        let mut com = TestChannel::new(false);
         let header = Header::from_flags(HeaderType::Bin, ZFrameType::Data, 3, 2, 1, 0);
         let mut i = 0;
         header.write(&mut com.sender, false).expect("err");
@@ -406,7 +406,7 @@ mod tests {
 
     #[test]
     fn test_bin32_header() {
-        let mut com = TestChannel::new();
+        let mut com = TestChannel::new(false);
         let header = Header::from_flags(HeaderType::Bin32, ZFrameType::Data, 3, 2, 1, 0);
         header.write(&mut com.sender, false).expect("err");
         let mut i = 0;
@@ -416,7 +416,7 @@ mod tests {
 
     #[test]
     fn test_hex_header() {
-        let mut com = TestChannel::new();
+        let mut com = TestChannel::new(false);
         let header = Header::from_flags(HeaderType::Hex, ZFrameType::Data, 3, 2, 1, 0);
         header.write(&mut com.sender, false).expect("err");
         let mut i = 0;

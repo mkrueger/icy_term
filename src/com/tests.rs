@@ -11,6 +11,7 @@ pub struct TestCom {
     write_buf: Arc<Mutex<std::collections::VecDeque<u8>>>,
     read_buf: Arc<Mutex<std::collections::VecDeque<u8>>>,
     pub cmd_table: HashMap<u8, String>,
+    silent: bool,
 }
 
 pub fn indent_receiver() {
@@ -25,43 +26,49 @@ impl Com for TestCom {
     fn set_terminal_type(&mut self, _terminal: crate::addresses::Terminal) {}
 
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
-        if self.name == "receiver" {
-            indent_receiver();
-        }
         let result: Vec<u8> = self.read_buf.lock().drain(0..).collect();
 
-        if result.len() == 1 {
-            if let Some(cmd) = self.cmd_table.get(&result[0]) {
-                println!("{} reads {}({} 0x{})", self.name, cmd, result[0], result[0]);
-            } else {
-                println!("{} reads {} 0x{:X}", self.name, result[0], result[0]);
+        if !self.silent {
+            if self.name == "receiver" {
+                indent_receiver();
             }
-        } else {
-            println!("{} reads {:?} #{}", self.name, result, result.len());
+
+            if result.len() == 1 {
+                if let Some(cmd) = self.cmd_table.get(&result[0]) {
+                    println!("{} reads {}({} 0x{})", self.name, cmd, result[0], result[0]);
+                } else {
+                    println!("{} reads {} 0x{:X}", self.name, result[0], result[0]);
+                }
+            } else {
+                println!("{} reads {:?} #{}", self.name, result, result.len());
+            }
         }
 
         Ok(Some(result))
     }
 
     fn send(&mut self, buf: &[u8]) -> TermComResult<usize> {
-        if self.name == "receiver" {
-            indent_receiver();
-        }
-        if buf.len() == 1 {
-            if let Some(cmd) = self.cmd_table.get(&buf[0]) {
-                println!("{} writes {}({} 0x{})", self.name, cmd, buf[0], buf[0]);
-            } else {
-                println!("{} writes {} 0x{:X}", self.name, buf[0], buf[0]);
+        if !self.silent {
+            if self.name == "receiver" {
+                indent_receiver();
             }
-        } else {
-            println!("{} writes {:?} #{}", self.name, buf, buf.len());
+
+            if buf.len() == 1 {
+                if let Some(cmd) = self.cmd_table.get(&buf[0]) {
+                    println!("{} writes {}({} 0x{})", self.name, cmd, buf[0], buf[0]);
+                } else {
+                    println!("{} writes {} 0x{:X}", self.name, buf[0], buf[0]);
+                }
+            } else {
+                println!("{} writes {:?} #{}", self.name, buf, buf.len());
+            }
         }
         self.write_buf.lock().extend(buf.iter());
         Ok(buf.len())
     }
 
     fn read_u8(&mut self) -> TermComResult<u8> {
-        if self.name == "receiver" {
+        if self.name == "receiver" && !self.silent {
             indent_receiver();
         }
         let mut i = 0;
@@ -77,10 +84,12 @@ impl Com for TestCom {
         }
 
         if let Some(b) = self.read_buf.lock().pop_front() {
-            if let Some(cmd) = self.cmd_table.get(&b) {
-                println!("{} reads {}({} 0x{})", self.name, cmd, b, b);
-            } else {
-                println!("{} reads {} 0x{:X}", self.name, b, b);
+            if !self.silent {
+                if let Some(cmd) = self.cmd_table.get(&b) {
+                    println!("{} reads {}({} 0x{})", self.name, cmd, b, b);
+                } else {
+                    println!("{} reads {} 0x{:X}", self.name, b, b);
+                }
             }
             Ok(b)
         } else {
@@ -127,11 +136,11 @@ pub struct TestChannel {
 
 #[cfg(test)]
 impl TestChannel {
-    pub fn new() -> Self {
-        TestChannel::from_cmd_table(HashMap::new())
+    pub fn new(silent: bool) -> Self {
+        TestChannel::from_cmd_table(HashMap::new(), silent)
     }
 
-    pub fn from_cmd_table(cmd_table: HashMap<u8, String>) -> Self {
+    pub fn from_cmd_table(cmd_table: HashMap<u8, String>, silent: bool) -> Self {
         let b1 = Arc::new(Mutex::new(std::collections::VecDeque::new()));
         let b2 = Arc::new(Mutex::new(std::collections::VecDeque::new()));
         Self {
@@ -140,12 +149,14 @@ impl TestChannel {
                 read_buf: b1.clone(),
                 write_buf: b2.clone(),
                 cmd_table: cmd_table.clone(),
+                silent,
             }),
             receiver: Box::new(TestCom {
                 name: "receiver".to_string(),
                 read_buf: b2,
                 write_buf: b1,
                 cmd_table,
+                silent,
             }),
         }
     }
@@ -155,7 +166,7 @@ mod communication_tests {
     use crate::com::TestChannel;
     #[test]
     fn test_simple() {
-        let mut test = TestChannel::new();
+        let mut test = TestChannel::new(false);
         let t = b"Hello World";
         let _ = test.sender.send(t);
         assert_eq!(t.to_vec(), test.receiver.read_data().unwrap().unwrap());
@@ -165,14 +176,14 @@ mod communication_tests {
 
     #[test]
     fn test_transfer_byte() {
-        let mut test = TestChannel::new();
+        let mut test = TestChannel::new(false);
         let _ = test.sender.send(&[42]);
         assert_eq!(42, test.receiver.read_u8().unwrap());
     }
 
     #[test]
     fn test_transfer_byte_back() {
-        let mut test = TestChannel::new();
+        let mut test = TestChannel::new(false);
         let _ = test.receiver.send(&[42]);
         assert_eq!(42, test.sender.read_u8().unwrap());
     }
