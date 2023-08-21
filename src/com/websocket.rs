@@ -1,5 +1,4 @@
 use crate::addresses;
-use std::borrow::BorrowMut;
 use std::sync::Arc;
 
 use super::{Com, OpenConnectionData, TermComResult};
@@ -82,10 +81,7 @@ impl WebSocketComImpl {
     }
 
     fn schema_prefix(is_secure: bool) -> &'static str {
-        match is_secure {
-            true => "wss",
-            false => "ws",
-        }
+        if is_secure { "wss" } else { "ws" }
     }
 }
 
@@ -115,7 +111,7 @@ impl Com for WebSocketComImpl {
         Ok(0)
     }
 
-    fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
+    fn read_exact(&mut self, _len: usize) -> TermComResult<Vec<u8>> {
         Ok(vec![0])
     }
 

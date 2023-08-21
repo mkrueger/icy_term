@@ -17,7 +17,7 @@ fn create_button_row(
         if ui
             .selectable_label(
                 false,
-                RichText::new(format!("{:15}{}", title, descr)).family(egui::FontFamily::Monospace),
+                RichText::new(format!("{title:15}{descr}")).family(egui::FontFamily::Monospace),
             )
             .clicked()
         {

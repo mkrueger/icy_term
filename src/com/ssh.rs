@@ -118,10 +118,10 @@ impl Com for SSHComImpl {
                 match stdout.read(&mut buf) {
                     Ok(_) => Ok(buf[0]),
                     Err(err) => {
-                        return Err(Box::new(std::io::Error::new(
+                        Err(Box::new(std::io::Error::new(
                             ErrorKind::ConnectionAborted,
                             format!("error while reading single byte from stream: {err}"),
-                        )));
+                        )))
                     }
                 }
             }
