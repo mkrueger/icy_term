@@ -83,7 +83,9 @@ impl Com for SSHComImpl {
         SSHComImpl::default_port()
     }
 
-    fn set_terminal_type(&mut self, _terminal: crate::addresses::Terminal) {}
+    fn set_terminal_type(&mut self, _terminal: crate::addresses::Terminal) {
+
+    }
 
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
         let mut buf = [0; 1024 * 256];
@@ -116,7 +118,7 @@ impl Com for SSHComImpl {
             Ok(locked) => {
                 let mut stdout = locked.stdout();
                 match stdout.read(&mut buf) {
-                    Ok(size) => {
+                    Ok(_) => {
                         Ok(buf[0])
                     }
                     Err(err) => {

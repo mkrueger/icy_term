@@ -54,19 +54,29 @@ pub enum Protocol {
     Telnet,
     Raw,
     Ssh,
+    WebSocket(bool), // true=secure
 }
 
 impl Display for Protocol {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{self:?}")
+        match self {
+            Self::Ssh => write!(f, "SSH"),
+            Self::WebSocket(is_secure) => {
+                match is_secure {
+                    true => write!(f, "Secure WebSocket"),
+                    false => write!(f, "WebSocket"),
+                }
+            }
+            _ => write!(f, "{self:?}")
+        }
     }
 }
 
 impl Protocol {
     #[cfg(not(target_arch = "wasm32"))]
-    pub const ALL: [Protocol; 3] = [Protocol::Telnet, Protocol::Raw, Protocol::Ssh];
+    pub const ALL: [Protocol; 5] = [Protocol::Telnet, Protocol::Raw, Protocol::Ssh, Protocol::WebSocket(true), Protocol::WebSocket(false)];
     #[cfg(target_arch = "wasm32")]
-    pub const ALL: [Protocol; 2] = [Protocol::Telnet, Protocol::Raw];
+    pub const ALL: [Protocol; 3] = [Protocol::Telnet, Protocol::Raw, Protocol::WebSocket(true)];
 }
 
 #[derive(Debug, Clone)]
@@ -408,6 +418,8 @@ fn parse_address(value: &Value) -> Address {
                 "telnet" => result.protocol = Protocol::Telnet,
                 "ssh" => result.protocol = Protocol::Ssh,
                 "raw" => result.protocol = Protocol::Raw,
+                "websocket(true)" => result.protocol = Protocol::WebSocket(true),
+                "websocket(false)" => result.protocol = Protocol::WebSocket(false),
                 _ => {}
             }
         }

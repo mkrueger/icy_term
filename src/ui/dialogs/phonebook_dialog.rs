@@ -252,11 +252,11 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
             });
 
             egui::ComboBox::from_id_source("combobox1")
-                .selected_text(RichText::new(format!("{:?}", adr.protocol)))
+                .selected_text(RichText::new(format!("{}", adr.protocol)))
                 .show_ui(ui, |ui| {
-                    for ct in &addresses::Protocol::ALL {
-                        let label = RichText::new(format!("{ct:?}"));
-                        ui.selectable_value(&mut adr.protocol, *ct, label);
+                    for prot in &addresses::Protocol::ALL {
+                        let label = RichText::new(format!("{prot}"));
+                        ui.selectable_value(&mut adr.protocol, *prot, label);
                     }
                 });
             ui.end_row();
@@ -632,7 +632,7 @@ fn render_login_category(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.with_layout(Layout::left_to_right(egui::Align::Center), |ui| {
                 ui.add(TextEdit::singleline(
                     &mut window.get_address_mut(window.selected_bbs).password,
-                ));
+                ).password(true));
                 if ui
                     .button(RichText::new(fl!(
                         crate::LANGUAGE_LOADER,
@@ -692,11 +692,11 @@ fn render_server_catogery(window: &mut MainWindow, ui: &mut egui::Ui) {
             });
 
             egui::ComboBox::from_id_source("combobox1")
-                .selected_text(RichText::new(format!("{:?}", adr.protocol)))
+                .selected_text(RichText::new(format!("{}", adr.protocol)))
                 .show_ui(ui, |ui| {
-                    for ct in &addresses::Protocol::ALL {
-                        let label = RichText::new(format!("{ct:?}"));
-                        ui.selectable_value(&mut adr.protocol, *ct, label);
+                    for prot in &addresses::Protocol::ALL {
+                        let label = RichText::new(format!("{prot}"));
+                        ui.selectable_value(&mut adr.protocol, *prot, label);
                     }
                 });
             ui.end_row();

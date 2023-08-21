@@ -11,6 +11,8 @@ pub use telnet::*;
 pub mod raw;
 pub use raw::*;
 
+pub mod websocket;
+
 #[cfg(not(target_arch = "wasm32"))]
 pub mod ssh;
 
