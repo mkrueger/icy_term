@@ -64,8 +64,8 @@ impl ConnectionThreadData {
             let cur_time = Instant::now();
             let bytes_per_sec = self.baud_rate / BITS_PER_BYTE;
             let elapsed_ms = cur_time.duration_since(self.last_send_time).as_millis() as u32;
-            let bytes_to_send: usize =
-                ((bytes_per_sec * elapsed_ms) / 1000).min(self.data_buffer.len() as u32) as usize;
+            let bytes_to_send: usize = ((bytes_per_sec.saturating_mul(elapsed_ms)) / 1000)
+                .min(self.data_buffer.len() as u32) as usize;
 
             if bytes_to_send > 0 {
                 if let Err(err) = self.tx.send(SendData::Data(
