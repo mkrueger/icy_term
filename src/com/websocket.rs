@@ -15,12 +15,12 @@ struct NoCertVerifier {}
 impl rustls::client::ServerCertVerifier for NoCertVerifier {
     fn verify_server_cert(
         &self,
-        end_entity: &rustls::Certificate,
-        intermediates: &[rustls::Certificate],
-        server_name: &rustls::ServerName,
-        scts: &mut dyn Iterator<Item = &[u8]>,
-        ocsp_response: &[u8],
-        now: std::time::SystemTime,
+        _end_entity: &rustls::Certificate,
+        _intermediates: &[rustls::Certificate],
+        _server_name: &rustls::ServerName,
+        _scts: &mut dyn Iterator<Item = &[u8]>,
+        _ocsp_response: &[u8],
+        _now: std::time::SystemTime,
     ) -> Result<rustls::client::ServerCertVerified, rustls::Error> {
         Ok(rustls::client::ServerCertVerified::assertion())
     }
@@ -40,7 +40,8 @@ impl WebSocketComImpl {
             Self::schema_prefix(is_secure),
             connection_data.address
         );
-        let uri = Uri::try_from(url)?;
+
+        let req = Uri::try_from(url)?.into_client_request()?;
 
         let mut root_store = RootCertStore::empty();
         root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
@@ -51,7 +52,7 @@ impl WebSocketComImpl {
             )
         }));
 
-        let mut config = rustls::ClientConfig::builder()
+        let config = rustls::ClientConfig::builder()
             .with_safe_defaults()
             .with_root_certificates(root_store)
             .with_no_client_auth();
@@ -63,12 +64,8 @@ impl WebSocketComImpl {
 
         let stream = TcpStream::connect(connection_data.address.clone())?;
         let connector: tungstenite::Connector = tungstenite::Connector::Rustls(config);
-        let (mut socket, _) = tungstenite::client_tls_with_config(
-            uri.into_client_request()?,
-            stream,
-            None,
-            Some(connector),
-        )?;
+        let (mut socket, _) =
+            tungstenite::client_tls_with_config(req, stream, None, Some(connector))?;
 
         let s = socket.get_mut();
         match s {
