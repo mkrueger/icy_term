@@ -630,9 +630,10 @@ fn render_login_category(window: &mut MainWindow, ui: &mut egui::Ui) {
                 )));
             });
             ui.with_layout(Layout::left_to_right(egui::Align::Center), |ui| {
-                ui.add(TextEdit::singleline(
-                    &mut window.get_address_mut(window.selected_bbs).password,
-                ).password(true));
+                ui.add(
+                    TextEdit::singleline(&mut window.get_address_mut(window.selected_bbs).password)
+                        .password(true),
+                );
                 if ui
                     .button(RichText::new(fl!(
                         crate::LANGUAGE_LOADER,

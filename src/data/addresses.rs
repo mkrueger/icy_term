@@ -61,20 +61,24 @@ impl Display for Protocol {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Ssh => write!(f, "SSH"),
-            Self::WebSocket(is_secure) => {
-                match is_secure {
-                    true => write!(f, "Secure WebSocket"),
-                    false => write!(f, "WebSocket"),
-                }
-            }
-            _ => write!(f, "{self:?}")
+            Self::WebSocket(is_secure) => match is_secure {
+                true => write!(f, "Secure WebSocket"),
+                false => write!(f, "WebSocket"),
+            },
+            _ => write!(f, "{self:?}"),
         }
     }
 }
 
 impl Protocol {
     #[cfg(not(target_arch = "wasm32"))]
-    pub const ALL: [Protocol; 5] = [Protocol::Telnet, Protocol::Raw, Protocol::Ssh, Protocol::WebSocket(true), Protocol::WebSocket(false)];
+    pub const ALL: [Protocol; 5] = [
+        Protocol::Telnet,
+        Protocol::Raw,
+        Protocol::Ssh,
+        Protocol::WebSocket(true),
+        Protocol::WebSocket(false),
+    ];
     #[cfg(target_arch = "wasm32")]
     pub const ALL: [Protocol; 3] = [Protocol::Telnet, Protocol::Raw, Protocol::WebSocket(true)];
 }
