@@ -117,12 +117,10 @@ impl Com for SSHComImpl {
                 let mut stdout = locked.stdout();
                 match stdout.read(&mut buf) {
                     Ok(_) => Ok(buf[0]),
-                    Err(err) => {
-                        Err(Box::new(std::io::Error::new(
-                            ErrorKind::ConnectionAborted,
-                            format!("error while reading single byte from stream: {err}"),
-                        )))
-                    }
+                    Err(err) => Err(Box::new(std::io::Error::new(
+                        ErrorKind::ConnectionAborted,
+                        format!("error while reading single byte from stream: {err}"),
+                    ))),
                 }
             }
             Err(err) => Err(Box::new(std::io::Error::new(

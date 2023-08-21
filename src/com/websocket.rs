@@ -81,7 +81,11 @@ impl WebSocketComImpl {
     }
 
     fn schema_prefix(is_secure: bool) -> &'static str {
-        if is_secure { "wss" } else { "ws" }
+        if is_secure {
+            "wss"
+        } else {
+            "ws"
+        }
     }
 }
 
