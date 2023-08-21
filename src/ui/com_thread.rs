@@ -34,6 +34,7 @@ impl ConnectionThreadData {
         self.com = Box::new(crate::com::NullConnection {});
         self.baud_rate = 0;
         self.data_buffer.clear();
+        self.thread_is_running &= self.tx.send(SendData::Disconnect).is_ok();
     }
 
     fn read_data(&mut self) -> bool {
