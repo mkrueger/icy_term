@@ -434,6 +434,7 @@ impl MainWindow {
 
     pub fn hangup(&mut self) {
         check_error!(self, self.connection.disconnect(), false);
+        self.sound_thread.clear();
         self.mode = MainWindowMode::ShowPhonebook;
     }
 
