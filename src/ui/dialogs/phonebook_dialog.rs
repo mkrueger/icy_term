@@ -27,6 +27,7 @@ pub enum AddressCategory {
 }
 
 const phone_list_width: f32 = 220.0;
+const PROTOCOL_COMBOBOX_WIDTH: f32 = 180.0;
 
 pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
     let mut open = true;
@@ -127,11 +128,11 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
                         });
 
                     if r.clicked() {
-                        window.addresses.push(Address::new(fl!(
-                            crate::LANGUAGE_LOADER,
-                            "phonebook-new_bbs"
-                        )));
-                        window.selected_bbs = None;
+                        let adr = Address::new(fl!(crate::LANGUAGE_LOADER, "phonebook-new_bbs"));
+                        window.select_bbs(Some(adr.id));
+                        window.addresses.push(adr);
+                        window.phonebook_filter = PhonebookFilter::All;
+                        window.scroll_address_list_to_bottom = true;
                     }
                 });
             });
@@ -158,7 +159,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
                         });
 
                     if r.clicked() {
-                        window.delete_selected_address();
+                        window.show_selected_address_dialog();
                     }
 
                     let connect_text =
@@ -227,10 +228,9 @@ pub fn store_phonebook(window: &MainWindow) {
 }
 
 fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
-    let adr = window.get_address_mut(window.selected_bbs);
     ui.horizontal(|ui| {
         ui.add(
-            TextEdit::singleline(&mut adr.address)
+            TextEdit::singleline(&mut window.get_address_mut(window.selected_bbs).address)
                 .id(Id::new("phonebook-connect-to"))
                 .desired_width(ui.available_width() - 50.)
                 .hint_text(fl!(crate::LANGUAGE_LOADER, "phonebook-connect-to"))
@@ -238,6 +238,7 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
         );
     });
     ui.add_space(8.);
+
     egui::Grid::new("some_unique_id")
         .num_columns(2)
         .spacing([4.0, 8.0])
@@ -252,11 +253,19 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
             });
 
             egui::ComboBox::from_id_source("combobox1")
-                .selected_text(RichText::new(format!("{}", adr.protocol)))
+                .selected_text(RichText::new(format!(
+                    "{}",
+                    window.get_address_mut(window.selected_bbs).protocol
+                )))
+                .width(PROTOCOL_COMBOBOX_WIDTH)
                 .show_ui(ui, |ui| {
                     for prot in &addresses::Protocol::ALL {
                         let label = RichText::new(format!("{prot}"));
-                        ui.selectable_value(&mut adr.protocol, *prot, label);
+                        ui.selectable_value(
+                            &mut window.get_address_mut(window.selected_bbs).protocol,
+                            *prot,
+                            label,
+                        );
                     }
                 });
             ui.end_row();
@@ -270,7 +279,10 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
             });
 
             egui::ComboBox::from_id_source("combobox2")
-                .selected_text(RichText::new(format!("{}", adr.screen_mode)))
+                .selected_text(RichText::new(format!(
+                    "{}",
+                    window.get_address_mut(window.selected_bbs).screen_mode
+                )))
                 .width(250.)
                 .show_ui(ui, |ui| {
                     for mode in &DEFAULT_MODES {
@@ -279,7 +291,11 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
                             continue;
                         }
                         let label = RichText::new(format!("{mode}"));
-                        ui.selectable_value(&mut adr.screen_mode, *mode, label);
+                        ui.selectable_value(
+                            &mut window.get_address_mut(window.selected_bbs).screen_mode,
+                            *mode,
+                            label,
+                        );
                     }
                 });
             ui.end_row();
@@ -292,12 +308,19 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
                 )));
             });
             egui::ComboBox::from_id_source("combobox3")
-                .selected_text(RichText::new(format!("{}", adr.terminal_type)))
+                .selected_text(RichText::new(format!(
+                    "{}",
+                    window.get_address_mut(window.selected_bbs).terminal_type
+                )))
                 .width(250.)
                 .show_ui(ui, |ui| {
                     for t in &Terminal::ALL {
                         let label = RichText::new(format!("{t}"));
-                        ui.selectable_value(&mut adr.terminal_type, *t, label);
+                        ui.selectable_value(
+                            &mut window.get_address_mut(window.selected_bbs).terminal_type,
+                            *t,
+                            label,
+                        );
                     }
                 });
             ui.end_row();
@@ -311,20 +334,40 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
             });
 
             egui::ComboBox::from_id_source("combobox5")
-                .selected_text(RichText::new(format!("{}", adr.baud_emulation)))
+                .selected_text(RichText::new(format!(
+                    "{}",
+                    window.get_address_mut(window.selected_bbs).baud_emulation
+                )))
                 .width(250.)
                 .show_ui(ui, |ui| {
                     for b in &BaudEmulation::OPTIONS {
                         let label = RichText::new(format!("{b}"));
-                        ui.selectable_value(&mut adr.baud_emulation, *b, label);
+                        ui.selectable_value(
+                            &mut window.get_address_mut(window.selected_bbs).baud_emulation,
+                            *b,
+                            label,
+                        );
                     }
                 });
             ui.end_row();
         });
+    ui.add_space(50.);
+    let r: egui::Response = ui
+        .button(RichText::new("Add to BBS list").font(FontId::new(20.0, FontFamily::Proportional)));
+
+    if r.clicked() {
+        let mut cloned_addr = window.addresses[0].clone();
+        cloned_addr.id = Address::new(String::new()).id; // create a new id
+        cloned_addr.system_name = cloned_addr.address.clone(); // set a system name
+        window.select_bbs(Some(cloned_addr.id));
+        window.addresses.push(cloned_addr);
+        window.phonebook_filter = PhonebookFilter::All;
+        window.scroll_address_list_to_bottom = true;
+    }
 }
 
 fn render_list(window: &mut MainWindow, ui: &mut egui::Ui) {
-    let row_height = 18. * 2.;
+    // let row_height = 18. * 2.;
     let addresses: Vec<Address> = if let PhonebookFilter::Favourites = window.phonebook_filter {
         window
             .addresses
@@ -344,41 +387,53 @@ fn render_list(window: &mut MainWindow, ui: &mut egui::Ui) {
     if addresses.is_empty() {
         ui.label(fl!(crate::LANGUAGE_LOADER, "phonebook-no-entries"));
     }
+    // let num_rows = addresses.len();
 
-    ScrollArea::vertical().show_rows(ui, row_height, addresses.len(), |ui, range| {
-        (range.start..range.end).for_each(|i| {
-            let addr = &addresses[i];
-            ui.with_layout(ui.layout().with_cross_justify(true), |ui| {
-                let show_quick_connect = window.phonebook_filter_string.is_empty()
-                    && matches!(window.phonebook_filter, PhonebookFilter::All);
-                let selected = match window.selected_bbs {
-                    Some(uuid) => addr.id == uuid,
-                    None => i == 0 && show_quick_connect,
-                };
-                let r = ui.add(if i == 0 && show_quick_connect {
-                    let mut addr = AddressRow::new(
-                        selected,
-                        Address::new(fl!(crate::LANGUAGE_LOADER, "phonebook-connect-to-address")),
-                    );
-                    addr.centered = true;
-                    addr
-                } else {
-                    AddressRow::new(selected, addr.clone())
+    ScrollArea::vertical()
+        .auto_shrink([false; 2])
+        .show(ui, |ui| {
+            ui.vertical(|ui| {
+                (0..addresses.len()).for_each(|i| {
+                    let addr = &addresses[i];
+                    ui.with_layout(ui.layout().with_cross_justify(true), |ui| {
+                        let show_quick_connect = window.phonebook_filter_string.is_empty()
+                            && matches!(window.phonebook_filter, PhonebookFilter::All);
+                        let selected = match window.selected_bbs {
+                            Some(uuid) => addr.id == uuid,
+                            None => i == 0 && show_quick_connect,
+                        };
+                        let r = ui.add(if i == 0 && show_quick_connect {
+                            let mut addr = AddressRow::new(
+                                selected,
+                                Address::new(fl!(
+                                    crate::LANGUAGE_LOADER,
+                                    "phonebook-connect-to-address"
+                                )),
+                            );
+                            addr.centered = true;
+                            addr
+                        } else {
+                            AddressRow::new(selected, addr.clone())
+                        });
+
+                        if r.clicked() {
+                            if i == 0 && show_quick_connect {
+                                window.select_bbs(None);
+                            } else {
+                                window.select_bbs(Some(addr.id));
+                            }
+                        }
+                        if r.double_clicked() {
+                            window.call_bbs_uuid(Some(addr.id));
+                        }
+                    });
                 });
-
-                if r.clicked() {
-                    if i == 0 && show_quick_connect {
-                        window.select_bbs(None);
-                    } else {
-                        window.select_bbs(Some(addr.id));
-                    }
-                }
-                if r.double_clicked() {
-                    window.call_bbs_uuid(Some(addr.id));
-                }
             });
+            if window.scroll_address_list_to_bottom {
+                window.scroll_address_list_to_bottom = false;
+                ui.scroll_to_cursor(Some(egui::Align::BOTTOM));
+            }
         });
-    });
 }
 
 fn filter_bbs(window: &MainWindow, a: &Address) -> bool {
@@ -694,6 +749,7 @@ fn render_server_catogery(window: &mut MainWindow, ui: &mut egui::Ui) {
 
             egui::ComboBox::from_id_source("combobox1")
                 .selected_text(RichText::new(format!("{}", adr.protocol)))
+                .width(PROTOCOL_COMBOBOX_WIDTH)
                 .show_ui(ui, |ui| {
                     for prot in &addresses::Protocol::ALL {
                         let label = RichText::new(format!("{prot}"));

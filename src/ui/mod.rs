@@ -58,6 +58,7 @@ pub enum MainWindowMode {
     ShowSettings(bool),
     SelectProtocol(bool),
     FileTransfer(bool),
+    DeleteSelectedAddress(usize),
     ShowCaptureDialog,
     ShowIEMSI, //   AskDeleteEntry
 }
@@ -75,6 +76,7 @@ pub struct MainWindow {
     pub handled_char: bool,
     pub cur_addr: usize,
     pub selected_bbs: Option<usize>,
+    pub scroll_address_list_to_bottom: bool,
     pub phonebook_filter: dialogs::PhonebookFilter,
     pub phonebook_filter_string: String,
 
@@ -326,13 +328,17 @@ impl MainWindow {
         self.selected_bbs = uuid;
     }
 
-    pub fn delete_selected_address(&mut self) {
+    pub fn show_selected_address_dialog(&mut self) {
         if let Some(uuid) = self.selected_bbs {
-            for (i, adr) in self.addresses.iter().enumerate() {
-                if adr.id == uuid {
-                    self.addresses.remove(i);
-                    break;
-                }
+            self.mode = MainWindowMode::DeleteSelectedAddress(uuid);
+        }
+    }
+
+    pub fn delete_bbs(&mut self, uuid: usize) {
+        for (i, adr) in self.addresses.iter().enumerate() {
+            if adr.id == uuid {
+                self.addresses.remove(i);
+                break;
             }
         }
         let r = store_phone_book(&self.addresses);

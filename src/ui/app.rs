@@ -65,6 +65,7 @@ impl MainWindow {
             phonebook_filter: PhonebookFilter::All,
             buffer_parser: Box::<ansi::Parser>::default(),
             phonebook_filter_string: String::new(),
+            scroll_address_list_to_bottom: false,
             rng: Rng::default(),
             capture_session: false,
             show_capture_error: false,
@@ -157,6 +158,11 @@ impl eframe::App for MainWindow {
                 }
                 super::dialogs::show_settings(self, ctx, frame);
             }
+            MainWindowMode::DeleteSelectedAddress(uuid) => {
+                self.update_terminal_window(ctx, frame);
+                super::dialogs::show_delete_address_confirmation::show_dialog(self, ctx, uuid);
+            }
+
             MainWindowMode::SelectProtocol(download) => {
                 self.update_terminal_window(ctx, frame);
                 super::dialogs::view_selector(self, ctx, frame, download);

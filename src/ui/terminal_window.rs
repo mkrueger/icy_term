@@ -28,7 +28,8 @@ impl MainWindow {
             .fill(toolbar_bg_color)
             .inner_margin(egui::style::Margin::same(6.0));
         let top_margin_height = 38.;
-        let show_pb = matches!(self.mode, MainWindowMode::ShowPhonebook);
+        let show_pb = matches!(self.mode, MainWindowMode::ShowPhonebook)
+            || matches!(self.mode, MainWindowMode::DeleteSelectedAddress(_));
         egui::TopBottomPanel::top("button_bar")
             .frame(button_frame)
             .show(ctx, |ui| {

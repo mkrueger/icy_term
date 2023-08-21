@@ -122,3 +122,7 @@ show-iemsi-dialog-operator=Sysop:
 show-iemsi-dialog-notice=Notice:
 show-iemsi-dialog-capabilities=Capabilities:
 show-iemsi-dialog-id=Id:
+
+delete-bbs-title=Delete BBS
+delete-bbs-question=Are you sure to you want to delete '{ $system }'?
+delete-bbs-delete-button=Delete  

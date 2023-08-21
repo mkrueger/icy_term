@@ -121,3 +121,5 @@ show-iemsi-dialog-operator=SysOp:
 show-iemsi-dialog-notice=Notiz:
 show-iemsi-dialog-capabilities=Server-Fähigkeiten:
 show-iemsi-dialog-id=Id:
+
+delete-entry-heading=Delete entry

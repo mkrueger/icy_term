@@ -15,3 +15,5 @@ pub use capture_dialog::*;
 
 pub mod show_iemsi;
 pub use show_iemsi::*;
+
+pub mod show_delete_address_confirmation;
