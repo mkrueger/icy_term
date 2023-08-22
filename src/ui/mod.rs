@@ -534,5 +534,13 @@ impl MainWindow {
             self.is_fullscreen_mode = !self.is_fullscreen_mode;
             frame.set_fullscreen(self.is_fullscreen_mode);
         }
+        if self.options.bind.upload.pressed(ctx) {
+            ctx.input_mut(|i| i.events.clear());
+            self.mode = MainWindowMode::SelectProtocol(false);
+        }
+        if self.options.bind.download.pressed(ctx) {
+            ctx.input_mut(|i| i.events.clear());
+            self.mode = MainWindowMode::SelectProtocol(true);
+        }
     }
 }

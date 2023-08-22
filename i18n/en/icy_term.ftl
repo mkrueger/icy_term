@@ -36,6 +36,15 @@ settings-terminal-category = Terminal
 settings-terminal-console-beep-checkbox = Console beep
 
 settings-keybinds-category = Keybinds
+settings-keybinds-disconnect = Disconnect:
+settings-keybinds-dialing-directory = Dialing directory:
+settings-keybinds-send-login = Send login:
+settings-keybinds-capture-control = Capture control:
+settings-keybinds-show-settings = Show settings:
+settings-keybinds-clear-screen = Clear screen:
+settings-keybinds-toggle-fullscreen = Toggle fullscreen:
+settings-keybinds-upload = Upload:
+settings-keybinds-download = Download:
 
 dialing_directory-connect-to = Quick connect to…
 dialing_directory-new_bbs = New BBS

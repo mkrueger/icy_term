@@ -37,6 +37,15 @@ settings-terminal-category = Terminal
 settings-terminal-console-beep-checkbox = Konsole Beep
 
 settings-keybinds-category = Tastatur
+settings-keybinds-disconnect = Trennen:
+settings-keybinds-dialing-directory = Telefonbuch:
+settings-keybinds-send-login = Login senden:
+settings-keybinds-capture-control = Aufnahme:
+settings-keybinds-show-settings = Einstellungen:
+settings-keybinds-clear-screen = Bildschirm löschen:
+settings-keybinds-toggle-fullscreen = Vollbildmodus:
+settings-keybinds-upload = Upload:
+settings-keybinds-download = Download:
 
 dialing_directory-connect-to = Verbinde zu…
 dialing_directory-new_bbs = Neue BBS

@@ -72,6 +72,8 @@ pub struct KeyBindings {
     pub show_capture: Option<(KeyOrPointer, Modifiers)>,
     pub quit: Option<(KeyOrPointer, Modifiers)>,
     pub full_screen: Option<(KeyOrPointer, Modifiers)>,
+    pub upload: Option<(KeyOrPointer, Modifiers)>,
+    pub download: Option<(KeyOrPointer, Modifiers)>,
 }
 
 impl Default for KeyBindings {
@@ -85,6 +87,8 @@ impl Default for KeyBindings {
             show_capture: Some((KeyOrPointer::Key(egui::Key::P), Modifiers::ALT)),
             quit: Some((KeyOrPointer::Key(egui::Key::X), Modifiers::ALT)),
             full_screen: Some((KeyOrPointer::Key(egui::Key::F11), Modifiers::NONE)),
+            upload: Some((KeyOrPointer::Key(egui::Key::PageUp), Modifiers::ALT)),
+            download: Some((KeyOrPointer::Key(egui::Key::PageDown), Modifiers::ALT)),
         }
     }
 }

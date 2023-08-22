@@ -69,7 +69,7 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
                 }
                 if ui
                     .selectable_label(
-                        window.settings_category == 2,
+                        window.settings_category == 3,
                         fl!(crate::LANGUAGE_LOADER, "settings-keybinds-category"),
                     )
                     .clicked()
@@ -320,19 +320,22 @@ fn show_monitor_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
 }
 
 fn show_keybinds_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
-    egui::Grid::new("some_unique_id")
+    egui::Grid::new("keybinds_grid")
         .num_columns(2)
         .spacing([4.0, 8.0])
         .min_row_height(24.)
         .show(ui, |ui| {
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label("Disconnect:");
+                ui.label(fl!(crate::LANGUAGE_LOADER, "settings-keybinds-disconnect"));
             });
             ui.add(Bind::new("_hangup", &mut window.options.bind.hangup));
             ui.end_row();
 
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label("Dialing Directory:");
+                ui.label(fl!(
+                    crate::LANGUAGE_LOADER,
+                    "settings-keybinds-dialing-directory"
+                ));
             });
             ui.add(Bind::new(
                 "_dialing_directory",
@@ -341,7 +344,7 @@ fn show_keybinds_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.end_row();
 
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label("Send Login:");
+                ui.label(fl!(crate::LANGUAGE_LOADER, "settings-keybinds-send-login"));
             });
             ui.add(Bind::new(
                 "_send_login",
@@ -350,7 +353,10 @@ fn show_keybinds_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.end_row();
 
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label("Capture Control:");
+                ui.label(fl!(
+                    crate::LANGUAGE_LOADER,
+                    "settings-keybinds-capture-control"
+                ));
             });
             ui.add(Bind::new(
                 "_capture_control",
@@ -359,7 +365,10 @@ fn show_keybinds_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.end_row();
 
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label("Show Settings:");
+                ui.label(fl!(
+                    crate::LANGUAGE_LOADER,
+                    "settings-keybinds-show-settings"
+                ));
             });
             ui.add(Bind::new(
                 "_show_settings",
@@ -368,7 +377,10 @@ fn show_keybinds_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.end_row();
 
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label("Clear Screen:");
+                ui.label(fl!(
+                    crate::LANGUAGE_LOADER,
+                    "settings-keybinds-clear-screen"
+                ));
             });
             ui.add(Bind::new(
                 "_clear_screen",
@@ -377,11 +389,29 @@ fn show_keybinds_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.end_row();
 
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label("Toggle Full Screen:");
+                ui.label(fl!(
+                    crate::LANGUAGE_LOADER,
+                    "settings-keybinds-toggle-fullscreen"
+                ));
             });
             ui.add_enabled(
                 false,
                 Bind::new("_clear_screen", &mut window.options.bind.full_screen),
+            );
+            ui.end_row();
+
+            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(fl!(crate::LANGUAGE_LOADER, "settings-keybinds-upload"));
+            });
+            ui.add_enabled(false, Bind::new("_upload", &mut window.options.bind.upload));
+            ui.end_row();
+
+            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(fl!(crate::LANGUAGE_LOADER, "settings-keybinds-download"));
+            });
+            ui.add_enabled(
+                false,
+                Bind::new("_download", &mut window.options.bind.download),
             );
             ui.end_row();
         });
