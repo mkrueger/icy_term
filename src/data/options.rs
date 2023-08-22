@@ -63,6 +63,32 @@ impl Default for MonitorSettings {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct KeyBindings {
+    pub clear_screen: Option<(KeyOrPointer, Modifiers)>,
+    pub dialing_directory: Option<(KeyOrPointer, Modifiers)>,
+    pub hangup: Option<(KeyOrPointer, Modifiers)>,
+    pub send_login_pw: Option<(KeyOrPointer, Modifiers)>,
+    pub show_settings: Option<(KeyOrPointer, Modifiers)>,
+    pub show_capture: Option<(KeyOrPointer, Modifiers)>,
+    pub quit: Option<(KeyOrPointer, Modifiers)>,
+    pub full_screen: Option<(KeyOrPointer, Modifiers)>,
+}
+
+impl Default for KeyBindings {
+    fn default() -> Self {
+        Self {
+            clear_screen: Some((KeyOrPointer::Key(egui::Key::C), Modifiers::ALT)),
+            dialing_directory: Some((KeyOrPointer::Key(egui::Key::D), Modifiers::ALT)),
+            hangup: Some((KeyOrPointer::Key(egui::Key::H), Modifiers::ALT)),
+            send_login_pw: Some((KeyOrPointer::Key(egui::Key::L), Modifiers::ALT)),
+            show_settings: Some((KeyOrPointer::Key(egui::Key::O), Modifiers::ALT)),
+            show_capture: Some((KeyOrPointer::Key(egui::Key::P), Modifiers::ALT)),
+            quit: Some((KeyOrPointer::Key(egui::Key::X), Modifiers::ALT)),
+            full_screen: Some((KeyOrPointer::Key(egui::Key::F11), Modifiers::NONE)),
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
 pub struct Options {
     pub scaling: Scaling,
     pub connect_timeout: Duration,
@@ -76,15 +102,7 @@ pub struct Options {
     pub iemsi_location: String,
     pub iemsi_data_phone: String,
     pub iemsi_voice_phone: String,
-
-    pub bind_clear_screen: Option<(KeyOrPointer, Modifiers)>,
-    pub bind_dialing_directory: Option<(KeyOrPointer, Modifiers)>,
-    pub bind_hangup: Option<(KeyOrPointer, Modifiers)>,
-    pub bind_send_login_pw: Option<(KeyOrPointer, Modifiers)>,
-    pub bind_show_settings: Option<(KeyOrPointer, Modifiers)>,
-    pub bind_show_capture: Option<(KeyOrPointer, Modifiers)>,
-    pub bind_quit: Option<(KeyOrPointer, Modifiers)>,
-    pub bind_full_screen: Option<(KeyOrPointer, Modifiers)>,
+    pub bind: KeyBindings,
 }
 
 impl Default for Options {
@@ -100,15 +118,7 @@ impl Default for Options {
             iemsi_data_phone: String::default(),
             iemsi_voice_phone: String::default(),
             console_beep: true,
-
-            bind_clear_screen: Some((KeyOrPointer::Key(egui::Key::C), Modifiers::ALT)),
-            bind_dialing_directory: Some((KeyOrPointer::Key(egui::Key::D), Modifiers::ALT)),
-            bind_hangup: Some((KeyOrPointer::Key(egui::Key::H), Modifiers::ALT)),
-            bind_send_login_pw: Some((KeyOrPointer::Key(egui::Key::L), Modifiers::ALT)),
-            bind_show_settings: Some((KeyOrPointer::Key(egui::Key::O), Modifiers::ALT)),
-            bind_show_capture: Some((KeyOrPointer::Key(egui::Key::C), Modifiers::ALT)),
-            bind_quit: Some((KeyOrPointer::Key(egui::Key::X), Modifiers::ALT)),
-            bind_full_screen: Some((KeyOrPointer::Key(egui::Key::F11), Modifiers::NONE)),
+            bind: KeyBindings::default(),
         }
     }
 }

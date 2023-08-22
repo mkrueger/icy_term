@@ -501,28 +501,36 @@ impl MainWindow {
     }
 
     fn handle_terminal_key_binds(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        if self.options.bind_clear_screen.pressed(ctx) {
-            self.output_string("\x1B[2J");
+        if self.options.bind.clear_screen.pressed(ctx) {
+            ctx.input_mut(|i| i.events.clear());
+            self.buffer_view.lock().clear_buffer_screen();
         }
-        if self.options.bind_dialing_directory.pressed(ctx) {
+        if self.options.bind.dialing_directory.pressed(ctx) {
+            ctx.input_mut(|i| i.events.clear());
             self.mode = MainWindowMode::ShowDialingDirectory;
         }
-        if self.options.bind_hangup.pressed(ctx) {
+        if self.options.bind.hangup.pressed(ctx) {
+            ctx.input_mut(|i| i.events.clear());
             self.hangup();
         }
-        if self.options.bind_send_login_pw.pressed(ctx) {
+        if self.options.bind.send_login_pw.pressed(ctx) {
+            ctx.input_mut(|i| i.events.clear());
             self.send_login();
         }
-        if self.options.bind_show_settings.pressed(ctx) {
+        if self.options.bind.show_settings.pressed(ctx) {
+            ctx.input_mut(|i| i.events.clear());
             self.mode = MainWindowMode::ShowSettings(false);
         }
-        if self.options.bind_show_capture.pressed(ctx) {
+        if self.options.bind.show_capture.pressed(ctx) {
+            ctx.input_mut(|i| i.events.clear());
             self.mode = MainWindowMode::ShowCaptureDialog;
         }
-        if self.options.bind_quit.pressed(ctx) {
+        if self.options.bind.quit.pressed(ctx) {
+            ctx.input_mut(|i| i.events.clear());
             frame.close();
         }
-        if self.options.bind_full_screen.pressed(ctx) {
+        if self.options.bind.full_screen.pressed(ctx) {
+            ctx.input_mut(|i| i.events.clear());
             self.is_fullscreen_mode = !self.is_fullscreen_mode;
             frame.set_fullscreen(self.is_fullscreen_mode);
         }

@@ -250,6 +250,12 @@ impl BufferView {
     pub fn set_scaling(&mut self, scaling: Scaling) {
         self.scaling = scaling;
     }
+
+    pub fn clear_buffer_screen(&mut self) {
+        self.caret.set_background(0);
+        self.buf.clear_screen(&mut self.caret);
+        self.redraw_view();
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]

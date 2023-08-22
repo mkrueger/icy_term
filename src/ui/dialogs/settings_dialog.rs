@@ -6,7 +6,7 @@ use i18n_embed_fl::fl;
 use crate::{
     check_error,
     ui::{MainWindow, MainWindowMode},
-    MonitorSettings, Scaling,
+    KeyBindings, MonitorSettings, Scaling,
 };
 use lazy_static::lazy_static;
 lazy_static! {
@@ -27,6 +27,8 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
     if ctx.input(|i| i.key_down(egui::Key::Escape)) {
         open = false;
     }
+
+    let old_options = window.options.clone();
 
     egui::Window::new(title)
         .open(&mut open)
@@ -100,6 +102,13 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
                     window.options.scaling = Scaling::Nearest;
                     window.buffer_view.lock().monitor_settings = MonitorSettings::default();
                 }
+                if window.settings_category == 3
+                    && ui
+                        .button(fl!(crate::LANGUAGE_LOADER, "settings-reset-button"))
+                        .clicked()
+                {
+                    window.options.bind = KeyBindings::default();
+                }
             });
         });
 
@@ -112,6 +121,10 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
             }
         }
     }
+
+    if old_options != window.options {
+        check_error!(window, window.options.store_options(), false);
+    }
 }
 
 fn show_iemsi_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
@@ -119,8 +132,6 @@ fn show_iemsi_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
         &mut window.options.iemsi_autologin,
         fl!(crate::LANGUAGE_LOADER, "settings-iemsi-autologin-checkbox"),
     );
-
-    let old_options = window.options.clone();
 
     egui::Grid::new("some_unique_id")
         .num_columns(2)
@@ -163,9 +174,6 @@ fn show_iemsi_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.add(TextEdit::singleline(&mut window.options.iemsi_voice_phone));
             ui.end_row();
         });
-    if old_options != window.options {
-        check_error!(window, window.options.store_options(), false);
-    }
 }
 
 fn show_terminal_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
@@ -320,7 +328,7 @@ fn show_keybinds_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label("Disconnect:");
             });
-            ui.add(Bind::new("_hangup", &mut window.options.bind_hangup));
+            ui.add(Bind::new("_hangup", &mut window.options.bind.hangup));
             ui.end_row();
 
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
@@ -328,7 +336,7 @@ fn show_keybinds_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             });
             ui.add(Bind::new(
                 "_dialing_directory",
-                &mut window.options.bind_dialing_directory,
+                &mut window.options.bind.dialing_directory,
             ));
             ui.end_row();
 
@@ -337,7 +345,7 @@ fn show_keybinds_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             });
             ui.add(Bind::new(
                 "_send_login",
-                &mut window.options.bind_send_login_pw,
+                &mut window.options.bind.send_login_pw,
             ));
             ui.end_row();
 
@@ -346,7 +354,7 @@ fn show_keybinds_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             });
             ui.add(Bind::new(
                 "_capture_control",
-                &mut window.options.bind_show_capture,
+                &mut window.options.bind.show_capture,
             ));
             ui.end_row();
 
@@ -355,7 +363,7 @@ fn show_keybinds_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             });
             ui.add(Bind::new(
                 "_show_settings",
-                &mut window.options.bind_show_settings,
+                &mut window.options.bind.show_settings,
             ));
             ui.end_row();
 
@@ -364,7 +372,7 @@ fn show_keybinds_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             });
             ui.add(Bind::new(
                 "_clear_screen",
-                &mut window.options.bind_clear_screen,
+                &mut window.options.bind.clear_screen,
             ));
             ui.end_row();
 
@@ -373,7 +381,7 @@ fn show_keybinds_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             });
             ui.add_enabled(
                 false,
-                Bind::new("_clear_screen", &mut window.options.bind_full_screen),
+                Bind::new("_clear_screen", &mut window.options.bind.full_screen),
             );
             ui.end_row();
         });
