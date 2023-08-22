@@ -38,6 +38,9 @@ pub mod dialogs;
 
 pub mod com_thread;
 
+pub mod smooth_scroll;
+pub use smooth_scroll::*;
+
 #[macro_export]
 macro_rules! check_error {
     ($main_window: expr, $res: expr, $terminate_connection: expr) => {{

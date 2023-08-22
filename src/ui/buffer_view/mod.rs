@@ -1,7 +1,6 @@
 use std::cmp::{max, min};
 
 use egui::Vec2;
-use glow::HasContext;
 use icy_engine::{Buffer, BufferParser, CallbackAction, Caret, EngineResult, Position};
 
 pub mod glerror;
