@@ -38,7 +38,7 @@ Features supported so far:
 # Get binaries
 
 Get the latest release here:
-https://github.com/mkrueger/game_cheetah/releases/latest
+https://github.com/mkrueger/icy_term/releases/latest
 
 # Screenshots
 
