@@ -162,8 +162,10 @@ impl MainWindow {
         match result {
             icy_engine::CallbackAction::None => {}
             icy_engine::CallbackAction::SendString(result) => {
-                let r = self.connection.send(result.as_bytes().to_vec());
-                check_error!(self, r, false);
+                if self.connection.is_connected() {
+                    let r = self.connection.send(result.as_bytes().to_vec());
+                    check_error!(self, r, false);
+                }
             }
             icy_engine::CallbackAction::PlayMusic(music) => {
                 self.sound_thread.play_music(&music);
@@ -380,7 +382,7 @@ impl MainWindow {
             }
 
             for ch in data {
-                if self.options.iemsi_autologin {
+                if self.options.iemsi_autologin && self.connection.is_connected() {
                     if let Some(adr) = self.addresses.get(self.cur_addr) {
                         if let Err(err) =
                             self.auto_login
@@ -440,6 +442,9 @@ impl MainWindow {
     }
 
     pub fn send_login(&mut self) {
+        if self.connection.is_disconnected() {
+            return;
+        }
         let user_name = self.addresses.get(self.cur_addr).unwrap().user_name.clone();
         let password = self.addresses.get(self.cur_addr).unwrap().password.clone();
         let mut cr: Vec<u8> = [self.buffer_parser.convert_from_unicode('\r') as u8].to_vec();

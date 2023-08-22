@@ -526,7 +526,9 @@ impl IEmsi {
             return Ok(false);
         }
         if let Some(data) = self.advance_char(adr, ch, options)? {
-            con.send(data)?;
+            if con.is_connected() {
+                con.send(data)?;
+            }
         }
         Ok(self.logged_in)
     }
