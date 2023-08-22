@@ -45,6 +45,7 @@ settings-keybinds-clear-screen = Clear screen:
 settings-keybinds-toggle-fullscreen = Toggle fullscreen:
 settings-keybinds-upload = Upload:
 settings-keybinds-download = Download:
+settings-keybinds-quit = Quit:
 
 dialing_directory-connect-to = Quick connect to…
 dialing_directory-new_bbs = New BBS

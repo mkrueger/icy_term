@@ -6,6 +6,7 @@ use std::{
 
 use egui::Modifiers;
 use egui_bind::KeyOrPointer;
+use i18n_embed_fl::fl;
 use toml::Value;
 
 use crate::TerminalResult;
@@ -62,36 +63,218 @@ impl Default for MonitorSettings {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct KeyBindings {
-    pub clear_screen: Option<(KeyOrPointer, Modifiers)>,
-    pub dialing_directory: Option<(KeyOrPointer, Modifiers)>,
-    pub hangup: Option<(KeyOrPointer, Modifiers)>,
-    pub send_login_pw: Option<(KeyOrPointer, Modifiers)>,
-    pub show_settings: Option<(KeyOrPointer, Modifiers)>,
-    pub show_capture: Option<(KeyOrPointer, Modifiers)>,
-    pub quit: Option<(KeyOrPointer, Modifiers)>,
-    pub full_screen: Option<(KeyOrPointer, Modifiers)>,
-    pub upload: Option<(KeyOrPointer, Modifiers)>,
-    pub download: Option<(KeyOrPointer, Modifiers)>,
+pub struct Key {
+    pub description: String,
+    pub key: egui::Key,
+    pub modifiers: Modifiers,
 }
 
-impl Default for KeyBindings {
-    fn default() -> Self {
-        Self {
-            clear_screen: Some((KeyOrPointer::Key(egui::Key::C), Modifiers::ALT)),
-            dialing_directory: Some((KeyOrPointer::Key(egui::Key::D), Modifiers::ALT)),
-            hangup: Some((KeyOrPointer::Key(egui::Key::H), Modifiers::ALT)),
-            send_login_pw: Some((KeyOrPointer::Key(egui::Key::L), Modifiers::ALT)),
-            show_settings: Some((KeyOrPointer::Key(egui::Key::O), Modifiers::ALT)),
-            show_capture: Some((KeyOrPointer::Key(egui::Key::P), Modifiers::ALT)),
-            quit: Some((KeyOrPointer::Key(egui::Key::X), Modifiers::ALT)),
-            full_screen: Some((KeyOrPointer::Key(egui::Key::F11), Modifiers::NONE)),
-            upload: Some((KeyOrPointer::Key(egui::Key::PageUp), Modifiers::ALT)),
-            download: Some((KeyOrPointer::Key(egui::Key::PageDown), Modifiers::ALT)),
+type KeyType = Option<(KeyOrPointer, Modifiers)>;
+
+macro_rules! keys {
+    ($( ($l:ident, $key:ident, $mod: ident, $translation: expr) ),* ) => {
+        #[derive(Debug, Clone, PartialEq)]
+        pub struct KeyBindings {
+            $(
+                pub $l: KeyType,
+            )*
         }
+
+        impl Default for KeyBindings {
+            fn default() -> Self {
+                Self {
+                    $(
+                        $l: Some((KeyOrPointer::Key(egui::Key::$key), Modifiers::$mod)),
+                    )*
+                }
+            }
+        }
+
+        fn parse_keybinding_settings(options: &mut Options, key_settings: &toml::map::Map<String, Value>) {
+            for (k, v) in key_settings {
+                match k.as_str() {
+                    $(
+                        stringify!($l) =>  {
+                            if let Value::String(str) = v {
+                                options.bind.$l = parse_key_binding(str);
+                            }
+                        }
+                    )*
+                    _ => {}
+                }
+            }
+        }
+
+        fn write_keybindings(file: &mut File, bind: &KeyBindings) -> TerminalResult<()> {
+            file.write_all("[KEYBINDINGS]\n".to_string().as_bytes())?;
+            $(
+                file.write_all(
+                    format!(
+                        "{} = \"{}\"\n",
+                        stringify!($l),
+                        convert_to_string(bind.$l)
+                    )
+                    .as_bytes(),
+                )?;
+            )*
+            Ok(())
+        }
+
+        pub fn show_keybinds_settings(window: &mut crate::ui::MainWindow, ui: &mut egui::Ui) {
+            egui::Grid::new("keybinds_grid")
+                .num_columns(2)
+                .show(ui, |ui| {
+                    $(
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.label(fl!(crate::LANGUAGE_LOADER, $translation));
+                        });
+                        ui.add(egui_bind::Bind::new(
+                            stringify!($l),
+                            &mut window.options.bind.$l,
+                        ));
+                        ui.end_row();
+                    )*
+                });
+        }
+
     }
 }
+
+fn parse_key_binding(str: impl Into<String>) -> KeyType {
+    let str: String = str.into();
+    let parts = str.split('|').map(str::trim).collect::<Vec<_>>();
+    if parts.len() != 2 {
+        return None;
+    }
+    let key = parse_key(parts[0]);
+    if parts[1] == "Alt" {
+        Some((KeyOrPointer::Key(key), Modifiers::ALT))
+    } else if parts[1] == "None" {
+        Some((KeyOrPointer::Key(key), Modifiers::NONE))
+    } else {
+        None
+    }
+}
+
+// Generated from "egui::Key::name()"
+// \s*(.*)\s*=>\s*(.*)\s*,
+// replace:
+// $2 => egui::$1,
+fn parse_key(s: &str) -> egui::Key {
+    match s {
+        "Down" => egui::Key::ArrowDown,
+        "Left" => egui::Key::ArrowLeft,
+        "Right" => egui::Key::ArrowRight,
+        "Up" => egui::Key::ArrowUp,
+        "Escape" => egui::Key::Escape,
+        "Tab" => egui::Key::Tab,
+        "Backspace" => egui::Key::Backspace,
+        "Enter" => egui::Key::Enter,
+        "Space" => egui::Key::Space,
+        "Insert" => egui::Key::Insert,
+        "Delete" => egui::Key::Delete,
+        "Home" => egui::Key::Home,
+        "End" => egui::Key::End,
+        "PageUp" => egui::Key::PageUp,
+        "PageDown" => egui::Key::PageDown,
+        "Minus" => egui::Key::Minus,
+        "Plus" => egui::Key::PlusEquals,
+        "0" => egui::Key::Num0,
+        "1" => egui::Key::Num1,
+        "2" => egui::Key::Num2,
+        "3" => egui::Key::Num3,
+        "4" => egui::Key::Num4,
+        "5" => egui::Key::Num5,
+        "6" => egui::Key::Num6,
+        "7" => egui::Key::Num7,
+        "8" => egui::Key::Num8,
+        "9" => egui::Key::Num9,
+        "A" => egui::Key::A,
+        "B" => egui::Key::B,
+        "C" => egui::Key::C,
+        "D" => egui::Key::D,
+        "E" => egui::Key::E,
+        "F" => egui::Key::F,
+        "G" => egui::Key::G,
+        "H" => egui::Key::H,
+        "I" => egui::Key::I,
+        "J" => egui::Key::J,
+        "K" => egui::Key::K,
+        "L" => egui::Key::L,
+        "M" => egui::Key::M,
+        "N" => egui::Key::N,
+        "O" => egui::Key::O,
+        "P" => egui::Key::P,
+        "Q" => egui::Key::Q,
+        "R" => egui::Key::R,
+        "S" => egui::Key::S,
+        "T" => egui::Key::T,
+        "U" => egui::Key::U,
+        "V" => egui::Key::V,
+        "W" => egui::Key::W,
+        "X" => egui::Key::X,
+        "Y" => egui::Key::Y,
+        "Z" => egui::Key::Z,
+        "F1" => egui::Key::F1,
+        "F2" => egui::Key::F2,
+        "F3" => egui::Key::F3,
+        "F4" => egui::Key::F4,
+        "F5" => egui::Key::F5,
+        "F6" => egui::Key::F6,
+        "F7" => egui::Key::F7,
+        "F8" => egui::Key::F8,
+        "F9" => egui::Key::F9,
+        "F10" => egui::Key::F10,
+        "F11" => egui::Key::F11,
+        "F12" => egui::Key::F12,
+        "F13" => egui::Key::F13,
+        "F14" => egui::Key::F14,
+        "F15" => egui::Key::F15,
+        "F16" => egui::Key::F16,
+        "F17" => egui::Key::F17,
+        "F18" => egui::Key::F18,
+        "F19" => egui::Key::F19,
+        _ => egui::Key::F20,
+    }
+}
+
+fn convert_to_string(key: KeyType) -> String {
+    match key {
+        Some((key, modifier)) => {
+            if let KeyOrPointer::Key(key) = key {
+                let m = if modifier.alt { "Alt" } else { "None" };
+                format!("{}|{}", key.name(), m)
+            } else {
+                "None".to_string()
+            }
+        }
+        None => "None".to_string(),
+    }
+}
+
+keys![
+    (hangup, H, ALT, "settings-keybinds-disconnect"),
+    (
+        dialing_directory,
+        D,
+        ALT,
+        "settings-keybinds-dialing-directory"
+    ),
+    (send_login_pw, L, ALT, "settings-keybinds-send-login"),
+    (upload, PageUp, ALT, "settings-keybinds-upload"),
+    (download, PageDown, ALT, "settings-keybinds-download"),
+    (clear_screen, C, ALT, "settings-keybinds-clear-screen"),
+    (quit, X, ALT, "settings-keybinds-quit"),
+    (
+        full_screen,
+        F11,
+        NONE,
+        "settings-keybinds-toggle-fullscreen"
+    ),
+    (show_settings, O, ALT, "settings-keybinds-show-settings"),
+    (show_capture, P, ALT, "settings-keybinds-capture-control")
+];
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Options {
     pub scaling: Scaling,
@@ -234,12 +417,8 @@ impl Options {
             if !self.iemsi_autologin {
                 file.write_all(format!("autologin = {}\n", self.iemsi_autologin).as_bytes())?;
             }
-            /* TODO
-            file.write_all("[KEYBINDINGS]\n".to_string().as_bytes())?;
-            file.write_all(
-                format!("clear_screen = \"{:?}\"\n", self.bind.clear_screen).as_bytes(),
-            )?;
-            */
+
+            write_keybindings(&mut file, &self.bind)?;
 
             file.flush()?;
         }
@@ -341,19 +520,6 @@ fn parse_value(options: &mut Options, value: &Value) {
         }
         _ => {}
     }
-}
-
-fn parse_keybinding_settings(
-    options: &mut Options,
-    keybind_settings: &toml::map::Map<String, Value>,
-) {
-    /* TODO: read keybindings
-    for (k, v) in keybind_settings {
-        match k.as_str() {
-            "clear_screen" => if let Value::String(str) = v {},
-            _ => {}
-        }
-    }*/
 }
 
 fn parse_iemsi_settings(options: &mut Options, iemsi_settings: &toml::map::Map<String, Value>) {
