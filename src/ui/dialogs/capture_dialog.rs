@@ -85,7 +85,10 @@ pub fn show_dialog(window: &mut MainWindow, ctx: &egui::Context) {
                 }
 
                 if ui
-                    .button(fl!(crate::LANGUAGE_LOADER, "phonebook-cancel-button"))
+                    .button(fl!(
+                        crate::LANGUAGE_LOADER,
+                        "dialing_directory-cancel-button"
+                    ))
                     .clicked()
                 {
                     close_dialog = true;

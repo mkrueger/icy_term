@@ -9,7 +9,7 @@ use icy_engine::ansi;
 use crate::{
     check_error,
     features::{AutoFileTransfer, AutoLogin},
-    ui::{dialogs::PhonebookFilter, BufferView, ScreenMode},
+    ui::{dialogs::DialingDirectoryFilter, BufferView, ScreenMode},
     util::{Rng, SoundThread},
     Options,
 };
@@ -28,7 +28,7 @@ impl MainWindow {
         let options = match Options::load_options() {
             Ok(options) => options,
             Err(e) => {
-                log::error!("Error reading phonebook: {e}");
+                log::error!("Error reading dialing_directory: {e}");
                 Options::default()
             }
         };
@@ -38,7 +38,7 @@ impl MainWindow {
         let addresses = match crate::addresses::start_read_book() {
             Ok(addresses) => addresses,
             Err(e) => {
-                log::error!("Error reading phonebook: {e}");
+                log::error!("Error reading dialing_directory: {e}");
                 vec![crate::Address::new(String::new())]
             }
         };
@@ -50,7 +50,7 @@ impl MainWindow {
         let mut view = MainWindow {
             buffer_view: Arc::new(eframe::epaint::mutex::Mutex::new(view)),
             //address_list: HoverList::new(),
-            mode: MainWindowMode::ShowPhonebook,
+            mode: MainWindowMode::ShowDialingDirectory,
             addresses,
             cur_addr: 0,
             selected_bbs: None,
@@ -62,9 +62,9 @@ impl MainWindow {
             current_transfer: None,
             handled_char: false,
             is_alt_pressed: false,
-            phonebook_filter: PhonebookFilter::All,
+            dialing_directory_filter: DialingDirectoryFilter::All,
             buffer_parser: Box::<ansi::Parser>::default(),
-            phonebook_filter_string: String::new(),
+            dialing_directory_filter_string: String::new(),
             scroll_address_list_to_bottom: false,
             rng: Rng::default(),
             capture_session: false,
@@ -149,14 +149,14 @@ impl eframe::App for MainWindow {
                 check_error!(self, res, false);
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
-            MainWindowMode::ShowPhonebook => {
+            MainWindowMode::ShowDialingDirectory => {
                 let res = self.update_state();
                 self.update_terminal_window(ctx, frame, true);
                 check_error!(self, res, false);
             }
-            MainWindowMode::ShowSettings(in_phonebook) => {
-                if in_phonebook {
-                    super::dialogs::view_phonebook(self, ctx);
+            MainWindowMode::ShowSettings(in_dialing_directory) => {
+                if in_dialing_directory {
+                    super::dialogs::view_dialing_directory(self, ctx);
                 } else {
                     let res = self.update_state();
                     self.update_terminal_window(ctx, frame, false);

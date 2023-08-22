@@ -1,5 +1,5 @@
-pub mod phonebook_dialog;
-pub use phonebook_dialog::*;
+pub mod dialing_directory_dialog;
+pub use dialing_directory_dialog::*;
 
 pub mod protocol_selector;
 pub use protocol_selector::*;

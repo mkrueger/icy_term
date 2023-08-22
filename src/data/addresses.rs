@@ -181,7 +181,7 @@ system_name = "dura-bbs.net:6359"
 address = "dura-bbs.net:6359"
 protocol = "Telnet"
 terminal_type = "Ansi"
-screen_mode = "Vga(80, 25)
+screen_mode = "Vga(80, 25)"
 
 [[addresses]]
 system_name = "Xibalba"
@@ -247,7 +247,7 @@ impl Address {
     }
 
     #[must_use]
-    pub fn get_phonebook_file() -> Option<PathBuf> {
+    pub fn get_dialing_directory_file() -> Option<PathBuf> {
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
             if !proj_dirs.config_dir().exists()
@@ -259,14 +259,14 @@ impl Address {
                 );
                 return None;
             }
-            let phonebook = proj_dirs.config_dir().join("phonebook.toml");
-            if !phonebook.exists() {
-                if let Err(err) = fs::write(&phonebook, TEMPLATE) {
-                    log::error!("Can't create phonebook {phonebook:?} : {err}");
+            let dialing_directory = proj_dirs.config_dir().join("phonebook.toml");
+            if !dialing_directory.exists() {
+                if let Err(err) = fs::write(&dialing_directory, TEMPLATE) {
+                    log::error!("Can't create dialing_directory {dialing_directory:?} : {err}");
                     return None;
                 }
             }
-            return Some(phonebook);
+            return Some(dialing_directory);
         }
         None
     }
@@ -280,12 +280,12 @@ impl Address {
         let mut res = Vec::new();
         res.push(Address::new(String::new()));
         #[cfg(not(target_arch = "wasm32"))]
-        if let Some(phonebook) = Address::get_phonebook_file() {
-            match fs::read_to_string(phonebook) {
+        if let Some(dialing_directory) = Address::get_dialing_directory_file() {
+            match fs::read_to_string(dialing_directory) {
                 Ok(input_text) => match input_text.parse::<Value>() {
                     Ok(value) => parse_addresses(&mut res, &value),
                     Err(err) => {
-                        return Err(format!("Error parsing phonebook: {err}").into());
+                        return Err(format!("Error parsing dialing_directory: {err}").into());
                     }
                 },
                 Err(err) => return Err(err.into()),
@@ -306,9 +306,9 @@ pub fn start_read_book() -> TerminalResult<Vec<Address>> {
     let res = Address::read_phone_book();
 
     #[cfg(not(target_arch = "wasm32"))]
-    if let Some(phonebook) = Address::get_phonebook_file() {
+    if let Some(dialing_directory) = Address::get_dialing_directory_file() {
         thread::spawn(move || loop {
-            if let Some(path) = phonebook.parent() {
+            if let Some(path) = dialing_directory.parent() {
                 if watch(path).is_err() {
                     return;
                 }
@@ -324,7 +324,7 @@ pub fn start_read_book() -> TerminalResult<Vec<Address>> {
 ///
 /// This function will return an error if .
 pub fn store_phone_book(addresses: &[Address]) -> TerminalResult<()> {
-    if let Some(file_name) = Address::get_phonebook_file() {
+    if let Some(file_name) = Address::get_dialing_directory_file() {
         let mut file = File::create(file_name)?;
         file.write_all(b"version = \"1.0\"\n")?;
 

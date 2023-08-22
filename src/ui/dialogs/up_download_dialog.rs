@@ -212,9 +212,9 @@ impl FileTransferDialog {
                 }
                 ui.with_layout(Layout::right_to_left(egui::Align::TOP), |ui| {
                     let button_label = if transfer_state.is_finished {
-                        fl!(crate::LANGUAGE_LOADER, "phonebook-ok-button")
+                        fl!(crate::LANGUAGE_LOADER, "dialing_directory-ok-button")
                     } else {
-                        fl!(crate::LANGUAGE_LOADER, "phonebook-cancel-button")
+                        fl!(crate::LANGUAGE_LOADER, "dialing_directory-cancel-button")
                     };
                     if ui.button(button_label).clicked() {
                         close_dialog = true;

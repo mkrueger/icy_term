@@ -13,7 +13,7 @@ use crate::{
     ui::{MainWindow, ScreenMode, DEFAULT_MODES},
 };
 
-pub enum PhonebookFilter {
+pub enum DialingDirectoryFilter {
     All,
     Favourites,
 }
@@ -29,7 +29,7 @@ pub enum AddressCategory {
 const phone_list_width: f32 = 220.0;
 const PROTOCOL_COMBOBOX_WIDTH: f32 = 180.0;
 
-pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
+pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
     let mut open = true;
     let available_rect = ctx.available_rect();
     let bounds = 16.0;
@@ -58,8 +58,10 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
             .show_inside(ui, |ui| {
                 ui.with_layout(Layout::left_to_right(egui::Align::TOP), |ui| {
                     ui.horizontal(|ui| {
-                        let selected =
-                            matches!(window.phonebook_filter, PhonebookFilter::Favourites);
+                        let selected = matches!(
+                            window.dialing_directory_filter,
+                            DialingDirectoryFilter::Favourites
+                        );
                         let r: egui::Response = ui
                             .selectable_label(
                                 selected,
@@ -70,26 +72,26 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
                                 ui.label(
                                     RichText::new(fl!(
                                         crate::LANGUAGE_LOADER,
-                                        "phonebook-starred-items"
+                                        "dialing_directory-starred-items"
                                     ))
                                     .small(),
                                 );
                             });
 
                         if r.clicked() {
-                            window.phonebook_filter = if selected {
-                                PhonebookFilter::All
+                            window.dialing_directory_filter = if selected {
+                                DialingDirectoryFilter::All
                             } else {
-                                PhonebookFilter::Favourites
+                                DialingDirectoryFilter::Favourites
                             };
                         }
 
                         ui.add(
-                            TextEdit::singleline(&mut window.phonebook_filter_string)
+                            TextEdit::singleline(&mut window.dialing_directory_filter_string)
                                 .desired_width(f32::INFINITY)
                                 .hint_text(RichText::new(fl!(
                                     crate::LANGUAGE_LOADER,
-                                    "phonebook-filter-placeholder"
+                                    "dialing_directory-filter-placeholder"
                                 ))),
                         );
 
@@ -102,13 +104,13 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
                                 ui.label(
                                     RichText::new(fl!(
                                         crate::LANGUAGE_LOADER,
-                                        "phonebook-clear-filter"
+                                        "dialing_directory-clear-filter"
                                     ))
                                     .small(),
                                 );
                             });
                         if r.clicked() {
-                            window.phonebook_filter_string = String::new();
+                            window.dialing_directory_filter_string = String::new();
                         }
                     });
                 });
@@ -123,15 +125,17 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
                         )
                         .on_hover_ui(|ui| {
                             ui.label(
-                                RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-add")).small(),
+                                RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-add"))
+                                    .small(),
                             );
                         });
 
                     if r.clicked() {
-                        let adr = Address::new(fl!(crate::LANGUAGE_LOADER, "phonebook-new_bbs"));
+                        let adr =
+                            Address::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-new_bbs"));
                         window.select_bbs(Some(adr.id));
                         window.addresses.push(adr);
-                        window.phonebook_filter = PhonebookFilter::All;
+                        window.dialing_directory_filter = DialingDirectoryFilter::All;
                         window.scroll_address_list_to_bottom = true;
                     }
                 });
@@ -153,8 +157,11 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
                         )
                         .on_hover_ui(|ui| {
                             ui.label(
-                                RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-delete"))
-                                    .small(),
+                                RichText::new(fl!(
+                                    crate::LANGUAGE_LOADER,
+                                    "dialing_directory-delete"
+                                ))
+                                .small(),
                             );
                         });
 
@@ -162,14 +169,18 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
                         window.show_selected_address_dialog();
                     }
 
-                    let connect_text =
-                        WidgetText::from(fl!(crate::LANGUAGE_LOADER, "phonebook-connect-button"));
+                    let connect_text = WidgetText::from(fl!(
+                        crate::LANGUAGE_LOADER,
+                        "dialing_directory-connect-button"
+                    ));
                     let connect_text_size = connect_text
                         .into_galley(ui, Some(false), 1000., egui::TextStyle::Button)
                         .size();
 
-                    let cancel_text =
-                        WidgetText::from(fl!(crate::LANGUAGE_LOADER, "phonebook-cancel-button"));
+                    let cancel_text = WidgetText::from(fl!(
+                        crate::LANGUAGE_LOADER,
+                        "dialing_directory-cancel-button"
+                    ));
                     let cancel_text_size = cancel_text
                         .into_galley(ui, Some(false), 1000., egui::TextStyle::Button)
                         .size();
@@ -183,7 +194,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
 
                     let r: egui::Response = ui.add(egui::Button::new(fl!(
                         crate::LANGUAGE_LOADER,
-                        "phonebook-cancel-button"
+                        "dialing_directory-cancel-button"
                     )));
                     if r.clicked() {
                         window.show_terminal();
@@ -191,7 +202,7 @@ pub fn view_phonebook(window: &mut MainWindow, ctx: &egui::Context) {
 
                     let r: egui::Response = ui.add(egui::Button::new(fl!(
                         crate::LANGUAGE_LOADER,
-                        "phonebook-connect-button"
+                        "dialing_directory-connect-button"
                     )));
                     if r.clicked() {
                         window.call_bbs_uuid(window.selected_bbs);
@@ -214,16 +225,16 @@ fn show_content(ctx: &egui::Context, window: &mut MainWindow, ui: &mut egui::Ui)
         let sav: Address = window.get_address_mut(window.selected_bbs).clone();
         view_edit_bbs(ctx, window, ui);
         if sav != *window.get_address_mut(window.selected_bbs) {
-            store_phonebook(window);
+            store_dialing_directory(window);
         }
     } else {
         render_quick_connect(window, ui);
     }
 }
 
-pub fn store_phonebook(window: &MainWindow) {
+pub fn store_dialing_directory(window: &MainWindow) {
     if let Err(err) = store_phone_book(&window.addresses) {
-        log::error!("Failed to store phonebook: {err}");
+        log::error!("Failed to store dialing_directory: {err}");
     }
 }
 
@@ -231,9 +242,9 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
         ui.add(
             TextEdit::singleline(&mut window.get_address_mut(window.selected_bbs).address)
-                .id(Id::new("phonebook-connect-to"))
+                .id(Id::new("dialing_directory-connect-to"))
                 .desired_width(ui.available_width() - 50.)
-                .hint_text(fl!(crate::LANGUAGE_LOADER, "phonebook-connect-to"))
+                .hint_text(fl!(crate::LANGUAGE_LOADER, "dialing_directory-connect-to"))
                 .font(FontId::proportional(22.)),
         );
     });
@@ -248,7 +259,7 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(RichText::new(fl!(
                     crate::LANGUAGE_LOADER,
-                    "phonebook-protocol"
+                    "dialing_directory-protocol"
                 )));
             });
 
@@ -274,7 +285,7 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(RichText::new(fl!(
                     crate::LANGUAGE_LOADER,
-                    "phonebook-screen_mode"
+                    "dialing_directory-screen_mode"
                 )));
             });
 
@@ -304,7 +315,7 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(RichText::new(fl!(
                     crate::LANGUAGE_LOADER,
-                    "phonebook-terminal_type"
+                    "dialing_directory-terminal_type"
                 )));
             });
             egui::ComboBox::from_id_source("combobox3")
@@ -329,7 +340,7 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(RichText::new(fl!(
                     crate::LANGUAGE_LOADER,
-                    "phonebook-baud-emulation"
+                    "dialing_directory-baud-emulation"
                 )))
             });
 
@@ -361,31 +372,32 @@ fn render_quick_connect(window: &mut MainWindow, ui: &mut egui::Ui) {
         cloned_addr.system_name = cloned_addr.address.clone(); // set a system name
         window.select_bbs(Some(cloned_addr.id));
         window.addresses.push(cloned_addr);
-        window.phonebook_filter = PhonebookFilter::All;
+        window.dialing_directory_filter = DialingDirectoryFilter::All;
         window.scroll_address_list_to_bottom = true;
     }
 }
 
 fn render_list(window: &mut MainWindow, ui: &mut egui::Ui) {
     // let row_height = 18. * 2.;
-    let addresses: Vec<Address> = if let PhonebookFilter::Favourites = window.phonebook_filter {
-        window
-            .addresses
-            .iter()
-            .filter(|a| a.is_favored && filter_bbs(window, a))
-            .cloned()
-            .collect()
-    } else {
-        window
-            .addresses
-            .iter()
-            .filter(|a| filter_bbs(window, a))
-            .cloned()
-            .collect()
-    };
+    let addresses: Vec<Address> =
+        if let DialingDirectoryFilter::Favourites = window.dialing_directory_filter {
+            window
+                .addresses
+                .iter()
+                .filter(|a| a.is_favored && filter_bbs(window, a))
+                .cloned()
+                .collect()
+        } else {
+            window
+                .addresses
+                .iter()
+                .filter(|a| filter_bbs(window, a))
+                .cloned()
+                .collect()
+        };
 
     if addresses.is_empty() {
-        ui.label(fl!(crate::LANGUAGE_LOADER, "phonebook-no-entries"));
+        ui.label(fl!(crate::LANGUAGE_LOADER, "dialing_directory-no-entries"));
     }
     // let num_rows = addresses.len();
 
@@ -396,8 +408,11 @@ fn render_list(window: &mut MainWindow, ui: &mut egui::Ui) {
                 (0..addresses.len()).for_each(|i| {
                     let addr = &addresses[i];
                     ui.with_layout(ui.layout().with_cross_justify(true), |ui| {
-                        let show_quick_connect = window.phonebook_filter_string.is_empty()
-                            && matches!(window.phonebook_filter, PhonebookFilter::All);
+                        let show_quick_connect = window.dialing_directory_filter_string.is_empty()
+                            && matches!(
+                                window.dialing_directory_filter,
+                                DialingDirectoryFilter::All
+                            );
                         let selected = match window.selected_bbs {
                             Some(uuid) => addr.id == uuid,
                             None => i == 0 && show_quick_connect,
@@ -407,7 +422,7 @@ fn render_list(window: &mut MainWindow, ui: &mut egui::Ui) {
                                 selected,
                                 Address::new(fl!(
                                     crate::LANGUAGE_LOADER,
-                                    "phonebook-connect-to-address"
+                                    "dialing_directory-connect-to-address"
                                 )),
                             );
                             addr.centered = true;
@@ -437,10 +452,10 @@ fn render_list(window: &mut MainWindow, ui: &mut egui::Ui) {
 }
 
 fn filter_bbs(window: &MainWindow, a: &Address) -> bool {
-    if window.phonebook_filter_string.is_empty() {
+    if window.dialing_directory_filter_string.is_empty() {
         return true;
     }
-    let lower = window.phonebook_filter_string.to_lowercase();
+    let lower = window.dialing_directory_filter_string.to_lowercase();
     a.system_name.to_lowercase().contains(lower.as_str())
         || a.address.to_lowercase().contains(lower.as_str())
 }
@@ -453,11 +468,11 @@ fn view_edit_bbs(ctx: &egui::Context, window: &mut MainWindow, ui: &mut egui::Ui
         let adr = window.get_address_mut(window.selected_bbs);
         ui.add(
             TextEdit::singleline(&mut adr.system_name)
-                .id(Id::new("phonebook-name-placeholder"))
+                .id(Id::new("dialing_directory-name-placeholder"))
                 .desired_width(f32::INFINITY)
                 .hint_text(RichText::new(fl!(
                     crate::LANGUAGE_LOADER,
-                    "phonebook-name-placeholder"
+                    "dialing_directory-name-placeholder"
                 ))),
         );
         let text = if adr.is_favored {
@@ -480,14 +495,20 @@ fn view_edit_bbs(ctx: &egui::Context, window: &mut MainWindow, ui: &mut egui::Ui
             let converted: DateTime<Local> = DateTime::from(*last_call);
             ui.label(
                 converted
-                    .format(fl!(crate::LANGUAGE_LOADER, "phonebook-last-call-date-format").as_str())
+                    .format(
+                        fl!(
+                            crate::LANGUAGE_LOADER,
+                            "dialing_directory-last-call-date-format"
+                        )
+                        .as_str(),
+                    )
                     .to_string(),
             );
         }
         None => {
             ui.label(RichText::new(fl!(
                 crate::LANGUAGE_LOADER,
-                "phonebook-not-called"
+                "dialing_directory-not-called"
             )));
         }
     }
@@ -562,7 +583,10 @@ fn view_edit_bbs(ctx: &egui::Context, window: &mut MainWindow, ui: &mut egui::Ui
     let converted: DateTime<Local> =
         DateTime::from(window.get_address_mut(window.selected_bbs).created);
     ui.with_layout(Layout::left_to_right(egui::Align::BOTTOM), |ui| {
-        let str = fl!(crate::LANGUAGE_LOADER, "phonebook-created-at-date-format");
+        let str = fl!(
+            crate::LANGUAGE_LOADER,
+            "dialing_directory-created-at-date-format"
+        );
         ui.label(converted.format(str.as_str()).to_string());
     });
 }
@@ -585,7 +609,7 @@ fn render_terminal_category(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(RichText::new(fl!(
                     crate::LANGUAGE_LOADER,
-                    "phonebook-screen_mode"
+                    "dialing_directory-screen_mode"
                 )));
             });
 
@@ -607,7 +631,7 @@ fn render_terminal_category(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(RichText::new(fl!(
                     crate::LANGUAGE_LOADER,
-                    "phonebook-terminal_type"
+                    "dialing_directory-terminal_type"
                 )));
             });
             egui::ComboBox::from_id_source("combobox3")
@@ -625,7 +649,7 @@ fn render_terminal_category(window: &mut MainWindow, ui: &mut egui::Ui) {
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label(RichText::new(fl!(
                         crate::LANGUAGE_LOADER,
-                        "phonebook-music-option"
+                        "dialing_directory-music-option"
                     )));
                 });
                 egui::ComboBox::from_id_source("combobox4")
@@ -644,7 +668,7 @@ fn render_terminal_category(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(RichText::new(fl!(
                     crate::LANGUAGE_LOADER,
-                    "phonebook-baud-emulation"
+                    "dialing_directory-baud-emulation"
                 )))
             });
 
@@ -669,7 +693,10 @@ fn render_login_category(window: &mut MainWindow, ui: &mut egui::Ui) {
         .show(ui, |ui| {
             // User row
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "phonebook-user")));
+                ui.label(RichText::new(fl!(
+                    crate::LANGUAGE_LOADER,
+                    "dialing_directory-user"
+                )));
             });
             ui.add(
                 TextEdit::singleline(&mut window.get_address_mut(window.selected_bbs).user_name)
@@ -681,7 +708,7 @@ fn render_login_category(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(RichText::new(fl!(
                     crate::LANGUAGE_LOADER,
-                    "phonebook-password"
+                    "dialing_directory-password"
                 )));
             });
             ui.with_layout(Layout::left_to_right(egui::Align::Center), |ui| {
@@ -692,7 +719,7 @@ fn render_login_category(window: &mut MainWindow, ui: &mut egui::Ui) {
                 if ui
                     .button(RichText::new(fl!(
                         crate::LANGUAGE_LOADER,
-                        "phonebook-generate"
+                        "dialing_directory-generate"
                     )))
                     .clicked()
                 {
@@ -711,7 +738,7 @@ fn render_login_category(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(RichText::new(fl!(
                     crate::LANGUAGE_LOADER,
-                    "phonebook-autologin"
+                    "dialing_directory-autologin"
                 )));
             });
             ui.add(
@@ -733,7 +760,7 @@ fn render_server_catogery(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(RichText::new(fl!(
                     crate::LANGUAGE_LOADER,
-                    "phonebook-address"
+                    "dialing_directory-address"
                 )));
             });
             ui.add(TextEdit::singleline(&mut adr.address));
@@ -743,7 +770,7 @@ fn render_server_catogery(window: &mut MainWindow, ui: &mut egui::Ui) {
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(RichText::new(fl!(
                     crate::LANGUAGE_LOADER,
-                    "phonebook-protocol"
+                    "dialing_directory-protocol"
                 )));
             });
 

@@ -55,9 +55,9 @@ macro_rules! check_error {
 #[derive(PartialEq, Eq)]
 pub enum MainWindowMode {
     ShowTerminal,
-    ShowPhonebook,
+    ShowDialingDirectory,
 
-    ///Shows settings - parameter: show phonebook
+    ///Shows settings - parameter: show dialing_directory
     ShowSettings(bool),
     SelectProtocol(bool),
     FileTransfer(bool),
@@ -80,8 +80,8 @@ pub struct MainWindow {
     pub cur_addr: usize,
     pub selected_bbs: Option<usize>,
     pub scroll_address_list_to_bottom: bool,
-    pub phonebook_filter: dialogs::PhonebookFilter,
-    pub phonebook_filter_string: String,
+    pub dialing_directory_filter: dialogs::DialingDirectoryFilter,
+    pub dialing_directory_filter_string: String,
 
     pub options: Options,
     pub screen_mode: ScreenMode,
@@ -247,8 +247,8 @@ impl MainWindow {
         self.mode = MainWindowMode::ShowTerminal;
     }
 
-    pub fn show_phonebook(&mut self) {
-        self.mode = MainWindowMode::ShowPhonebook;
+    pub fn show_dialing_directory(&mut self) {
+        self.mode = MainWindowMode::ShowDialingDirectory;
     }
 
     pub fn get_address_mut(&mut self, uuid: Option<usize>) -> &mut Address {
@@ -439,7 +439,7 @@ impl MainWindow {
     pub fn hangup(&mut self) {
         check_error!(self, self.connection.disconnect(), false);
         self.sound_thread.clear();
-        self.mode = MainWindowMode::ShowPhonebook;
+        self.mode = MainWindowMode::ShowDialingDirectory;
     }
 
     pub fn send_login(&mut self) {
@@ -462,7 +462,7 @@ impl MainWindow {
 
     #[cfg(not(target_arch = "wasm32"))]
     pub fn update_title(&self, frame: &mut eframe::Frame) {
-        if let MainWindowMode::ShowPhonebook = self.mode {
+        if let MainWindowMode::ShowDialingDirectory = self.mode {
             frame.set_window_title(&crate::DEFAULT_TITLE);
         } else {
             let str = if self.connection.is_connected() {
@@ -496,8 +496,8 @@ impl MainWindow {
         }
     }
 
-    pub(crate) fn show_settings(&mut self, in_phonebook: bool) {
-        self.mode = MainWindowMode::ShowSettings(in_phonebook);
+    pub(crate) fn show_settings(&mut self, in_dialing_directory: bool) {
+        self.mode = MainWindowMode::ShowSettings(in_dialing_directory);
     }
 
     fn handle_terminal_key_binds(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
@@ -505,7 +505,7 @@ impl MainWindow {
             self.output_string("\x1B[2J");
         }
         if self.options.bind_dialing_directory.pressed(ctx) {
-            self.mode = MainWindowMode::ShowPhonebook;
+            self.mode = MainWindowMode::ShowDialingDirectory;
         }
         if self.options.bind_hangup.pressed(ctx) {
             self.hangup();

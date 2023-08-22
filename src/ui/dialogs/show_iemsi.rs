@@ -94,7 +94,7 @@ pub fn show_iemsi(window: &mut MainWindow, ctx: &egui::Context) {
 
             ui.with_layout(Layout::right_to_left(egui::Align::TOP), |ui| {
                 if ui
-                    .button(fl!(crate::LANGUAGE_LOADER, "phonebook-ok-button"))
+                    .button(fl!(crate::LANGUAGE_LOADER, "dialing_directory-ok-button"))
                     .clicked()
                 {
                     close_dialog = true;

@@ -91,7 +91,10 @@ pub fn view_selector(
         });
         modal.buttons(ui, |ui| {
             if modal
-                .button(ui, fl!(crate::LANGUAGE_LOADER, "phonebook-cancel-button"))
+                .button(
+                    ui,
+                    fl!(crate::LANGUAGE_LOADER, "dialing_directory-cancel-button"),
+                )
                 .clicked()
             {
                 window.mode = MainWindowMode::ShowTerminal;

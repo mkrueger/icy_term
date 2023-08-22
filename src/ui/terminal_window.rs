@@ -101,13 +101,16 @@ impl MainWindow {
                         ))
                         .on_hover_ui(|ui| {
                             ui.label(
-                                RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-phonebook"))
-                                    .small(),
+                                RichText::new(fl!(
+                                    crate::LANGUAGE_LOADER,
+                                    "terminal-dialing_directory"
+                                ))
+                                .small(),
                             );
                         });
 
                     if r.clicked() {
-                        self.show_phonebook();
+                        self.show_dialing_directory();
                     }
 
                     if self.auto_login.iemsi.isi.is_some() {
@@ -226,7 +229,7 @@ impl MainWindow {
             });
 
         if show_dialing_directory {
-            super::dialogs::view_phonebook(self, ctx);
+            super::dialogs::view_dialing_directory(self, ctx);
         }
     }
 

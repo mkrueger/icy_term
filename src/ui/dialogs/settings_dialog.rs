@@ -87,7 +87,7 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
             ui.add_space(4.0);
             ui.with_layout(Layout::right_to_left(egui::Align::TOP), |ui| {
                 if ui
-                    .button(fl!(crate::LANGUAGE_LOADER, "phonebook-ok-button"))
+                    .button(fl!(crate::LANGUAGE_LOADER, "dialing_directory-ok-button"))
                     .clicked()
                 {
                     close_dialog = true;
@@ -104,9 +104,9 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
         });
 
     if !open || close_dialog {
-        if let MainWindowMode::ShowSettings(show_phonebook) = window.mode {
-            if show_phonebook {
-                window.mode = MainWindowMode::ShowPhonebook;
+        if let MainWindowMode::ShowSettings(show_dialing_directory) = window.mode {
+            if show_dialing_directory {
+                window.mode = MainWindowMode::ShowDialingDirectory;
             } else {
                 window.mode = MainWindowMode::ShowTerminal;
             }
