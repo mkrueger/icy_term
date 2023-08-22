@@ -524,11 +524,13 @@ impl MainWindow {
         }
         if self.options.bind.quit.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
+            #[cfg(not(target_arch = "wasm32"))]
             frame.close();
         }
         if self.options.bind.full_screen.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
             self.is_fullscreen_mode = !self.is_fullscreen_mode;
+            #[cfg(not(target_arch = "wasm32"))]
             frame.set_fullscreen(self.is_fullscreen_mode);
         }
         if self.options.bind.upload.pressed(ctx) {

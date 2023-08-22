@@ -49,7 +49,10 @@ impl MainWindow {
         let connection = MainWindow::start_com_thread();
         #[cfg(target_arch = "wasm32")]
         let (connection, poll_thread) = MainWindow::start_poll_thead();
-
+        #[cfg(not(target_arch = "wasm32"))]
+        let is_fullscreen_mode = cc.integration_info.window_info.fullscreen;
+        #[cfg(target_arch = "wasm32")]
+        let is_fullscreen_mode = false;
         let mut view = MainWindow {
             buffer_view: Arc::new(eframe::epaint::mutex::Mutex::new(view)),
             //address_list: HoverList::new(),
@@ -78,7 +81,7 @@ impl MainWindow {
             #[cfg(target_arch = "wasm32")]
             poll_thread,
             sound_thread: SoundThread::new(),
-            is_fullscreen_mode: cc.integration_info.window_info.fullscreen,
+            is_fullscreen_mode,
             capture_dialog: capture_dialog::DialogState::default(),
             export_dialog: crate::ui::dialogs::export_dialog::DialogState::default(),
             upload_dialog: crate::ui::dialogs::upload_dialog::DialogState::default(),

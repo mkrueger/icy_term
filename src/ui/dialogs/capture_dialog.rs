@@ -78,6 +78,7 @@ impl MainWindow {
                         close_dialog = true;
                     }
 
+                    #[cfg(not(target_arch = "wasm32"))]
                     if let Some(path) = Path::new(&self.options.capture_filename).parent() {
                         if ui
                             .button(fl!(
