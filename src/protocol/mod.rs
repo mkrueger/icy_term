@@ -267,8 +267,9 @@ pub trait Protocol: Send {
     fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()>;
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum TransferType {
+    #[default]
     ZModem,
     ZedZap,
     XModem,

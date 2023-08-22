@@ -1,5 +1,5 @@
 #![allow(clippy::float_cmp)]
-use std::{cmp::max, ffi::OsStr, fs::File, io::Write};
+use std::cmp::max;
 
 use clipboard::{ClipboardContext, ClipboardProvider};
 use eframe::{
@@ -8,7 +8,6 @@ use eframe::{
 };
 use egui::Button;
 use i18n_embed_fl::fl;
-use icy_engine::SaveOptions;
 
 use crate::check_error;
 
@@ -565,7 +564,7 @@ impl MainWindow {
     }
 }
 
-fn terminal_context_menu(ui: &mut egui::Ui, window: &MainWindow) {
+fn terminal_context_menu(ui: &mut egui::Ui, window: &mut MainWindow) {
     ui.input_mut(|i| i.events.clear());
 
     if ui
@@ -594,34 +593,7 @@ fn terminal_context_menu(ui: &mut egui::Ui, window: &MainWindow) {
             .add(egui::Button::new(fl!(crate::LANGUAGE_LOADER, "terminal-menu-export")).wrap(false))
             .clicked()
         {
-            let files: Option<std::path::PathBuf> = rfd::FileDialog::new().save_file();
-            if let Some(path) = files {
-                if let Some(file_name) = path.to_str() {
-                    if let Ok(mut file) = File::create(file_name) {
-                        let content = if let Some(ext) = path.extension() {
-                            let ext = OsStr::to_str(ext).unwrap().to_lowercase();
-                            window
-                                .buffer_view
-                                .lock()
-                                .buf
-                                .to_bytes(ext.as_str(), &SaveOptions::new())
-                        } else {
-                            window
-                                .buffer_view
-                                .lock()
-                                .buf
-                                .to_bytes("ans", &SaveOptions::new())
-                        };
-                        let r = match content {
-                            Ok(content) => file.write_all(&content),
-                            Err(err) => file.write_all(err.to_string().as_bytes()),
-                        };
-                        if let Err(err) = r {
-                            log::error!("Error writing file: {}", err);
-                        }
-                    }
-                }
-            }
+            window.init_export_dialog();
             ui.close_menu();
         }
     }

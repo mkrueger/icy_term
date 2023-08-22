@@ -9,7 +9,10 @@ use icy_engine::ansi;
 use crate::{
     check_error,
     features::{AutoFileTransfer, AutoLogin},
-    ui::{dialogs::DialingDirectoryFilter, BufferView, ScreenMode},
+    ui::{
+        dialogs::{capture_dialog, DialingDirectoryFilter},
+        BufferView, ScreenMode,
+    },
     util::{Rng, SoundThread},
     Options,
 };
@@ -76,6 +79,9 @@ impl MainWindow {
             poll_thread,
             sound_thread: SoundThread::new(),
             is_fullscreen_mode: cc.integration_info.window_info.fullscreen,
+            capture_dialog: capture_dialog::DialogState::default(),
+            export_dialog: crate::ui::dialogs::export_dialog::DialogState::default(),
+            upload_dialog: crate::ui::dialogs::upload_dialog::DialogState::default(),
         };
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -211,8 +217,21 @@ impl eframe::App for MainWindow {
                 let res = self.update_state();
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
-                #[cfg(not(target_arch = "wasm32"))]
-                super::dialogs::show_dialog(self, ctx);
+                self.show_caputure_dialog(ctx);
+                ctx.request_repaint_after(Duration::from_millis(150));
+            }
+            MainWindowMode::ShowExportDialog => {
+                let res = self.update_state();
+                self.update_terminal_window(ctx, frame, false);
+                check_error!(self, res, false);
+                self.show_export_dialog(ctx);
+                ctx.request_repaint_after(Duration::from_millis(150));
+            }
+            MainWindowMode::ShowUploadDialog => {
+                let res = self.update_state();
+                self.update_terminal_window(ctx, frame, false);
+                check_error!(self, res, false);
+                self.show_upload_dialog(ctx);
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowIEMSI => {

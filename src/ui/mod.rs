@@ -63,6 +63,8 @@ pub enum MainWindowMode {
     FileTransfer(bool),
     DeleteSelectedAddress(usize),
     ShowCaptureDialog,
+    ShowExportDialog,
+    ShowUploadDialog,
     ShowIEMSI, //   AskDeleteEntry
 }
 
@@ -101,6 +103,9 @@ pub struct MainWindow {
     pub settings_category: usize,
 
     file_transfer_dialog: dialogs::FileTransferDialog,
+    pub capture_dialog: crate::ui::dialogs::capture_dialog::DialogState,
+    pub export_dialog: crate::ui::dialogs::export_dialog::DialogState,
+    pub upload_dialog: crate::ui::dialogs::upload_dialog::DialogState,
 
     #[cfg(target_arch = "wasm32")]
     poll_thread: com_thread::ConnectionThreadData,
@@ -226,15 +231,7 @@ impl MainWindow {
             self.start_transfer_thread(protocol_type, download, None);
         } else {
             #[cfg(not(target_arch = "wasm32"))]
-            {
-                let files = rfd::FileDialog::new().pick_files();
-                if let Some(path) = files {
-                    let fd = FileDescriptor::from_paths(&path);
-                    if let Ok(files) = fd {
-                        self.start_transfer_thread(protocol_type, download, Some(files));
-                    }
-                }
-            }
+            self.init_upload_dialog(protocol_type);
         }
     }
 
