@@ -1,5 +1,6 @@
 use eframe::egui::{self, RichText};
 use egui::{Layout, TextEdit, Vec2};
+use egui_bind::Bind;
 use i18n_embed_fl::fl;
 
 use crate::{
@@ -64,12 +65,22 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
                 {
                     window.settings_category = 2;
                 }
+                if ui
+                    .selectable_label(
+                        window.settings_category == 2,
+                        fl!(crate::LANGUAGE_LOADER, "settings-keybinds-category"),
+                    )
+                    .clicked()
+                {
+                    window.settings_category = 3;
+                }
             });
             ui.separator();
             match window.settings_category {
                 0 => show_monitor_settings(window, ui),
                 1 => show_iemsi_settings(window, ui),
                 2 => show_terminal_settings(window, ui),
+                3 => show_keybinds_settings(window, ui),
                 _ => log::error!("Invalid settings category"),
             }
             ui.separator();
@@ -298,4 +309,72 @@ fn show_monitor_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
         window.options.monitor_settings = new_settings;
         check_error!(window, window.options.store_options(), false);
     }
+}
+
+fn show_keybinds_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
+    egui::Grid::new("some_unique_id")
+        .num_columns(2)
+        .spacing([4.0, 8.0])
+        .min_row_height(24.)
+        .show(ui, |ui| {
+            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label("Disconnect:");
+            });
+            ui.add(Bind::new("_hangup", &mut window.options.bind_hangup));
+            ui.end_row();
+
+            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label("Dialing Directory:");
+            });
+            ui.add(Bind::new(
+                "_dialing_directory",
+                &mut window.options.bind_dialing_directory,
+            ));
+            ui.end_row();
+
+            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label("Send Login:");
+            });
+            ui.add(Bind::new(
+                "_send_login",
+                &mut window.options.bind_send_login_pw,
+            ));
+            ui.end_row();
+
+            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label("Capture Control:");
+            });
+            ui.add(Bind::new(
+                "_capture_control",
+                &mut window.options.bind_show_capture,
+            ));
+            ui.end_row();
+
+            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label("Show Settings:");
+            });
+            ui.add(Bind::new(
+                "_show_settings",
+                &mut window.options.bind_show_settings,
+            ));
+            ui.end_row();
+
+            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label("Clear Screen:");
+            });
+            ui.add(Bind::new(
+                "_clear_screen",
+                &mut window.options.bind_clear_screen,
+            ));
+            ui.end_row();
+
+            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label("Toggle Full Screen:");
+            });
+            ui.add_enabled(
+                false,
+                Bind::new("_clear_screen", &mut window.options.bind_full_screen),
+            );
+            ui.end_row();
+        });
 }

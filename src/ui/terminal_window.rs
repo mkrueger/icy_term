@@ -22,19 +22,22 @@ fn encode_mouse_position(pos: i32) -> char {
 }
 
 impl MainWindow {
-    pub fn update_terminal_window(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    pub fn update_terminal_window(
+        &mut self,
+        ctx: &egui::Context,
+        _frame: &mut eframe::Frame,
+        show_dialing_directory: bool,
+    ) {
         let toolbar_bg_color = ctx.style().visuals.extreme_bg_color;
         let button_frame = egui::containers::Frame::none()
             .fill(toolbar_bg_color)
             .inner_margin(egui::style::Margin::same(6.0));
         let top_margin_height = 38.;
-        let show_pb = matches!(self.mode, MainWindowMode::ShowPhonebook)
-            || matches!(self.mode, MainWindowMode::DeleteSelectedAddress(_));
         egui::TopBottomPanel::top("button_bar")
             .frame(button_frame)
             .show(ctx, |ui| {
                 let img_size = 20.0;
-                if show_pb {
+                if show_dialing_directory {
                     ui.set_enabled(false);
                 }
                 ui.horizontal(|ui| {
@@ -222,7 +225,7 @@ impl MainWindow {
                 self.show_terminal_area(ui, top_margin_height);
             });
 
-        if show_pb {
+        if show_dialing_directory {
             super::dialogs::view_phonebook(self, ctx);
         }
     }

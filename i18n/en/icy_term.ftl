@@ -35,6 +35,8 @@ settings-scaling-linear = Linear
 settings-terminal-category = Terminal
 settings-terminal-console-beep-checkbox = Console beep
 
+settings-keybinds-category = Keybinds
+
 phonebook-connect-to = Quick connect to…
 phonebook-new_bbs = New BBS
 phonebook-name-placeholder = BBS name

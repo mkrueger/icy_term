@@ -1,6 +1,7 @@
 #![allow(unsafe_code, clippy::wildcard_imports)]
 
 use chrono::Utc;
+use egui_bind::BindTarget;
 use i18n_embed_fl::fl;
 use icy_engine::ansi::BaudEmulation;
 use icy_engine::BufferParser;
@@ -55,6 +56,8 @@ macro_rules! check_error {
 pub enum MainWindowMode {
     ShowTerminal,
     ShowPhonebook,
+
+    ///Shows settings - parameter: show phonebook
     ShowSettings(bool),
     SelectProtocol(bool),
     FileTransfer(bool),
@@ -84,6 +87,7 @@ pub struct MainWindow {
     pub screen_mode: ScreenMode,
     pub auto_login: AutoLogin,
     pub capture_session: bool,
+    pub is_fullscreen_mode: bool,
     /// debug spew prevention
     pub show_capture_error: bool,
     pub has_baud_rate: bool,
@@ -494,5 +498,33 @@ impl MainWindow {
 
     pub(crate) fn show_settings(&mut self, in_phonebook: bool) {
         self.mode = MainWindowMode::ShowSettings(in_phonebook);
+    }
+
+    fn handle_terminal_key_binds(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        if self.options.bind_clear_screen.pressed(ctx) {
+            self.output_string("\x1B[2J");
+        }
+        if self.options.bind_dialing_directory.pressed(ctx) {
+            self.mode = MainWindowMode::ShowPhonebook;
+        }
+        if self.options.bind_hangup.pressed(ctx) {
+            self.hangup();
+        }
+        if self.options.bind_send_login_pw.pressed(ctx) {
+            self.send_login();
+        }
+        if self.options.bind_show_settings.pressed(ctx) {
+            self.mode = MainWindowMode::ShowSettings(false);
+        }
+        if self.options.bind_show_capture.pressed(ctx) {
+            self.mode = MainWindowMode::ShowCaptureDialog;
+        }
+        if self.options.bind_quit.pressed(ctx) {
+            frame.close();
+        }
+        if self.options.bind_full_screen.pressed(ctx) {
+            self.is_fullscreen_mode = !self.is_fullscreen_mode;
+            frame.set_fullscreen(self.is_fullscreen_mode);
+        }
     }
 }

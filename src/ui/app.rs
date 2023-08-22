@@ -75,6 +75,7 @@ impl MainWindow {
             #[cfg(target_arch = "wasm32")]
             poll_thread,
             sound_thread: SoundThread::new(),
+            is_fullscreen_mode: cc.integration_info.window_info.fullscreen,
         };
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -141,30 +142,36 @@ impl eframe::App for MainWindow {
         self.update_title(frame);
 
         match self.mode {
-            MainWindowMode::ShowTerminal | MainWindowMode::ShowPhonebook => {
+            MainWindowMode::ShowTerminal => {
                 let res = self.update_state();
-                self.update_terminal_window(ctx, frame);
+                self.handle_terminal_key_binds(ctx, frame);
+                self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 ctx.request_repaint_after(Duration::from_millis(150));
+            }
+            MainWindowMode::ShowPhonebook => {
+                let res = self.update_state();
+                self.update_terminal_window(ctx, frame, true);
+                check_error!(self, res, false);
             }
             MainWindowMode::ShowSettings(in_phonebook) => {
                 if in_phonebook {
                     super::dialogs::view_phonebook(self, ctx);
                 } else {
                     let res = self.update_state();
-                    self.update_terminal_window(ctx, frame);
+                    self.update_terminal_window(ctx, frame, false);
                     check_error!(self, res, false);
                     ctx.request_repaint_after(Duration::from_millis(150));
                 }
                 super::dialogs::show_settings(self, ctx, frame);
             }
             MainWindowMode::DeleteSelectedAddress(uuid) => {
-                self.update_terminal_window(ctx, frame);
+                self.update_terminal_window(ctx, frame, true);
                 super::dialogs::show_delete_address_confirmation::show_dialog(self, ctx, uuid);
             }
 
             MainWindowMode::SelectProtocol(download) => {
-                self.update_terminal_window(ctx, frame);
+                self.update_terminal_window(ctx, frame, false);
                 super::dialogs::view_selector(self, ctx, frame, download);
             }
 
@@ -173,7 +180,7 @@ impl eframe::App for MainWindow {
                     self.auto_file_transfer.reset();
                 }
 
-                self.update_terminal_window(ctx, frame);
+                self.update_terminal_window(ctx, frame, false);
                 if let Some(a) = &mut self.current_transfer {
                     let state = {
                         let Ok(state) = a.lock() else {
@@ -202,7 +209,7 @@ impl eframe::App for MainWindow {
             }
             MainWindowMode::ShowCaptureDialog => {
                 let res = self.update_state();
-                self.update_terminal_window(ctx, frame);
+                self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 #[cfg(not(target_arch = "wasm32"))]
                 super::dialogs::show_dialog(self, ctx);
@@ -210,7 +217,7 @@ impl eframe::App for MainWindow {
             }
             MainWindowMode::ShowIEMSI => {
                 let res = self.update_state();
-                self.update_terminal_window(ctx, frame);
+                self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 super::dialogs::show_iemsi(self, ctx);
                 ctx.request_repaint_after(Duration::from_millis(150));

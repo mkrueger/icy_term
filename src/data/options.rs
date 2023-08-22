@@ -4,6 +4,8 @@ use std::{
     time::Duration,
 };
 
+use egui::Modifiers;
+use egui_bind::KeyOrPointer;
 use toml::Value;
 
 use crate::TerminalResult;
@@ -74,6 +76,15 @@ pub struct Options {
     pub iemsi_location: String,
     pub iemsi_data_phone: String,
     pub iemsi_voice_phone: String,
+
+    pub bind_clear_screen: Option<(KeyOrPointer, Modifiers)>,
+    pub bind_dialing_directory: Option<(KeyOrPointer, Modifiers)>,
+    pub bind_hangup: Option<(KeyOrPointer, Modifiers)>,
+    pub bind_send_login_pw: Option<(KeyOrPointer, Modifiers)>,
+    pub bind_show_settings: Option<(KeyOrPointer, Modifiers)>,
+    pub bind_show_capture: Option<(KeyOrPointer, Modifiers)>,
+    pub bind_quit: Option<(KeyOrPointer, Modifiers)>,
+    pub bind_full_screen: Option<(KeyOrPointer, Modifiers)>,
 }
 
 impl Default for Options {
@@ -89,6 +100,15 @@ impl Default for Options {
             iemsi_data_phone: String::default(),
             iemsi_voice_phone: String::default(),
             console_beep: true,
+
+            bind_clear_screen: Some((KeyOrPointer::Key(egui::Key::C), Modifiers::ALT)),
+            bind_dialing_directory: Some((KeyOrPointer::Key(egui::Key::D), Modifiers::ALT)),
+            bind_hangup: Some((KeyOrPointer::Key(egui::Key::H), Modifiers::ALT)),
+            bind_send_login_pw: Some((KeyOrPointer::Key(egui::Key::L), Modifiers::ALT)),
+            bind_show_settings: Some((KeyOrPointer::Key(egui::Key::O), Modifiers::ALT)),
+            bind_show_capture: Some((KeyOrPointer::Key(egui::Key::C), Modifiers::ALT)),
+            bind_quit: Some((KeyOrPointer::Key(egui::Key::X), Modifiers::ALT)),
+            bind_full_screen: Some((KeyOrPointer::Key(egui::Key::F11), Modifiers::NONE)),
         }
     }
 }

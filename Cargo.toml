@@ -25,6 +25,7 @@ eframe = { version = "0.22.0", default-features = false, features = [
 egui_extras = { version="0.22.0" }
 egui_glow = "0.22.0"
 egui-modal = "0.2.4"
+egui-bind = "0.7.0"
 glow = "0.12.2"
 dark-light = "1.0.0"
 
