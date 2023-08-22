@@ -2,11 +2,8 @@ precision highp float;
 
 uniform sampler2D u_render_texture;
 uniform vec2      u_resolution;
-uniform vec2      u_position;
 uniform float     u_effect;
-uniform vec4      u_clip_rect;
-uniform vec4      u_terminal_rect;
-uniform vec2      u_size;
+uniform vec4      u_buffer_rect;
 
 uniform float gamma;
 uniform float contrast;
@@ -32,21 +29,21 @@ vec3 postEffects(in vec3 rgb, in vec2 xy) {
 
 // Sigma 1. Size 3
 vec3 gaussian(in vec2 uv) {
-    float b = blur / (u_size.x / u_size.y);
+    float b = blur / (u_resolution.x / u_resolution.y);
 
     uv+= .5;
 
-    vec3 col = texture(u_render_texture, vec2(uv.x - b/u_size.x, uv.y - b/u_size.y) ).rgb * 0.077847;
-    col += texture(u_render_texture, vec2(uv.x - b/u_size.x, uv.y) ).rgb * 0.123317;
-    col += texture(u_render_texture, vec2(uv.x - b/u_size.x, uv.y + b/u_size.y) ).rgb * 0.077847;
+    vec3 col = texture(u_render_texture, vec2(uv.x - b/u_resolution.x, uv.y - b/u_resolution.y) ).rgb * 0.077847;
+    col += texture(u_render_texture, vec2(uv.x - b/u_resolution.x, uv.y) ).rgb * 0.123317;
+    col += texture(u_render_texture, vec2(uv.x - b/u_resolution.x, uv.y + b/u_resolution.y) ).rgb * 0.077847;
 
-    col += texture(u_render_texture, vec2(uv.x, uv.y - b/u_size.y) ).rgb * 0.123317;
+    col += texture(u_render_texture, vec2(uv.x, uv.y - b/u_resolution.y) ).rgb * 0.123317;
     col += texture(u_render_texture, vec2(uv.x, uv.y) ).rgb * 0.195346;
-    col += texture(u_render_texture, vec2(uv.x, uv.y + b/u_size.y) ).rgb * 0.123317;
+    col += texture(u_render_texture, vec2(uv.x, uv.y + b/u_resolution.y) ).rgb * 0.123317;
 
-    col += texture(u_render_texture, vec2(uv.x + b/u_size.x, uv.y - b/u_size.y) ).rgb * 0.077847;
-    col += texture(u_render_texture, vec2(uv.x + b/u_size.x, uv.y) ).rgb * 0.123317;
-    col += texture(u_render_texture, vec2(uv.x + b/u_size.x, uv.y + b/u_size.y) ).rgb * 0.077847;
+    col += texture(u_render_texture, vec2(uv.x + b/u_resolution.x, uv.y - b/u_resolution.y) ).rgb * 0.077847;
+    col += texture(u_render_texture, vec2(uv.x + b/u_resolution.x, uv.y) ).rgb * 0.123317;
+    col += texture(u_render_texture, vec2(uv.x + b/u_resolution.x, uv.y + b/u_resolution.y) ).rgb * 0.077847;
 
     return col;
 }
@@ -60,7 +57,7 @@ void scanlines2(vec2 coord)
 
     // Fudge aspect ratio
 #ifdef ASPECT_RATIO
-    uv.x *= u_size.x/u_size.y*.75;
+    uv.x *= u_resolution.x/u_resolution.y*.75;
 #endif
     
     // CRT color blur
@@ -76,14 +73,14 @@ void scanlines2(vec2 coord)
     float y = uv.y;
 
     float showScanlines = 1.;
-    if (u_size.y < 360.) {
+    if (u_resolution.y < 360.) {
 		showScanlines = 0.;
 	}
     
-	float s = 1. - smoothstep(320., 1440., u_size.y) + 1.;
-	float j = cos(y*u_size.y*s)*u_scanlines; // values between .01 to .25 are ok.
+	float s = 1. - smoothstep(320., 1440., u_resolution.y) + 1.;
+	float j = cos(y*u_resolution.y*s)*u_scanlines; // values between .01 to .25 are ok.
 	col = abs(showScanlines - 1.)*col + showScanlines * (col - col*j);
-	col *= 1. - ( .01 + ceil(mod( (st.x+.5)*u_size.x, 3.) ) * (.995-1.01) )*showScanlines;
+	col *= 1. - ( .01 + ceil(mod( (st.x+.5)*u_resolution.x, 3.) ) * (.995-1.01) )*showScanlines;
 
     // Border mask
 	if (curvature > 0.0) {
@@ -96,16 +93,17 @@ void scanlines2(vec2 coord)
 }
 
 void main() {
-	vec2 uv   = (gl_FragCoord.xy - u_clip_rect.xy) / u_clip_rect.zw;
-	vec2 from = u_terminal_rect.xy / u_clip_rect.zw;
-	vec2 to   = u_terminal_rect.zw / u_clip_rect.zw;
+	vec2 uv   = gl_FragCoord.xy / u_resolution;
+	vec2 from = u_buffer_rect.xy;
+	vec2 to   = u_buffer_rect.zw;
 
 	if (from.x <= uv.x && uv.x < to.x && 
 		from.y <= uv.y && uv.y < to.y) {
+		vec2 coord = (uv - from) / (to - from);
 		if (u_effect > 0.0) { 
-			scanlines2((uv - from) / (to - from));
+			scanlines2(coord);
 		} else { 
-			color = texture(u_render_texture, (uv - from) / (to - from)).xyz;
+			color = texture(u_render_texture, coord).xyz;
 		}
 		if (u_use_monochrome > 0.0) {
 			float mono = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;

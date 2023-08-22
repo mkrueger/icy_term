@@ -1,6 +1,7 @@
 use std::cmp::{max, min};
 
 use egui::Vec2;
+use glow::HasContext;
 use icy_engine::{Buffer, BufferParser, CallbackAction, Caret, EngineResult, Position};
 
 pub mod glerror;
@@ -201,7 +202,8 @@ impl BufferView {
         &mut self,
         gl: &glow::Context,
         info: &egui::PaintCallbackInfo,
-        rect: egui::Rect,
+        buffer_rect: egui::Rect,
+        terminal_rect: egui::Rect,
     ) {
         self.update_contents(gl);
         unsafe {
@@ -215,7 +217,8 @@ impl BufferView {
                 gl,
                 info,
                 render_texture,
-                rect,
+                buffer_rect,
+                terminal_rect,
                 &self.monitor_settings,
             );
         }

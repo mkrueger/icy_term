@@ -3,15 +3,15 @@ use std::cmp::max;
 
 use clipboard::{ClipboardContext, ClipboardProvider};
 use eframe::{
-    egui::{self, CursorIcon, PointerButton, RichText, ScrollArea},
+    egui::{self, CursorIcon, PointerButton, RichText},
     epaint::{Color32, FontFamily, FontId, Rect, Vec2},
 };
-use egui::Button;
+use egui::{Button, Pos2};
 use i18n_embed_fl::fl;
 
 use crate::check_error;
 
-use super::{MainWindow, MainWindowMode};
+use super::{MainWindow, MainWindowMode, SmoothScroll};
 
 fn encode_mouse_button(button: i32) -> char {
     unsafe { char::from_u32_unchecked(b' '.saturating_add(button as u8) as u32) }
@@ -223,6 +223,7 @@ impl MainWindow {
         };
 
         let frame_no_margins = egui::containers::Frame::none()
+            .outer_margin(egui::style::Margin::same(0.0))
             .inner_margin(egui::style::Margin::same(0.0))
             .fill(Color32::from_rgb(0x40, 0x44, 0x4b));
         egui::CentralPanel::default()
@@ -236,11 +237,12 @@ impl MainWindow {
         }
     }
 
-    fn show_terminal_area(&mut self, ui: &mut egui::Ui, top_margin_height: f32) -> egui::Response {
+    fn show_terminal_area(&mut self, ui: &mut egui::Ui, top_margin_height: f32) {
         let buf_h = self.buffer_view.lock().buf.get_buffer_height();
         let real_height = self.buffer_view.lock().buf.get_real_buffer_height();
 
-        let output = ScrollArea::vertical()
+        // SmoothScroll::new().show(ui, |ui, rect, response, viewport_top| {
+        let output = egui::ScrollArea::vertical()
             .auto_shrink([false; 2])
             /*.scroll_bar_visibility(if real_height <= buf_h {
                 egui::scroll_area::ScrollBarVisibility::AlwaysHidden
@@ -253,10 +255,10 @@ impl MainWindow {
                     ui.allocate_space(Vec2::new(ui.available_size().x, ui.available_size().y + 3.));
                 let mut response = ui.interact(rect, id, egui::Sense::click());
 
+                let viewport_top = viewport.top();
                 let size = rect.size();
                 let buffer_view = self.buffer_view.clone();
                 let buf_w = buffer_view.lock().buf.get_buffer_width();
-                // let h = max(buf_h, buffer_view.lock().buf.get_real_buffer_height());
 
                 let font_dimensions = buffer_view.lock().buf.get_font_dimensions();
 
@@ -276,30 +278,36 @@ impl MainWindow {
 
                 let rect_w = buf_w as f32 * char_size.x;
                 let rect_h = buf_h as f32 * char_size.y;
+                let y = -top_margin_height + viewport_top + (rect.height() - rect_h) / 2.;
 
-                let terminal_rect = Rect::from_min_size(
+                let buffer_screen_rect = Rect::from_min_size(
                     rect.left_top()
                         + Vec2::new(
                             3. + (rect.width() - rect_w) / 2.,
-                            (-top_margin_height + viewport.top() + (rect.height() - rect_h) / 2.)
+                            (-top_margin_height + viewport_top + (rect.height() - rect_h) / 2.)
                                 .floor(),
                         )
                         .ceil(),
                     Vec2::new(rect_w, rect_h),
                 );
+
+                let buffer_rect = Rect::from_min_size(
+                    Pos2::new((rect.width() - rect_w) / 2., (rect.height() - rect_h) / 2.),
+                    Vec2::new(rect_w, rect_h),
+                );
+
                 let buf_h = buffer_view.lock().buf.get_buffer_height();
 
                 let max_lines = max(0, real_height - buf_h);
 
                 // Set the scrolling height.
-                ui.set_height(char_size.y * max_lines as f32);
 
-                let first_line = (viewport.top() / char_size.y) as i32;
+                let first_line = (viewport_top / char_size.y) as i32;
 
                 {
                     buffer_view.lock().char_size = char_size;
-                    if buffer_view.lock().viewport_top != viewport.top() {
-                        buffer_view.lock().viewport_top = viewport.top();
+                    if buffer_view.lock().viewport_top != viewport_top {
+                        buffer_view.lock().viewport_top = viewport_top;
                         buffer_view.lock().redraw_view();
                     }
                 }
@@ -308,9 +316,12 @@ impl MainWindow {
                     rect,
                     callback: std::sync::Arc::new(egui_glow::CallbackFn::new(
                         move |info, painter| {
-                            buffer_view
-                                .lock()
-                                .render_contents(painter.gl(), &info, terminal_rect);
+                            buffer_view.lock().render_contents(
+                                painter.gl(),
+                                &info,
+                                buffer_rect,
+                                rect,
+                            );
                         },
                     )),
                 };
@@ -354,10 +365,12 @@ impl MainWindow {
                                 pressed: true,
                                 modifiers,
                             } => {
-                                if terminal_rect.contains(pos - Vec2::new(0., top_margin_height)) {
+                                if buffer_screen_rect
+                                    .contains(pos - Vec2::new(0., top_margin_height))
+                                {
                                     let buffer_view = self.buffer_view.clone();
                                     let click_pos = (pos
-                                        - terminal_rect.min
+                                        - buffer_screen_rect.min
                                         - Vec2::new(0., top_margin_height))
                                         / char_size
                                         + Vec2::new(0.0, first_line as f32);
@@ -435,7 +448,9 @@ impl MainWindow {
                                 modifiers,
                                 ..
                             } => {
-                                if terminal_rect.contains(pos - Vec2::new(0., top_margin_height)) {
+                                if buffer_screen_rect
+                                    .contains(pos - Vec2::new(0., top_margin_height))
+                                {
                                     if let Some(sel) = self.buffer_view.lock().get_selection() {
                                         sel.locked = true;
                                     }
@@ -444,9 +459,9 @@ impl MainWindow {
                                     match mode {
                                         icy_engine::MouseMode::VT200
                                         | icy_engine::MouseMode::VT200_Highlight => {
-                                            if terminal_rect.contains(pos) {
+                                            if buffer_screen_rect.contains(pos) {
                                                 let click_pos = (pos
-                                                    - terminal_rect.min
+                                                    - buffer_screen_rect.min
                                                     - Vec2::new(0., top_margin_height))
                                                     / char_size
                                                     + Vec2::new(0.0, first_line as f32);
@@ -478,9 +493,11 @@ impl MainWindow {
                             }
 
                             egui::Event::PointerMoved(pos) => {
-                                if terminal_rect.contains(pos - Vec2::new(0., top_margin_height)) {
+                                if buffer_screen_rect
+                                    .contains(pos - Vec2::new(0., top_margin_height))
+                                {
                                     let click_pos = (pos
-                                        - terminal_rect.min
+                                        - buffer_screen_rect.min
                                         - Vec2::new(0., top_margin_height))
                                         / char_size
                                         + Vec2::new(0.0, first_line as f32);
@@ -549,7 +566,7 @@ impl MainWindow {
                     if response.hovered() {
                         let hover_pos_opt = ui.input(|i| i.pointer.hover_pos());
                         if let Some(hover_pos) = hover_pos_opt {
-                            if terminal_rect.contains(hover_pos) {
+                            if buffer_screen_rect.contains(hover_pos) {
                                 ui.output_mut(|o| o.cursor_icon = CursorIcon::Text);
                             }
                         }
@@ -561,10 +578,9 @@ impl MainWindow {
                 response.drag_released = true;
                 response.is_pointer_button_down_on = false;
                 response.interact_pointer_pos = None;
-                response
-            });
 
-        output.inner
+                //  (char_size.y * max_lines as f32)
+            });
     }
 }
 

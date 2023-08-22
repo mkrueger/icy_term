@@ -79,17 +79,25 @@ impl OutputRenderer {
         gl: &glow::Context,
         info: &PaintCallbackInfo,
         output_texture: glow::Texture,
-        rect: Rect,
+        buffer_rect: egui::Rect,
+        terminal_rect: Rect,
         monitor_settings: &MonitorSettings,
     ) {
         gl.bind_framebuffer(glow::FRAMEBUFFER, None);
-        gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
         gl.viewport(
             info.clip_rect.left() as i32,
             (info.screen_size_px[1] as f32 - info.clip_rect.max.y * info.pixels_per_point) as i32,
             (info.viewport.width() * info.pixels_per_point) as i32,
             (info.viewport.height() * info.pixels_per_point) as i32,
         );
+        gl.scissor(
+            info.clip_rect.left() as i32,
+            (info.screen_size_px[1] as f32 - info.clip_rect.max.y * info.pixels_per_point) as i32,
+            (info.viewport.width() * info.pixels_per_point) as i32,
+            (info.viewport.height() * info.pixels_per_point) as i32,
+        );
+
+        gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
         gl.use_program(Some(self.output_shader));
         gl.active_texture(glow::TEXTURE0);
         gl.bind_texture(glow::TEXTURE_2D, Some(output_texture));
@@ -182,38 +190,17 @@ impl OutputRenderer {
         gl.uniform_2_f32(
             gl.get_uniform_location(self.output_shader, "u_resolution")
                 .as_ref(),
-            rect.width() * info.pixels_per_point,
-            rect.height() * info.pixels_per_point,
-        );
-        gl.uniform_2_f32(
-            gl.get_uniform_location(self.output_shader, "u_position")
-                .as_ref(),
-            rect.left() * info.pixels_per_point,
-            rect.top() * info.pixels_per_point,
+            terminal_rect.width() * info.pixels_per_point,
+            terminal_rect.height() * info.pixels_per_point,
         );
 
         gl.uniform_4_f32(
-            gl.get_uniform_location(self.output_shader, "u_clip_rect")
+            gl.get_uniform_location(self.output_shader, "u_buffer_rect")
                 .as_ref(),
-            info.clip_rect.left() * info.pixels_per_point,
-            info.clip_rect.top() * info.pixels_per_point,
-            info.clip_rect.width() * info.pixels_per_point,
-            info.clip_rect.height() * info.pixels_per_point,
-        );
-
-        gl.uniform_4_f32(
-            gl.get_uniform_location(self.output_shader, "u_terminal_rect")
-                .as_ref(),
-            (rect.left() - 3.) * info.pixels_per_point,
-            (rect.top() - info.clip_rect.top() - 4.) * info.pixels_per_point,
-            (rect.right() - 3.) * info.pixels_per_point,
-            (rect.bottom() - info.clip_rect.top() - 4.) * info.pixels_per_point,
-        );
-        gl.uniform_2_f32(
-            gl.get_uniform_location(self.output_shader, "u_size")
-                .as_ref(),
-            rect.width() * info.pixels_per_point,
-            rect.height() * info.pixels_per_point,
+            buffer_rect.left() / terminal_rect.width(),
+            buffer_rect.top() / terminal_rect.height(),
+            buffer_rect.right() / terminal_rect.width(),
+            buffer_rect.bottom() / terminal_rect.height(),
         );
 
         gl.bind_vertex_array(Some(self.vertex_array));
