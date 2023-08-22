@@ -325,6 +325,7 @@ fn show_keybinds_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
         .spacing([4.0, 8.0])
         .min_row_height(24.)
         .show(ui, |ui| {
+            ui.set_enabled(false);
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(fl!(crate::LANGUAGE_LOADER, "settings-keybinds-disconnect"));
             });

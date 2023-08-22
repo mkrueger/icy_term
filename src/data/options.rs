@@ -231,6 +231,16 @@ impl Options {
                 )?;
             }
 
+            if !self.iemsi_autologin {
+                file.write_all(format!("autologin = {}\n", self.iemsi_autologin).as_bytes())?;
+            }
+            /* TODO
+            file.write_all("[KEYBINDINGS]\n".to_string().as_bytes())?;
+            file.write_all(
+                format!("clear_screen = \"{:?}\"\n", self.bind.clear_screen).as_bytes(),
+            )?;
+            */
+
             file.flush()?;
         }
         Ok(())
@@ -313,6 +323,11 @@ fn parse_value(options: &mut Options, value: &Value) {
                             parse_iemsi_settings(options, iemsi_settings);
                         }
                     }
+                    "KEYBINDINGS" => {
+                        if let Value::Table(keybind_settings) = v {
+                            parse_keybinding_settings(options, keybind_settings);
+                        }
+                    }
 
                     "console_beep" => {
                         if let Value::Boolean(b) = v {
@@ -326,6 +341,19 @@ fn parse_value(options: &mut Options, value: &Value) {
         }
         _ => {}
     }
+}
+
+fn parse_keybinding_settings(
+    options: &mut Options,
+    keybind_settings: &toml::map::Map<String, Value>,
+) {
+    /* TODO: read keybindings
+    for (k, v) in keybind_settings {
+        match k.as_str() {
+            "clear_screen" => if let Value::String(str) = v {},
+            _ => {}
+        }
+    }*/
 }
 
 fn parse_iemsi_settings(options: &mut Options, iemsi_settings: &toml::map::Map<String, Value>) {
