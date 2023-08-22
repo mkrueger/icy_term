@@ -1,8 +1,8 @@
-use std::{collections::VecDeque, sync::mpsc};
+use std::{collections::VecDeque, sync::mpsc, thread};
 
 use icy_engine::ansi::sound::{AnsiMusic, MusicAction, MusicStyle};
 use rodio::OutputStream;
-use web_time::Instant;
+use web_time::{Duration, Instant};
 
 use crate::TerminalResult;
 
@@ -52,6 +52,7 @@ impl SoundThread {
             while data.thread_is_running {
                 data.handle_queue();
                 data.handle_receive();
+                thread::sleep(Duration::from_millis(100));
             }
             log::error!(
                 "communication thread closed because it lost connection with the ui thread."
