@@ -127,7 +127,7 @@ impl ConnectionThreadData {
                         self.disconnect();
                     }
                 }
-                
+
                 SendData::SetBaudRate(baud) => {
                     self.baud_rate = baud;
                 }

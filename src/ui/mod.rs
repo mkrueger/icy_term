@@ -198,6 +198,18 @@ impl MainWindow {
         Ok(())
     }
 
+    #[cfg(target_arch = "wasm32")]
+
+    fn start_file_transfer(
+        &mut self,
+        protocol_type: crate::protocol::TransferType,
+        download: bool,
+        files_opt: Option<Vec<FileDescriptor>>,
+    ) {
+        // TODO
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     fn start_file_transfer(
         &mut self,
         protocol_type: crate::protocol::TransferType,

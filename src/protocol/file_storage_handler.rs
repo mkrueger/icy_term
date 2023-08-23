@@ -82,6 +82,7 @@ pub struct DiskStorageHandler {
 }
 
 impl DiskStorageHandler {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn new() -> TerminalResult<Self> {
         let Some(user_dirs) = directories::UserDirs::new() else {
             return Err("Failed to get user directories".into());
