@@ -481,19 +481,21 @@ impl MainWindow {
                                 if buffer_rect.contains(pos - rect.left_top().to_vec2())
                                     && !scrollbar_rect.contains(pos)
                                 {
-                                    let click_pos =
+                                    let click_pos: Vec2 =
                                         (pos - buffer_rect.min - rect.left_top().to_vec2())
                                             / char_size
                                             + Vec2::new(0.0, first_line as f32);
                                     let buffer_view = self.buffer_view.clone();
+
+
                                     // Dev feature in debug mode - print char under cursor
                                     // when shift is pressed
                                     if cfg!(debug_assertions)
                                         && ui.input(|i| i.modifiers.shift_only())
                                     {
                                         let ch = buffer_view
-                                            .lock()
-                                            .buf
+                                        .lock()
+                                        .buf
                                             .get_char_xy(click_pos.x as i32, click_pos.y as i32);
                                         if let Some(ch) = ch {
                                             println!("ch: {ch:?}");
@@ -547,11 +549,44 @@ impl MainWindow {
                             _ => {}
                         }
                     }
-                    if response.hovered() {
+                    if response.hovered()  {
                         let hover_pos_opt = ui.input(|i| i.pointer.hover_pos());
                         if let Some(hover_pos) = hover_pos_opt {
                             if buffer_rect.contains(hover_pos) {
-                                ui.output_mut(|o| o.cursor_icon = CursorIcon::Text);
+                                let hover_pos: Vec2 =
+                                (hover_pos - buffer_rect.min - rect.left_top().to_vec2())
+                                    / char_size
+                                    + Vec2::new(0.0, first_line as f32);
+                                let mut hovered_link = false;
+                                for hyper_link in self.buffer_view
+                                    .lock()
+                                    .buf.layers[0].hyperlinks() {
+
+                                    // TODO: Multiline links? 
+                                    if hover_pos.y as i32 == hyper_link.position.y &&
+                                    hover_pos.x as i32 >= hyper_link.position.x && (hover_pos.x as i32) < hyper_link.position.x + hyper_link.length {
+
+                                        ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                                        let url = hyper_link.url.clone();
+                                        response = response.on_hover_ui_at_pointer(|ui| {
+                                            ui.hyperlink(url.clone());
+                                        });
+                                        hovered_link = true;
+
+                                        if response.clicked() {
+                                            ui.ctx().output_mut(|o| {
+                                                o.open_url = Some(egui::output::OpenUrl {
+                                                    url,
+                                                    new_tab: false,
+                                                });
+                                            });
+                                        }
+                                        break;
+                                    }
+                                }
+                                if !hovered_link {
+                                        ui.output_mut(|o| o.cursor_icon = CursorIcon::Text);
+                                }
                             }
                         }
                     }
