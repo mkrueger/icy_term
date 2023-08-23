@@ -313,7 +313,7 @@ impl MainWindow {
             }
 
             if matches!(self.mode, MainWindowMode::ShowTerminal) && ui.is_enabled() {
-                let events = ui.input(|i| i.events.clone());
+                let events: Vec<egui::Event> = ui.input(|i| i.events.clone());
                 for e in events {
                     match e {
                         egui::Event::PointerButton {
@@ -547,7 +547,7 @@ impl MainWindow {
                 self.buffer_view.lock().clear_selection();
             }
 
-            char_size.y * max_lines as f32
+            char_size.y * real_height as f32
         });
     }
 }
