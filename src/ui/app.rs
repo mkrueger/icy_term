@@ -5,6 +5,7 @@ use std::{sync::Arc, time::Duration};
 use eframe::egui::{self};
 use egui::FontId;
 use icy_engine::ansi;
+use web_time::Instant;
 
 use crate::{
     check_error,
@@ -89,25 +90,6 @@ impl MainWindow {
         #[cfg(not(target_arch = "wasm32"))]
         parse_command_line(&mut view);
 
-        //view.address_list.selected_item = 1;
-        // view.set_screen_mode(&ScreenMode::Viewdata);
-        //view.update_address_list();
-        /*
-        unsafe {
-            view.mode = MainWindowMode::ShowTerminal;
-            super::simulate::run_sim(&mut view);
-        }*/
-        /*
-                view.mode = MainWindowMode::FileTransfer(true);
-
-                let mut transfer = TransferState::default();
-
-                {}
-                transfer.recieve_state.log_info("Hello World");
-                transfer.recieve_state.log_warning("Hello World");
-                transfer.recieve_state.log_error("Hello World");
-                view.current_transfer = Some(Arc::new(std::sync::Mutex::new(transfer)));
-        */
         let ctx = &cc.egui_ctx;
 
         // try to detect dark vs light mode from the host system; default to dark
@@ -189,66 +171,14 @@ impl eframe::App for MainWindow {
                 }
                 self.update_terminal_window(ctx, frame, false);
                 if let Some(fts) = &mut self.current_file_transfer {
-                    let _ = fts.protocol.update(
-                        &mut self.connection,
-                        &mut fts.current_transfer.lock().unwrap(),
-                        &mut *fts.storage_handler,
-                    );
-
-                    /* TODO: PROTOCOLS
-                    SendData::StartTransfer(protocol_type, download, transfer_state, files_opt) => {
-                        let mut copy_state = transfer_state.lock().unwrap().clone();
-                        let mut protocol = protocol_type.create();
-
-                        loop {
-                            let v =
-                                protocol.update(&mut self.com, &mut copy_state, &mut storage_handler);
-                            match v {
-                                Ok(running) => {
-                                    if !running {
-                                        break;
-                                    }
-                                }
-                                Err(err) => {
-                                    log::error!("Error, aborting protocol: {err}");
-                                    copy_state.is_finished = true;
-                                    break;
-                                }
-                            }
-                            if let Ok(SendData::CancelTransfer) = self.rx.try_recv() {
-                                protocol.cancel(&mut self.com).unwrap_or_default();
-                                break;
-                            }
-                            *transfer_state.lock().unwrap() = copy_state.clone();
-                        }
-
-
-                        *transfer_state.lock().unwrap() = copy_state.clone();
-
-                        // TODO: Implement file storage handler, the test storage handler was ment to use in tests :)
-                        #[cfg(not(target_arch = "wasm32"))]
-                        if let Some(user_dirs) = directories::UserDirs::new() {
-                            let dir = user_dirs.download_dir().unwrap();
-
-                            for file in &storage_handler.file {
-                                let f = if file.0.is_empty() {
-                                    "new_file".to_string()
-                                } else {
-                                    file.0.clone()
-                                };
-
-                                let mut file_name = dir.join(file.0);
-                                let mut i = 1;
-                                while file_name.exists() {
-                                    file_name = dir.join(&format!("{f}.{i}"));
-                                    i += 1;
-                                }
-                                std::fs::write(file_name, file.1.clone()).unwrap_or_default();
-                            }
-                        }
-                        self.thread_is_running &= self.tx.send(SendData::EndTransfer).is_ok();
+                    let inst = Instant::now();
+                    while inst.elapsed().as_millis() < 100 {
+                        let _ = fts.protocol.update(
+                            &mut self.connection,
+                            &mut fts.current_transfer.lock().unwrap(),
+                            &mut *fts.storage_handler,
+                        );
                     }
-                    */
 
                     let state = {
                         let Ok(state) = fts.current_transfer.lock() else {
@@ -273,7 +203,7 @@ impl eframe::App for MainWindow {
                     log::error!("In file transfer but no current protocol.");
                     self.mode = MainWindowMode::ShowTerminal;
                 }
-                ctx.request_repaint_after(Duration::from_millis(150));
+                ctx.request_repaint();
             }
             MainWindowMode::ShowCaptureDialog => {
                 let res = self.update_state();

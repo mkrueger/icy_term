@@ -222,15 +222,18 @@ impl MainWindow {
             log::error!("{err}");
             return;
         }
-        let storage_handler: TestStorageHandler = TestStorageHandler::new();
-        let current_transfer = Arc::new(Mutex::new(current_transfer));
+        let r = crate::protocol::DiskStorageHandler::new();
+        check_error!(self, r, false);
+        if let Ok(storage_handler) = crate::protocol::DiskStorageHandler::new() {
+            let current_transfer = Arc::new(Mutex::new(current_transfer));
 
-        self.current_file_transfer = Some(FileTransferState {
-            current_transfer,
-            storage_handler: Box::new(storage_handler),
-            protocol,
-            file_transfer_dialog: dialogs::FileTransferDialog::new(),
-        });
+            self.current_file_transfer = Some(FileTransferState {
+                current_transfer,
+                storage_handler: Box::new(storage_handler),
+                protocol,
+                file_transfer_dialog: dialogs::FileTransferDialog::new(),
+            });
+        }
     }
 
     pub(crate) fn initiate_file_transfer(
