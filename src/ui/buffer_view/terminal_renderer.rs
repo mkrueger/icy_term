@@ -258,7 +258,7 @@ impl TerminalRenderer {
                 } else {
                     buffer_data.push(ch.ch as u8);
                 }
-                if ch.attribute.is_bold() {
+                if ch.attribute.is_bold() && ch.attribute.get_foreground() < 8 {
                     buffer_data.push(conv_color(ch.attribute.get_foreground() + 8, colors));
                 } else {
                     buffer_data.push(conv_color(ch.attribute.get_foreground(), colors));

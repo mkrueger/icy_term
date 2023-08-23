@@ -420,7 +420,6 @@ impl MainWindow {
                         }
                     }
                 }
-
                 /*
                 match ch {
                     b'\\' => print!("\\\\"),
