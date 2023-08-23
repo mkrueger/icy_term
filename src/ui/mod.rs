@@ -13,13 +13,9 @@ use eframe::egui::Key;
 
 use crate::features::{AutoFileTransfer, AutoLogin};
 use crate::protocol::{FileStorageHandler, Protocol, TransferState};
-use crate::util::{Rng, SoundThread};
+use crate::util::SoundThread;
 use crate::Options;
-use crate::{
-    addresses::{store_phone_book, Address},
-    protocol::FileDescriptor,
-    TerminalResult,
-};
+use crate::{addresses::store_phone_book, protocol::FileDescriptor, TerminalResult};
 
 pub mod app;
 pub mod connection;
@@ -87,14 +83,9 @@ pub struct MainWindow {
     sound_thread: SoundThread,
 
     pub mode: MainWindowMode,
-    pub addresses: Vec<Address>,
     pub handled_char: bool,
-    pub cur_addr: usize,
-    pub selected_bbs: Option<usize>,
-    pub scroll_address_list_to_bottom: bool,
-    pub dialing_directory_filter: dialogs::DialingDirectoryFilter,
-    pub dialing_directory_filter_string: String,
 
+    pub dialing_directory_dialog: dialogs::DialingDirectoryData,
     pub options: Options,
     pub screen_mode: ScreenMode,
     pub auto_login: AutoLogin,
@@ -104,7 +95,6 @@ pub struct MainWindow {
     pub show_capture_error: bool,
     pub has_baud_rate: bool,
 
-    pub rng: Rng,
     pub auto_file_transfer: AutoFileTransfer,
     // protocols
     pub is_alt_pressed: bool,
@@ -278,21 +268,6 @@ impl MainWindow {
         self.mode = MainWindowMode::ShowDialingDirectory;
     }
 
-    pub fn get_address_mut(&mut self, uuid: Option<usize>) -> &mut Address {
-        if uuid.is_none() {
-            return &mut self.addresses[0];
-        }
-
-        let uuid = uuid.unwrap();
-        for (i, adr) in self.addresses.iter().enumerate() {
-            if adr.id == uuid {
-                return &mut self.addresses[i];
-            }
-        }
-
-        &mut self.addresses[0]
-    }
-
     pub fn call_bbs_uuid(&mut self, uuid: Option<usize>) {
         if uuid.is_none() {
             self.call_bbs(0);
@@ -300,7 +275,7 @@ impl MainWindow {
         }
 
         let uuid = uuid.unwrap();
-        for (i, adr) in self.addresses.iter().enumerate() {
+        for (i, adr) in self.dialing_directory_dialog.addresses.iter().enumerate() {
             if adr.id == uuid {
                 self.call_bbs(i);
                 return;
@@ -310,28 +285,30 @@ impl MainWindow {
 
     pub fn call_bbs(&mut self, i: usize) {
         self.mode = MainWindowMode::ShowTerminal;
-        let mut adr = self.addresses[i].address.clone();
+        let mut adr = self.dialing_directory_dialog.addresses[i].address.clone();
         if !adr.contains(':') {
             adr.push_str(":23");
         }
-        self.addresses[i].number_of_calls += 1;
-        self.addresses[i].last_call = Some(Utc::now());
-        store_phone_book(&self.addresses).unwrap_or_default();
+        self.dialing_directory_dialog.addresses[i].number_of_calls += 1;
+        self.dialing_directory_dialog.addresses[i].last_call = Some(Utc::now());
+        store_phone_book(&self.dialing_directory_dialog.addresses).unwrap_or_default();
 
-        let call_adr = self.addresses[i].clone();
+        let call_adr = self.dialing_directory_dialog.addresses[i].clone();
         self.auto_login = AutoLogin::new(&call_adr.auto_login);
         self.auto_login.disabled = self.is_alt_pressed;
         self.buffer_view.lock().buf.clear();
-        self.cur_addr = i;
+        self.dialing_directory_dialog.cur_addr = i;
         self.set_screen_mode(call_adr.screen_mode);
-        self.buffer_parser = self.addresses[i].get_terminal_parser(&call_adr);
-        self.has_baud_rate = self.addresses[i].baud_emulation != BaudEmulation::Off;
+        self.buffer_parser =
+            self.dialing_directory_dialog.addresses[i].get_terminal_parser(&call_adr);
+        self.has_baud_rate =
+            self.dialing_directory_dialog.addresses[i].baud_emulation != BaudEmulation::Off;
 
         self.buffer_view
             .lock()
             .buf
             .terminal_state
-            .set_baud_rate(self.addresses[i].baud_emulation);
+            .set_baud_rate(self.dialing_directory_dialog.addresses[i].baud_emulation);
 
         self.buffer_view.lock().redraw_font();
         self.buffer_view.lock().redraw_palette();
@@ -352,27 +329,6 @@ impl MainWindow {
         let r = self
             .connection
             .set_baud_rate(call_adr.baud_emulation.get_baud_rate());
-        check_error!(self, r, false);
-    }
-
-    pub fn select_bbs(&mut self, uuid: Option<usize>) {
-        self.selected_bbs = uuid;
-    }
-
-    pub fn show_selected_address_dialog(&mut self) {
-        if let Some(uuid) = self.selected_bbs {
-            self.mode = MainWindowMode::DeleteSelectedAddress(uuid);
-        }
-    }
-
-    pub fn delete_bbs(&mut self, uuid: usize) {
-        for (i, adr) in self.addresses.iter().enumerate() {
-            if adr.id == uuid {
-                self.addresses.remove(i);
-                break;
-            }
-        }
-        let r = store_phone_book(&self.addresses);
         check_error!(self, r, false);
     }
 
@@ -411,7 +367,11 @@ impl MainWindow {
 
             for ch in data {
                 if self.options.iemsi_autologin && self.connection.is_connected() {
-                    if let Some(adr) = self.addresses.get(self.cur_addr) {
+                    if let Some(adr) = self
+                        .dialing_directory_dialog
+                        .addresses
+                        .get(self.dialing_directory_dialog.cur_addr)
+                    {
                         if let Err(err) =
                             self.auto_login
                                 .try_login(&mut self.connection, adr, ch, &self.options)
@@ -450,7 +410,11 @@ impl MainWindow {
 
         self.auto_login.disabled |= self.is_alt_pressed;
         if self.options.iemsi_autologin {
-            if let Some(adr) = self.addresses.get(self.cur_addr) {
+            if let Some(adr) = self
+                .dialing_directory_dialog
+                .addresses
+                .get(self.dialing_directory_dialog.cur_addr)
+            {
                 if self.connection.is_connected() {
                     if let Err(err) = self.auto_login.run_autologin(&mut self.connection, adr) {
                         log::error!("{err}");
@@ -472,8 +436,20 @@ impl MainWindow {
         if self.connection.is_disconnected() {
             return;
         }
-        let user_name = self.addresses.get(self.cur_addr).unwrap().user_name.clone();
-        let password = self.addresses.get(self.cur_addr).unwrap().password.clone();
+        let user_name = self
+            .dialing_directory_dialog
+            .addresses
+            .get(self.dialing_directory_dialog.cur_addr)
+            .unwrap()
+            .user_name
+            .clone();
+        let password = self
+            .dialing_directory_dialog
+            .addresses
+            .get(self.dialing_directory_dialog.cur_addr)
+            .unwrap()
+            .password
+            .clone();
         let mut cr: Vec<u8> = [self.buffer_parser.convert_from_unicode('\r') as u8].to_vec();
         for (k, v) in self.screen_mode.get_input_mode().cur_map() {
             if *k == Key::Enter as u32 {
@@ -499,7 +475,8 @@ impl MainWindow {
                 let sec = d.as_secs();
                 let minutes = sec / 60;
                 let hours = minutes / 60;
-                let cur = &self.addresses[self.cur_addr];
+                let cur = &self.dialing_directory_dialog.addresses
+                    [self.dialing_directory_dialog.cur_addr];
                 let t = format!("{:02}:{:02}:{:02}", hours, minutes % 60, sec % 60);
                 let s = if cur.system_name.is_empty() {
                     cur.address.clone()

@@ -11,10 +11,10 @@ use crate::{
     check_error,
     features::{AutoFileTransfer, AutoLogin},
     ui::{
-        dialogs::{capture_dialog, DialingDirectoryFilter},
+        dialogs::{self, capture_dialog},
         BufferView, ScreenMode,
     },
-    util::{Rng, SoundThread},
+    util::SoundThread,
     Options,
 };
 
@@ -58,9 +58,6 @@ impl MainWindow {
             buffer_view: Arc::new(eframe::epaint::mutex::Mutex::new(view)),
             //address_list: HoverList::new(),
             mode: MainWindowMode::ShowDialingDirectory,
-            addresses,
-            cur_addr: 0,
-            selected_bbs: None,
             connection,
             options,
             auto_login: AutoLogin::new(""),
@@ -69,11 +66,7 @@ impl MainWindow {
             current_file_transfer: None,
             handled_char: false,
             is_alt_pressed: false,
-            dialing_directory_filter: DialingDirectoryFilter::All,
             buffer_parser: Box::<ansi::Parser>::default(),
-            dialing_directory_filter_string: String::new(),
-            scroll_address_list_to_bottom: false,
-            rng: Rng::default(),
             capture_session: false,
             show_capture_error: false,
             has_baud_rate: false,
@@ -83,8 +76,9 @@ impl MainWindow {
             sound_thread: SoundThread::new(),
             is_fullscreen_mode,
             capture_dialog: capture_dialog::DialogState::default(),
-            export_dialog: crate::ui::dialogs::export_dialog::DialogState::default(),
-            upload_dialog: crate::ui::dialogs::upload_dialog::DialogState::default(),
+            export_dialog: dialogs::export_dialog::DialogState::default(),
+            upload_dialog: dialogs::upload_dialog::DialogState::default(),
+            dialing_directory_dialog: dialogs::DialingDirectoryData::new(addresses),
         };
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -121,7 +115,7 @@ impl MainWindow {
 fn parse_command_line(view: &mut MainWindow) {
     let args: Vec<String> = std::env::args().collect();
     if let Some(arg) = args.get(1) {
-        view.addresses[0].address = arg.clone();
+        view.dialing_directory_dialog.addresses[0].address = arg.clone();
         view.call_bbs(0);
     }
 }
@@ -146,7 +140,7 @@ impl eframe::App for MainWindow {
             }
             MainWindowMode::ShowSettings(in_dialing_directory) => {
                 if in_dialing_directory {
-                    super::dialogs::view_dialing_directory(self, ctx);
+                    dialogs::view_dialing_directory(self, ctx);
                 } else {
                     let res = self.update_state();
                     self.update_terminal_window(ctx, frame, false);

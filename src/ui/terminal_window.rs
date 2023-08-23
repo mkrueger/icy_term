@@ -10,7 +10,7 @@ use i18n_embed_fl::fl;
 
 use crate::check_error;
 
-use super::{MainWindow, MainWindowMode, SmoothScroll};
+use super::{MainWindow, MainWindowMode, SmoothScroll, dialogs};
 
 fn encode_mouse_button(button: i32) -> char {
     unsafe { char::from_u32_unchecked(b' '.saturating_add(button as u8) as u32) }
@@ -229,7 +229,7 @@ impl MainWindow {
             });
 
         if show_dialing_directory {
-            super::dialogs::view_dialing_directory(self, ctx);
+            dialogs::view_dialing_directory(self, ctx);
         }
     }
 

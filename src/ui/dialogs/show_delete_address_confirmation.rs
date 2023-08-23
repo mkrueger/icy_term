@@ -17,7 +17,11 @@ pub fn show_dialog(window: &mut MainWindow, ctx: &egui::Context, uuid: usize) {
                 fl!(
                     crate::LANGUAGE_LOADER,
                     "delete-bbs-question",
-                    system = window.get_address_mut(Some(uuid)).system_name.clone()
+                    system = window
+                        .dialing_directory_dialog
+                        .get_address_mut(Some(uuid))
+                        .system_name
+                        .clone()
                 ),
             );
         });
@@ -26,7 +30,7 @@ pub fn show_dialog(window: &mut MainWindow, ctx: &egui::Context, uuid: usize) {
                 .button(ui, fl!(crate::LANGUAGE_LOADER, "delete-bbs-delete-button"))
                 .clicked()
             {
-                window.delete_bbs(uuid);
+                window.dialing_directory_dialog.delete_bbs(uuid);
                 window.mode = MainWindowMode::ShowDialingDirectory;
             }
 
