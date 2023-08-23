@@ -1,6 +1,7 @@
 use std::cmp::{max, min};
 
 use egui::Vec2;
+use glow::HasContext;
 use icy_engine::{Buffer, BufferParser, CallbackAction, Caret, EngineResult, Position};
 
 pub mod glerror;
@@ -204,14 +205,18 @@ impl BufferView {
         buffer_rect: egui::Rect,
         terminal_rect: egui::Rect,
     ) {
-        self.update_contents(gl);
         unsafe {
+            gl.disable(glow::SCISSOR_TEST);
+            self.update_contents(gl);
+
             self.output_renderer.init_output(gl);
             self.terminal_renderer.render_terminal(gl, self);
             // draw sixels
             let render_texture = self
                 .sixel_renderer
                 .render_sixels(gl, self, &self.output_renderer);
+            gl.enable(glow::SCISSOR_TEST);
+
             self.output_renderer.render_to_screen(
                 gl,
                 info,
