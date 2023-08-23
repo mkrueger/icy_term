@@ -8,7 +8,6 @@ use wasm_thread as thread;
 use web_time::Instant;
 
 use crate::com::{Com, TermComResult};
-use crate::protocol::TestStorageHandler;
 
 use super::connection::{Connection, OpenConnectionData, SendData};
 use super::MainWindow;
@@ -128,65 +127,7 @@ impl ConnectionThreadData {
                         self.disconnect();
                     }
                 }
-                SendData::StartTransfer(protocol_type, download, transfer_state, files_opt) => {
-                    let mut copy_state = transfer_state.lock().unwrap().clone();
-                    let mut protocol = protocol_type.create();
-                    if let Err(err) = if download {
-                        protocol.initiate_recv(&mut self.com, &mut copy_state)
-                    } else {
-                        protocol.initiate_send(&mut self.com, files_opt.unwrap(), &mut copy_state)
-                    } {
-                        log::error!("{err}");
-                        break;
-                    }
-                    let mut storage_handler: TestStorageHandler = TestStorageHandler::new();
-
-                    loop {
-                        let v =
-                            protocol.update(&mut self.com, &mut copy_state, &mut storage_handler);
-                        match v {
-                            Ok(running) => {
-                                if !running {
-                                    break;
-                                }
-                            }
-                            Err(err) => {
-                                log::error!("Error, aborting protocol: {err}");
-                                copy_state.is_finished = true;
-                                break;
-                            }
-                        }
-                        if let Ok(SendData::CancelTransfer) = self.rx.try_recv() {
-                            protocol.cancel(&mut self.com).unwrap_or_default();
-                            break;
-                        }
-                        *transfer_state.lock().unwrap() = copy_state.clone();
-                    }
-                    *transfer_state.lock().unwrap() = copy_state.clone();
-
-                    // TODO: Implement file storage handler, the test storage handler was ment to use in tests :)
-                    #[cfg(not(target_arch = "wasm32"))]
-                    if let Some(user_dirs) = directories::UserDirs::new() {
-                        let dir = user_dirs.download_dir().unwrap();
-
-                        for file in &storage_handler.file {
-                            let f = if file.0.is_empty() {
-                                "new_file".to_string()
-                            } else {
-                                file.0.clone()
-                            };
-
-                            let mut file_name = dir.join(file.0);
-                            let mut i = 1;
-                            while file_name.exists() {
-                                file_name = dir.join(&format!("{f}.{i}"));
-                                i += 1;
-                            }
-                            std::fs::write(file_name, file.1.clone()).unwrap_or_default();
-                        }
-                    }
-                    self.thread_is_running &= self.tx.send(SendData::EndTransfer).is_ok();
-                }
+                
                 SendData::SetBaudRate(baud) => {
                     self.baud_rate = baud;
                 }

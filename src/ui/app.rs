@@ -65,7 +65,7 @@ impl MainWindow {
             auto_login: AutoLogin::new(""),
             auto_file_transfer: AutoFileTransfer::default(),
             screen_mode: ScreenMode::Vga(80, 25),
-            current_transfer: None,
+            current_file_transfer: None,
             handled_char: false,
             is_alt_pressed: false,
             dialing_directory_filter: DialingDirectoryFilter::All,
@@ -77,7 +77,6 @@ impl MainWindow {
             show_capture_error: false,
             has_baud_rate: false,
             settings_category: 0,
-            file_transfer_dialog: crate::ui::dialogs::FileTransferDialog::default(),
             #[cfg(target_arch = "wasm32")]
             poll_thread,
             sound_thread: SoundThread::new(),
@@ -188,11 +187,71 @@ impl eframe::App for MainWindow {
                 if self.connection.should_end_transfer() {
                     self.auto_file_transfer.reset();
                 }
-
                 self.update_terminal_window(ctx, frame, false);
-                if let Some(a) = &mut self.current_transfer {
+                if let Some(fts) = &mut self.current_file_transfer {
+                    let _ = fts.protocol.update(
+                        &mut self.connection,
+                        &mut fts.current_transfer.lock().unwrap(),
+                        &mut *fts.storage_handler,
+                    );
+
+                    /* TODO: PROTOCOLS
+                    SendData::StartTransfer(protocol_type, download, transfer_state, files_opt) => {
+                        let mut copy_state = transfer_state.lock().unwrap().clone();
+                        let mut protocol = protocol_type.create();
+
+                        loop {
+                            let v =
+                                protocol.update(&mut self.com, &mut copy_state, &mut storage_handler);
+                            match v {
+                                Ok(running) => {
+                                    if !running {
+                                        break;
+                                    }
+                                }
+                                Err(err) => {
+                                    log::error!("Error, aborting protocol: {err}");
+                                    copy_state.is_finished = true;
+                                    break;
+                                }
+                            }
+                            if let Ok(SendData::CancelTransfer) = self.rx.try_recv() {
+                                protocol.cancel(&mut self.com).unwrap_or_default();
+                                break;
+                            }
+                            *transfer_state.lock().unwrap() = copy_state.clone();
+                        }
+
+
+                        *transfer_state.lock().unwrap() = copy_state.clone();
+
+                        // TODO: Implement file storage handler, the test storage handler was ment to use in tests :)
+                        #[cfg(not(target_arch = "wasm32"))]
+                        if let Some(user_dirs) = directories::UserDirs::new() {
+                            let dir = user_dirs.download_dir().unwrap();
+
+                            for file in &storage_handler.file {
+                                let f = if file.0.is_empty() {
+                                    "new_file".to_string()
+                                } else {
+                                    file.0.clone()
+                                };
+
+                                let mut file_name = dir.join(file.0);
+                                let mut i = 1;
+                                while file_name.exists() {
+                                    file_name = dir.join(&format!("{f}.{i}"));
+                                    i += 1;
+                                }
+                                std::fs::write(file_name, file.1.clone()).unwrap_or_default();
+                            }
+                        }
+                        self.thread_is_running &= self.tx.send(SendData::EndTransfer).is_ok();
+                    }
+                    */
+
                     let state = {
-                        let Ok(state) = a.lock() else {
+                        let Ok(state) = fts.current_transfer.lock() else {
                             log::error!("In file transfer but can't lock state.");
                             self.mode = MainWindowMode::ShowTerminal;
                             return;
@@ -202,7 +261,7 @@ impl eframe::App for MainWindow {
                     if state.is_finished {
                         self.mode = MainWindowMode::ShowTerminal;
                     }
-                    if !self
+                    if !fts
                         .file_transfer_dialog
                         .show_dialog(ctx, frame, &state, download)
                     {

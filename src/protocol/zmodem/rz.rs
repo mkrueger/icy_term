@@ -5,11 +5,12 @@ use icy_engine::{get_crc32, update_crc32};
 use web_time::Instant;
 
 use crate::{
-    com::{Com, TermComResult},
     protocol::{
         str_from_null_terminated_utf8_unchecked, FileStorageHandler, Header, HeaderType,
         TransferInformation, TransferState, ZFrameType, Zmodem, ZCRCE, ZCRCG, ZCRCW,
     },
+    ui::connection::Connection,
+    TerminalResult,
 };
 
 use super::{constants::*, err::TransmissionError, read_zdle_bytes, zrinit_flag::CANFDX};
@@ -73,17 +74,17 @@ impl Rz {
         HeaderType::Hex
     }
 
-    fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+    fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
         self.state = RevcState::Idle;
         Zmodem::cancel(com)
     }
 
     pub fn update(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         transfer_state: &mut TransferState,
         storage_handler: &mut dyn FileStorageHandler,
-    ) -> TermComResult<()> {
+    ) -> TerminalResult<()> {
         if let RevcState::Idle = self.state {
             return Ok(());
         }
@@ -155,17 +156,17 @@ impl Rz {
         Ok(())
     }
 
-    fn request_zpos(&mut self, com: &mut Box<dyn Com>, pos: u32) -> TermComResult<usize> {
+    fn request_zpos(&mut self, com: &mut Connection, pos: u32) -> TerminalResult<usize> {
         Header::from_number(self.get_header_type(), ZFrameType::RPos, pos)
             .write(com, self.can_esc_control)
     }
 
     fn read_header(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         storage_handler: &mut dyn FileStorageHandler,
         transfer_info: &mut TransferInformation,
-    ) -> TermComResult<bool> {
+    ) -> TerminalResult<bool> {
         let result = Header::read(com, &mut self.can_count);
         if result.is_err() {
             if self.can_count >= 5 {
@@ -283,10 +284,9 @@ impl Rz {
                     self.send_zrinit(com)?;
                     transfer_info.log_info("File transferred.");
 
-                    transfer_info
-                        .files_finished
-                        .push(storage_handler.current_file_name().unwrap().clone());
-
+                    if let Some(file) = storage_handler.current_file_name() {
+                        transfer_info.files_finished.push(file);
+                    }
                     storage_handler.close();
                     self.state = RevcState::SendZRINIT;
                     return Ok(true);
@@ -343,14 +343,14 @@ impl Rz {
         Ok(false)
     }
 
-    pub fn recv(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+    pub fn recv(&mut self, com: &mut Connection) -> TerminalResult<()> {
         self.state = RevcState::Await;
         self.retries = 0;
         self.send_zrinit(com)?;
         Ok(())
     }
 
-    pub fn send_zrinit(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+    pub fn send_zrinit(&mut self, com: &mut Connection) -> TerminalResult<()> {
         let mut flags = 0;
         if self.can_fullduplex {
             flags |= CANFDX;
@@ -378,11 +378,11 @@ impl Rz {
 }
 
 pub fn read_subpacket(
-    com: &mut Box<dyn Com>,
+    com: &mut Connection,
     block_length: usize,
     use_crc32: bool,
     escape_ctrl_chars: bool,
-) -> TermComResult<(Vec<u8>, bool, bool)> {
+) -> TerminalResult<(Vec<u8>, bool, bool)> {
     let mut data = Vec::with_capacity(block_length);
     loop {
         match read_zdle_byte(com, escape_ctrl_chars)? {
@@ -413,9 +413,9 @@ pub enum ZModemResult {
 }
 
 pub fn read_zdle_byte(
-    com: &mut Box<dyn Com>,
+    com: &mut Connection,
     escape_ctrl_chars: bool,
-) -> TermComResult<ZModemResult> {
+) -> TerminalResult<ZModemResult> {
     loop {
         let c = com.read_u8()?;
         match c {
@@ -474,11 +474,11 @@ pub fn read_zdle_byte(
 }
 
 fn check_crc(
-    com: &mut Box<dyn Com>,
+    com: &mut Connection,
     use_crc32: bool,
     data: &[u8],
     zcrc_byte: u8,
-) -> TermComResult<bool> {
+) -> TerminalResult<bool> {
     if use_crc32 {
         let mut crc = get_crc32(data);
         crc = !update_crc32(!crc, zcrc_byte);

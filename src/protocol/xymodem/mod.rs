@@ -1,4 +1,4 @@
-use crate::com::{Com, TermComResult};
+use crate::{ui::connection::Connection, TerminalResult};
 mod constants;
 mod err;
 mod ry;
@@ -46,10 +46,10 @@ impl XYmodem {
 impl super::Protocol for XYmodem {
     fn update(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         transfer_state: &mut TransferState,
         storage_handler: &mut dyn FileStorageHandler,
-    ) -> TermComResult<bool> {
+    ) -> TerminalResult<bool> {
         if let Some(ry) = &mut self.ry {
             ry.update(com, transfer_state, storage_handler)?;
             transfer_state.is_finished = ry.is_finished();
@@ -68,10 +68,10 @@ impl super::Protocol for XYmodem {
 
     fn initiate_send(
         &mut self,
-        _com: &mut Box<dyn Com>,
+        _com: &mut Connection,
         files: Vec<FileDescriptor>,
         transfer_state: &mut TransferState,
-    ) -> TermComResult<()> {
+    ) -> TerminalResult<()> {
         if !self.config.is_ymodem() && files.len() != 1 {
             return Err(Box::new(TransmissionError::XModem1File));
         }
@@ -90,9 +90,9 @@ impl super::Protocol for XYmodem {
 
     fn initiate_recv(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         transfer_state: &mut TransferState,
-    ) -> TermComResult<()> {
+    ) -> TerminalResult<()> {
         let mut ry = ry::Ry::new(self.config);
         ry.recv(com)?;
         self.ry = Some(ry);
@@ -111,13 +111,13 @@ impl super::Protocol for XYmodem {
 
         Ok(())
     }
-    fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+    fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
         cancel(com)
     }
 }
 
-fn cancel(com: &mut Box<dyn Com>) -> TermComResult<()> {
-    com.send(&[CAN, CAN, CAN, CAN, CAN, CAN])?;
+fn cancel(com: &mut Connection) -> TerminalResult<()> {
+    com.send(vec![CAN, CAN, CAN, CAN, CAN, CAN])?;
     Ok(())
 }
 

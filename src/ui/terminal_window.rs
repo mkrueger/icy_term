@@ -30,9 +30,7 @@ impl MainWindow {
         let button_frame = egui::containers::Frame::none()
             .fill(toolbar_bg_color)
             .inner_margin(egui::style::Margin::same(6.0));
-        let top_margin_height = if self.is_fullscreen_mode {
-            0.0
-        } else {
+        if !self.is_fullscreen_mode {
             egui::TopBottomPanel::top("button_bar")
                 .frame(button_frame)
                 .show(ctx, |ui| {
@@ -218,8 +216,7 @@ impl MainWindow {
                         );
                     });
                 });
-            38.
-        };
+        }
 
         let frame_no_margins = egui::containers::Frame::none()
             .outer_margin(egui::style::Margin::same(0.0))
@@ -228,7 +225,7 @@ impl MainWindow {
         egui::CentralPanel::default()
             .frame(frame_no_margins)
             .show(ctx, |ui| {
-                self.show_terminal_area(ui, top_margin_height);
+                self.show_terminal_area(ui);
             });
 
         if show_dialing_directory {
@@ -236,7 +233,7 @@ impl MainWindow {
         }
     }
 
-    fn show_terminal_area(&mut self, ui: &mut egui::Ui, top_margin_height: f32) {
+    fn show_terminal_area(&mut self, ui: &mut egui::Ui) {
         let buf_h = self.buffer_view.lock().buf.get_buffer_height();
         let real_height = self.buffer_view.lock().buf.get_real_buffer_height();
         let buffer_view = self.buffer_view.clone();

@@ -31,7 +31,7 @@ impl MainWindow {
                 if let Some(path) = dialog.path() {
                     let fd = FileDescriptor::from_paths(&vec![path.to_path_buf()]);
                     if let Ok(files) = fd {
-                        self.start_transfer_thread(
+                        self.start_file_transfer(
                             self.upload_dialog.protocol_type,
                             false,
                             Some(files),

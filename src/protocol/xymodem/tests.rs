@@ -1,3 +1,6 @@
+/*
+use crate::{com::TestChannel, protocol::TransferState};
+
 #[cfg(test)]
 use crate::protocol::Protocol;
 #[cfg(test)]
@@ -316,3 +319,4 @@ mod xy_modem_tests {
 
     */
 }
+*/

@@ -49,6 +49,10 @@ impl Connection {
         self.fill_buffer()
     }
 
+    pub fn start_transfer(&mut self) {
+        self.end_transfer = false;
+    }
+
     fn fill_buffer(&mut self) -> TerminalResult<()> {
         loop {
             match self.rx.try_recv() {
@@ -118,23 +122,6 @@ impl Connection {
         self.is_connected
     }
 
-    pub(crate) fn start_file_transfer(
-        &mut self,
-        protocol_type: crate::protocol::TransferType,
-        download: bool,
-        state: std::sync::Arc<std::sync::Mutex<crate::protocol::TransferState>>,
-        files_opt: Option<Vec<crate::protocol::FileDescriptor>>,
-    ) -> TerminalResult<()> {
-        self.end_transfer = false;
-        self.tx.send(SendData::StartTransfer(
-            protocol_type,
-            download,
-            state,
-            files_opt,
-        ))?;
-        Ok(())
-    }
-
     pub(crate) fn set_baud_rate(&self, baud_rate: u32) -> TerminalResult<()> {
         self.tx.send(SendData::SetBaudRate(baud_rate))?;
         Ok(())
@@ -153,6 +140,21 @@ impl Connection {
                 window_size,
             )))?;
         Ok(())
+    }
+
+    pub(crate) fn read_u8(&mut self) -> TerminalResult<u8> {
+        while !self.is_data_available()? {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        Ok(self.buf.pop_front().unwrap())
+    }
+
+    pub(crate) fn read_exact(&mut self, chksum_size: usize) -> TerminalResult<Vec<u8>> {
+        while self.buf.len() < chksum_size {
+            self.fill_buffer()?;
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        Ok(self.buf.drain(0..chksum_size).collect())
     }
 }
 
@@ -192,12 +194,6 @@ pub enum SendData {
 
     Data(Vec<u8>),
     Disconnect,
-    StartTransfer(
-        crate::protocol::TransferType,
-        bool,
-        std::sync::Arc<std::sync::Mutex<crate::protocol::TransferState>>,
-        Option<Vec<crate::protocol::FileDescriptor>>,
-    ),
     EndTransfer,
     CancelTransfer,
     SetBaudRate(u32),

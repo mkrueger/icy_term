@@ -3,11 +3,12 @@
 use std::cmp::min;
 
 use crate::{
-    com::{Com, TermComResult},
     protocol::{
         zfile_flag, zmodem::err::TransmissionError, FileDescriptor, Header, HeaderType,
         TransferState, ZFrameType, Zmodem, ZCRCE, ZCRCG,
     },
+    ui::connection::Connection,
+    TerminalResult,
 };
 
 use super::{ZCRCQ, ZCRCW};
@@ -115,9 +116,9 @@ impl Sz {
 
     pub fn update(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         transfer_state: &mut TransferState,
-    ) -> TermComResult<()> {
+    ) -> TerminalResult<()> {
         if let SendState::Finished = self.state {
             return Ok(());
         }
@@ -203,7 +204,7 @@ impl Sz {
                     self.transfered_file = true;
                     self.state = SendState::Await;
                 }
-                com.send(&p)?;
+                com.send(p)?;
                 if !nonstop {
                     let ack = Header::read(com, &mut self.can_count)?;
                     if let Some(header) = ack {
@@ -237,7 +238,7 @@ impl Sz {
         Ok(())
     }
 
-    fn read_next_header(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+    fn read_next_header(&mut self, com: &mut Connection) -> TerminalResult<()> {
         let err = Header::read(com, &mut self.can_count);
         if self.can_count >= 5 {
             // transfer_info.write("Received cancel...".to_string());
@@ -327,7 +328,7 @@ impl Sz {
 
                 ZFrameType::Fin => {
                     self.state = SendState::Finished;
-                    com.send(b"OO")?;
+                    com.send(b"OO".to_vec())?;
                     return Ok(());
                 }
 
@@ -359,7 +360,7 @@ impl Sz {
         Ok(())
     }
 
-    fn send_zfile(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+    fn send_zfile(&mut self, com: &mut Connection) -> TerminalResult<()> {
         if self.cur_file < 0 {
             return Ok(());
         }
@@ -400,14 +401,14 @@ impl Sz {
 
         b.extend_from_slice(&self.encode_subpacket(ZCRCW, &data));
 
-        com.send(&b)?;
+        com.send(b)?;
 
         self.cur_file_pos = 0;
         self.state = SendState::AwaitZRPos;
         Ok(())
     }
 
-    pub fn send(&mut self, _com: &mut Box<dyn Com>, files: Vec<FileDescriptor>) {
+    pub fn send(&mut self, _com: &mut Connection, files: Vec<FileDescriptor>) {
         //println!("initiate zmodem send {}", files.len());
         self.state = SendState::SendZRQInit;
         self.files = files;
@@ -417,7 +418,7 @@ impl Sz {
         //        com.write(b"rz\r")?;
     }
 
-    pub fn send_zrqinit(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+    pub fn send_zrqinit(&mut self, com: &mut Connection) -> TerminalResult<()> {
         self.cur_file = -1;
         self.transfered_file = true;
         Header::empty(self.get_header_type(), ZFrameType::RQInit)
@@ -425,7 +426,7 @@ impl Sz {
         Ok(())
     }
 
-    pub fn send_zfin(&mut self, com: &mut Box<dyn Com>, size: u32) -> TermComResult<()> {
+    pub fn send_zfin(&mut self, com: &mut Connection, size: u32) -> TerminalResult<()> {
         Header::from_number(self.get_header_type(), ZFrameType::Fin, size)
             .write(com, self.can_esc_control())?;
         self.state = SendState::Await;

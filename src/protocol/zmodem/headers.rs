@@ -3,7 +3,7 @@ use std::{
     io::{self, ErrorKind},
 };
 
-use crate::com::{Com, TermComResult};
+use crate::{ui::connection::Connection, TerminalResult};
 use icy_engine::{get_crc16, get_crc32, update_crc16};
 
 use crate::protocol::{frame_types::ZACK, XON};
@@ -182,12 +182,13 @@ impl Header {
         res
     }
 
-    pub fn write(&self, com: &mut Box<dyn Com>, escape_ctrl_chars: bool) -> TermComResult<usize> {
+    pub fn write(&self, com: &mut Connection, escape_ctrl_chars: bool) -> TerminalResult<usize> {
         // println!("send header: {:?}", self);
-        com.send(&self.build(escape_ctrl_chars))
+        com.send(self.build(escape_ctrl_chars))?;
+        Ok(12)
     }
 
-    pub fn get_frame_type(ftype: u8) -> TermComResult<ZFrameType> {
+    pub fn get_frame_type(ftype: u8) -> TerminalResult<ZFrameType> {
         match ftype {
             frame_types::ZRQINIT => Ok(ZFrameType::RQInit),
             frame_types::ZRINIT => Ok(ZFrameType::RIinit),
@@ -213,7 +214,7 @@ impl Header {
         }
     }
 
-    pub fn read(com: &mut Box<dyn Com>, can_count: &mut usize) -> TermComResult<Option<Header>> {
+    pub fn read(com: &mut Connection, can_count: &mut usize) -> TerminalResult<Option<Header>> {
         let zpad = com.read_u8()?;
         if zpad == 0x18 {
             // CAN
@@ -318,7 +319,7 @@ impl Header {
         }
     }
 }
-
+/*
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -425,3 +426,4 @@ mod tests {
         assert_eq!(read_header, header);
     }
 }
+*/

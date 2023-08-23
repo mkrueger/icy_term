@@ -15,6 +15,10 @@ pub struct FileTransferDialog {
 }
 
 impl FileTransferDialog {
+    pub fn new() -> Self {
+        Self { selected_log: 0 }
+    }
+
     pub fn show_dialog(
         &mut self,
         ctx: &egui::Context,

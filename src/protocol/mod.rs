@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use crate::ui::connection::Connection;
+use crate::TerminalResult;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -11,7 +13,6 @@ pub mod xymodem;
 pub use xymodem::*;
 
 pub mod zmodem;
-use crate::com::{Com, TermComResult};
 pub use zmodem::*;
 
 #[derive(Debug, Clone)]
@@ -25,7 +26,7 @@ pub struct FileDescriptor {
 }
 
 impl FileDescriptor {
-    pub fn from_paths(paths: &Vec<PathBuf>) -> TermComResult<Vec<FileDescriptor>> {
+    pub fn from_paths(paths: &Vec<PathBuf>) -> TerminalResult<Vec<FileDescriptor>> {
         let mut res = Vec::new();
         for p in paths {
             let fd = FileDescriptor::create(p)?;
@@ -34,10 +35,9 @@ impl FileDescriptor {
         Ok(res)
     }
 
-    pub fn create(path: &PathBuf) -> TermComResult<Self> {
+    pub fn create(path: &PathBuf) -> TerminalResult<Self> {
         let data = fs::metadata(path)?;
         let size = usize::try_from(data.len()).unwrap();
-        // TODO: wasm plaftorm? Maybe desktop only?
         let date_duration = Duration::from_secs(1); //data.modified()?.duration_since(crate::START_TIME).unwrap();
 
         Ok(Self {
@@ -243,31 +243,31 @@ impl TransferState {
     }
 }
 
-pub trait Protocol: Send {
+pub trait Protocol {
     fn update(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         transfer_state: &mut TransferState,
         storage_handler: &mut dyn FileStorageHandler,
-    ) -> TermComResult<bool>;
+    ) -> TerminalResult<bool>;
 
     fn initiate_send(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         files: Vec<FileDescriptor>,
         transfer_state: &mut TransferState,
-    ) -> TermComResult<()>;
+    ) -> TerminalResult<()>;
 
     fn initiate_recv(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         transfer_state: &mut TransferState,
-    ) -> TermComResult<()>;
+    ) -> TerminalResult<()>;
 
-    fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()>;
+    fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()>;
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum TransferType {
     #[default]
     ZModem,

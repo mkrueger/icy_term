@@ -7,11 +7,12 @@ use super::{
     get_checksum, Checksum, XYModemConfiguration, XYModemVariant,
 };
 use crate::{
-    com::{Com, TermComResult},
     protocol::{
         xymodem::constants::{ACK, CPMEOF, EOT, EXT_BLOCK_LENGTH, NAK, SOH, STX},
         FileDescriptor, TransferState,
     },
+    ui::connection::Connection,
+    TerminalResult,
 };
 
 #[derive(Debug)]
@@ -63,9 +64,9 @@ impl Sy {
 
     pub fn update(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         transfer_state: &mut TransferState,
-    ) -> TermComResult<()> {
+    ) -> TerminalResult<()> {
         transfer_state.update_time();
         let transfer_info = &mut transfer_state.send_state;
         if self.cur_file < self.files.len() {
@@ -187,7 +188,7 @@ impl Sy {
             SendState::YModemEndHeader(step) => match step {
                 0 => {
                     if self.read_command(com)? == NAK {
-                        com.send(&[EOT])?;
+                        com.send(vec![EOT])?;
                         self.send_state = SendState::YModemEndHeader(1);
                         return Ok(());
                     }
@@ -216,7 +217,7 @@ impl Sy {
         Ok(())
     }
 
-    fn check_eof(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+    fn check_eof(&mut self, com: &mut Connection) -> TerminalResult<()> {
         if self.bytes_send >= self.files[self.cur_file].size {
             self.eot(com)?;
             if self.configuration.is_ymodem() {
@@ -229,7 +230,7 @@ impl Sy {
     }
 
     #[allow(clippy::unused_self)]
-    fn read_command(&self, com: &mut Box<dyn Com>) -> TermComResult<u8> {
+    fn read_command(&self, com: &mut Connection) -> TerminalResult<u8> {
         let ch = com.read_u8()?;
         /* let cmd = match ch {
             b'C' => "[C]",
@@ -250,12 +251,13 @@ impl Sy {
     }
 
     #[allow(clippy::unused_self)]
-    fn eot(&self, com: &mut Box<dyn Com>) -> TermComResult<usize> {
+    fn eot(&self, com: &mut Connection) -> TerminalResult<usize> {
         // println!("[EOT]");
-        com.send(&[EOT])
+        com.send(vec![EOT])?;
+        Ok(1)
     }
 
-    pub fn get_mode(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+    pub fn get_mode(&mut self, com: &mut Connection) -> TerminalResult<()> {
         let ch = self.read_command(com)?;
         match ch {
             NAK => {
@@ -281,10 +283,10 @@ impl Sy {
 
     fn send_block(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         data: &[u8],
         pad_byte: u8,
-    ) -> TermComResult<()> {
+    ) -> TerminalResult<()> {
         let block_len = if data.len() <= DEFAULT_BLOCK_LENGTH {
             SOH
         } else {
@@ -315,12 +317,12 @@ impl Sy {
             }
         }
         // println!("Send block {:X?}", block);
-        com.send(&block)?;
+        com.send(block)?;
         self.block_number = self.block_number.wrapping_add(1);
         Ok(())
     }
 
-    fn send_ymodem_header(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+    fn send_ymodem_header(&mut self, com: &mut Connection) -> TerminalResult<()> {
         if self.cur_file < self.files.len() {
             // restart from 0
             let mut block = Vec::new();
@@ -337,7 +339,7 @@ impl Sy {
         }
     }
 
-    fn send_data_block(&mut self, com: &mut Box<dyn Com>, offset: usize) -> TermComResult<bool> {
+    fn send_data_block(&mut self, com: &mut Connection, offset: usize) -> TerminalResult<bool> {
         let data_len = self.data.len();
         if offset >= data_len {
             return Ok(false);
@@ -353,7 +355,7 @@ impl Sy {
         Ok(true)
     }
 
-    pub fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+    pub fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
         self.send_state = SendState::None;
         super::cancel(com)
     }
@@ -365,7 +367,7 @@ impl Sy {
         self.bytes_send = 0;
     }
 
-    pub fn end_ymodem(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
+    pub fn end_ymodem(&mut self, com: &mut Connection) -> TerminalResult<()> {
         self.send_block(com, &[0], 0)?;
         self.transfer_stopped = true;
         Ok(())

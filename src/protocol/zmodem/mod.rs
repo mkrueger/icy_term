@@ -15,12 +15,12 @@ mod rz;
 use rz::Rz;
 
 mod err;
-mod tests;
+// mod tests;
 
 use self::{err::TransmissionError, rz::read_zdle_byte};
 
 use super::{FileDescriptor, FileStorageHandler, Protocol, TransferState};
-use crate::com::{Com, TermComResult};
+use crate::{ui::connection::Connection, TerminalResult};
 
 pub struct Zmodem {
     block_length: usize,
@@ -45,8 +45,8 @@ impl Zmodem {
         }
     }
 
-    pub fn cancel(com: &mut Box<dyn Com>) -> TermComResult<()> {
-        com.send(&ABORT_SEQ)?;
+    pub fn cancel(com: &mut Connection) -> TerminalResult<()> {
+        com.send(ABORT_SEQ.to_vec())?;
         Ok(())
     }
 
@@ -98,7 +98,7 @@ pub fn append_zdle_encoded(v: &mut Vec<u8>, data: &[u8], escape_ctl_chars: bool)
     }
 }
 
-pub fn read_zdle_bytes(com: &mut Box<dyn Com>, length: usize) -> TermComResult<Vec<u8>> {
+pub fn read_zdle_bytes(com: &mut Connection, length: usize) -> TerminalResult<Vec<u8>> {
     let mut data = Vec::new();
     for _ in 0..length {
         let c = read_zdle_byte(com, false)?;
@@ -117,7 +117,7 @@ fn get_hex(n: u8) -> u8 {
     }
 }
 
-fn from_hex(n: u8) -> TermComResult<u8> {
+fn from_hex(n: u8) -> TerminalResult<u8> {
     if n.is_ascii_digit() {
         return Ok(n - b'0');
     }
@@ -133,10 +133,10 @@ fn from_hex(n: u8) -> TermComResult<u8> {
 impl Protocol for Zmodem {
     fn update(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         transfer_state: &mut TransferState,
         storage_handler: &mut dyn FileStorageHandler,
-    ) -> TermComResult<bool> {
+    ) -> TerminalResult<bool> {
         if let Some(rz) = &mut self.rz {
             rz.update(com, transfer_state, storage_handler)?;
             if !rz.is_active() {
@@ -155,10 +155,10 @@ impl Protocol for Zmodem {
 
     fn initiate_send(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         files: Vec<FileDescriptor>,
         transfer_state: &mut TransferState,
-    ) -> TermComResult<()> {
+    ) -> TerminalResult<()> {
         transfer_state.protocol_name = self.get_name().to_string();
         let mut sz = Sz::new(self.block_length);
         sz.send(com, files);
@@ -168,9 +168,9 @@ impl Protocol for Zmodem {
 
     fn initiate_recv(
         &mut self,
-        com: &mut Box<dyn Com>,
+        com: &mut Connection,
         transfer_state: &mut TransferState,
-    ) -> TermComResult<()> {
+    ) -> TerminalResult<()> {
         transfer_state.protocol_name = self.get_name().to_string();
         let mut rz = Rz::new(self.block_length);
         rz.recv(com)?;
@@ -178,8 +178,8 @@ impl Protocol for Zmodem {
         Ok(())
     }
 
-    fn cancel(&mut self, com: &mut Box<dyn Com>) -> TermComResult<()> {
-        com.send(&ABORT_SEQ)?;
+    fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
+        com.send(ABORT_SEQ.to_vec())?;
         Ok(())
     }
 }

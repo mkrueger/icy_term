@@ -12,7 +12,7 @@ use std::time::Instant;
 use eframe::egui::Key;
 
 use crate::features::{AutoFileTransfer, AutoLogin};
-use crate::protocol::TransferState;
+use crate::protocol::{FileStorageHandler, Protocol, TestStorageHandler, TransferState};
 use crate::util::{Rng, SoundThread};
 use crate::Options;
 use crate::{
@@ -71,6 +71,13 @@ pub enum MainWindowMode {
     ShowIEMSI, //   AskDeleteEntry
 }
 
+pub struct FileTransferState {
+    pub current_transfer: Arc<Mutex<TransferState>>,
+    pub storage_handler: Box<dyn FileStorageHandler>,
+    pub file_transfer_dialog: dialogs::FileTransferDialog,
+    pub protocol: Box<dyn Protocol>,
+}
+
 pub struct MainWindow {
     pub buffer_view: Arc<eframe::epaint::mutex::Mutex<BufferView>>,
     pub buffer_parser: Box<dyn BufferParser>,
@@ -100,12 +107,11 @@ pub struct MainWindow {
     pub rng: Rng,
     pub auto_file_transfer: AutoFileTransfer,
     // protocols
-    pub current_transfer: Option<Arc<Mutex<TransferState>>>,
     pub is_alt_pressed: bool,
+    pub current_file_transfer: Option<FileTransferState>,
 
     pub settings_category: usize,
 
-    file_transfer_dialog: dialogs::FileTransferDialog,
     pub capture_dialog: crate::ui::dialogs::capture_dialog::DialogState,
     pub export_dialog: crate::ui::dialogs::export_dialog::DialogState,
     pub upload_dialog: crate::ui::dialogs::upload_dialog::DialogState,
@@ -192,37 +198,41 @@ impl MainWindow {
         Ok(())
     }
 
-    fn start_transfer_thread(
+    fn start_file_transfer(
         &mut self,
         protocol_type: crate::protocol::TransferType,
         download: bool,
         files_opt: Option<Vec<FileDescriptor>>,
     ) {
         self.mode = MainWindowMode::FileTransfer(download);
-        let state = Arc::new(Mutex::new(TransferState::default()));
-        self.current_transfer = Some(state.clone());
-        let res = self
-            .connection
-            .start_file_transfer(protocol_type, download, state, files_opt);
-        check_error!(self, res, false);
+        self.connection.start_transfer();
+
+        let mut current_transfer = TransferState::default();
+        let mut protocol = protocol_type.create();
+
+        if let Err(err) = if download {
+            protocol.initiate_recv(&mut self.connection, &mut current_transfer)
+        } else {
+            protocol.initiate_send(
+                &mut self.connection,
+                files_opt.unwrap(),
+                &mut current_transfer,
+            )
+        } {
+            log::error!("{err}");
+            return;
+        }
+        let storage_handler: TestStorageHandler = TestStorageHandler::new();
+        let current_transfer = Arc::new(Mutex::new(current_transfer));
+
+        self.current_file_transfer = Some(FileTransferState {
+            current_transfer,
+            storage_handler: Box::new(storage_handler),
+            protocol,
+            file_transfer_dialog: dialogs::FileTransferDialog::new(),
+        });
     }
 
-    /*
-
-                                    let mut protocol = protocol_type.create();
-                                match protocol.initiate_send(com, files, &self.current_transfer.unwrap()) {
-                                    Ok(state) => {
-                                        self.mode = MainWindowMode::FileTransfer(download);
-    //                                    let a =(protocol, )));
-
-    self.current_transfer = Some(Arc::new(Mutex::new(state)));
-    }
-                                    Err(error) => {
-                                        log::error!("{}", error);
-                                    }
-                                }
-
-        */
     pub(crate) fn initiate_file_transfer(
         &mut self,
         protocol_type: crate::protocol::TransferType,
@@ -233,7 +243,7 @@ impl MainWindow {
             return;
         }
         if download {
-            self.start_transfer_thread(protocol_type, download, None);
+            self.start_file_transfer(protocol_type, download, None);
         } else {
             #[cfg(not(target_arch = "wasm32"))]
             self.init_upload_dialog(protocol_type);
