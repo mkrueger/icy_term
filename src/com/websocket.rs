@@ -110,15 +110,6 @@ impl Com for WebSocketComImpl {
             ))),
         }
     }
-
-    fn read_u8(&mut self) -> TermComResult<u8> {
-        Ok(0)
-    }
-
-    fn read_exact(&mut self, _len: usize) -> TermComResult<Vec<u8>> {
-        Ok(vec![0])
-    }
-
     fn send(&mut self, buf: &[u8]) -> TermComResult<usize> {
         let msg = Message::binary(buf);
         self.socket.send(msg)?; // write + flush

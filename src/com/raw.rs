@@ -57,33 +57,6 @@ impl Com for ComRawImpl {
         }
     }
 
-    fn read_u8(&mut self) -> TermComResult<u8> {
-        self.tcp_stream.set_nonblocking(false)?;
-        let mut b = [0];
-        match self.tcp_stream.read_exact(&mut b) {
-            Ok(()) => {
-                self.tcp_stream.set_nonblocking(true)?;
-                Ok(b[0])
-            }
-            Err(err) => {
-                self.tcp_stream.set_nonblocking(true)?;
-                Err(Box::new(io::Error::new(
-                    ErrorKind::ConnectionAborted,
-                    format!("error while reading single byte from stream: {err}"),
-                )))
-            }
-        }
-    }
-
-    fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
-        self.tcp_stream.set_nonblocking(false)?;
-        let mut b = vec![0; len];
-        self.tcp_stream.read_exact(&mut b)?;
-        self.tcp_stream.set_nonblocking(true)?;
-
-        Ok(b)
-    }
-
     fn send(&mut self, buf: &[u8]) -> TermComResult<usize> {
         self.tcp_stream.write_all(buf)?;
         Ok(buf.len())

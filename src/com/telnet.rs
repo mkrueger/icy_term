@@ -531,49 +531,6 @@ impl Com for ComTelnetImpl {
         }
     }
 
-    fn read_u8(&mut self) -> TermComResult<u8> {
-        self.tcp_stream.set_nonblocking(false)?;
-        let mut b = [0];
-        match self.tcp_stream.read_exact(&mut b) {
-            Ok(()) => {
-                self.tcp_stream.set_nonblocking(true)?;
-                if b[0] == telnet_cmd::Iac {
-                    let mut b = [0];
-                    match self.tcp_stream.read_exact(&mut b) {
-                        Ok(()) => {
-                            if b[0] == telnet_cmd::Iac {
-                                return Ok(b[0]);
-                            }
-                            return Err(Box::new(io::Error::new(
-                                ErrorKind::ConnectionAborted,
-                                format!("sub command not allowed here: 0x{}", b[0]),
-                            )));
-                        }
-                        Err(err) => {
-                            return Err(Box::new(io::Error::new(
-                                ErrorKind::ConnectionAborted,
-                                format!("error while reading single byte from stream: {err}"),
-                            )));
-                        }
-                    }
-                }
-                Ok(b[0])
-            }
-            Err(err) => Err(Box::new(io::Error::new(
-                ErrorKind::ConnectionAborted,
-                format!("error while reading single byte from stream: {err}"),
-            ))),
-        }
-    }
-
-    fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
-        let mut b = vec![];
-        while b.len() < len {
-            b.push(self.read_u8()?);
-        }
-        Ok(b)
-    }
-
     fn send(&mut self, buf: &[u8]) -> TermComResult<usize> {
         if self.use_raw_transfer {
             self.tcp_stream.write_all(buf)?;

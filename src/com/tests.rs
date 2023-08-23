@@ -1,6 +1,5 @@
+use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
-use std::{collections::HashMap, thread};
 
 use eframe::epaint::mutex::Mutex;
 
@@ -67,57 +66,6 @@ impl Com for TestCom {
         Ok(buf.len())
     }
 
-    fn read_u8(&mut self) -> TermComResult<u8> {
-        if self.name == "receiver" && !self.silent {
-            indent_receiver();
-        }
-        let mut i = 0;
-        while self.read_buf.lock().is_empty() {
-            i += 1;
-            if i > 10 {
-                return Err(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("{} read_u8 timeout", self.name),
-                )));
-            }
-            thread::sleep(Duration::from_millis(100));
-        }
-
-        if let Some(b) = self.read_buf.lock().pop_front() {
-            if !self.silent {
-                if let Some(cmd) = self.cmd_table.get(&b) {
-                    println!("{} reads {}({} 0x{})", self.name, cmd, b, b);
-                } else {
-                    println!("{} reads {} 0x{:X}", self.name, b, b);
-                }
-            }
-            Ok(b)
-        } else {
-            println!("{} can't read byte", self.name);
-            Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "No data to read",
-            )))
-        }
-    }
-
-    fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>> {
-        let mut i = 0;
-        while self.read_buf.lock().len() < len {
-            i += 1;
-            if i > 10 {
-                return Err(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("{} read_exact timeout", self.name),
-                )));
-            }
-            thread::sleep(Duration::from_millis(100));
-        }
-
-        let result: Vec<u8> = self.read_buf.lock().drain(0..len).collect();
-        Ok(result)
-    }
-
     fn disconnect(&mut self) -> TermComResult<()> {
         // nothing
         Ok(())
@@ -172,19 +120,5 @@ mod communication_tests {
         assert_eq!(t.to_vec(), test.receiver.read_data().unwrap().unwrap());
         let _ = test.receiver.send(t);
         assert_eq!(t.to_vec(), test.sender.read_data().unwrap().unwrap());
-    }
-
-    #[test]
-    fn test_transfer_byte() {
-        let mut test = TestChannel::new(false);
-        let _ = test.sender.send(&[42]);
-        assert_eq!(42, test.receiver.read_u8().unwrap());
-    }
-
-    #[test]
-    fn test_transfer_byte_back() {
-        let mut test = TestChannel::new(false);
-        let _ = test.receiver.send(&[42]);
-        assert_eq!(42, test.sender.read_u8().unwrap());
     }
 }

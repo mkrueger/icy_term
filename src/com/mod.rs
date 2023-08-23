@@ -25,8 +25,6 @@ pub trait Com: Sync + Send {
 
     fn send(&mut self, buf: &[u8]) -> TermComResult<usize>;
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>>;
-    fn read_u8(&mut self) -> TermComResult<u8>;
-    fn read_exact(&mut self, len: usize) -> TermComResult<Vec<u8>>;
     fn set_terminal_type(&mut self, terminal: Terminal);
 
     fn disconnect(&mut self) -> TermComResult<()>;
@@ -43,14 +41,6 @@ impl Com for NullConnection {
 
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
         Ok(Some(Vec::new()))
-    }
-
-    fn read_u8(&mut self) -> TermComResult<u8> {
-        Ok(0)
-    }
-
-    fn read_exact(&mut self, _len: usize) -> TermComResult<Vec<u8>> {
-        Ok(Vec::new())
     }
 
     fn set_terminal_type(&mut self, _terminal: Terminal) {}
