@@ -12,7 +12,7 @@ use std::time::Instant;
 use eframe::egui::Key;
 
 use crate::features::{AutoFileTransfer, AutoLogin};
-use crate::protocol::{FileStorageHandler, Protocol, TestStorageHandler, TransferState};
+use crate::protocol::{FileStorageHandler, Protocol, TransferState};
 use crate::util::{Rng, SoundThread};
 use crate::Options;
 use crate::{

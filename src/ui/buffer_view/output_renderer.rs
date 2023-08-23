@@ -85,17 +85,19 @@ impl OutputRenderer {
     ) {
         gl.bind_framebuffer(glow::FRAMEBUFFER, None);
         gl.viewport(
-            info.clip_rect.left() as i32,
-            (info.screen_size_px[1] as f32 - info.clip_rect.max.y * info.pixels_per_point) as i32,
-            (info.viewport.width() * info.pixels_per_point) as i32,
-            (info.viewport.height() * info.pixels_per_point) as i32,
+            (terminal_rect.left() * info.pixels_per_point) as i32,
+            (info.screen_size_px[1] as f32 - terminal_rect.max.y * info.pixels_per_point) as i32,
+            (terminal_rect.width() * info.pixels_per_point) as i32,
+            (terminal_rect.height() * info.pixels_per_point) as i32,
         );
+
         gl.scissor(
-            info.clip_rect.left() as i32,
-            (info.screen_size_px[1] as f32 - info.clip_rect.max.y * info.pixels_per_point) as i32,
-            (info.viewport.width() * info.pixels_per_point) as i32,
-            (info.viewport.height() * info.pixels_per_point) as i32,
+            (terminal_rect.left() * info.pixels_per_point) as i32,
+            (info.screen_size_px[1] as f32 - terminal_rect.max.y * info.pixels_per_point) as i32,
+            (terminal_rect.width() * info.pixels_per_point) as i32,
+            (terminal_rect.height() * info.pixels_per_point) as i32,
         );
+        gl.disable(glow::SCISSOR_TEST);
 
         gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
         gl.use_program(Some(self.output_shader));

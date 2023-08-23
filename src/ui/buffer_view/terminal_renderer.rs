@@ -419,7 +419,7 @@ impl TerminalRenderer {
     ) {
         let fontdim: icy_engine::Size<u8> = buffer_view.buf.get_font_dimensions();
         let fh = fontdim.height as f32;
-
+        gl.disable(glow::SCISSOR_TEST);
         gl.use_program(Some(self.terminal_shader));
         gl.uniform_2_f32(
             gl.get_uniform_location(self.terminal_shader, "u_resolution")
@@ -583,6 +583,8 @@ impl TerminalRenderer {
                 );
             }
         }
+        gl.enable(glow::SCISSOR_TEST);
+
         crate::check_gl_error!(gl, "run_shader");
     }
 }
