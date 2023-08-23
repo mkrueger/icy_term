@@ -97,7 +97,6 @@ impl OutputRenderer {
             (terminal_rect.width() * info.pixels_per_point) as i32,
             (terminal_rect.height() * info.pixels_per_point) as i32,
         );
-        gl.disable(glow::SCISSOR_TEST);
 
         gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
         gl.use_program(Some(self.output_shader));

@@ -14,7 +14,9 @@ pub struct SmoothScroll {
     font_height: f32,
     drag_start: bool,
     id: Id,
+    lock_focus: bool,
 }
+
 impl SmoothScroll {
     pub fn new() -> Self {
         Self {
@@ -26,7 +28,13 @@ impl SmoothScroll {
             buffer_height: 0.0,
             font_height: 0.0,
             drag_start: false,
+            lock_focus: true,
         }
+    }
+
+    pub fn with_lock_focus(mut self, lock_focus: bool) -> Self {
+        self.lock_focus = lock_focus;
+        self
     }
 
     fn persist_data(&mut self, ui: &Ui) {
@@ -68,8 +76,16 @@ impl SmoothScroll {
         self.load_data(ui);
         let size = ui.available_size();
 
-        let (id, rect) = ui.allocate_space(Vec2::new(size.x, size.y));
-        let response = ui.interact(rect, id, Sense::click_and_drag());
+        let (_, rect) = ui.allocate_space(Vec2::new(size.x, size.y));
+        let response = ui.interact(rect, self.id, Sense::click_and_drag());
+
+        if self.lock_focus {
+            self.lock_focus = false;
+            ui.memory_mut(|m| {
+                m.request_focus(self.id);
+                m.lock_focus(self.id, true);
+            });
+        }
 
         let (char_height, buffer_char_height, scale, font_height) = calc_contents(rect);
 

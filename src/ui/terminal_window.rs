@@ -241,7 +241,7 @@ impl MainWindow {
 
         let font_dimensions = buffer_view.lock().buf.get_font_dimensions();
 
-        SmoothScroll::new().show(
+        SmoothScroll::new().with_lock_focus(matches!(self.mode, MainWindowMode::ShowTerminal)).show(
             ui,
             |rect| {
                 let size: Vec2 = rect.size();
