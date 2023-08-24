@@ -242,6 +242,7 @@ impl MainWindow {
             self.options.scaling.get_filter(),
             self.options.monitor_settings.clone(),
             true,
+            None,
         );
 
         let mut response = response.context_menu(|ui| terminal_context_menu(ui, self));
@@ -284,7 +285,7 @@ impl MainWindow {
                             && !calc.scrollbar_rect.contains(pos)
                         {
                             let buffer_view = self.buffer_view.clone();
-                            let click_pos = (pos
+                            let click_pos: Vec2 = (pos
                                 - calc.buffer_rect.min
                                 - calc.terminal_rect.left_top().to_vec2())
                                 / calc.char_size
