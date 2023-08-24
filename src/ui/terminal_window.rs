@@ -502,9 +502,7 @@ impl MainWindow {
                                         .lock()
                                         .buf
                                             .get_char_xy(click_pos.x as i32, click_pos.y as i32);
-                                        if let Some(ch) = ch {
-                                            println!("ch: {ch:?}");
-                                        }
+                                        println!("ch: {ch:?}");
                                     }
 
                                     let mut l = buffer_view.lock();
