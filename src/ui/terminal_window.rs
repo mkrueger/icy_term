@@ -296,12 +296,12 @@ impl MainWindow {
                                 buffer_view
                                     .lock()
                                     .set_selection(Selection::new(click_pos.x, click_pos.y));
-                                buffer_view
-                                    .lock()
-                                    .get_selection()
-                                    .as_mut()
-                                    .unwrap()
-                                    .block_selection = modifiers.alt;
+                                buffer_view.lock().get_selection().as_mut().unwrap().shape =
+                                    if modifiers.alt {
+                                        icy_engine::Shape::Rectangle
+                                    } else {
+                                        icy_engine::Shape::Lines
+                                    };
                             }
                             match mode {
                                 icy_engine::MouseMode::VT200
@@ -435,7 +435,11 @@ impl MainWindow {
                             if let Some(sel) = &mut l.get_selection() {
                                 if !sel.locked {
                                     sel.set_lead(click_pos.x, click_pos.y);
-                                    sel.block_selection = ui.input(|i| i.modifiers.alt);
+                                    sel.shape = if ui.input(|i| i.modifiers.alt) {
+                                        icy_engine::Shape::Rectangle
+                                    } else {
+                                        icy_engine::Shape::Lines
+                                    };
                                     l.redraw_view();
                                 }
                             }
