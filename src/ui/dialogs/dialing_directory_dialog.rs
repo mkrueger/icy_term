@@ -33,7 +33,7 @@ const phone_list_width: f32 = 220.0;
 const PROTOCOL_COMBOBOX_WIDTH: f32 = 180.0;
 
 #[derive(Default)]
-pub struct DialingDirectoryData {
+pub struct DialogState {
     pub addresses: Vec<Address>,
 
     pub cur_addr: usize,
@@ -45,7 +45,7 @@ pub struct DialingDirectoryData {
     show_passwords: bool,
 }
 
-impl DialingDirectoryData {
+impl DialogState {
     pub fn get_address_mut(&mut self, uuid: Option<usize>) -> &mut Address {
         if uuid.is_none() {
             return &mut self.addresses[0];
@@ -513,7 +513,7 @@ impl DialingDirectoryData {
                         .selected_text(RichText::new(format!("{}", adr.ansi_music)))
                         .width(250.)
                         .show_ui(ui, |ui| {
-                            for t in &DialingDirectoryData::MUSIC_OPTIONS {
+                            for t in &DialogState::MUSIC_OPTIONS {
                                 let label = RichText::new(format!("{t}"));
                                 ui.selectable_value(&mut adr.ansi_music, *t, label);
                             }

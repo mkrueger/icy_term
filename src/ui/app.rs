@@ -65,12 +65,8 @@ impl MainWindow {
             screen_mode: ScreenMode::Vga(80, 25),
             current_file_transfer: None,
             handled_char: false,
-            is_alt_pressed: false,
             buffer_parser: Box::<ansi::Parser>::default(),
-            capture_session: false,
             show_capture_error: false,
-            has_baud_rate: false,
-            settings_category: 0,
             #[cfg(target_arch = "wasm32")]
             poll_thread,
             sound_thread: SoundThread::new(),
@@ -78,7 +74,10 @@ impl MainWindow {
             capture_dialog: capture_dialog::DialogState::default(),
             export_dialog: dialogs::export_dialog::DialogState::default(),
             upload_dialog: dialogs::upload_dialog::DialogState::default(),
-            dialing_directory_dialog: dialogs::DialingDirectoryData::new(addresses),
+            dialing_directory_dialog: dialogs::dialing_directory_dialog::DialogState::new(
+                addresses,
+            ),
+            settings_dialog: dialogs::settings_dialog::DialogState::default(),
         };
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -140,14 +139,14 @@ impl eframe::App for MainWindow {
             }
             MainWindowMode::ShowSettings(in_dialing_directory) => {
                 if in_dialing_directory {
-                    dialogs::view_dialing_directory(self, ctx);
+                    dialogs::dialing_directory_dialog::view_dialing_directory(self, ctx);
                 } else {
                     let res = self.update_state();
                     self.update_terminal_window(ctx, frame, false);
                     check_error!(self, res, false);
                     ctx.request_repaint_after(Duration::from_millis(150));
                 }
-                super::dialogs::show_settings(self, ctx, frame);
+                dialogs::settings_dialog::show_settings(self, ctx, frame);
             }
             MainWindowMode::DeleteSelectedAddress(uuid) => {
                 self.update_terminal_window(ctx, frame, true);
@@ -156,7 +155,7 @@ impl eframe::App for MainWindow {
 
             MainWindowMode::SelectProtocol(download) => {
                 self.update_terminal_window(ctx, frame, false);
-                super::dialogs::view_selector(self, ctx, frame, download);
+                dialogs::protocol_selector::view_selector(self, ctx, frame, download);
             }
 
             MainWindowMode::FileTransfer(download) => {
@@ -224,7 +223,7 @@ impl eframe::App for MainWindow {
                 let res = self.update_state();
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
-                super::dialogs::show_iemsi(self, ctx);
+                dialogs::show_iemsi::show_iemsi(self, ctx);
                 ctx.request_repaint_after(Duration::from_millis(150));
             } // MainWindowMode::AskDeleteEntry => todo!(),
         }

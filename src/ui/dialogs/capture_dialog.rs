@@ -8,6 +8,7 @@ use crate::ui::{MainWindow, MainWindowMode};
 #[derive(Default)]
 pub struct DialogState {
     open_file_dialog: Option<FileDialog>,
+    pub capture_session: bool,
 }
 
 impl MainWindow {
@@ -62,19 +63,19 @@ impl MainWindow {
                 ui.add_space(4.0);
 
                 ui.with_layout(Layout::right_to_left(egui::Align::TOP), |ui| {
-                    if self.capture_session {
+                    if self.capture_dialog.capture_session {
                         if ui
                             .button(fl!(crate::LANGUAGE_LOADER, "toolbar-stop-capture"))
                             .clicked()
                         {
-                            self.capture_session = false;
+                            self.capture_dialog.capture_session = false;
                             close_dialog = true;
                         }
                     } else if ui
                         .button(fl!(crate::LANGUAGE_LOADER, "capture-dialog-capture-button"))
                         .clicked()
                     {
-                        self.capture_session = true;
+                        self.capture_dialog.capture_session = true;
                         close_dialog = true;
                     }
 

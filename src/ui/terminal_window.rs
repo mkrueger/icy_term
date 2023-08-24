@@ -148,14 +148,14 @@ impl MainWindow {
                             }
                         }
 
-                        if self.capture_session {
+                        if self.capture_dialog.capture_session {
                             let r: egui::Response = ui.add(egui::Button::new(RichText::new(fl!(
                                 crate::LANGUAGE_LOADER,
                                 "toolbar-stop-capture"
                             ))));
 
                             if r.clicked() {
-                                self.capture_session = false;
+                                self.capture_dialog.capture_session = false;
                             }
                         }
 
@@ -229,7 +229,7 @@ impl MainWindow {
             });
 
         if show_dialing_directory {
-            dialogs::view_dialing_directory(self, ctx);
+            dialogs::dialing_directory_dialog::view_dialing_directory(self, ctx);
         }
     }
 

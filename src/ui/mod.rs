@@ -3,7 +3,6 @@
 use chrono::Utc;
 use egui_bind::BindTarget;
 use i18n_embed_fl::fl;
-use icy_engine::ansi::BaudEmulation;
 use icy_engine::BufferParser;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
@@ -70,41 +69,39 @@ pub enum MainWindowMode {
 pub struct FileTransferState {
     pub current_transfer: Arc<Mutex<TransferState>>,
     pub storage_handler: Box<dyn FileStorageHandler>,
-    pub file_transfer_dialog: dialogs::FileTransferDialog,
+    pub file_transfer_dialog: dialogs::up_download_dialog::FileTransferDialog,
     pub protocol: Box<dyn Protocol>,
 }
 
 pub struct MainWindow {
-    pub buffer_view: Arc<eframe::epaint::mutex::Mutex<BufferView>>,
+    buffer_view: Arc<eframe::epaint::mutex::Mutex<BufferView>>,
     pub buffer_parser: Box<dyn BufferParser>,
 
-    pub connection: Connection,
+    connection: Connection,
 
     sound_thread: SoundThread,
 
     pub mode: MainWindowMode,
     pub handled_char: bool,
 
-    pub dialing_directory_dialog: dialogs::DialingDirectoryData,
     pub options: Options,
-    pub screen_mode: ScreenMode,
-    pub auto_login: AutoLogin,
-    pub capture_session: bool,
-    pub is_fullscreen_mode: bool,
-    /// debug spew prevention
-    pub show_capture_error: bool,
-    pub has_baud_rate: bool,
+    screen_mode: ScreenMode,
+    auto_login: AutoLogin,
+    is_fullscreen_mode: bool,
 
-    pub auto_file_transfer: AutoFileTransfer,
+    /// debug spew prevention
+    show_capture_error: bool,
+
+    auto_file_transfer: AutoFileTransfer,
+
     // protocols
-    pub is_alt_pressed: bool,
     pub current_file_transfer: Option<FileTransferState>,
 
-    pub settings_category: usize,
-
-    pub capture_dialog: crate::ui::dialogs::capture_dialog::DialogState,
-    pub export_dialog: crate::ui::dialogs::export_dialog::DialogState,
-    pub upload_dialog: crate::ui::dialogs::upload_dialog::DialogState,
+    pub dialing_directory_dialog: dialogs::dialing_directory_dialog::DialogState,
+    pub capture_dialog: dialogs::capture_dialog::DialogState,
+    pub export_dialog: dialogs::export_dialog::DialogState,
+    pub upload_dialog: dialogs::upload_dialog::DialogState,
+    pub settings_dialog: dialogs::settings_dialog::DialogState,
 
     #[cfg(target_arch = "wasm32")]
     poll_thread: com_thread::ConnectionThreadData,
@@ -235,7 +232,7 @@ impl MainWindow {
                 current_transfer,
                 storage_handler: Box::new(storage_handler),
                 protocol,
-                file_transfer_dialog: dialogs::FileTransferDialog::new(),
+                file_transfer_dialog: dialogs::up_download_dialog::FileTransferDialog::new(),
             });
         }
     }
@@ -287,50 +284,49 @@ impl MainWindow {
 
     pub fn call_bbs(&mut self, i: usize) {
         self.mode = MainWindowMode::ShowTerminal;
-        let mut adr = self.dialing_directory_dialog.addresses[i].address.clone();
-        if !adr.contains(':') {
-            adr.push_str(":23");
+        let cloned_addr = self.dialing_directory_dialog.addresses[i].clone();
+
+        {
+            let address = &mut self.dialing_directory_dialog.addresses[i];
+            let mut adr = address.address.clone();
+            if !adr.contains(':') {
+                adr.push_str(":23");
+            }
+            address.number_of_calls += 1;
+            address.last_call = Some(Utc::now());
+
+            self.auto_login = AutoLogin::new(&cloned_addr.auto_login);
+            self.buffer_view.lock().buf.clear();
+            self.dialing_directory_dialog.cur_addr = i;
+            self.buffer_parser = address.get_terminal_parser(&cloned_addr);
+            self.buffer_view
+                .lock()
+                .buf
+                .terminal_state
+                .set_baud_rate(address.baud_emulation);
+
+            self.buffer_view.lock().redraw_font();
+            self.buffer_view.lock().redraw_palette();
+            self.buffer_view.lock().redraw_view();
+            self.buffer_view.lock().clear();
         }
-        self.dialing_directory_dialog.addresses[i].number_of_calls += 1;
-        self.dialing_directory_dialog.addresses[i].last_call = Some(Utc::now());
+        self.set_screen_mode(cloned_addr.screen_mode);
         store_phone_book(&self.dialing_directory_dialog.addresses).unwrap_or_default();
-
-        let call_adr = self.dialing_directory_dialog.addresses[i].clone();
-        self.auto_login = AutoLogin::new(&call_adr.auto_login);
-        self.auto_login.disabled = self.is_alt_pressed;
-        self.buffer_view.lock().buf.clear();
-        self.dialing_directory_dialog.cur_addr = i;
-        self.set_screen_mode(call_adr.screen_mode);
-        self.buffer_parser =
-            self.dialing_directory_dialog.addresses[i].get_terminal_parser(&call_adr);
-        self.has_baud_rate =
-            self.dialing_directory_dialog.addresses[i].baud_emulation != BaudEmulation::Off;
-
-        self.buffer_view
-            .lock()
-            .buf
-            .terminal_state
-            .set_baud_rate(self.dialing_directory_dialog.addresses[i].baud_emulation);
-
-        self.buffer_view.lock().redraw_font();
-        self.buffer_view.lock().redraw_palette();
-        self.buffer_view.lock().redraw_view();
-        self.buffer_view.lock().clear();
 
         self.println(&fl!(
             crate::LANGUAGE_LOADER,
             "connect-to",
-            address = call_adr.address.clone()
+            address = cloned_addr.address.clone()
         ))
         .unwrap_or_default();
 
         let timeout = self.options.connect_timeout;
         let window_size = self.screen_mode.get_window_size();
-        let r = self.connection.connect(&call_adr, timeout, window_size);
+        let r = self.connection.connect(&cloned_addr, timeout, window_size);
         check_error!(self, r, false);
         let r = self
             .connection
-            .set_baud_rate(call_adr.baud_emulation.get_baud_rate());
+            .set_baud_rate(cloned_addr.baud_emulation.get_baud_rate());
         check_error!(self, r, false);
     }
 
@@ -352,7 +348,7 @@ impl MainWindow {
         };
 
         if let Some(data) = data_opt {
-            if self.capture_session {
+            if self.capture_dialog.capture_session {
                 if let Ok(mut data_file) = std::fs::OpenOptions::new()
                     .create(true)
                     .append(true)
@@ -410,7 +406,6 @@ impl MainWindow {
             }
         }
 
-        self.auto_login.disabled |= self.is_alt_pressed;
         if self.options.iemsi_autologin {
             if let Some(adr) = self
                 .dialing_directory_dialog

@@ -19,6 +19,11 @@ lazy_static! {
     ];
 }
 
+#[derive(Default)]
+pub struct DialogState {
+    pub settings_category: usize,
+}
+
 pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut eframe::Frame) {
     let mut open = true;
     let mut close_dialog = false;
@@ -28,7 +33,6 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
     }
 
     let old_options = window.options.clone();
-
     egui::Window::new(title)
         .open(&mut open)
         .collapsible(false)
@@ -38,46 +42,47 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
                 egui::widgets::global_dark_light_mode_switch(ui);
-
+                let settings_category = window.settings_dialog.settings_category;
                 if ui
                     .selectable_label(
-                        window.settings_category == 0,
+                        settings_category == 0,
                         fl!(crate::LANGUAGE_LOADER, "settings-monitor-category"),
                     )
                     .clicked()
                 {
-                    window.settings_category = 0;
+                    window.settings_dialog.settings_category = 0;
                 }
                 if ui
                     .selectable_label(
-                        window.settings_category == 1,
+                        settings_category == 1,
                         fl!(crate::LANGUAGE_LOADER, "settings-iemsi-category"),
                     )
                     .clicked()
                 {
-                    window.settings_category = 1;
+                    window.settings_dialog.settings_category = 1;
                 }
                 if ui
                     .selectable_label(
-                        window.settings_category == 2,
+                        settings_category == 2,
                         fl!(crate::LANGUAGE_LOADER, "settings-terminal-category"),
                     )
                     .clicked()
                 {
-                    window.settings_category = 2;
+                    window.settings_dialog.settings_category = 2;
                 }
                 if ui
                     .selectable_label(
-                        window.settings_category == 3,
+                        settings_category == 3,
                         fl!(crate::LANGUAGE_LOADER, "settings-keybinds-category"),
                     )
                     .clicked()
                 {
-                    window.settings_category = 3;
+                    window.settings_dialog.settings_category = 3;
                 }
             });
             ui.separator();
-            match window.settings_category {
+            let settings_category = window.settings_dialog.settings_category;
+            match settings_category {
                 0 => show_monitor_settings(window, ui),
                 1 => show_iemsi_settings(window, ui),
                 2 => show_terminal_settings(window, ui),
@@ -93,7 +98,7 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
                 {
                     close_dialog = true;
                 }
-                if window.settings_category == 0
+                if settings_category == 0
                     && ui
                         .button(fl!(crate::LANGUAGE_LOADER, "settings-reset-button"))
                         .clicked()
@@ -101,7 +106,7 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
                     window.options.scaling = Scaling::Nearest;
                     window.buffer_view.lock().monitor_settings = MonitorSettings::default();
                 }
-                if window.settings_category == 3
+                if settings_category == 3
                     && ui
                         .button(fl!(crate::LANGUAGE_LOADER, "settings-reset-button"))
                         .clicked()

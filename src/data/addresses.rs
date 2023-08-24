@@ -134,7 +134,7 @@ pub struct Address {
     pub downloaded_bytes: usize,
 
     // UI
-    pub address_category: crate::ui::dialogs::AddressCategory,
+    pub address_category: crate::ui::dialogs::dialing_directory_dialog::AddressCategory,
 }
 
 const TEMPLATE: &str = r#"
@@ -225,7 +225,7 @@ impl Address {
             last_call_duration: Duration::zero(),
             uploaded_bytes: 0,
             downloaded_bytes: 0,
-            address_category: crate::ui::dialogs::AddressCategory::Server,
+            address_category: crate::ui::dialogs::dialing_directory_dialog::AddressCategory::Server,
             baud_emulation: BaudEmulation::Off,
         }
     }
