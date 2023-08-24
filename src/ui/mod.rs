@@ -167,11 +167,13 @@ impl MainWindow {
                 }
             }
             icy_engine::CallbackAction::PlayMusic(music) => {
-                self.sound_thread.play_music(&music);
+                let r = self.sound_thread.play_music(music);
+                check_error!(self, r, false);
             }
             icy_engine::CallbackAction::Beep => {
                 if self.options.console_beep {
-                    self.sound_thread.beep();
+                    let r = self.sound_thread.beep();
+                    check_error!(self, r, false);
                 }
             }
             icy_engine::CallbackAction::ChangeBaudEmulation(baud_emulation) => {

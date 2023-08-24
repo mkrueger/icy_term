@@ -1,4 +1,9 @@
-use std::{collections::VecDeque, sync::mpsc, thread};
+use std::{
+    collections::VecDeque,
+    io::{self, ErrorKind},
+    sync::mpsc,
+    thread::JoinHandle,
+};
 
 use icy_engine::ansi::sound::{AnsiMusic, MusicAction, MusicStyle};
 use rodio::OutputStream;
@@ -7,14 +12,6 @@ use web_time::{Duration, Instant};
 use crate::TerminalResult;
 
 use super::Rng;
-
-pub struct SoundThreadData {
-    tx: mpsc::Sender<SoundData>,
-    rx: mpsc::Receiver<SoundData>,
-    thread_is_running: bool,
-
-    music: VecDeque<SoundData>,
-}
 
 /// Data that is sent to the connection thread
 #[derive(Debug)]
@@ -34,67 +31,45 @@ pub struct SoundThread {
     rng: Rng,
     pub stop_button: u32,
     last_stop_cycle: Instant,
+    join_handle_opt: Option<JoinHandle<()>>,
+    restart_count: usize,
 }
 
 impl SoundThread {
     pub fn new() -> Self {
-        let (tx, rx) = mpsc::channel::<SoundData>();
-        let (tx2, rx2) = mpsc::channel::<SoundData>();
-
-        let mut data = SoundThreadData {
-            rx,
-            tx: tx2,
-            music: VecDeque::new(),
-            thread_is_running: true,
-        };
-        #[cfg(not(target_arch = "wasm32"))]
-        std::thread::spawn(move || {
-            while data.thread_is_running {
-                data.handle_queue();
-                data.handle_receive();
-                thread::sleep(Duration::from_millis(100));
-            }
-            log::error!(
-                "communication thread closed because it lost connection with the ui thread."
-            );
-        });
         let mut rng = Rng::default();
         let stop_button = rng.gen_range(0..6);
-        SoundThread {
-            rx: rx2,
+        let (tx, rx) = mpsc::channel::<SoundData>();
+        let mut res = SoundThread {
+            rx,
             tx,
             is_playing: false,
             stop_button,
             rng,
             last_stop_cycle: Instant::now(),
-        }
-    }
-
-    pub(crate) fn play_music(&self, music: &AnsiMusic) {
+            join_handle_opt: None,
+            restart_count: 0,
+        };
         #[cfg(not(target_arch = "wasm32"))]
-        let _ = self.tx.send(SoundData::PlayMusic(music.clone()));
-        #[cfg(target_arch = "wasm32")]
-        SoundThread::play_music_wasm(music);
-    }
-
-    pub(crate) fn beep(&self) {
-        #[cfg(not(target_arch = "wasm32"))]
-        let _ = self.tx.send(SoundData::Beep);
-        #[cfg(target_arch = "wasm32")]
-        SoundThread::beep_wasm();
+        res.start_background_thread();
+        res
     }
 
     pub(crate) fn clear(&self) {
         let _ = self.tx.send(SoundData::Clear);
     }
 
-    #[cfg(target_arch = "wasm32")]
-    pub(crate) fn update_state(&mut self) -> TerminalResult<()> {
-        Ok(())
+    pub(crate) fn is_playing(&self) -> bool {
+        self.is_playing
     }
+}
 
-    #[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_arch = "wasm32"))]
+impl SoundThread {
     pub(crate) fn update_state(&mut self) -> TerminalResult<()> {
+        if self.join_handle_opt.is_none() {
+            return Ok(());
+        }
         if self.last_stop_cycle.elapsed().as_secs() > 5 {
             self.stop_button = self.rng.gen_range(0..6);
             self.last_stop_cycle = Instant::now();
@@ -110,6 +85,7 @@ impl SoundThread {
                 Err(err) => match err {
                     mpsc::TryRecvError::Empty => break,
                     mpsc::TryRecvError::Disconnected => {
+                        self.restart_background_thread();
                         return Err(Box::new(err));
                     }
                 },
@@ -117,13 +93,83 @@ impl SoundThread {
         }
         Ok(())
     }
-
-    pub(crate) fn is_playing(&self) -> bool {
-        self.is_playing
+    pub(crate) fn beep(&mut self) -> TerminalResult<()> {
+        self.send_data(SoundData::Beep)
     }
 
-    #[cfg(target_arch = "wasm32")]
-    fn beep_wasm() {
+    pub(crate) fn play_music(&mut self, music: AnsiMusic) -> TerminalResult<()> {
+        self.send_data(SoundData::PlayMusic(music))
+    }
+
+    fn send_data(&mut self, data: SoundData) -> TerminalResult<()> {
+        if self.join_handle_opt.is_none() {
+            // prevent error spew.
+            return Ok(());
+        }
+        let res = self.tx.send(data);
+        if let Err(mpsc::SendError::<SoundData>(data)) = res {
+            if self.restart_background_thread() {
+                return self.send_data(data);
+            }
+            return Err(Box::new(io::Error::new(
+                ErrorKind::ConnectionAborted,
+                "Sound thread crashed too many times.",
+            )));
+        }
+        Ok(())
+    }
+
+    fn start_background_thread(&mut self) {
+        let (tx, rx) = mpsc::channel::<SoundData>();
+        let (tx2, rx2) = mpsc::channel::<SoundData>();
+
+        self.rx = rx2;
+        self.tx = tx;
+        let mut data = SoundBackgroundThreadData {
+            rx,
+            tx: tx2,
+            music: VecDeque::new(),
+            thread_is_running: true,
+        };
+        self.join_handle_opt = Some(std::thread::spawn(move || {
+            while data.thread_is_running {
+                data.handle_queue();
+                data.handle_receive();
+                if data.music.is_empty() {
+                    std::thread::sleep(Duration::from_millis(100));
+                }
+            }
+            log::error!(
+                "communication thread closed because it lost connection with the ui thread."
+            );
+        }));
+    }
+
+    fn restart_background_thread(&mut self) -> bool {
+        if let Some(handle) = &self.join_handle_opt {
+            if handle.is_finished() {
+                if self.restart_count > 3 {
+                    log::error!("sound thread crashed too many times, exiting.");
+                    self.join_handle_opt = None;
+                    return false;
+                }
+                self.restart_count += 1;
+                log::error!("sound thread crashed, restarting.");
+                self.start_background_thread();
+            }
+            return true;
+        }
+        false
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl SoundThread {
+    pub(crate) fn update_state(&mut self) -> TerminalResult<()> {
+        Ok(())
+    }
+
+    pub(crate) fn beep(&self) {
         let (_stream, stream_handle) = OutputStream::try_default().unwrap();
         let sink = rodio::Sink::try_new(&stream_handle).unwrap();
         sink.set_volume(0.1);
@@ -134,8 +180,7 @@ impl SoundThread {
         std::thread::sleep(std::time::Duration::from_millis(200));
     }
 
-    #[cfg(target_arch = "wasm32")]
-    fn play_music_wasm(music: &AnsiMusic) {
+    pub(crate) fn play_music(&self, music: &AnsiMusic) -> TerminalResult<()> {
         let mut i = 0;
         let mut cur_style = MusicStyle::Normal;
 
@@ -177,21 +222,39 @@ impl SoundThread {
                 }
             }
         }
+        Ok(())
     }
 }
 
-impl SoundThreadData {
+pub struct SoundBackgroundThreadData {
+    tx: mpsc::Sender<SoundData>,
+    rx: mpsc::Receiver<SoundData>,
+    thread_is_running: bool,
+
+    music: VecDeque<SoundData>,
+}
+
+impl SoundBackgroundThreadData {
     pub fn handle_receive(&mut self) -> bool {
         let mut result = false;
-        while let Ok(data) = self.rx.try_recv() {
-            match data {
-                SoundData::PlayMusic(m) => self.music.push_back(SoundData::PlayMusic(m)),
-                SoundData::Beep => self.music.push_back(SoundData::Beep),
-                SoundData::Clear => {
-                    result = true;
-                    self.music.clear();
+        loop {
+            match self.rx.try_recv() {
+                Ok(data) => match data {
+                    SoundData::PlayMusic(m) => {
+                        self.music.push_back(SoundData::PlayMusic(m));
+                    }
+                    SoundData::Beep => self.music.push_back(SoundData::Beep),
+                    SoundData::Clear => {
+                        result = true;
+                        self.music.clear();
+                    }
+                    _ => {}
+                },
+                Err(mpsc::TryRecvError::Empty) => break,
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    self.thread_is_running = false;
+                    break;
                 }
-                _ => {}
             }
         }
         result
@@ -203,7 +266,7 @@ impl SoundThreadData {
         };
         match data {
             SoundData::PlayMusic(music) => self.play_music(&music),
-            SoundData::Beep => SoundThreadData::beep(),
+            SoundData::Beep => SoundBackgroundThreadData::beep(),
             _ => {}
         }
     }
