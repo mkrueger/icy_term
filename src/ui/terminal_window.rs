@@ -7,7 +7,7 @@ use eframe::{
 };
 use egui::Button;
 use i18n_embed_fl::fl;
-use icy_engine_egui::Selection;
+use icy_engine::Selection;
 
 use crate::check_error;
 
@@ -293,7 +293,9 @@ impl MainWindow {
                                 buffer_view.lock().buf.terminal_state.mouse_mode;
 
                             if matches!(button, PointerButton::Primary) {
-                                buffer_view.lock().set_selection(Selection::new(click_pos));
+                                buffer_view
+                                    .lock()
+                                    .set_selection(Selection::new(click_pos.x, click_pos.y));
                                 buffer_view
                                     .lock()
                                     .get_selection()
@@ -432,7 +434,7 @@ impl MainWindow {
                             let mut l = buffer_view.lock();
                             if let Some(sel) = &mut l.get_selection() {
                                 if !sel.locked {
-                                    sel.set_lead(click_pos);
+                                    sel.set_lead(click_pos.x, click_pos.y);
                                     sel.block_selection = ui.input(|i| i.modifiers.alt);
                                     l.redraw_view();
                                 }
