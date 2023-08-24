@@ -853,7 +853,7 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
                 });
                 ui.add_space(8.);
                 if let Some(uuid) = window.dialing_directory_dialog.render_list(ui) {
-                    window.call_bbs(uuid);
+                    window.call_bbs_uuid(Some(uuid));
                 }
                 ui.add_space(8.);
 
