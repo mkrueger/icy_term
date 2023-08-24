@@ -3,11 +3,11 @@
 use clipboard::{ClipboardContext, ClipboardProvider};
 use eframe::{
     egui::{self, CursorIcon, PointerButton, RichText},
-    epaint::{FontFamily, FontId, Rect, Vec2},
+    epaint::{FontFamily, FontId, Vec2},
 };
-use egui::{Button, Pos2};
+use egui::Button;
 use i18n_embed_fl::fl;
-use icy_engine_egui::{Selection, SmoothScroll};
+use icy_engine_egui::Selection;
 
 use crate::check_error;
 
@@ -235,370 +235,290 @@ impl MainWindow {
     }
 
     fn show_terminal_area(&mut self, ui: &mut egui::Ui) {
-        let buf_h = self.buffer_view.lock().buf.get_buffer_height();
-        let real_height = self.buffer_view.lock().buf.get_real_buffer_height();
-        let buffer_view = self.buffer_view.clone();
-        let buf_w = buffer_view.lock().buf.get_buffer_width();
-
-        let font_dimensions = buffer_view.lock().buf.get_font_dimensions();
-
-        SmoothScroll::new().with_lock_focus(matches!(self.mode, MainWindowMode::ShowTerminal)).show(
+        let (response, calc) = icy_engine_egui::show_terminal_area(
             ui,
-            |rect| {
-                let size: Vec2 = rect.size();
-                let scale_x = size.x / font_dimensions.width as f32 / buf_w as f32;
-                let mut scale_y = size.y / font_dimensions.height as f32 / buf_h as f32;
+            self.buffer_view.clone(),
+            matches!(self.mode, MainWindowMode::ShowTerminal),
+            self.options.scaling.get_filter(),
+            self.options.monitor_settings.clone(),
+            true,
+        );
 
-                if scale_x < scale_y {
-                    scale_y = scale_x;
-                } else {
-                    // scale_x = scale_y;
-                }
-                (
-                    real_height as f32,
-                    buf_h as f32,
-                    scale_y,
-                    font_dimensions.height as f32,
-                )
-            },
-            |ui, rect, mut response, top, scrollbar_rect| {
-                let size = rect.size();
-                let buffer_view = self.buffer_view.clone();
+        let mut response = response.context_menu(|ui| terminal_context_menu(ui, self));
 
-                let mut scale_x = size.x / font_dimensions.width as f32 / buf_w as f32;
-                let mut scale_y = size.y / font_dimensions.height as f32 / buf_h as f32;
-
-                if scale_x < scale_y {
-                    scale_y = scale_x;
-                } else {
-                    scale_x = scale_y;
-                }
-                let viewport_top = top * scale_y;
-
-                let char_size = Vec2::new(
-                    font_dimensions.width as f32 * scale_x,
-                    font_dimensions.height as f32 * scale_y,
-                );
-
-                let rect_w = buf_w as f32 * char_size.x;
-                let rect_h = buf_h as f32 * char_size.y;
-
-                let buffer_rect = Rect::from_min_size(
-                    Pos2::new((rect.width() - rect_w) / 2., (rect.height() - rect_h) / 2.),
-                    Vec2::new(rect_w, rect_h),
-                );
-
-                // Set the scrolling height.
-                let first_line = (viewport_top / char_size.y) as i32;
-
-                {
-                    buffer_view.lock().char_size = char_size;
-                    if buffer_view.lock().viewport_top != viewport_top {
-                        buffer_view.lock().viewport_top = viewport_top;
-                        buffer_view.lock().redraw_view();
+        if matches!(self.mode, MainWindowMode::ShowTerminal) && ui.is_enabled() {
+            let events: Vec<egui::Event> = ui.input(|i| i.events.clone());
+            for e in events {
+                match e {
+                    egui::Event::PointerButton {
+                        button: PointerButton::Middle,
+                        pressed: true,
+                        ..
                     }
-                }
+                    | egui::Event::Copy => {
+                        let buffer_view = self.buffer_view.clone();
+                        let mut l = buffer_view.lock();
+                        if let Some(txt) = l.get_copy_text(&*self.buffer_parser) {
+                            ui.output_mut(|o| o.copied_text = txt);
+                        }
+                    }
+                    egui::Event::Paste(text) => {
+                        self.output_string(&text);
+                    }
+                    egui::Event::CompositionEnd(text) | egui::Event::Text(text) => {
+                        for c in text.chars() {
+                            self.output_char(c);
+                        }
+                        response.mark_changed();
+                    }
 
-                let filter = self.options.scaling.get_filter();
-                let settings = self.options.monitor_settings.clone();
-                let callback = egui::PaintCallback {
-                    rect,
-                    callback: std::sync::Arc::new(egui_glow::CallbackFn::new(
-                        move |info, painter| {
-                            buffer_view.lock().render_contents(
-                                painter.gl(),
-                                &info,
-                                buffer_rect,
-                                rect,
-                                filter,
-                                &settings,
-                            );
-                        },
-                    )), 
-                };
-                ui.painter().add(callback);
+                    egui::Event::PointerButton {
+                        pos,
+                        button,
+                        pressed: true,
+                        modifiers,
+                    } => {
+                        if calc
+                            .buffer_rect
+                            .contains(pos - calc.terminal_rect.left_top().to_vec2())
+                            && !calc.scrollbar_rect.contains(pos)
+                        {
+                            let buffer_view = self.buffer_view.clone();
+                            let click_pos = (pos
+                                - calc.buffer_rect.min
+                                - calc.terminal_rect.left_top().to_vec2())
+                                / calc.char_size
+                                + Vec2::new(0.0, calc.first_line);
+                            let mode: icy_engine::MouseMode =
+                                buffer_view.lock().buf.terminal_state.mouse_mode;
 
-                // if self.buffer_view.lock().buf.terminal_state.mouse_mode
-                //     != icy_engine::MouseMode::VT200
-
-                {
-                    response = response.context_menu(|ui| terminal_context_menu(ui, self));
-                }
-
-                if matches!(self.mode, MainWindowMode::ShowTerminal) && ui.is_enabled() {
-                    let events: Vec<egui::Event> = ui.input(|i| i.events.clone());
-                    for e in events {
-                        match e {
-                            egui::Event::PointerButton {
-                                button: PointerButton::Middle,
-                                pressed: true,
-                                ..
+                            if matches!(button, PointerButton::Primary) {
+                                buffer_view.lock().set_selection(Selection::new(click_pos));
+                                buffer_view
+                                    .lock()
+                                    .get_selection()
+                                    .as_mut()
+                                    .unwrap()
+                                    .block_selection = modifiers.alt;
                             }
-                            | egui::Event::Copy => {
-                                let buffer_view = self.buffer_view.clone();
-                                let mut l = buffer_view.lock();
-                                if let Some(txt) = l.get_copy_text(&*self.buffer_parser) {
-                                    ui.output_mut(|o| o.copied_text = txt);
+                            match mode {
+                                icy_engine::MouseMode::VT200
+                                | icy_engine::MouseMode::VT200_Highlight => {
+                                    let mut modifier_mask = 0;
+                                    if matches!(button, PointerButton::Secondary) {
+                                        modifier_mask |= 1;
+                                    }
+                                    if modifiers.shift {
+                                        modifier_mask |= 4;
+                                    }
+                                    if modifiers.alt {
+                                        modifier_mask |= 8;
+                                    }
+                                    if modifiers.ctrl || modifiers.mac_cmd {
+                                        modifier_mask |= 16;
+                                    }
+                                    self.output_string(
+                                        format!(
+                                            "\x1b[M{}{}{}",
+                                            encode_mouse_button(modifier_mask),
+                                            encode_mouse_position(click_pos.x as i32),
+                                            encode_mouse_position(
+                                                click_pos.y as i32 - calc.first_line as i32
+                                            )
+                                        )
+                                        .as_str(),
+                                    );
+                                }
+                                icy_engine::MouseMode::X10 => {
+                                    self.output_string(
+                                        format!(
+                                            "\x1b[M{}{}{}",
+                                            encode_mouse_button(0),
+                                            encode_mouse_position(click_pos.x as i32),
+                                            encode_mouse_position(click_pos.y as i32)
+                                        )
+                                        .as_str(),
+                                    );
+                                }
+                                _ => {} /*
+                                        icy_engine::MouseMode::ButtonEvents => todo!(),
+                                        icy_engine::MouseMode::AnyEvents => todo!(),
+                                        icy_engine::MouseMode::FocusEvent => todo!(),
+                                        icy_engine::MouseMode::AlternateScroll => todo!(),
+                                        icy_engine::MouseMode::ExtendedMode => todo!(),
+                                        icy_engine::MouseMode::SGRExtendedMode => todo!(),
+                                        icy_engine::MouseMode::URXVTExtendedMode => todo!(),
+                                        icy_engine::MouseMode::PixelPosition => todo!(),*/
+                            }
+                        }
+                    }
+
+                    egui::Event::PointerButton {
+                        pos,
+                        button: PointerButton::Primary,
+                        pressed: false,
+                        modifiers,
+                        ..
+                    } => {
+                        if calc
+                            .buffer_rect
+                            .contains(pos - calc.terminal_rect.left_top().to_vec2())
+                            && !calc.scrollbar_rect.contains(pos)
+                        {
+                            if let Some(sel) = self.buffer_view.lock().get_selection() {
+                                sel.locked = true;
+                            }
+                            let mode: icy_engine::MouseMode =
+                                self.buffer_view.lock().buf.terminal_state.mouse_mode;
+                            match mode {
+                                icy_engine::MouseMode::VT200
+                                | icy_engine::MouseMode::VT200_Highlight => {
+                                    if calc.buffer_rect.contains(pos) {
+                                        let click_pos = (pos
+                                            - calc.buffer_rect.min
+                                            - calc.terminal_rect.left_top().to_vec2())
+                                            / calc.char_size
+                                            + Vec2::new(0.0, calc.first_line);
+
+                                        let mut modifier_mask = 3; // 3 means realease
+                                        if modifiers.shift {
+                                            modifier_mask |= 4;
+                                        }
+                                        if modifiers.alt {
+                                            modifier_mask |= 8;
+                                        }
+                                        if modifiers.ctrl || modifiers.mac_cmd {
+                                            modifier_mask |= 16;
+                                        }
+                                        self.output_string(
+                                            format!(
+                                                "\x1b[M{}{}{}",
+                                                encode_mouse_button(modifier_mask),
+                                                encode_mouse_position(click_pos.x as i32),
+                                                encode_mouse_position(click_pos.y as i32)
+                                            )
+                                            .as_str(),
+                                        );
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+
+                    egui::Event::PointerMoved(pos) => {
+                        if calc
+                            .buffer_rect
+                            .contains(pos - calc.terminal_rect.left_top().to_vec2())
+                            && !calc.scrollbar_rect.contains(pos)
+                        {
+                            let click_pos: Vec2 = (pos
+                                - calc.buffer_rect.min
+                                - calc.terminal_rect.left_top().to_vec2())
+                                / calc.char_size
+                                + Vec2::new(0.0, calc.first_line);
+                            let buffer_view = self.buffer_view.clone();
+
+                            // Dev feature in debug mode - print char under cursor
+                            // when shift is pressed
+                            if cfg!(debug_assertions) && ui.input(|i| i.modifiers.shift_only()) {
+                                let ch = buffer_view
+                                    .lock()
+                                    .buf
+                                    .get_char_xy(click_pos.x as i32, click_pos.y as i32);
+                                println!("ch: {ch:?}");
+                            }
+
+                            let mut l = buffer_view.lock();
+                            if let Some(sel) = &mut l.get_selection() {
+                                if !sel.locked {
+                                    sel.set_lead(click_pos);
+                                    sel.block_selection = ui.input(|i| i.modifiers.alt);
+                                    l.redraw_view();
                                 }
                             }
-                            egui::Event::Paste(text) => {
-                                self.output_string(&text);
-                            }
-                            egui::Event::CompositionEnd(text) | egui::Event::Text(text) => {
-                                for c in text.chars() {
-                                    self.output_char(c);
+                        }
+                    }
+                    egui::Event::Key {
+                        key,
+                        pressed: true,
+                        modifiers,
+                        ..
+                    } => {
+                        let im = self.screen_mode.get_input_mode();
+                        let key_map = im.cur_map();
+                        let mut key_code = key as u32;
+                        if modifiers.ctrl || modifiers.command {
+                            key_code |= icy_engine_egui::ui::CTRL_MOD;
+                        }
+                        if modifiers.shift {
+                            key_code |= icy_engine_egui::ui::SHIFT_MOD;
+                        }
+                        for (k, m) in key_map {
+                            if *k == key_code {
+                                self.handled_char = true;
+                                if self.connection.is_connected() {
+                                    let res = self.connection.send(m.to_vec());
+                                    check_error!(self, res, true);
+                                } else {
+                                    for c in *m {
+                                        if let Err(err) = self.print_char(*c) {
+                                            log::error!("Error printing char: {}", err);
+                                        }
+                                    }
                                 }
                                 response.mark_changed();
-                            }
-
-                            egui::Event::PointerButton {
-                                pos,
-                                button,
-                                pressed: true,
-                                modifiers,
-                            } => {
-                                if buffer_rect.contains(pos - rect.left_top().to_vec2())
-                                    && !scrollbar_rect.contains(pos)
-                                {
-                                    let buffer_view = self.buffer_view.clone();
-                                    let click_pos =
-                                        (pos - buffer_rect.min - rect.left_top().to_vec2())
-                                            / char_size
-                                            + Vec2::new(0.0, first_line as f32);
-                                    let mode: icy_engine::MouseMode =
-                                        buffer_view.lock().buf.terminal_state.mouse_mode;
-
-                                    if matches!(button, PointerButton::Primary) {
-                                        buffer_view
-                                            .lock()
-                                            .set_selection(Selection::new(click_pos));
-                                        buffer_view
-                                            .lock()
-                                            .get_selection()
-                                            .as_mut()
-                                            .unwrap()
-                                            .block_selection = modifiers.alt;
-                                    }
-                                    match mode {
-                                        icy_engine::MouseMode::VT200
-                                        | icy_engine::MouseMode::VT200_Highlight => {
-                                            let mut modifier_mask = 0;
-                                            if matches!(button, PointerButton::Secondary) {
-                                                modifier_mask |= 1;
-                                            }
-                                            if modifiers.shift {
-                                                modifier_mask |= 4;
-                                            }
-                                            if modifiers.alt {
-                                                modifier_mask |= 8;
-                                            }
-                                            if modifiers.ctrl || modifiers.mac_cmd {
-                                                modifier_mask |= 16;
-                                            }
-                                            self.output_string(
-                                                format!(
-                                                    "\x1b[M{}{}{}",
-                                                    encode_mouse_button(modifier_mask),
-                                                    encode_mouse_position(click_pos.x as i32),
-                                                    encode_mouse_position(
-                                                        click_pos.y as i32 - first_line
-                                                    )
-                                                )
-                                                .as_str(),
-                                            );
-                                        }
-                                        icy_engine::MouseMode::X10 => {
-                                            self.output_string(
-                                                format!(
-                                                    "\x1b[M{}{}{}",
-                                                    encode_mouse_button(0),
-                                                    encode_mouse_position(click_pos.x as i32),
-                                                    encode_mouse_position(click_pos.y as i32)
-                                                )
-                                                .as_str(),
-                                            );
-                                        }
-                                        _ => {} /*
-                                                icy_engine::MouseMode::ButtonEvents => todo!(),
-                                                icy_engine::MouseMode::AnyEvents => todo!(),
-                                                icy_engine::MouseMode::FocusEvent => todo!(),
-                                                icy_engine::MouseMode::AlternateScroll => todo!(),
-                                                icy_engine::MouseMode::ExtendedMode => todo!(),
-                                                icy_engine::MouseMode::SGRExtendedMode => todo!(),
-                                                icy_engine::MouseMode::URXVTExtendedMode => todo!(),
-                                                icy_engine::MouseMode::PixelPosition => todo!(),*/
-                                    }
-                                }
-                            }
-
-                            egui::Event::PointerButton {
-                                pos,
-                                button: PointerButton::Primary,
-                                pressed: false,
-                                modifiers,
-                                ..
-                            } => {
-                                if buffer_rect.contains(pos - rect.left_top().to_vec2())
-                                    && !scrollbar_rect.contains(pos)
-                                {
-                                    if let Some(sel) = self.buffer_view.lock().get_selection() {
-                                        sel.locked = true;
-                                    }
-                                    let mode: icy_engine::MouseMode =
-                                        self.buffer_view.lock().buf.terminal_state.mouse_mode;
-                                    match mode {
-                                        icy_engine::MouseMode::VT200
-                                        | icy_engine::MouseMode::VT200_Highlight => {
-                                            if buffer_rect.contains(pos) {
-                                                let click_pos = (pos
-                                                    - buffer_rect.min
-                                                    - rect.left_top().to_vec2())
-                                                    / char_size
-                                                    + Vec2::new(0.0, first_line as f32);
-
-                                                let mut modifier_mask = 3; // 3 means realease
-                                                if modifiers.shift {
-                                                    modifier_mask |= 4;
-                                                }
-                                                if modifiers.alt {
-                                                    modifier_mask |= 8;
-                                                }
-                                                if modifiers.ctrl || modifiers.mac_cmd {
-                                                    modifier_mask |= 16;
-                                                }
-                                                self.output_string(
-                                                    format!(
-                                                        "\x1b[M{}{}{}",
-                                                        encode_mouse_button(modifier_mask),
-                                                        encode_mouse_position(click_pos.x as i32),
-                                                        encode_mouse_position(click_pos.y as i32)
-                                                    )
-                                                    .as_str(),
-                                                );
-                                            }
-                                        }
-                                        _ => {}
-                                    }
-                                }
-                            }
-
-                            egui::Event::PointerMoved(pos) => {
-                                if buffer_rect.contains(pos - rect.left_top().to_vec2())
-                                    && !scrollbar_rect.contains(pos)
-                                {
-                                    let click_pos: Vec2 =
-                                        (pos - buffer_rect.min - rect.left_top().to_vec2())
-                                            / char_size
-                                            + Vec2::new(0.0, first_line as f32);
-                                    let buffer_view = self.buffer_view.clone();
-
-
-                                    // Dev feature in debug mode - print char under cursor
-                                    // when shift is pressed
-                                    if cfg!(debug_assertions)
-                                        && ui.input(|i| i.modifiers.shift_only())
-                                    {
-                                        let ch = buffer_view
-                                        .lock()
-                                        .buf
-                                            .get_char_xy(click_pos.x as i32, click_pos.y as i32);
-                                        println!("ch: {ch:?}");
-                                    }
-
-                                    let mut l = buffer_view.lock();
-                                    if let Some(sel) = &mut l.get_selection() {
-                                        if !sel.locked {
-                                            sel.set_lead(click_pos);
-                                            sel.block_selection = ui.input(|i| i.modifiers.alt);
-                                            l.redraw_view();
-                                        }
-                                    }
-                                }
-                            }
-                            egui::Event::Key {
-                                key,
-                                pressed: true,
-                                modifiers,
-                                ..
-                            } => {
-                                let im = self.screen_mode.get_input_mode();
-                                let key_map = im.cur_map();
-                                let mut key_code = key as u32;
-                                if modifiers.ctrl || modifiers.command {
-                                    key_code |= icy_engine_egui::ui::CTRL_MOD;
-                                }
-                                if modifiers.shift {
-                                    key_code |= icy_engine_egui::ui::SHIFT_MOD;
-                                }
-                                for (k, m) in key_map {
-                                    if *k == key_code {
-                                        self.handled_char = true;
-                                        if self.connection.is_connected() {
-                                            let res = self.connection.send(m.to_vec());
-                                            check_error!(self, res, true);
-                                        } else {
-                                            for c in *m {
-                                                if let Err(err) = self.print_char(*c) {
-                                                    log::error!("Error printing char: {}", err);
-                                                }
-                                            }
-                                        }
-                                        response.mark_changed();
-                                        ui.input_mut(|i| i.consume_key(modifiers, key));
-                                        break;
-                                    }
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                    if response.hovered()  {
-                        let hover_pos_opt = ui.input(|i| i.pointer.hover_pos());
-                        if let Some(hover_pos) = hover_pos_opt {
-                            if buffer_rect.contains(hover_pos) {
-                                let hover_pos: Vec2 =
-                                (hover_pos - buffer_rect.min - rect.left_top().to_vec2())
-                                    / char_size
-                                    + Vec2::new(0.0, first_line as f32);
-                                let mut hovered_link = false;
-                                for hyper_link in self.buffer_view
-                                    .lock()
-                                    .buf.layers[0].hyperlinks() {
-
-                                    // TODO: Multiline links? 
-                                    if hover_pos.y as i32 == hyper_link.position.y &&
-                                    hover_pos.x as i32 >= hyper_link.position.x && (hover_pos.x as i32) < hyper_link.position.x + hyper_link.length {
-
-                                        ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
-                                        let url = hyper_link.url.clone();
-                                        response = response.on_hover_ui_at_pointer(|ui| {
-                                            ui.hyperlink(url.clone());
-                                        });
-                                        hovered_link = true;
-
-                                        if response.clicked() {
-                                            ui.ctx().output_mut(|o| {
-                                                o.open_url = Some(egui::output::OpenUrl {
-                                                    url,
-                                                    new_tab: false,
-                                                });
-                                            });
-                                        }
-                                        break;
-                                    }
-                                }
-                                if !hovered_link {
-                                        ui.output_mut(|o| o.cursor_icon = CursorIcon::Text);
-                                }
+                                ui.input_mut(|i| i.consume_key(modifiers, key));
+                                break;
                             }
                         }
                     }
-                } else {
-                    self.buffer_view.lock().clear_selection();
+                    _ => {}
                 }
-                response
-            },
-        );
+            }
+            if response.hovered() {
+                let hover_pos_opt = ui.input(|i| i.pointer.hover_pos());
+                if let Some(hover_pos) = hover_pos_opt {
+                    if calc.buffer_rect.contains(hover_pos) {
+                        let hover_pos: Vec2 = (hover_pos
+                            - calc.buffer_rect.min
+                            - calc.terminal_rect.left_top().to_vec2())
+                            / calc.char_size
+                            + Vec2::new(0.0, calc.first_line);
+                        let mut hovered_link = false;
+                        for hyper_link in self.buffer_view.lock().buf.layers[0].hyperlinks() {
+                            // TODO: Multiline links?
+                            if hover_pos.y as i32 == hyper_link.position.y
+                                && hover_pos.x as i32 >= hyper_link.position.x
+                                && (hover_pos.x as i32) < hyper_link.position.x + hyper_link.length
+                            {
+                                ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                                let url = hyper_link.url.clone();
+                                response = response.on_hover_ui_at_pointer(|ui| {
+                                    ui.hyperlink(url.clone());
+                                });
+                                hovered_link = true;
+
+                                if response.clicked() {
+                                    ui.ctx().output_mut(|o| {
+                                        o.open_url = Some(egui::output::OpenUrl {
+                                            url,
+                                            new_tab: false,
+                                        });
+                                    });
+                                }
+                                break;
+                            }
+                        }
+                        if !hovered_link {
+                            ui.output_mut(|o| o.cursor_icon = CursorIcon::Text);
+                        }
+                    }
+                }
+            }
+        } else {
+            self.buffer_view.lock().clear_selection();
+        }
     }
 }
 

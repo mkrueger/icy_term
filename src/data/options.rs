@@ -22,6 +22,7 @@ pub enum Scaling {
 impl Scaling {
     pub const ALL: [Scaling; 2] = [Scaling::Nearest, Scaling::Linear];
 
+    #[must_use]
     pub fn get_filter(&self) -> i32 {
         match self {
             Scaling::Nearest => glow::NEAREST as i32,
