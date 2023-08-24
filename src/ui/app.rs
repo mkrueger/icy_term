@@ -37,7 +37,7 @@ impl MainWindow {
             }
         };
 
-        let view = BufferView::new(gl, &options);
+        let view = BufferView::new(gl, options.scaling.get_filter());
 
         let addresses = match crate::addresses::start_read_book() {
             Ok(addresses) => addresses,

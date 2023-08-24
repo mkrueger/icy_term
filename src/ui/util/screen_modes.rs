@@ -3,8 +3,9 @@ use std::fmt::Display;
 use icy_engine::{
     BitFont, Palette, Size, ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, VIEWDATA_PALETTE,
 };
+use icy_engine_egui::BufferInputMode;
 
-use crate::ui::{BufferInputMode, MainWindow};
+use crate::ui::MainWindow;
 
 //use super::{BufferInputMode, BufferView};
 

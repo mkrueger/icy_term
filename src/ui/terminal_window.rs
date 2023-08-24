@@ -7,10 +7,11 @@ use eframe::{
 };
 use egui::{Button, Pos2};
 use i18n_embed_fl::fl;
+use icy_engine_egui::{Selection, SmoothScroll};
 
 use crate::check_error;
 
-use super::{dialogs, MainWindow, MainWindowMode, SmoothScroll};
+use super::{dialogs, MainWindow, MainWindowMode};
 
 fn encode_mouse_button(button: i32) -> char {
     unsafe { char::from_u32_unchecked(b' '.saturating_add(button as u8) as u32) }
@@ -298,6 +299,8 @@ impl MainWindow {
                     }
                 }
 
+                let filter = self.options.scaling.get_filter();
+                let settings = self.options.monitor_settings.clone();
                 let callback = egui::PaintCallback {
                     rect,
                     callback: std::sync::Arc::new(egui_glow::CallbackFn::new(
@@ -307,9 +310,11 @@ impl MainWindow {
                                 &info,
                                 buffer_rect,
                                 rect,
+                                filter,
+                                &settings,
                             );
                         },
-                    )),
+                    )), 
                 };
                 ui.painter().add(callback);
 
@@ -366,7 +371,7 @@ impl MainWindow {
                                     if matches!(button, PointerButton::Primary) {
                                         buffer_view
                                             .lock()
-                                            .set_selection(crate::ui::Selection::new(click_pos));
+                                            .set_selection(Selection::new(click_pos));
                                         buffer_view
                                             .lock()
                                             .get_selection()
@@ -522,10 +527,10 @@ impl MainWindow {
                                 let key_map = im.cur_map();
                                 let mut key_code = key as u32;
                                 if modifiers.ctrl || modifiers.command {
-                                    key_code |= super::CTRL_MOD;
+                                    key_code |= icy_engine_egui::ui::CTRL_MOD;
                                 }
                                 if modifiers.shift {
-                                    key_code |= super::SHIFT_MOD;
+                                    key_code |= icy_engine_egui::ui::SHIFT_MOD;
                                 }
                                 for (k, m) in key_map {
                                     if *k == key_code {

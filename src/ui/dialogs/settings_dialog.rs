@@ -5,7 +5,7 @@ use i18n_embed_fl::fl;
 use crate::{
     check_error,
     ui::{MainWindow, MainWindowMode},
-    KeyBindings, MonitorSettings, Scaling,
+    KeyBindings, Scaling,
 };
 use lazy_static::lazy_static;
 lazy_static! {
@@ -104,7 +104,6 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
                         .clicked()
                 {
                     window.options.scaling = Scaling::Nearest;
-                    window.buffer_view.lock().monitor_settings = MonitorSettings::default();
                 }
                 if settings_category == 3
                     && ui
@@ -210,16 +209,11 @@ fn show_monitor_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
                 let resp = ui.selectable_value(&mut window.options.scaling, *t, label);
                 if resp.changed() {
                     check_error!(window, window.options.store_options(), false);
-
-                    window
-                        .buffer_view
-                        .lock()
-                        .set_scaling(window.options.scaling);
                 }
             }
         });
 
-    let cur_color = window.buffer_view.lock().monitor_settings.monitor_type;
+    let cur_color = window.options.monitor_settings.monitor_type;
     egui::ComboBox::from_label(fl!(crate::LANGUAGE_LOADER, "settings-monitor-type"))
         .width(150.)
         .selected_text(&MONITOR_NAMES[cur_color])
@@ -233,19 +227,18 @@ fn show_monitor_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
                 );
                 if resp.changed() {
                     check_error!(window, window.options.store_options(), false);
-                    window.buffer_view.lock().monitor_settings.monitor_type = i;
                 }
             });
         });
-    let old_settings = window.buffer_view.lock().monitor_settings.clone();
-    let use_filter = window.buffer_view.lock().monitor_settings.use_filter;
+    let old_settings = window.options.monitor_settings.clone();
+    let use_filter = window.options.monitor_settings.use_filter;
 
     ui.add_space(8.0);
     ui.separator();
     ui.add_space(8.0);
 
     ui.checkbox(
-        &mut window.buffer_view.lock().monitor_settings.use_filter,
+        &mut window.options.monitor_settings.use_filter,
         fl!(
             crate::LANGUAGE_LOADER,
             "settings-monitor-use-crt-filter-checkbox"
@@ -255,32 +248,20 @@ fn show_monitor_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
         // todo: that should take full with, but doesn't work - egui bug ?
         ui.vertical_centered_justified(|ui| {
             ui.add(
-                egui::Slider::new(
-                    &mut window.buffer_view.lock().monitor_settings.brightness,
-                    0.0..=100.0,
-                )
-                .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-brightness")),
+                egui::Slider::new(&mut window.options.monitor_settings.brightness, 0.0..=100.0)
+                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-brightness")),
             );
             ui.add(
-                egui::Slider::new(
-                    &mut window.buffer_view.lock().monitor_settings.contrast,
-                    0.0..=100.0,
-                )
-                .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-contrast")),
+                egui::Slider::new(&mut window.options.monitor_settings.contrast, 0.0..=100.0)
+                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-contrast")),
             );
             ui.add(
-                egui::Slider::new(
-                    &mut window.buffer_view.lock().monitor_settings.saturation,
-                    0.0..=100.0,
-                )
-                .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-saturation")),
+                egui::Slider::new(&mut window.options.monitor_settings.saturation, 0.0..=100.0)
+                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-saturation")),
             );
             ui.add(
-                egui::Slider::new(
-                    &mut window.buffer_view.lock().monitor_settings.gamma,
-                    0.0..=100.0,
-                )
-                .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-gamma")),
+                egui::Slider::new(&mut window.options.monitor_settings.gamma, 0.0..=100.0)
+                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-gamma")),
             );
             /*  ui.add_enabled(
                 use_filter,
@@ -291,34 +272,23 @@ fn show_monitor_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
                 .text("Light"),
             );*/
             ui.add(
-                egui::Slider::new(
-                    &mut window.buffer_view.lock().monitor_settings.blur,
-                    0.0..=100.0,
-                )
-                .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-blur")),
+                egui::Slider::new(&mut window.options.monitor_settings.blur, 0.0..=100.0)
+                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-blur")),
             );
             ui.add(
-                egui::Slider::new(
-                    &mut window.buffer_view.lock().monitor_settings.curvature,
-                    0.0..=100.0,
-                )
-                .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-curve")),
+                egui::Slider::new(&mut window.options.monitor_settings.curvature, 0.0..=100.0)
+                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-curve")),
             );
             ui.add(
-                egui::Slider::new(
-                    &mut window.buffer_view.lock().monitor_settings.scanlines,
-                    0.0..=100.0,
-                )
-                .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-scanlines")),
+                egui::Slider::new(&mut window.options.monitor_settings.scanlines, 0.0..=100.0)
+                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-scanlines")),
             );
         });
     });
 
     ui.add_space(8.0);
 
-    let new_settings = window.buffer_view.lock().monitor_settings.clone();
-    if old_settings != new_settings {
-        window.options.monitor_settings = new_settings;
+    if old_settings != window.options.monitor_settings {
         check_error!(window, window.options.store_options(), false);
     }
 }

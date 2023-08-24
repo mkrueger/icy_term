@@ -7,6 +7,7 @@ use std::{
 use egui::Modifiers;
 use egui_bind::KeyOrPointer;
 use i18n_embed_fl::fl;
+use icy_engine_egui::MonitorSettings;
 use toml::Value;
 
 use crate::TerminalResult;
@@ -20,45 +21,11 @@ pub enum Scaling {
 
 impl Scaling {
     pub const ALL: [Scaling; 2] = [Scaling::Nearest, Scaling::Linear];
-}
 
-pub const MONO_COLORS: [(u8, u8, u8); 5] = [
-    (0xFF, 0xFF, 0xFF), // Black / White
-    (0xFF, 0x81, 0x00), // Amber
-    (0x0C, 0xCC, 0x68), // Green
-    (0x00, 0xD5, 0x6D), // Apple ][
-    (0x72, 0x9F, 0xCF), // Futuristic
-];
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct MonitorSettings {
-    pub use_filter: bool,
-
-    pub monitor_type: usize,
-
-    pub gamma: f32,
-    pub contrast: f32,
-    pub saturation: f32,
-    pub brightness: f32,
-    pub light: f32,
-    pub blur: f32,
-    pub curvature: f32,
-    pub scanlines: f32,
-}
-
-impl Default for MonitorSettings {
-    fn default() -> Self {
-        Self {
-            use_filter: false,
-            monitor_type: 0,
-            gamma: 50.,
-            contrast: 50.,
-            saturation: 50.,
-            brightness: 30.,
-            light: 40.,
-            blur: 30.,
-            curvature: 10.,
-            scanlines: 10.,
+    pub fn get_filter(&self) -> i32 {
+        match self {
+            Scaling::Nearest => glow::NEAREST as i32,
+            Scaling::Linear => glow::LINEAR as i32,
         }
     }
 }

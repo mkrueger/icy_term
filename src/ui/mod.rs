@@ -4,6 +4,7 @@ use chrono::Utc;
 use egui_bind::BindTarget;
 use i18n_embed_fl::fl;
 use icy_engine::BufferParser;
+use icy_engine_egui::BufferView;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -19,9 +20,6 @@ use crate::{addresses::store_phone_book, protocol::FileDescriptor, TerminalResul
 pub mod app;
 pub mod connection;
 
-pub mod buffer_view;
-pub use buffer_view::*;
-
 pub mod terminal_window;
 pub use terminal_window::*;
 
@@ -32,9 +30,6 @@ use self::connection::Connection;
 pub mod dialogs;
 
 pub mod com_thread;
-
-pub mod smooth_scroll;
-pub use smooth_scroll::*;
 
 #[macro_export]
 macro_rules! check_error {
