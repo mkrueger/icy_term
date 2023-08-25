@@ -546,9 +546,7 @@ impl IEmsi {
         if self.irq_requested {
             self.irq_requested = false;
             // self.log_file.push("Starting IEMSI negotiation…".to_string());
-            let mut data = EmsiICI::new();
-            data.name = adr.user_name.clone();
-            data.password = adr.password.clone();
+            let data = create_iemsi_ici(adr, options);
             return Ok(Some(data.encode()?));
         } else if let Some(_isi) = &self.isi {
             // self.log_file.push("Receiving valid IEMSI server info…".to_string());
@@ -566,13 +564,7 @@ impl IEmsi {
             self.nak_requested = false;
             if self.retries < 2 {
                 // self.log_file.push("IEMSI retry…".to_string());
-                let mut data = EmsiICI::new();
-                data.name = adr.user_name.clone();
-                data.password = adr.password.clone();
-                data.location = options.iemsi_location.clone();
-                data.alias = options.iemsi_alias.clone();
-                data.data_telephone = options.iemsi_data_phone.clone();
-                data.voice_telephone = options.iemsi_voice_phone.clone();
+                let data = create_iemsi_ici(adr, options);
                 self.retries += 1;
                 return Ok(Some(data.encode()?));
             }
@@ -591,6 +583,22 @@ impl IEmsi {
         self.isi_check_crc = 0xFFFF_FFFF;
         self.isi_data.clear();
     }
+}
+
+fn create_iemsi_ici(adr: &Address, options: &Options) -> EmsiICI {
+    let mut data = EmsiICI::new();
+    if adr.override_iemsi_settings {
+        data.name = adr.iemsi_user.clone();
+        data.password = adr.iemsi_password.clone();
+    } else {
+        data.name = adr.user_name.clone();
+        data.password = adr.password.clone();
+    }
+    data.location = options.iemsi_location.clone();
+    data.alias = options.iemsi_alias.clone();
+    data.data_telephone = options.iemsi_data_phone.clone();
+    data.voice_telephone = options.iemsi_voice_phone.clone();
+    data
 }
 
 fn get_value(ch: u8) -> usize {

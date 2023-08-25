@@ -76,6 +76,8 @@ dialing_directory-date-format=%m/%d/%Y at %H:%M
 dialing_directory-clear-filter = Clear filter
 dialing_directory-starred-items = Filter starred items
 dialing_directory-no-entries = No matching entries
+dialing_directory-add-bbs-button = Add BBS
+dialing_directory-version-warning = This dialing directory was created with a newer version of IcyTerm. Please use newer version. No changes will be saved.
 
 terminal-upload = Upload
 terminal-download = Download

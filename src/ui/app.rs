@@ -15,7 +15,7 @@ use crate::{
         BufferView, ScreenMode,
     },
     util::SoundThread,
-    Options,
+    AddressBook, Options,
 };
 
 use super::{MainWindow, MainWindowMode};
@@ -43,7 +43,7 @@ impl MainWindow {
             Ok(addresses) => addresses,
             Err(e) => {
                 log::error!("Error reading dialing_directory: {e}");
-                vec![crate::Address::new(String::new())]
+                AddressBook::default()
             }
         };
         #[cfg(not(target_arch = "wasm32"))]
@@ -114,7 +114,7 @@ impl MainWindow {
 fn parse_command_line(view: &mut MainWindow) {
     let args: Vec<String> = std::env::args().collect();
     if let Some(arg) = args.get(1) {
-        view.dialing_directory_dialog.addresses[0].address = arg.clone();
+        view.dialing_directory_dialog.addresses.addresses[0].address = arg.clone();
         view.call_bbs(0);
     }
 }

@@ -1,6 +1,5 @@
 #![allow(unsafe_code, clippy::wildcard_imports)]
 
-use core::panic;
 use std::collections::VecDeque;
 use std::sync::mpsc::{self};
 

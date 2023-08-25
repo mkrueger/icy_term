@@ -14,6 +14,7 @@ use std::{
     thread,
 };
 use toml::Value;
+use versions::Versioning;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Terminal {
@@ -85,8 +86,21 @@ impl Protocol {
 
 #[derive(Debug, Clone)]
 pub struct AddressBook {
+    pub write_lock: bool,
     pub addresses: Vec<Address>,
 }
+
+impl Default for AddressBook {
+    fn default() -> Self {
+        let mut res = Self {
+            write_lock: false,
+            addresses: Vec::new(),
+        };
+        res.load_string(TEMPLATE).unwrap_or_default();
+        res
+    }
+}
+
 /*
 pub struct LastCall {
     pub uuid: Option<uuid::Uuid>,
@@ -132,6 +146,10 @@ pub struct Address {
     pub last_call_duration: chrono::Duration,
     pub uploaded_bytes: usize,
     pub downloaded_bytes: usize,
+
+    pub override_iemsi_settings: bool,
+    pub iemsi_user: String,
+    pub iemsi_password: String,
 
     // UI
     pub address_category: crate::ui::dialogs::dialing_directory_dialog::AddressCategory,
@@ -227,6 +245,9 @@ impl Address {
             downloaded_bytes: 0,
             address_category: crate::ui::dialogs::dialing_directory_dialog::AddressCategory::Server,
             baud_emulation: BaudEmulation::Off,
+            override_iemsi_settings: false,
+            iemsi_user: String::new(),
+            iemsi_password: String::new(),
         }
     }
 
@@ -276,18 +297,14 @@ impl Address {
     /// # Errors
     ///
     /// This function will return an error if .
-    pub fn read_phone_book() -> TerminalResult<Vec<Self>> {
-        let mut res = Vec::new();
-        res.push(Address::new(String::new()));
+    pub fn read_phone_book() -> TerminalResult<AddressBook> {
+        let mut res = AddressBook::new();
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(dialing_directory) = Address::get_dialing_directory_file() {
             match fs::read_to_string(dialing_directory) {
-                Ok(input_text) => match input_text.parse::<Value>() {
-                    Ok(value) => parse_addresses(&mut res, &value),
-                    Err(err) => {
-                        return Err(format!("Error parsing dialing_directory: {err}").into());
-                    }
-                },
+                Ok(input_text) => {
+                    res.load_string(&input_text)?;
+                }
                 Err(err) => return Err(err.into()),
             }
         }
@@ -302,37 +319,10 @@ pub static mut READ_ADDRESSES: bool = false;
 /// # Errors
 ///
 /// This function will return an error if .
-pub fn start_read_book() -> TerminalResult<Vec<Address>> {
-    let res = Address::read_phone_book();
-
-    #[cfg(not(target_arch = "wasm32"))]
-    if let Some(dialing_directory) = Address::get_dialing_directory_file() {
-        thread::spawn(move || loop {
-            if let Some(path) = dialing_directory.parent() {
-                if watch(path).is_err() {
-                    return;
-                }
-            }
-        });
-    }
-    res
-}
-
-/// .
-///
-/// # Errors
-///
-/// This function will return an error if .
-pub fn store_phone_book(addresses: &[Address]) -> TerminalResult<()> {
-    if let Some(file_name) = Address::get_dialing_directory_file() {
-        let mut file = File::create(file_name)?;
-        file.write_all(b"version = \"1.0\"\n")?;
-
-        for addr in addresses.iter().skip(1) {
-            store_address(&mut file, addr)?;
-        }
-    }
-    Ok(())
+pub fn start_read_book() -> TerminalResult<AddressBook> {
+    let res = Address::read_phone_book()?;
+    start_watch_thread();
+    Ok(res)
 }
 
 fn watch<P: AsRef<Path>>(path: P) -> notify::Result<()> {
@@ -358,23 +348,88 @@ fn watch<P: AsRef<Path>>(path: P) -> notify::Result<()> {
     Ok(())
 }
 
-fn parse_addresses(addresses: &mut Vec<Address>, value: &Value) {
-    if let Value::Table(table) = value {
-        let version: Option<String> = if let Some(Value::String(version)) = table.get("version") {
-            Some(version.clone())
-        } else {
-            None
-        };
+impl AddressBook {
+    const VERSION: &'static str = "1.1.0";
 
-        if let Some(Value::Array(values)) = table.get("addresses") {
-            for value in values {
-                if version.is_some() {
-                    addresses.push(parse_address(value));
-                } else {
-                    addresses.push(parse_legacy_address(value));
+    #[must_use]
+    pub fn new() -> Self {
+        let addresses = vec![Address::new(String::new())];
+        Self {
+            write_lock: false,
+            addresses,
+        }
+    }
+
+    fn load_string(&mut self, input_text: &str) -> TerminalResult<()> {
+        match input_text.parse::<Value>() {
+            Ok(value) => self.parse_addresses(&value),
+            Err(err) => {
+                return Err(format!("Error parsing dialing_directory: {err}").into());
+            }
+        }
+        Ok(())
+    }
+
+    fn parse_addresses(&mut self, value: &Value) {
+        if let Value::Table(table) = value {
+            let version: Option<String> = if let Some(Value::String(version)) = table.get("version")
+            {
+                Some(version.clone())
+            } else {
+                None
+            };
+            if let Some(vers) = &version {
+                if let Some(vers) = Versioning::new(vers) {
+                    if vers > versions::Versioning::new(AddressBook::VERSION).unwrap() {
+                        log::warn!("Newer address book version: {vers}");
+                        self.write_lock = true;
+                    }
+                }
+            }
+
+            if let Some(Value::Array(values)) = table.get("addresses") {
+                for value in values {
+                    if version.is_some() {
+                        self.addresses.push(parse_address(value));
+                    } else {
+                        self.addresses.push(parse_legacy_address(value));
+                    }
                 }
             }
         }
+    }
+
+    /// Returns the store phone book of this [`AddressBook`].
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if .
+    pub fn store_phone_book(&self) -> TerminalResult<()> {
+        if self.write_lock {
+            return Ok(());
+        }
+        if let Some(file_name) = Address::get_dialing_directory_file() {
+            let mut file = File::create(file_name)?;
+            file.write_all(format!("version = \"{}\"\n", AddressBook::VERSION).as_bytes())?;
+
+            for addr in self.addresses.iter().skip(1) {
+                store_address(&mut file, addr)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+fn start_watch_thread() {
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some(dialing_directory) = Address::get_dialing_directory_file() {
+        thread::spawn(move || loop {
+            if let Some(path) = dialing_directory.parent() {
+                if watch(path).is_err() {
+                    return;
+                }
+            }
+        });
     }
 }
 
@@ -469,6 +524,17 @@ fn parse_address(value: &Value) -> Address {
                 _ => {}
             }
         }
+        if let Some(Value::Table(map)) = table.get("IEMSI") {
+            if let Some(Value::Boolean(value)) = map.get("override_settings") {
+                result.override_iemsi_settings = *value;
+            }
+            if let Some(Value::String(value)) = map.get("user_name") {
+                result.iemsi_user = value.clone();
+            }
+            if let Some(Value::String(value)) = map.get("password") {
+                result.iemsi_password = value.clone();
+            }
+        }
     }
 
     result
@@ -515,6 +581,28 @@ fn store_address(file: &mut File, addr: &Address) -> TerminalResult<()> {
         file.write_all(format!("last_call = \"{}\"\n", last_call.to_rfc3339()).as_bytes())?;
     }
     file.write_all(format!("created = \"{}\"\n", addr.created.to_rfc3339()).as_bytes())?;
+
+    if addr.override_iemsi_settings
+        || !addr.iemsi_user.is_empty()
+        || !addr.iemsi_password.is_empty()
+    {
+        file.write_all("[addresses.IEMSI]\n".to_string().as_bytes())?;
+
+        if addr.override_iemsi_settings {
+            file.write_all(
+                format!("override_settings = {}\n", addr.override_iemsi_settings).as_bytes(),
+            )?;
+        }
+        if !addr.iemsi_user.is_empty() {
+            file.write_all(format!("user_name = \"{}\"\n", escape(&addr.iemsi_user)).as_bytes())?;
+        }
+        if !addr.iemsi_password.is_empty() {
+            file.write_all(
+                format!("password = \"{}\"\n", escape(&addr.iemsi_password)).as_bytes(),
+            )?;
+        }
+    }
+
     Ok(())
 }
 

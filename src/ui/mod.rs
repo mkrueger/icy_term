@@ -15,7 +15,7 @@ use crate::features::{AutoFileTransfer, AutoLogin};
 use crate::protocol::{FileStorageHandler, Protocol, TransferState};
 use crate::util::SoundThread;
 use crate::Options;
-use crate::{addresses::store_phone_book, protocol::FileDescriptor, TerminalResult};
+use crate::{protocol::FileDescriptor, TerminalResult};
 
 pub mod app;
 pub mod connection;
@@ -270,7 +270,13 @@ impl MainWindow {
         }
 
         let uuid = uuid.unwrap();
-        for (i, adr) in self.dialing_directory_dialog.addresses.iter().enumerate() {
+        for (i, adr) in self
+            .dialing_directory_dialog
+            .addresses
+            .addresses
+            .iter()
+            .enumerate()
+        {
             if adr.id == uuid {
                 self.call_bbs(i);
                 return;
@@ -280,10 +286,10 @@ impl MainWindow {
 
     pub fn call_bbs(&mut self, i: usize) {
         self.mode = MainWindowMode::ShowTerminal;
-        let cloned_addr = self.dialing_directory_dialog.addresses[i].clone();
+        let cloned_addr = self.dialing_directory_dialog.addresses.addresses[i].clone();
 
         {
-            let address = &mut self.dialing_directory_dialog.addresses[i];
+            let address = &mut self.dialing_directory_dialog.addresses.addresses[i];
             let mut adr = address.address.clone();
             if !adr.contains(':') {
                 adr.push_str(":23");
@@ -307,7 +313,8 @@ impl MainWindow {
             self.buffer_view.lock().clear();
         }
         self.set_screen_mode(cloned_addr.screen_mode);
-        store_phone_book(&self.dialing_directory_dialog.addresses).unwrap_or_default();
+        let r = self.dialing_directory_dialog.addresses.store_phone_book();
+        check_error!(self, r, false);
 
         self.println(&fl!(
             crate::LANGUAGE_LOADER,
@@ -364,6 +371,7 @@ impl MainWindow {
                     if let Some(adr) = self
                         .dialing_directory_dialog
                         .addresses
+                        .addresses
                         .get(self.dialing_directory_dialog.cur_addr)
                     {
                         if let Err(err) =
@@ -406,6 +414,7 @@ impl MainWindow {
             if let Some(adr) = self
                 .dialing_directory_dialog
                 .addresses
+                .addresses
                 .get(self.dialing_directory_dialog.cur_addr)
             {
                 if self.connection.is_connected() {
@@ -432,12 +441,14 @@ impl MainWindow {
         let user_name = self
             .dialing_directory_dialog
             .addresses
+            .addresses
             .get(self.dialing_directory_dialog.cur_addr)
             .unwrap()
             .user_name
             .clone();
         let password = self
             .dialing_directory_dialog
+            .addresses
             .addresses
             .get(self.dialing_directory_dialog.cur_addr)
             .unwrap()
@@ -468,7 +479,7 @@ impl MainWindow {
                 let sec = d.as_secs();
                 let minutes = sec / 60;
                 let hours = minutes / 60;
-                let cur = &self.dialing_directory_dialog.addresses
+                let cur = &self.dialing_directory_dialog.addresses.addresses
                     [self.dialing_directory_dialog.cur_addr];
                 let t = format!("{:02}:{:02}:{:02}", hours, minutes % 60, sec % 60);
                 let s = if cur.system_name.is_empty() {

@@ -31,6 +31,7 @@ egui_file = "0.10.0"
 glow = "0.12.2"
 dark-light = "1.0.0"
 serde = "1.0.185"
+versions = "5.0.1"
 
 #sound
 rodio = { version = "0.17.1" , default-features = false, features = [] }
