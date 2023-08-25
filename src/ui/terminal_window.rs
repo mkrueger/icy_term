@@ -31,12 +31,14 @@ impl MainWindow {
         let button_frame = egui::containers::Frame::none()
             .fill(toolbar_bg_color)
             .inner_margin(egui::style::Margin::same(6.0));
+
+        let enable_ui = matches!(self.mode, MainWindowMode::ShowTerminal);
         if !self.is_fullscreen_mode {
             egui::TopBottomPanel::top("button_bar")
                 .frame(button_frame)
                 .show(ctx, |ui| {
                     let img_size = 20.0;
-                    if show_dialing_directory {
+                    if !enable_ui {
                         ui.set_enabled(false);
                     }
                     ui.horizontal(|ui| {
@@ -226,6 +228,10 @@ impl MainWindow {
         egui::CentralPanel::default()
             .frame(frame_no_margins)
             .show(ctx, |ui| {
+                if !enable_ui {
+                    ui.set_enabled(false);
+                }
+
                 self.show_terminal_area(ui);
             });
 
@@ -550,7 +556,7 @@ impl MainWindow {
                                 break;
                             }
                         }
-                        if !hovered_link {
+                        if !hovered_link && !calc.scrollbar_rect.contains(hover_pos) {
                             ui.output_mut(|o| o.cursor_icon = CursorIcon::Text);
                         }
                     }
