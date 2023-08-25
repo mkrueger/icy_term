@@ -4,36 +4,21 @@ IcyTERM is a BBS terminal program with allows you to connect to BBSes.
 Visit https://www.telnetbbsguide.com/ for a start to enter the BBS world.
 
 Features supported so far:
-- Connection
-  - [x] Telnet
-  - [x] SSH
-  - [x] Raw
-  - [x] WebSockets (both secure and non-secure)
-- Terminal encoding support
-  - [x] ANSI
-    - ANSI music
-    - Sixel support
-    - Loadable fonts
-  - [x] Avatar
-  - [x] Petscii
-  - [x] Built in fonts, many DOS fonts, C64, Amiga & Atari font supported.
-  - [x] Baud emulation
-  - [x] ATASCII
-  - [x] Viewdata
-- File transfer protocols
-  - [x] Xmodem, 1k & 1k-G (implemented but needs testing)
-  - [x] Ymodem batch & Ymodem-G (implemented but needs testing)
-  - [x] Zmodem/ZedZap (implemented but needs testing)
-- Auto login
-  - [x] IEMSI
-  - [x] Terminate style auto login system
+- Platforms: Linux, macOs, Windows
+- Telnet, SSH, Websockets and Raw connections.
+- Ansi BBS, Avatar, PETSCII, ATASCII and Viewdata emulation
+- File transfer X/Y/Z Modem and variants (1k/1k-G/8k)
+- Rich set of ansi features
+  - Modern engine with extended colors, 24bit fonts, ice support
+  - Sixels, loadable fonts, ansi macros, osc8 www links 
+  - ANSI music
 - Misc features
-  - [x] Scrollback buffer (scrollwheel)
-  - [x] Exporting buffer to disk & capture session
-  - [x] IEMSI autologin
-  - [x] Better rendering engine (maybe switching the UI to OpenGL)
-  - [x] Copy & Paste
-  - [x] Internationalization
+  - 3D accelerated rendering engine
+  - IEMSI autologin
+  - Baud emulation
+  - Exporting buffer to disk & capture session
+  - Copy & Paste
+- And many more. If something is missing open a feature request :)
 
 # Get binaries
 
@@ -64,22 +49,15 @@ I had an own BBS back in the 90'. When I started rust I searched a project and s
 That was my first project and it was successful (https://github.com/mkrueger/PPLEngine).
 Around that time I learned that there are still BBSes in the internet and I started to update my old ansi drawing tool (MysticDraw) however I lost a bit track because of the gtk4 bindings. It's very difficult to write even a mid sized UI application with these.
 
-I tried to use druid & egui for that but none of these libraries felt that it was the way to go.
+First I tried to ressurect my old ansi drawing tool (Mystic Draw) using gtk4 bindings. But they didn't really suit my needs.
+Tried Druid/Egui/Iced and decided to do a smaller project that relies on an ansi engine too.
 
-Now I want to make some small real world projects for each.
+So I decided to do a terminal program. After a first implementation with iced (cool library, can recommend) I switched to egui because I needed an opengl control and the support in iced for that was lacking at that point of time.
 
-- I made a small prototype for the ansi drawer in druid (feels very comfortable to work with but the APP looks bad)
-- Made a game cheating tool with egui - very nice tool but the APPs still have not the look & feel
-- Now I made a terminal app with iced - PopOS! is switching to that library.
-
-With all my ansi & buffer routines I've already written it makes sense to make a terminal. I need one program as well - most terminal programs are a bit too old school. Time to change that.
+So this was more of a test project for the ansi engine & writing rust UI apps but it got a bit larger than I thought and now IcyTerm is a fully featured terminal app for BBSes.
 
 # Build instructions
 
 * Install rust toolchain: https://www.rust-lang.org/tools/install
-* Running: "cargo run"
-* Building release version: "cargo build --release" - in target/release the icy_term executable is all you need
-
-Building redistrib
-# Bugs
-Please file some - I'm sure the protocols still have issues
+* On linux you need "sudo apt-get install build-essential libgtk-3-dev libasound2-dev libxcb-shape0-dev libxcb-xfixes0-dev"
+* Then you're ready to go "cargo run"
