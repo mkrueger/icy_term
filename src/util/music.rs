@@ -305,8 +305,7 @@ impl SoundBackgroundThreadData {
                 MusicAction::PlayNote(freq, length, dotted) => {
                     let f = *freq;
 
-                    let mut duration =
-                        if *dotted { 420_000_u64 } else { 300_000_u64 } / u64::from(*length);
+                    let mut duration = if *dotted { 420_000_i32 } else { 300_000_i32 } / *length;
 
                     let pause_length = match cur_style {
                         MusicStyle::Legato => 0,
@@ -318,14 +317,14 @@ impl SoundBackgroundThreadData {
                         let source = rodio::source::SineWave::new(f);
                         sink.append(source);
                         sink.play();
-                        thread::sleep(std::time::Duration::from_millis(duration));
+                        thread::sleep(std::time::Duration::from_millis(duration as u64));
                         sink.clear();
                     }
-                    thread::sleep(std::time::Duration::from_millis(pause_length));
+                    thread::sleep(std::time::Duration::from_millis(pause_length as u64));
                 }
                 MusicAction::Pause(length) => {
                     let duration = 2 * 250_000 / length;
-                    thread::sleep(std::time::Duration::from_millis(u64::from(duration)));
+                    thread::sleep(std::time::Duration::from_millis(duration as u64));
                 }
             }
         }
