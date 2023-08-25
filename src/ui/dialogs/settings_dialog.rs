@@ -201,6 +201,7 @@ fn show_terminal_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
     {
         check_error!(window, window.options.store_options(), false);
     }
+    ui.add_space(16.0);
     if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
         if ui
             .button(fl!(
@@ -212,6 +213,7 @@ fn show_terminal_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             open::that(proj_dirs.config_dir()).unwrap();
         }
     }
+    ui.add_space(8.0);
 }
 
 fn show_monitor_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
