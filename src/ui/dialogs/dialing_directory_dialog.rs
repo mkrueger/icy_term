@@ -639,7 +639,10 @@ impl DialogState {
                     &mut self
                         .get_address_mut(self.selected_bbs)
                         .override_iemsi_settings,
-                    "Custom IEMSI login data",
+                    fl!(
+                        crate::LANGUAGE_LOADER,
+                        "dialing_directory-custom-iemsi-login-data"
+                    ),
                 );
                 ui.end_row();
 
