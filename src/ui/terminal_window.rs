@@ -446,15 +446,20 @@ impl MainWindow {
 
             if response.clicked_by(PointerButton::Primary) {
                 if let Some(mouse_pos) = response.interact_pointer_pos() {
-                    if calc.buffer_rect.contains(mouse_pos) {
+                    if calc.buffer_rect.contains(mouse_pos)
+                        && !calc.scrollbar_rect.contains(mouse_pos)
+                    {
                         self.buffer_view.lock().clear_selection();
                     }
                 }
             }
 
             if response.drag_started_by(PointerButton::Primary) {
+                self.drag_start = None;
                 if let Some(mouse_pos) = response.interact_pointer_pos() {
-                    if calc.buffer_rect.contains(mouse_pos) {
+                    if calc.buffer_rect.contains(mouse_pos)
+                        && !calc.scrollbar_rect.contains(mouse_pos)
+                    {
                         let click_pos = calc.calc_click_pos(mouse_pos);
                         self.last_pos = Position::new(click_pos.x as i32, click_pos.y as i32);
                         self.drag_start = Some(click_pos);
@@ -477,7 +482,7 @@ impl MainWindow {
                 self.last_pos = Position::new(-1, -1);
             }
 
-            if response.dragged_by(PointerButton::Primary) {
+            if response.dragged_by(PointerButton::Primary) && self.drag_start.is_some() {
                 if let Some(mouse_pos) = response.interact_pointer_pos() {
                     let click_pos = calc.calc_click_pos(mouse_pos);
                     let cur = Position::new(click_pos.x as i32, click_pos.y as i32);
@@ -500,7 +505,7 @@ impl MainWindow {
                 }
             }
 
-            if response.drag_released_by(PointerButton::Primary) {
+            if response.drag_released_by(PointerButton::Primary) && self.drag_start.is_some() {
                 if let Some(mouse_pos) = response.interact_pointer_pos() {
                     let click_pos = calc.calc_click_pos(mouse_pos);
                     let mut l = self.buffer_view.lock();
