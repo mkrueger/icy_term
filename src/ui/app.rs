@@ -4,7 +4,7 @@ use std::{sync::Arc, time::Duration};
 
 use eframe::egui::{self};
 use egui::FontId;
-use icy_engine::ansi;
+use icy_engine::{ansi, Position};
 use web_time::Instant;
 
 use crate::{
@@ -78,6 +78,8 @@ impl MainWindow {
                 addresses,
             ),
             settings_dialog: dialogs::settings_dialog::DialogState::default(),
+            drag_start: None,
+            last_pos: Position::default(),
         };
 
         #[cfg(not(target_arch = "wasm32"))]

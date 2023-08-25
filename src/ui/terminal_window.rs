@@ -7,7 +7,7 @@ use eframe::{
 };
 use egui::Button;
 use i18n_embed_fl::fl;
-use icy_engine::Selection;
+use icy_engine::{Position, Selection};
 
 use crate::check_error;
 
@@ -285,25 +285,10 @@ impl MainWindow {
                             && !calc.scrollbar_rect.contains(pos)
                         {
                             let buffer_view = self.buffer_view.clone();
-                            let click_pos: Vec2 = (pos
-                                - calc.buffer_rect.min
-                                - calc.terminal_rect.left_top().to_vec2())
-                                / calc.char_size
-                                + Vec2::new(0.0, calc.first_line);
+                            let click_pos = calc.calc_click_pos(pos);
                             let mode: icy_engine::MouseMode =
                                 buffer_view.lock().buf.terminal_state.mouse_mode;
 
-                            if matches!(button, PointerButton::Primary) {
-                                buffer_view
-                                    .lock()
-                                    .set_selection(Selection::new(click_pos.x, click_pos.y));
-                                buffer_view.lock().get_selection().as_mut().unwrap().shape =
-                                    if modifiers.alt {
-                                        icy_engine::Shape::Rectangle
-                                    } else {
-                                        icy_engine::Shape::Lines
-                                    };
-                            }
                             match mode {
                                 icy_engine::MouseMode::VT200
                                 | icy_engine::MouseMode::VT200_Highlight => {
@@ -355,7 +340,6 @@ impl MainWindow {
                             }
                         }
                     }
-
                     egui::Event::PointerButton {
                         pos,
                         button: PointerButton::Primary,
@@ -368,21 +352,13 @@ impl MainWindow {
                             .contains(pos - calc.terminal_rect.left_top().to_vec2())
                             && !calc.scrollbar_rect.contains(pos)
                         {
-                            if let Some(sel) = self.buffer_view.lock().get_selection() {
-                                sel.locked = true;
-                            }
                             let mode: icy_engine::MouseMode =
                                 self.buffer_view.lock().buf.terminal_state.mouse_mode;
                             match mode {
                                 icy_engine::MouseMode::VT200
                                 | icy_engine::MouseMode::VT200_Highlight => {
                                     if calc.buffer_rect.contains(pos) {
-                                        let click_pos = (pos
-                                            - calc.buffer_rect.min
-                                            - calc.terminal_rect.left_top().to_vec2())
-                                            / calc.char_size
-                                            + Vec2::new(0.0, calc.first_line);
-
+                                        let click_pos = calc.calc_click_pos(pos);
                                         let mut modifier_mask = 3; // 3 means realease
                                         if modifiers.shift {
                                             modifier_mask |= 4;
@@ -415,37 +391,21 @@ impl MainWindow {
                             .contains(pos - calc.terminal_rect.left_top().to_vec2())
                             && !calc.scrollbar_rect.contains(pos)
                         {
-                            let click_pos: Vec2 = (pos
-                                - calc.buffer_rect.min
-                                - calc.terminal_rect.left_top().to_vec2())
-                                / calc.char_size
-                                + Vec2::new(0.0, calc.first_line);
-                            let buffer_view = self.buffer_view.clone();
-
                             // Dev feature in debug mode - print char under cursor
                             // when shift is pressed
                             if cfg!(debug_assertions) && ui.input(|i| i.modifiers.shift_only()) {
+                                let click_pos: Vec2 = calc.calc_click_pos(pos);
+                                let buffer_view = self.buffer_view.clone();
+
                                 let ch = buffer_view
                                     .lock()
                                     .buf
                                     .get_char_xy(click_pos.x as i32, click_pos.y as i32);
                                 println!("ch: {ch:?}");
                             }
-
-                            let mut l = buffer_view.lock();
-                            if let Some(sel) = &mut l.get_selection() {
-                                if !sel.locked {
-                                    sel.set_lead(click_pos.x, click_pos.y);
-                                    sel.shape = if ui.input(|i| i.modifiers.alt) {
-                                        icy_engine::Shape::Rectangle
-                                    } else {
-                                        icy_engine::Shape::Lines
-                                    };
-                                    l.redraw_view();
-                                }
-                            }
                         }
                     }
+
                     egui::Event::Key {
                         key,
                         pressed: true,
@@ -483,21 +443,89 @@ impl MainWindow {
                     _ => {}
                 }
             }
+
+            if response.clicked_by(PointerButton::Primary) {
+                if let Some(mouse_pos) = response.interact_pointer_pos() {
+                    if calc.buffer_rect.contains(mouse_pos) {
+                        self.buffer_view.lock().clear_selection();
+                    }
+                }
+            }
+
+            if response.drag_started_by(PointerButton::Primary) {
+                if let Some(mouse_pos) = response.interact_pointer_pos() {
+                    if calc.buffer_rect.contains(mouse_pos) {
+                        let click_pos = calc.calc_click_pos(mouse_pos);
+                        self.last_pos = Position::new(click_pos.x as i32, click_pos.y as i32);
+                        self.drag_start = Some(click_pos);
+
+                        self.buffer_view
+                            .lock()
+                            .set_selection(Selection::new(click_pos.x, click_pos.y));
+                        self.buffer_view
+                            .lock()
+                            .get_selection()
+                            .as_mut()
+                            .unwrap()
+                            .shape = if response.ctx.input(|i| i.modifiers.alt) {
+                            icy_engine::Shape::Rectangle
+                        } else {
+                            icy_engine::Shape::Lines
+                        };
+                    }
+                }
+                self.last_pos = Position::new(-1, -1);
+            }
+
+            if response.dragged_by(PointerButton::Primary) {
+                if let Some(mouse_pos) = response.interact_pointer_pos() {
+                    let click_pos = calc.calc_click_pos(mouse_pos);
+                    let cur = Position::new(click_pos.x as i32, click_pos.y as i32);
+
+                    if cur != self.last_pos {
+                        self.last_pos = cur;
+                        let mut l = self.buffer_view.lock();
+                        if let Some(sel) = &mut l.get_selection() {
+                            if !sel.locked {
+                                sel.set_lead(click_pos.x, click_pos.y);
+                                sel.shape = if ui.input(|i| i.modifiers.alt) {
+                                    icy_engine::Shape::Rectangle
+                                } else {
+                                    icy_engine::Shape::Lines
+                                };
+                                l.redraw_view();
+                            }
+                        }
+                    }
+                }
+            }
+
+            if response.drag_released_by(PointerButton::Primary) {
+                if let Some(mouse_pos) = response.interact_pointer_pos() {
+                    let click_pos = calc.calc_click_pos(mouse_pos);
+                    let mut l = self.buffer_view.lock();
+                    if let Some(sel) = &mut l.get_selection() {
+                        sel.set_lead(click_pos.x, click_pos.y);
+                        sel.locked = true;
+                        l.redraw_view();
+                    }
+                }
+                self.last_pos = Position::new(-1, -1);
+
+                self.drag_start = None;
+            }
+
             if response.hovered() {
                 let hover_pos_opt = ui.input(|i| i.pointer.hover_pos());
                 if let Some(hover_pos) = hover_pos_opt {
                     if calc.buffer_rect.contains(hover_pos) {
-                        let hover_pos: Vec2 = (hover_pos
-                            - calc.buffer_rect.min
-                            - calc.terminal_rect.left_top().to_vec2())
-                            / calc.char_size
-                            + Vec2::new(0.0, calc.first_line);
+                        let click_pos = calc.calc_click_pos(hover_pos);
                         let mut hovered_link = false;
                         for hyper_link in self.buffer_view.lock().buf.layers[0].hyperlinks() {
                             // TODO: Multiline links?
-                            if hover_pos.y as i32 == hyper_link.position.y
-                                && hover_pos.x as i32 >= hyper_link.position.x
-                                && (hover_pos.x as i32) < hyper_link.position.x + hyper_link.length
+                            if click_pos.y as i32 == hyper_link.position.y
+                                && click_pos.x as i32 >= hyper_link.position.x
+                                && (click_pos.x as i32) < hyper_link.position.x + hyper_link.length
                             {
                                 ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
                                 let url = hyper_link.url.clone();

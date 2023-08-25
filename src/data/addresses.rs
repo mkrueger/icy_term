@@ -407,12 +407,27 @@ impl AddressBook {
             return Ok(());
         }
         if let Some(file_name) = Address::get_dialing_directory_file() {
-            let mut file = File::create(file_name)?;
+            // create temp file to write the new dialing directory
+            let mut write_name: PathBuf = file_name.clone();
+            write_name.set_extension("new");
+            let mut file = File::create(&write_name)?;
             file.write_all(format!("version = \"{}\"\n", AddressBook::VERSION).as_bytes())?;
-
             for addr in self.addresses.iter().skip(1) {
                 store_address(&mut file, addr)?;
             }
+
+            let mut backup_file: PathBuf = file_name.clone();
+            backup_file.set_extension("bak");
+
+            // Backup old file, if it has contents
+            if let Ok(data) = fs::metadata(&file_name) {
+                if data.len() > 0 {
+                    std::fs::rename(&file_name, &backup_file)?;
+                }
+            }
+
+            // move temp file to the real file
+            std::fs::rename(&write_name, &file_name)?;
         }
         Ok(())
     }

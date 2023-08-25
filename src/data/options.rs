@@ -310,9 +310,11 @@ impl Options {
     pub fn store_options(&self) -> TerminalResult<()> {
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
-            let options_file = proj_dirs.config_dir().join("options.toml");
+            let file_name = proj_dirs.config_dir().join("options.toml");
+            let mut write_name = file_name.clone();
+            write_name.set_extension("new");
 
-            let mut file = File::create(options_file)?;
+            let mut file = File::create(&write_name)?;
             file.write_all(b"version = \"1.1\"\n")?;
 
             file.write_all(format!("scaling = \"{:?}\"\n", self.scaling).as_bytes())?;
@@ -389,6 +391,9 @@ impl Options {
             write_keybindings(&mut file, &self.bind)?;
 
             file.flush()?;
+
+            // move temp file to the real file
+            std::fs::rename(&write_name, &file_name)?;
         }
         Ok(())
     }

@@ -1,9 +1,10 @@
 #![allow(unsafe_code, clippy::wildcard_imports)]
 
 use chrono::Utc;
+use egui::Vec2;
 use egui_bind::BindTarget;
 use i18n_embed_fl::fl;
-use icy_engine::BufferParser;
+use icy_engine::{BufferParser, Position};
 use icy_engine_egui::BufferView;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
@@ -83,6 +84,8 @@ pub struct MainWindow {
     screen_mode: ScreenMode,
     auto_login: AutoLogin,
     is_fullscreen_mode: bool,
+    drag_start: Option<Vec2>,
+    last_pos: Position,
 
     /// debug spew prevention
     show_capture_error: bool,
