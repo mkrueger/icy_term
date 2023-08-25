@@ -2,6 +2,7 @@ use eframe::egui::{self};
 use egui_file::FileDialog;
 
 use crate::{
+    check_error,
     protocol::FileDescriptor,
     ui::{MainWindow, MainWindowMode},
 };
@@ -29,6 +30,23 @@ impl MainWindow {
         if let Some(dialog) = &mut self.upload_dialog.open_file_dialog {
             if dialog.show(ctx).selected() {
                 if let Some(path) = dialog.path() {
+                    if matches!(
+                        self.upload_dialog.protocol_type,
+                        crate::protocol::TransferType::Text
+                    ) {
+                        match std::fs::read(path) {
+                            Ok(bytes) => {
+                                let r = self.connection.send(bytes);
+                                check_error!(self, r, true);
+                            }
+                            r => {
+                                check_error!(self, r, true);
+                            }
+                        }
+                        self.mode = MainWindowMode::ShowTerminal;
+                        return;
+                    }
+
                     let fd = FileDescriptor::from_paths(&vec![path.to_path_buf()]);
                     if let Ok(files) = fd {
                         self.start_file_transfer(

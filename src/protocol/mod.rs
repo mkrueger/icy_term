@@ -277,6 +277,7 @@ pub enum TransferType {
     XModem1kG,
     YModem,
     YModemG,
+    Text,
 }
 
 impl TransferType {
@@ -289,6 +290,7 @@ impl TransferType {
             TransferType::XModem1kG => Box::new(XYmodem::new(XYModemVariant::XModem1kG)),
             TransferType::YModem => Box::new(XYmodem::new(XYModemVariant::YModem)),
             TransferType::YModemG => Box::new(XYmodem::new(XYModemVariant::YModemG)),
+            _ => panic!("Not implemented"),
         }
     }
 }

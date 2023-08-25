@@ -94,6 +94,7 @@ protocol-xmodem1k-description = XModem Variante
 protocol-xmodem1kG-description = Schnelle XModem Variante
 protocol-ymodem-description = Solide, aber ZModem ist besser
 protocol-ymodemg-description = Schnelle YModem Variante
+protocol-text-description = Text file hochladen
 
 transfer-upload = { terminal-upload }
 transfer-download = { terminal-download }

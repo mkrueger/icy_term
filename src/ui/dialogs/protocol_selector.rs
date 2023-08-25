@@ -8,7 +8,7 @@ use crate::ui::{MainWindow, MainWindowMode};
 
 use lazy_static::lazy_static;
 lazy_static! {
-    static ref PROTOCOL_TABLE: [(TransferType, String, String); 7] = [
+    static ref PROTOCOL_TABLE: [(TransferType, String, String); 8] = [
         (
             TransferType::ZModem,
             "Zmodem".to_string(),
@@ -43,6 +43,11 @@ lazy_static! {
             TransferType::YModemG,
             "Ymodem-G".to_string(),
             fl!(crate::LANGUAGE_LOADER, "protocol-ymodemg-description")
+        ),
+        (
+            TransferType::Text,
+            "Text".to_string(),
+            fl!(crate::LANGUAGE_LOADER, "protocol-text-description")
         )
     ];
 }
@@ -76,6 +81,9 @@ pub fn view_selector(
                 .min_row_height(24.)
                 .show(ui, |ui| {
                     for (protocol, title, descr) in &*PROTOCOL_TABLE {
+                        if download && matches!(*protocol, TransferType::Text) {
+                            continue;
+                        }
                         ui.with_layout(ui.layout().with_cross_justify(true), |ui| {
                             if ui
                                 .selectable_label(false, RichText::new(title).strong())

@@ -96,6 +96,7 @@ protocol-xmodem1k-description = Rarely used anymore
 protocol-xmodem1kG-description = Does that even exist?
 protocol-ymodem-description = Ok but Zmodem is better
 protocol-ymodemg-description = A fast Ymodem variant
+protocol-text-description = Upload a text file
 
 transfer-upload = { terminal-upload }
 transfer-download = { terminal-download }

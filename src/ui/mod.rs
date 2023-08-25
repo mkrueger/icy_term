@@ -241,6 +241,7 @@ impl MainWindow {
         if self.connection.is_disconnected() {
             return;
         }
+
         if download {
             self.start_file_transfer(protocol_type, download, None);
         } else {
