@@ -22,8 +22,9 @@ pub enum DialingDirectoryFilter {
     Favourites,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum AddressCategory {
+    #[default]
     Server,
     Login,
     Terminal,
@@ -44,6 +45,9 @@ pub struct DialogState {
     pub dialing_directory_filter_string: String,
     rng: Rng,
     show_passwords: bool,
+
+    // UI
+    pub address_category: AddressCategory,
 }
 
 impl DialogState {
@@ -78,9 +82,10 @@ impl DialogState {
 
     fn show_content(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         if self.selected_bbs.is_some() {
-            let sav: Address = self.get_address_mut(self.selected_bbs).clone();
+            let bbs = self.selected_bbs;
+            let sav: Address = self.get_address_mut(bbs).clone();
             self.view_edit_bbs(ctx, ui);
-            if sav != *self.get_address_mut(self.selected_bbs) {
+            if sav != *self.get_address_mut(bbs) {
                 self.store_dialing_directory();
             }
         } else {
@@ -409,29 +414,35 @@ impl DialogState {
         ui.add_space(8.);
         ui.separator();
         ui.horizontal(|ui| {
-            let adr = self.get_address_mut(self.selected_bbs);
-
             ui.add_space(16.);
 
-            ui.selectable_value(&mut adr.address_category, AddressCategory::Server, "Server");
+            ui.selectable_value(
+                &mut self.address_category,
+                AddressCategory::Server,
+                "Server",
+            );
             ui.add_space(8.);
 
-            ui.selectable_value(&mut adr.address_category, AddressCategory::Login, "Login");
+            ui.selectable_value(&mut self.address_category, AddressCategory::Login, "Login");
             ui.add_space(8.);
 
             ui.selectable_value(
-                &mut adr.address_category,
+                &mut self.address_category,
                 AddressCategory::Terminal,
                 "Terminal",
             );
             ui.add_space(8.);
 
-            ui.selectable_value(&mut adr.address_category, AddressCategory::Notes, "Comment");
+            ui.selectable_value(
+                &mut self.address_category,
+                AddressCategory::Notes,
+                "Comment",
+            );
         });
         ui.separator();
         ui.add_space(8.);
 
-        match self.get_address_mut(self.selected_bbs).address_category {
+        match self.address_category {
             AddressCategory::Server => {
                 self.render_server_catogery(ui);
             }

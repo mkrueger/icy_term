@@ -4,6 +4,7 @@ use chrono::{Duration, Utc};
 use icy_engine::ansi::{BaudEmulation, MusicOption};
 use icy_engine::{ansi, ascii, atascii, avatar, petscii, viewdata, BufferParser};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
+use std::backtrace::Backtrace;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
@@ -150,9 +151,6 @@ pub struct Address {
     pub override_iemsi_settings: bool,
     pub iemsi_user: String,
     pub iemsi_password: String,
-
-    // UI
-    pub address_category: crate::ui::dialogs::dialing_directory_dialog::AddressCategory,
 }
 
 const TEMPLATE: &str = r#"
@@ -243,7 +241,6 @@ impl Address {
             last_call_duration: Duration::zero(),
             uploaded_bytes: 0,
             downloaded_bytes: 0,
-            address_category: crate::ui::dialogs::dialing_directory_dialog::AddressCategory::Server,
             baud_emulation: BaudEmulation::Off,
             override_iemsi_settings: false,
             iemsi_user: String::new(),
