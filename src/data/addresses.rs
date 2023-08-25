@@ -89,6 +89,7 @@ impl Protocol {
 #[derive(Debug, Clone)]
 pub struct AddressBook {
     pub write_lock: bool,
+    created_backup: bool,
     pub addresses: Vec<Address>,
 }
 
@@ -96,6 +97,7 @@ impl Default for AddressBook {
     fn default() -> Self {
         let mut res = Self {
             write_lock: false,
+            created_backup: false,
             addresses: Vec::new(),
         };
         res.load_string(TEMPLATE).unwrap_or_default();
@@ -354,6 +356,7 @@ impl AddressBook {
         let addresses = vec![Address::new(String::new())];
         Self {
             write_lock: false,
+            created_backup: false,
             addresses,
         }
     }
@@ -402,7 +405,7 @@ impl AddressBook {
     /// # Errors
     ///
     /// This function will return an error if .
-    pub fn store_phone_book(&self) -> TerminalResult<()> {
+    pub fn store_phone_book(&mut self) -> TerminalResult<()> {
         if self.write_lock {
             return Ok(());
         }
@@ -420,9 +423,13 @@ impl AddressBook {
             backup_file.set_extension("bak");
 
             // Backup old file, if it has contents
-            if let Ok(data) = fs::metadata(&file_name) {
-                if data.len() > 0 {
-                    std::fs::rename(&file_name, &backup_file)?;
+            // NOTE: just backup once per session, otherwise it get's overwritten too easily.
+            if !self.created_backup {
+                self.created_backup = true;
+                if let Ok(data) = fs::metadata(&file_name) {
+                    if data.len() > 0 {
+                        std::fs::rename(&file_name, &backup_file)?;
+                    }
                 }
             }
 
