@@ -280,7 +280,7 @@ impl EmsiICI {
             protocols: "ZAP,ZMO,KER".to_string(),
             capabilities: "CHT,TAB,ASCII8".to_string(),
             requests: "HOT,MORE,FSED,NEWS,CLR".to_string(),
-            software: format!("-Icy-Term-,{VERSION},iced"),
+            software: format!("-Icy-Term-,{VERSION},egui"),
             xlattabl: String::new(),
         }
     }
@@ -598,6 +598,7 @@ fn create_iemsi_ici(adr: &Address, options: &Options) -> EmsiICI {
     data.alias = options.iemsi_alias.clone();
     data.data_telephone = options.iemsi_data_phone.clone();
     data.voice_telephone = options.iemsi_voice_phone.clone();
+    data.birthdate = options.iemsi_birth_date.clone();
     data
 }
 
@@ -820,13 +821,20 @@ mod tests {
         adr.user_name = "foo".to_string();
         adr.password = "bar".to_string();
 
+        let mut opt = Options::default();
+        opt.iemsi_data_phone = "data_phone".to_string();
+        opt.iemsi_voice_phone = "voice_phone".to_string();
+        opt.iemsi_alias = "alias".to_string();
+        opt.iemsi_location = "location".to_string();
+        opt.iemsi_birth_date = "12-30-1976".to_string();
+
         let mut back_data = Vec::new();
         for b in EMSI_IRQ {
-            if let Some(data) = state.advance_char(&adr, *b, &Options::default()).unwrap() {
+            if let Some(data) = state.advance_char(&adr, *b, &opt).unwrap() {
                 back_data = data;
             }
         }
-        let data = format!("EMSI_ICI0093{{foo}}{{}}{{.........}}{{-Unpublished-}}{{-Unpublished-}}{{bar}}{{}}{{ANSI,24,80,0}}{{ZAP,ZMO,KER}}{{CHT,TAB,ASCII8}}{{HOT,MORE,FSED,NEWS,CLR}}{{-Icy-Term-,{VERSION},iced}}{{}}").as_bytes().to_vec();
-        assert_eq!(format!("**EMSI_ICI0093{{foo}}{{}}{{.........}}{{-Unpublished-}}{{-Unpublished-}}{{bar}}{{}}{{ANSI,24,80,0}}{{ZAP,ZMO,KER}}{{CHT,TAB,ASCII8}}{{HOT,MORE,FSED,NEWS,CLR}}{{-Icy-Term-,{},iced}}{{}}{}\r**EMSI_ACKA490\r**EMSI_ACKA490\r", VERSION, get_crc32string(&data)), String::from_utf8(back_data).unwrap());
+        let data = format!("EMSI_ICI009C{{foo}}{{alias}}{{location}}{{data_phone}}{{voice_phone}}{{bar}}{{12-30-1976}}{{ANSI,24,80,0}}{{ZAP,ZMO,KER}}{{CHT,TAB,ASCII8}}{{HOT,MORE,FSED,NEWS,CLR}}{{-Icy-Term-,{VERSION},egui}}{{}}").as_bytes().to_vec();
+        assert_eq!(format!("**EMSI_ICI009C{{foo}}{{alias}}{{location}}{{data_phone}}{{voice_phone}}{{bar}}{{12-30-1976}}{{ANSI,24,80,0}}{{ZAP,ZMO,KER}}{{CHT,TAB,ASCII8}}{{HOT,MORE,FSED,NEWS,CLR}}{{-Icy-Term-,{},egui}}{{}}{}\r**EMSI_ACKA490\r**EMSI_ACKA490\r", VERSION, get_crc32string(&data)), String::from_utf8(back_data).unwrap());
     }
 }

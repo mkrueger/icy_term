@@ -22,6 +22,7 @@ settings-iemsi-alias = Alias:
 settings-iemsi-location = Location:
 settings-iemsi-data-phone = Data phone:
 settings-iemsi-voice-phone = Voice phone:
+settings-iemsi-birth-date = Birth date:
 
 settings-monitor-color = Color
 settings-monitor-grayscale = Grayscale

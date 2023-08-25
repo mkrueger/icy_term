@@ -176,6 +176,15 @@ fn show_iemsi_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             });
             ui.add(TextEdit::singleline(&mut window.options.iemsi_voice_phone));
             ui.end_row();
+
+            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(RichText::new(fl!(
+                    crate::LANGUAGE_LOADER,
+                    "settings-iemsi-birth-date"
+                )));
+            });
+            ui.add(TextEdit::singleline(&mut window.options.iemsi_birth_date));
+            ui.end_row();
         });
 }
 

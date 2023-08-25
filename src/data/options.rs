@@ -257,6 +257,7 @@ pub struct Options {
     pub iemsi_location: String,
     pub iemsi_data_phone: String,
     pub iemsi_voice_phone: String,
+    pub iemsi_birth_date: String,
     pub bind: KeyBindings,
 }
 
@@ -272,6 +273,7 @@ impl Default for Options {
             iemsi_location: String::default(),
             iemsi_data_phone: String::default(),
             iemsi_voice_phone: String::default(),
+            iemsi_birth_date: String::default(),
             console_beep: true,
             bind: KeyBindings::default(),
         }
@@ -382,6 +384,9 @@ impl Options {
                 file.write_all(
                     format!("voice_phone = \"{}\"\n", self.iemsi_voice_phone).as_bytes(),
                 )?;
+            }
+            if !self.iemsi_birth_date.is_empty() {
+                file.write_all(format!("birth_date = \"{}\"\n", self.iemsi_birth_date).as_bytes())?;
             }
 
             if !self.iemsi_autologin {
@@ -521,6 +526,11 @@ fn parse_iemsi_settings(options: &mut Options, iemsi_settings: &toml::map::Map<S
             "voice_phone" => {
                 if let Value::String(str) = v {
                     options.iemsi_voice_phone = str.clone();
+                }
+            }
+            "birth_date" => {
+                if let Value::String(str) = v {
+                    options.iemsi_birth_date = str.clone();
                 }
             }
             _ => {}
