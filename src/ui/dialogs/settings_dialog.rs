@@ -192,6 +192,17 @@ fn show_terminal_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
     {
         check_error!(window, window.options.store_options(), false);
     }
+    if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
+        if ui
+            .button(fl!(
+                crate::LANGUAGE_LOADER,
+                "settings-terminal-open-settings-dir-button"
+            ))
+            .clicked()
+        {
+            open::that(proj_dirs.config_dir()).unwrap();
+        }
+    }
 }
 
 fn show_monitor_settings(window: &mut MainWindow, ui: &mut egui::Ui) {

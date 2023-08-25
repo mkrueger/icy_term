@@ -34,6 +34,7 @@ settings-scaling-linear = Linear
 
 settings-terminal-category = Terminal
 settings-terminal-console-beep-checkbox = Console beep
+settings-terminal-open-settings-dir-button = Open settings directory
 
 settings-keybinds-category = Keybinds
 settings-keybinds-disconnect = Disconnect:
