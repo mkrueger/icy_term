@@ -1,9 +1,13 @@
 use std::{
     collections::VecDeque,
     io::{self, ErrorKind},
-    sync::mpsc,
-    thread::JoinHandle,
+    sync::mpsc::{channel, Receiver, SendError, Sender, TryRecvError},
 };
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::thread;
+#[cfg(target_arch = "wasm32")]
+use wasm_thread as thread;
 
 use icy_engine::ansi::sound::{AnsiMusic, MusicAction, MusicStyle};
 use rodio::OutputStream;
@@ -25,13 +29,12 @@ pub enum SoundData {
 }
 
 pub struct SoundThread {
-    rx: mpsc::Receiver<SoundData>,
-    tx: mpsc::Sender<SoundData>,
+    rx: Receiver<SoundData>,
+    tx: Sender<SoundData>,
     is_playing: bool,
     rng: Rng,
     pub stop_button: u32,
     last_stop_cycle: Instant,
-    join_handle_opt: Option<JoinHandle<()>>,
     restart_count: usize,
 }
 
@@ -39,7 +42,7 @@ impl SoundThread {
     pub fn new() -> Self {
         let mut rng = Rng::default();
         let stop_button = rng.gen_range(0..6);
-        let (tx, rx) = mpsc::channel::<SoundData>();
+        let (tx, rx) = channel::<SoundData>();
         let mut res = SoundThread {
             rx,
             tx,
@@ -47,7 +50,6 @@ impl SoundThread {
             stop_button,
             rng,
             last_stop_cycle: Instant::now(),
-            join_handle_opt: None,
             restart_count: 0,
         };
         #[cfg(not(target_arch = "wasm32"))]
@@ -67,7 +69,7 @@ impl SoundThread {
 #[cfg(not(target_arch = "wasm32"))]
 impl SoundThread {
     pub(crate) fn update_state(&mut self) -> TerminalResult<()> {
-        if self.join_handle_opt.is_none() {
+        if self.no_thread_running() {
             return Ok(());
         }
         if self.last_stop_cycle.elapsed().as_secs() > 5 {
@@ -83,8 +85,8 @@ impl SoundThread {
                 },
 
                 Err(err) => match err {
-                    mpsc::TryRecvError::Empty => break,
-                    mpsc::TryRecvError::Disconnected => {
+                    TryRecvError::Empty => break,
+                    TryRecvError::Disconnected => {
                         self.restart_background_thread();
                         return Err(Box::new(err));
                     }
@@ -102,12 +104,12 @@ impl SoundThread {
     }
 
     fn send_data(&mut self, data: SoundData) -> TerminalResult<()> {
-        if self.join_handle_opt.is_none() {
+        if self.no_thread_running() {
             // prevent error spew.
             return Ok(());
         }
         let res = self.tx.send(data);
-        if let Err(mpsc::SendError::<SoundData>(data)) = res {
+        if let Err(SendError::<SoundData>(data)) = res {
             if self.restart_background_thread() {
                 return self.send_data(data);
             }
@@ -120,8 +122,8 @@ impl SoundThread {
     }
 
     fn start_background_thread(&mut self) {
-        let (tx, rx) = mpsc::channel::<SoundData>();
-        let (tx2, rx2) = mpsc::channel::<SoundData>();
+        let (tx, rx) = channel::<SoundData>();
+        let (tx2, rx2) = channel::<SoundData>();
 
         self.rx = rx2;
         self.tx = tx;
@@ -131,35 +133,33 @@ impl SoundThread {
             music: VecDeque::new(),
             thread_is_running: true,
         };
-        self.join_handle_opt = Some(std::thread::spawn(move || {
+
+        thread::spawn(move || {
             while data.thread_is_running {
                 data.handle_queue();
                 data.handle_receive();
                 if data.music.is_empty() {
-                    std::thread::sleep(Duration::from_millis(100));
+                    thread::sleep(Duration::from_millis(100));
                 }
             }
             log::error!(
                 "communication thread closed because it lost connection with the ui thread."
             );
-        }));
+        });
+    }
+    fn no_thread_running(&self) -> bool {
+        self.restart_count > 3
     }
 
     fn restart_background_thread(&mut self) -> bool {
-        if let Some(handle) = &self.join_handle_opt {
-            if handle.is_finished() {
-                if self.restart_count > 3 {
-                    log::error!("sound thread crashed too many times, exiting.");
-                    self.join_handle_opt = None;
-                    return false;
-                }
-                self.restart_count += 1;
-                log::error!("sound thread crashed, restarting.");
-                self.start_background_thread();
-            }
-            return true;
+        if self.no_thread_running() {
+            log::error!("sound thread crashed too many times, exiting.");
+            return false;
         }
-        false
+        self.restart_count += 1;
+        log::error!("sound thread crashed, restarting.");
+        self.start_background_thread();
+        true
     }
 }
 
@@ -169,7 +169,7 @@ impl SoundThread {
         Ok(())
     }
 
-    pub(crate) fn beep(&self) {
+    pub(crate) fn beep(&self) -> TerminalResult<()> {
         let (_stream, stream_handle) = OutputStream::try_default().unwrap();
         let sink = rodio::Sink::try_new(&stream_handle).unwrap();
         sink.set_volume(0.1);
@@ -177,10 +177,11 @@ impl SoundThread {
         let source = rodio::source::SineWave::new(880.);
         sink.append(source);
 
-        std::thread::sleep(std::time::Duration::from_millis(200));
+        thread::sleep(std::time::Duration::from_millis(200));
+        Ok(())
     }
 
-    pub(crate) fn play_music(&self, music: &AnsiMusic) -> TerminalResult<()> {
+    pub(crate) fn play_music(&self, music: AnsiMusic) -> TerminalResult<()> {
         let mut i = 0;
         let mut cur_style = MusicStyle::Normal;
 
@@ -211,14 +212,14 @@ impl SoundThread {
                         let source = rodio::source::SineWave::new(f);
                         sink.append(source);
                         sink.play();
-                        std::thread::sleep(std::time::Duration::from_millis(duration));
+                        thread::sleep(std::time::Duration::from_millis(duration));
                         sink.clear();
                     }
-                    std::thread::sleep(std::time::Duration::from_millis(pause_length));
+                    thread::sleep(std::time::Duration::from_millis(pause_length));
                 }
                 MusicAction::Pause(length) => {
                     let duration = 2 * 250_000 / length;
-                    std::thread::sleep(std::time::Duration::from_millis(u64::from(duration)));
+                    thread::sleep(std::time::Duration::from_millis(u64::from(duration)));
                 }
             }
         }
@@ -227,8 +228,8 @@ impl SoundThread {
 }
 
 pub struct SoundBackgroundThreadData {
-    tx: mpsc::Sender<SoundData>,
-    rx: mpsc::Receiver<SoundData>,
+    tx: Sender<SoundData>,
+    rx: Receiver<SoundData>,
     thread_is_running: bool,
 
     music: VecDeque<SoundData>,
@@ -250,8 +251,8 @@ impl SoundBackgroundThreadData {
                     }
                     _ => {}
                 },
-                Err(mpsc::TryRecvError::Empty) => break,
-                Err(mpsc::TryRecvError::Disconnected) => {
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => {
                     self.thread_is_running = false;
                     break;
                 }
@@ -279,7 +280,7 @@ impl SoundBackgroundThreadData {
         let source = rodio::source::SineWave::new(880.);
         sink.append(source);
 
-        std::thread::sleep(std::time::Duration::from_millis(200));
+        thread::sleep(std::time::Duration::from_millis(200));
     }
 
     fn play_music(&mut self, music: &AnsiMusic) {
@@ -317,14 +318,14 @@ impl SoundBackgroundThreadData {
                         let source = rodio::source::SineWave::new(f);
                         sink.append(source);
                         sink.play();
-                        std::thread::sleep(std::time::Duration::from_millis(duration));
+                        thread::sleep(std::time::Duration::from_millis(duration));
                         sink.clear();
                     }
-                    std::thread::sleep(std::time::Duration::from_millis(pause_length));
+                    thread::sleep(std::time::Duration::from_millis(pause_length));
                 }
                 MusicAction::Pause(length) => {
                     let duration = 2 * 250_000 / length;
-                    std::thread::sleep(std::time::Duration::from_millis(u64::from(duration)));
+                    thread::sleep(std::time::Duration::from_millis(u64::from(duration)));
                 }
             }
         }

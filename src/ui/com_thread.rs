@@ -1,5 +1,6 @@
 #![allow(unsafe_code, clippy::wildcard_imports)]
 
+use core::panic;
 use std::collections::VecDeque;
 use std::sync::mpsc::{self};
 
@@ -92,10 +93,14 @@ impl ConnectionThreadData {
             crate::addresses::Protocol::Ssh => {
                 Box::new(crate::com::ssh::SSHComImpl::connect(connection_data)?)
             }
-            crate::addresses::Protocol::WebSocket(_) => Box::new(
-                crate::com::websocket::WebSocketComImpl::connect(connection_data)?,
-            ),
+            crate::addresses::Protocol::WebSocket(_) => {
+                #[cfg(target_arch = "wasm32")] //TODO
+                panic!("WebSocket is not supported on web");
 
+                Box::new(crate::com::websocket::WebSocketComImpl::connect(
+                    connection_data,
+                )?)
+            }
             #[cfg(target_arch = "wasm32")]
             crate::addresses::Protocol::Ssh => Box::new(crate::com::NullConnection {}),
         };
