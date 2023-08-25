@@ -235,15 +235,15 @@ impl MainWindow {
     }
 
     fn show_terminal_area(&mut self, ui: &mut egui::Ui) {
-        let (response, calc) = icy_engine_egui::show_terminal_area(
-            ui,
-            self.buffer_view.clone(),
-            matches!(self.mode, MainWindowMode::ShowTerminal),
-            self.options.scaling.get_filter(),
-            self.options.monitor_settings.clone(),
-            true,
-            None,
-        );
+        let opt = icy_engine_egui::TerminalOptions {
+            focus_lock: matches!(self.mode, MainWindowMode::ShowTerminal),
+            filter: self.options.scaling.get_filter(),
+            settings: self.options.monitor_settings.clone(),
+            stick_to_bottom: true,
+            ..Default::default()
+        };
+        let (response, calc) =
+            icy_engine_egui::show_terminal_area(ui, self.buffer_view.clone(), opt);
 
         let mut response = response.context_menu(|ui| terminal_context_menu(ui, self));
 
