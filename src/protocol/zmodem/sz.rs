@@ -1,6 +1,9 @@
 #![allow(clippy::unused_self)]
 
-use std::cmp::min;
+use std::{
+    cmp::min,
+    sync::{Arc, Mutex},
+};
 
 use crate::{
     protocol::{
@@ -117,7 +120,7 @@ impl Sz {
     pub fn update(
         &mut self,
         com: &mut Connection,
-        transfer_state: &mut TransferState,
+        transfer_state: &Arc<Mutex<TransferState>>,
     ) -> TerminalResult<()> {
         if let SendState::Finished = self.state {
             return Ok(());
@@ -127,19 +130,20 @@ impl Sz {
             self.state = SendState::Finished;
             return Ok(());
         }
-
-        transfer_state.update_time();
-        let transfer_info = &mut transfer_state.send_state;
-        if self.cur_file >= 0 {
-            if let Some(fd) = self.files.get(usize::try_from(self.cur_file).unwrap()) {
-                transfer_info.file_name = fd.file_name.clone();
-                transfer_info.file_size = fd.size;
+        if let Ok(mut transfer_state) = transfer_state.lock() {
+            transfer_state.update_time();
+            let transfer_info = &mut transfer_state.send_state;
+            if self.cur_file >= 0 {
+                if let Some(fd) = self.files.get(usize::try_from(self.cur_file).unwrap()) {
+                    transfer_info.file_name = fd.file_name.clone();
+                    transfer_info.file_size = fd.size;
+                }
             }
+            transfer_info.bytes_transfered = self.cur_file_pos;
+            transfer_info.errors = self.errors;
+            transfer_info.check_size = format!("Crc32/{}", self.package_len);
+            transfer_info.update_bps();
         }
-        transfer_info.bytes_transfered = self.cur_file_pos;
-        transfer_info.errors = self.errors;
-        transfer_info.check_size = format!("Crc32/{}", self.package_len);
-        transfer_info.update_bps();
         match self.state {
             SendState::Await | SendState::AwaitZRPos => {
                 self.read_next_header(com)?;

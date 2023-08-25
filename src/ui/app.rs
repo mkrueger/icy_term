@@ -1,5 +1,6 @@
 #![allow(unsafe_code, clippy::wildcard_imports)]
 
+use core::panic;
 use std::{sync::Arc, time::Duration};
 
 use eframe::egui::{self};
@@ -58,7 +59,7 @@ impl MainWindow {
             buffer_view: Arc::new(eframe::epaint::mutex::Mutex::new(view)),
             //address_list: HoverList::new(),
             mode: MainWindowMode::ShowDialingDirectory,
-            connection,
+            connection: Some(Box::new(connection)),
             options,
             auto_login: AutoLogin::new(""),
             auto_file_transfer: AutoFileTransfer::default(),
@@ -109,6 +110,23 @@ impl MainWindow {
         ctx.set_style(style);
 
         view
+    }
+
+    fn get_connection_back(&mut self) {
+        if let Some(fts) = &mut self.current_file_transfer {
+            if let Some(handle) = fts.join_handle.take() {
+                if let Ok(join) = handle.join() {
+                    self.connection = Some(join);
+                    self.mode = MainWindowMode::ShowTerminal;
+                } else {
+                    panic!("Error joining file transfer thread.");
+                }
+            } else {
+                panic!("Error joining file transfer thread - no join handle.");
+            }
+        } else {
+            panic!("Error joining file transfer thread - no current file transfer.");
+        }
     }
 }
 
@@ -161,44 +179,37 @@ impl eframe::App for MainWindow {
             }
 
             MainWindowMode::FileTransfer(download) => {
-                if self.connection.should_end_transfer() {
-                    self.auto_file_transfer.reset();
-                }
                 self.update_terminal_window(ctx, frame, false);
-                if let Some(fts) = &mut self.current_file_transfer {
-                    let inst = Instant::now();
-                    while inst.elapsed().as_millis() < 100 {
-                        let _ = fts.protocol.update(
-                            &mut self.connection,
-                            &mut fts.current_transfer.lock().unwrap(),
-                            &mut *fts.storage_handler,
-                        );
-                    }
 
-                    let state = {
-                        let Ok(state) = fts.current_transfer.lock() else {
-                            log::error!("In file transfer but can't lock state.");
-                            self.mode = MainWindowMode::ShowTerminal;
-                            return;
-                        };
-                        state.clone()
+                let mut join_thread = false;
+                if let Some(fts) = &mut self.current_file_transfer {
+                    let state = if let Ok(state) = fts.current_transfer.lock() {
+                        Some(state.clone())
+                    } else {
+                        log::error!("In file transfer but can't lock state.");
+                        join_thread = true;
+                        None
                     };
-                    if state.is_finished {
-                        self.mode = MainWindowMode::ShowTerminal;
-                    }
-                    if !fts
-                        .file_transfer_dialog
-                        .show_dialog(ctx, frame, &state, download)
-                    {
-                        self.mode = MainWindowMode::ShowTerminal;
-                        let res = self.connection.cancel_transfer();
-                        check_error!(self, res, true);
+
+                    if let Some(state) = state {
+                        if state.is_finished {
+                            join_thread = true;
+                        } else if !fts
+                            .file_transfer_dialog
+                            .show_dialog(ctx, frame, &state, download)
+                        {
+                            fts.current_transfer.lock().unwrap().request_cancel = true;
+                            join_thread = true;
+                        }
                     }
                 } else {
                     log::error!("In file transfer but no current protocol.");
-                    self.mode = MainWindowMode::ShowTerminal;
+                    join_thread = true;
                 }
-                ctx.request_repaint();
+                if join_thread {
+                    self.get_connection_back();
+                }
+                ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowCaptureDialog => {
                 let res = self.update_state();

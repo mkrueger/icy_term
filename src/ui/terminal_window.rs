@@ -430,8 +430,8 @@ impl MainWindow {
                         for (k, m) in key_map {
                             if *k == key_code {
                                 self.handled_char = true;
-                                if self.connection.is_connected() {
-                                    let res = self.connection.send(m.to_vec());
+                                if self.connection.as_ref().unwrap().is_connected() {
+                                    let res = self.connection.as_mut().unwrap().send(m.to_vec());
                                     check_error!(self, res, true);
                                 } else {
                                     for c in *m {

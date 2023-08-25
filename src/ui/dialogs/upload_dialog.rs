@@ -36,7 +36,7 @@ impl MainWindow {
                     ) {
                         match std::fs::read(path) {
                             Ok(bytes) => {
-                                let r = self.connection.send(bytes);
+                                let r = self.connection.as_mut().unwrap().send(bytes);
                                 check_error!(self, r, true);
                             }
                             r => {

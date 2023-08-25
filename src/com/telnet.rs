@@ -6,6 +6,7 @@ use std::{
     io::{self, ErrorKind, Read, Write},
     net::TcpStream,
 };
+use web_time::Duration;
 
 #[derive(Debug)]
 pub struct ComTelnetImpl {
@@ -306,7 +307,8 @@ mod telnet_option {
 impl ComTelnetImpl {
     pub fn connect(connection_data: &super::OpenConnectionData) -> TermComResult<Self> {
         let tcp_stream = TcpStream::connect(&connection_data.address)?;
-        tcp_stream.set_nonblocking(true)?;
+        tcp_stream.set_write_timeout(Some(Duration::from_millis(2000)))?;
+        tcp_stream.set_read_timeout(Some(Duration::from_millis(2000)))?;
         Ok(Self {
             tcp_stream,
             state: ParserState::Data,
@@ -512,7 +514,6 @@ impl Com for ComTelnetImpl {
             return Ok(None);
         }
 
-        self.tcp_stream.set_nonblocking(false)?;
         match self.tcp_stream.read(&mut buf) {
             Ok(size) => {
                 self.tcp_stream.set_nonblocking(true)?;
@@ -532,8 +533,8 @@ impl Com for ComTelnetImpl {
     }
 
     fn send(&mut self, buf: &[u8]) -> TermComResult<usize> {
-        if self.use_raw_transfer {
-            self.tcp_stream.write_all(buf)?;
+        let r = if self.use_raw_transfer {
+            self.tcp_stream.write_all(buf)
         } else {
             let mut data = Vec::with_capacity(buf.len());
             for b in buf {
@@ -543,9 +544,21 @@ impl Com for ComTelnetImpl {
                     data.push(*b);
                 }
             }
-            self.tcp_stream.write_all(&data)?;
+            self.tcp_stream.write_all(&data)
+        };
+
+        match r {
+            Ok(()) => Ok(buf.len()),
+            Err(ref e) => {
+                if e.kind() == io::ErrorKind::WouldBlock {
+                    return self.send(buf);
+                }
+                Err(Box::new(io::Error::new(
+                    ErrorKind::ConnectionAborted,
+                    format!("Connection aborted: {e}"),
+                )))
+            }
         }
-        Ok(buf.len())
     }
 
     fn disconnect(&mut self) -> TermComResult<()> {

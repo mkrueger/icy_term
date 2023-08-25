@@ -1,5 +1,8 @@
 #![allow(clippy::unused_self, clippy::wildcard_imports)]
-use std::cmp::Ordering;
+use std::{
+    cmp::Ordering,
+    sync::{Arc, Mutex},
+};
 
 use icy_engine::{get_crc32, update_crc32};
 use web_time::Instant;
@@ -82,7 +85,7 @@ impl Rz {
     pub fn update(
         &mut self,
         com: &mut Connection,
-        transfer_state: &mut TransferState,
+        transfer_state: &Arc<Mutex<TransferState>>,
         storage_handler: &mut dyn FileStorageHandler,
     ) -> TerminalResult<()> {
         if let RevcState::Idle = self.state {
@@ -92,20 +95,22 @@ impl Rz {
             self.cancel(com)?;
             return Ok(());
         }
-        transfer_state.update_time();
-        let transfer_info = &mut transfer_state.recieve_state;
+        if let Ok(mut transfer_state) = transfer_state.lock() {
+            transfer_state.update_time();
+            let transfer_info = &mut transfer_state.recieve_state;
 
-        if let Some(file) = storage_handler.current_file_name() {
-            transfer_info.file_name = file;
-            transfer_info.file_size = storage_handler.get_current_file_total_size();
-            transfer_info.bytes_transfered = storage_handler.current_file_length();
+            if let Some(file) = storage_handler.current_file_name() {
+                transfer_info.file_name = file;
+                transfer_info.file_size = storage_handler.get_current_file_total_size();
+                transfer_info.bytes_transfered = storage_handler.current_file_length();
+            }
+            transfer_info.errors = self.errors;
+            transfer_info.check_size = "Crc32".to_string();
+            transfer_info.update_bps();
         }
-        transfer_info.errors = self.errors;
-        transfer_info.check_size = "Crc32".to_string();
-        transfer_info.update_bps();
         match self.state {
             RevcState::SendZRINIT => {
-                if self.read_header(com, storage_handler, transfer_info)? {
+                if self.read_header(com, storage_handler, transfer_state)? {
                     return Ok(());
                 }
                 /*  let now = Instant::now();
@@ -116,7 +121,7 @@ impl Rz {
                 }*/
             }
             RevcState::AwaitZDATA => {
-                self.read_header(com, storage_handler, transfer_info)?;
+                self.read_header(com, storage_handler, transfer_state)?;
             }
             RevcState::AwaitFileData => {
                 let pck =
@@ -135,7 +140,10 @@ impl Rz {
                     Err(err) => {
                         self.errors += 1;
                         log::error!("{err}");
-                        transfer_info.log_error(format!("sub package error: {err}"));
+                        if let Ok(mut transfer_state) = transfer_state.lock() {
+                            let transfer_info = &mut transfer_state.recieve_state;
+                            transfer_info.log_error(format!("sub package error: {err}"));
+                        }
                         if storage_handler.current_file_name().is_some() {
                             Header::from_number(
                                 self.get_header_type(),
@@ -150,7 +158,7 @@ impl Rz {
                 }
             }
             _ => {
-                self.read_header(com, storage_handler, transfer_info)?;
+                self.read_header(com, storage_handler, transfer_state)?;
             }
         }
         Ok(())
@@ -165,7 +173,7 @@ impl Rz {
         &mut self,
         com: &mut Connection,
         storage_handler: &mut dyn FileStorageHandler,
-        transfer_info: &mut TransferInformation,
+        transfer_state: &Arc<Mutex<TransferState>>,
     ) -> TerminalResult<bool> {
         let result = Header::read(com, &mut self.can_count);
         if result.is_err() {
@@ -234,9 +242,13 @@ impl Rz {
                                 }
                                 file_size = file_size * 10 + (*b - b'0') as usize;
                             }
-                            transfer_info.log_info(format!(
-                                "Start file transfer: {file_name} ({file_size} bytes)"
-                            ));
+                            if let Ok(mut transfer_state) = transfer_state.lock() {
+                                let transfer_info = &mut transfer_state.recieve_state;
+
+                                transfer_info.log_info(format!(
+                                    "Start file transfer: {file_name} ({file_size} bytes)"
+                                ));
+                            }
                             storage_handler.open_file(&file_name, file_size);
 
                             self.state = RevcState::AwaitZDATA;
@@ -282,10 +294,12 @@ impl Rz {
                 }
                 ZFrameType::Eof => {
                     self.send_zrinit(com)?;
-                    transfer_info.log_info("File transferred.");
-
-                    if let Some(file) = storage_handler.current_file_name() {
-                        transfer_info.files_finished.push(file);
+                    if let Ok(mut transfer_state) = transfer_state.lock() {
+                        let transfer_info = &mut transfer_state.recieve_state;
+                        transfer_info.log_info("File transferred.");
+                        if let Some(file) = storage_handler.current_file_name() {
+                            transfer_info.files_finished.push(file);
+                        }
                     }
                     storage_handler.close();
                     self.state = RevcState::SendZRINIT;

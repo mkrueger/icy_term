@@ -1,6 +1,6 @@
 #![allow(unsafe_code, clippy::wildcard_imports)]
 
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use egui::Vec2;
 use egui_bind::BindTarget;
 use i18n_embed_fl::fl;
@@ -8,12 +8,13 @@ use icy_engine::{BufferParser, Position};
 use icy_engine_egui::BufferView;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
+use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
 use eframe::egui::Key;
 
 use crate::features::{AutoFileTransfer, AutoLogin};
-use crate::protocol::{FileStorageHandler, Protocol, TransferState};
+use crate::protocol::TransferState;
 use crate::util::SoundThread;
 use crate::Options;
 use crate::{protocol::FileDescriptor, TerminalResult};
@@ -40,7 +41,12 @@ macro_rules! check_error {
             $main_window.output_string(format!("\n\r{err}\n\r").as_str());
 
             if $terminate_connection {
-                $main_window.connection.disconnect().unwrap_or_default();
+                $main_window
+                    .connection
+                    .as_ref()
+                    .unwrap()
+                    .disconnect()
+                    .unwrap_or_default();
             }
         }
     }};
@@ -64,16 +70,89 @@ pub enum MainWindowMode {
 
 pub struct FileTransferState {
     pub current_transfer: Arc<Mutex<TransferState>>,
-    pub storage_handler: Box<dyn FileStorageHandler>,
     pub file_transfer_dialog: dialogs::up_download_dialog::FileTransferDialog,
-    pub protocol: Box<dyn Protocol>,
+
+    pub join_handle: Option<JoinHandle<Box<Connection>>>,
+}
+
+impl FileTransferState {
+    fn new(
+        mut connection: Box<Connection>,
+        protocol_type: crate::protocol::TransferType,
+        download: bool,
+        files_opt: Option<Vec<FileDescriptor>>,
+    ) -> Self {
+        let current_transfer = Arc::new(Mutex::new(TransferState::default()));
+
+        let current_transfer2 = current_transfer.clone();
+
+        let join_handle = thread::spawn(move || {
+            let mut protocol = protocol_type.create();
+
+            if let Err(err) = if download {
+                protocol.initiate_recv(&mut connection, &mut current_transfer2.lock().unwrap())
+            } else {
+                protocol.initiate_send(
+                    &mut connection,
+                    files_opt.unwrap(),
+                    &mut current_transfer2.lock().unwrap(),
+                )
+            } {
+                log::error!("{err}");
+                return connection;
+            }
+
+            if let Ok(mut storage_handler) = crate::protocol::DiskStorageHandler::new() {
+                let mut is_running = true;
+                while is_running {
+                    if let Err(err) = connection.update_state() {
+                        log::error!("Error updating state on file transfer thread: {err}");
+                        break;
+                    }
+                    match protocol.update(&mut connection, &current_transfer2, &mut storage_handler)
+                    {
+                        Ok(b) => is_running &= b,
+                        Err(err) => {
+                            log::error!("Error updating protocol on file transfer thread: {err}");
+                            break;
+                        }
+                    }
+                    match current_transfer2.lock() {
+                        Ok(ct) => {
+                            if ct.request_cancel {
+                                if let Err(err) = protocol.cancel(&mut connection) {
+                                    log::error!(
+                                        "Error sending cancel request on file transfer thread: {err}"
+                                    );
+                                }
+                                break;
+                            }
+                        }
+                        Err(err) => {
+                            log::error!(
+                                "Error locking current_transfer on file transfer thread: {err}"
+                            );
+                            break;
+                        }
+                    }
+                }
+            }
+            connection
+        });
+
+        Self {
+            current_transfer,
+            file_transfer_dialog: dialogs::up_download_dialog::FileTransferDialog::new(),
+            join_handle: Some(join_handle),
+        }
+    }
 }
 
 pub struct MainWindow {
     buffer_view: Arc<eframe::epaint::mutex::Mutex<BufferView>>,
     pub buffer_parser: Box<dyn BufferParser>,
 
-    connection: Connection,
+    connection: Option<Box<Connection>>,
 
     sound_thread: SoundThread,
 
@@ -119,8 +198,12 @@ impl MainWindow {
     }
     pub fn output_char(&mut self, ch: char) {
         let translated_char = self.buffer_parser.convert_from_unicode(ch);
-        if self.connection.is_connected() {
-            let r = self.connection.send(vec![translated_char as u8]);
+        if self.connection.as_ref().unwrap().is_connected() {
+            let r = self
+                .connection
+                .as_mut()
+                .unwrap()
+                .send(vec![translated_char as u8]);
             check_error!(self, r, false);
         } else if let Err(err) = self.print_char(translated_char as u8) {
             log::error!("{err}");
@@ -128,13 +211,13 @@ impl MainWindow {
     }
 
     pub fn output_string(&mut self, str: &str) {
-        if self.connection.is_connected() {
+        if self.connection.as_ref().unwrap().is_connected() {
             let mut v = Vec::new();
             for ch in str.chars() {
                 let translated_char = self.buffer_parser.convert_from_unicode(ch);
                 v.push(translated_char as u8);
             }
-            let r = self.connection.send(v);
+            let r = self.connection.as_mut().unwrap().send(v);
             check_error!(self, r, false);
         } else {
             for ch in str.chars() {
@@ -156,8 +239,12 @@ impl MainWindow {
         match result {
             icy_engine::CallbackAction::None => {}
             icy_engine::CallbackAction::SendString(result) => {
-                if self.connection.is_connected() {
-                    let r = self.connection.send(result.as_bytes().to_vec());
+                if self.connection.as_ref().unwrap().is_connected() {
+                    let r = self
+                        .connection
+                        .as_mut()
+                        .unwrap()
+                        .send(result.as_bytes().to_vec());
                     check_error!(self, r, false);
                 }
             }
@@ -174,6 +261,8 @@ impl MainWindow {
             icy_engine::CallbackAction::ChangeBaudEmulation(baud_emulation) => {
                 let r = self
                     .connection
+                    .as_mut()
+                    .unwrap()
                     .set_baud_rate(baud_emulation.get_baud_rate());
                 check_error!(self, r, false);
             }
@@ -204,34 +293,17 @@ impl MainWindow {
         files_opt: Option<Vec<FileDescriptor>>,
     ) {
         self.mode = MainWindowMode::FileTransfer(download);
-        self.connection.start_transfer();
 
-        let mut current_transfer = TransferState::default();
-        let mut protocol = protocol_type.create();
-
-        if let Err(err) = if download {
-            protocol.initiate_recv(&mut self.connection, &mut current_transfer)
-        } else {
-            protocol.initiate_send(
-                &mut self.connection,
-                files_opt.unwrap(),
-                &mut current_transfer,
-            )
-        } {
-            log::error!("{err}");
-            return;
-        }
         let r = crate::protocol::DiskStorageHandler::new();
         check_error!(self, r, false);
-        if let Ok(storage_handler) = crate::protocol::DiskStorageHandler::new() {
-            let current_transfer = Arc::new(Mutex::new(current_transfer));
-
-            self.current_file_transfer = Some(FileTransferState {
-                current_transfer,
-                storage_handler: Box::new(storage_handler),
-                protocol,
-                file_transfer_dialog: dialogs::up_download_dialog::FileTransferDialog::new(),
-            });
+        if let Some(mut con) = self.connection.take() {
+            con.start_transfer();
+            self.current_file_transfer = Some(FileTransferState::new(
+                con,
+                protocol_type,
+                download,
+                files_opt,
+            ));
         }
     }
 
@@ -241,7 +313,7 @@ impl MainWindow {
         download: bool,
     ) {
         self.mode = MainWindowMode::ShowTerminal;
-        if self.connection.is_disconnected() {
+        if self.connection.as_ref().unwrap().is_disconnected() {
             return;
         }
 
@@ -328,10 +400,16 @@ impl MainWindow {
 
         let timeout = self.options.connect_timeout;
         let window_size = self.screen_mode.get_window_size();
-        let r = self.connection.connect(&cloned_addr, timeout, window_size);
+        let r = self
+            .connection
+            .as_mut()
+            .unwrap()
+            .connect(&cloned_addr, timeout, window_size);
         check_error!(self, r, false);
         let r = self
             .connection
+            .as_mut()
+            .unwrap()
             .set_baud_rate(cloned_addr.baud_emulation.get_baud_rate());
         check_error!(self, r, false);
     }
@@ -340,15 +418,15 @@ impl MainWindow {
         #[cfg(target_arch = "wasm32")]
         self.poll_thread.poll();
 
-        let r = self.connection.update_state();
+        let r = self.connection.as_mut().unwrap().update_state();
         check_error!(self, r, false);
         let r = self.sound_thread.update_state();
         check_error!(self, r, false);
-        if self.connection.is_disconnected() {
+        if self.connection.as_ref().unwrap().is_disconnected() {
             return Ok(());
         }
-        let data_opt = if self.connection.is_data_available()? {
-            Some(self.connection.read_buffer())
+        let data_opt = if self.connection.as_mut().unwrap().is_data_available()? {
+            Some(self.connection.as_mut().unwrap().read_buffer())
         } else {
             None
         };
@@ -370,17 +448,20 @@ impl MainWindow {
             }
 
             for ch in data {
-                if self.options.iemsi_autologin && self.connection.is_connected() {
+                if self.options.iemsi_autologin && self.connection.as_ref().unwrap().is_connected()
+                {
                     if let Some(adr) = self
                         .dialing_directory_dialog
                         .addresses
                         .addresses
                         .get(self.dialing_directory_dialog.cur_addr)
                     {
-                        if let Err(err) =
-                            self.auto_login
-                                .try_login(&mut self.connection, adr, ch, &self.options)
-                        {
+                        if let Err(err) = self.auto_login.try_login(
+                            &mut self.connection.as_mut().unwrap(),
+                            adr,
+                            ch,
+                            &self.options,
+                        ) {
                             log::error!("{err}");
                         }
                     }
@@ -420,8 +501,11 @@ impl MainWindow {
                 .addresses
                 .get(self.dialing_directory_dialog.cur_addr)
             {
-                if self.connection.is_connected() {
-                    if let Err(err) = self.auto_login.run_autologin(&mut self.connection, adr) {
+                if self.connection.as_ref().unwrap().is_connected() {
+                    if let Err(err) = self
+                        .auto_login
+                        .run_autologin(&mut self.connection.as_mut().unwrap(), adr)
+                    {
                         log::error!("{err}");
                     }
                 }
@@ -432,13 +516,13 @@ impl MainWindow {
     }
 
     pub fn hangup(&mut self) {
-        check_error!(self, self.connection.disconnect(), false);
+        check_error!(self, self.connection.as_ref().unwrap().disconnect(), false);
         self.sound_thread.clear();
         self.mode = MainWindowMode::ShowDialingDirectory;
     }
 
     pub fn send_login(&mut self) {
-        if self.connection.is_disconnected() {
+        if self.connection.as_ref().unwrap().is_disconnected() {
             return;
         }
         let user_name = self
@@ -465,10 +549,10 @@ impl MainWindow {
             }
         }
         self.output_string(&user_name);
-        let r = self.connection.send(cr.clone());
+        let r = self.connection.as_mut().unwrap().send(cr.clone());
         check_error!(self, r, false);
         self.output_string(&password);
-        let r = self.connection.send(cr);
+        let r = self.connection.as_mut().unwrap().send(cr);
         check_error!(self, r, false);
     }
 
@@ -477,8 +561,12 @@ impl MainWindow {
         if let MainWindowMode::ShowDialingDirectory = self.mode {
             frame.set_window_title(&crate::DEFAULT_TITLE);
         } else {
-            let str = if self.connection.is_connected() {
-                let d = Instant::now().duration_since(self.connection.get_connection_time());
+            if self.connection.is_none() {
+                return;
+            }
+            let str = if self.connection.as_ref().unwrap().is_connected() {
+                let d = Instant::now()
+                    .duration_since(self.connection.as_ref().unwrap().get_connection_time());
                 let sec = d.as_secs();
                 let minutes = sec / 60;
                 let hours = minutes / 60;

@@ -1,5 +1,8 @@
 use icy_engine::get_crc16;
-use std::cmp::min;
+use std::{
+    cmp::min,
+    sync::{Arc, Mutex},
+};
 
 use super::{
     constants::{CAN, DEFAULT_BLOCK_LENGTH},
@@ -65,25 +68,29 @@ impl Sy {
     pub fn update(
         &mut self,
         com: &mut Connection,
-        transfer_state: &mut TransferState,
+        transfer_state: &Arc<Mutex<TransferState>>,
     ) -> TerminalResult<()> {
-        transfer_state.update_time();
-        let transfer_info = &mut transfer_state.send_state;
-        if self.cur_file < self.files.len() {
-            let f = &self.files[self.cur_file];
-            transfer_info.file_name = f.file_name.clone();
-            transfer_info.file_size = f.size;
+        if let Ok(mut transfer_state) = transfer_state.lock() {
+            transfer_state.update_time();
+            let transfer_info = &mut transfer_state.send_state;
+            if self.cur_file < self.files.len() {
+                let f = &self.files[self.cur_file];
+                transfer_info.file_name = f.file_name.clone();
+                transfer_info.file_size = f.size;
+            }
+            transfer_info.bytes_transfered = self.bytes_send;
+            transfer_info.errors = self.errors;
+            transfer_info.check_size = self.configuration.get_check_and_size();
+            transfer_info.update_bps();
         }
-        transfer_info.bytes_transfered = self.bytes_send;
-        transfer_info.errors = self.errors;
-        transfer_info.check_size = self.configuration.get_check_and_size();
-        transfer_info.update_bps();
         // println!("send state: {:?} {:?}", self.send_state, self.configuration.variant);
 
         match self.send_state {
             SendState::None => {}
             SendState::InitiateSend => {
-                transfer_state.current_state = "Initiate send…";
+                if let Ok(mut transfer_state) = transfer_state.lock() {
+                    transfer_state.current_state = "Initiate send…";
+                }
                 self.get_mode(com)?;
                 if self.configuration.is_ymodem() {
                     self.send_state = SendState::SendYModemHeader(0);
@@ -94,7 +101,9 @@ impl Sy {
 
             SendState::SendYModemHeader(retries) => {
                 if retries > 3 {
-                    transfer_state.current_state = "Too many retries...aborting";
+                    if let Ok(mut transfer_state) = transfer_state.lock() {
+                        transfer_state.current_state = "Too many retries...aborting";
+                    }
                     self.cancel(com)?;
                     return Ok(());
                 }
@@ -108,7 +117,9 @@ impl Sy {
                 // let now = Instant::now();
                 let ack = self.read_command(com)?;
                 if ack == NAK {
-                    transfer_state.current_state = "Encountered error";
+                    if let Ok(mut transfer_state) = transfer_state.lock() {
+                        transfer_state.current_state = "Encountered error";
+                    }
                     self.errors += 1;
                     if retries > 5 {
                         self.send_state = SendState::None;
@@ -122,7 +133,9 @@ impl Sy {
                         self.send_state = SendState::None;
                         return Ok(());
                     }
-                    transfer_state.current_state = "Header accepted.";
+                    if let Ok(mut transfer_state) = transfer_state.lock() {
+                        transfer_state.current_state = "Header accepted.";
+                    }
                     self.data = self.files[self.cur_file].get_data();
                     let _ = self.read_command(com)?;
                     // SKIP - not needed to check that
@@ -139,7 +152,9 @@ impl Sy {
                 }*/
             }
             SendState::SendData(cur_offset, retries) => {
-                transfer_state.current_state = "Send data...";
+                if let Ok(mut transfer_state) = transfer_state.lock() {
+                    transfer_state.current_state = "Send data...";
+                }
                 if self.send_data_block(com, cur_offset)? {
                     if self.configuration.is_streaming() {
                         self.bytes_send = cur_offset + self.configuration.block_length;

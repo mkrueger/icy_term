@@ -4,6 +4,7 @@ use crate::ui::connection::Connection;
 use crate::TerminalResult;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 pub mod file_storage_handler;
@@ -221,6 +222,7 @@ pub struct TransferState {
     pub end_time: Instant,
     pub send_state: TransferInformation,
     pub recieve_state: TransferInformation,
+    pub request_cancel: bool,
 }
 
 impl Default for TransferState {
@@ -233,6 +235,7 @@ impl Default for TransferState {
             end_time: Instant::now(),
             send_state: TransferInformation::default(),
             recieve_state: TransferInformation::default(),
+            request_cancel: false,
         }
     }
 }
@@ -247,7 +250,7 @@ pub trait Protocol {
     fn update(
         &mut self,
         com: &mut Connection,
-        transfer_state: &mut TransferState,
+        transfer_state: &Arc<Mutex<TransferState>>,
         storage_handler: &mut dyn FileStorageHandler,
     ) -> TerminalResult<bool>;
 

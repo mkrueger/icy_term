@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use crate::{ui::connection::Connection, TerminalResult};
 mod constants;
 mod err;
@@ -47,18 +49,18 @@ impl super::Protocol for XYmodem {
     fn update(
         &mut self,
         com: &mut Connection,
-        transfer_state: &mut TransferState,
+        transfer_state: &Arc<Mutex<TransferState>>,
         storage_handler: &mut dyn FileStorageHandler,
     ) -> TerminalResult<bool> {
         if let Some(ry) = &mut self.ry {
             ry.update(com, transfer_state, storage_handler)?;
-            transfer_state.is_finished = ry.is_finished();
+            transfer_state.lock().unwrap().is_finished = ry.is_finished();
             if ry.is_finished() {
                 return Ok(false);
             }
         } else if let Some(sy) = &mut self.sy {
             sy.update(com, transfer_state)?;
-            transfer_state.is_finished = sy.is_finished();
+            transfer_state.lock().unwrap().is_finished = sy.is_finished();
             if sy.is_finished() {
                 return Ok(false);
             }

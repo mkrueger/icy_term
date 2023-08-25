@@ -1,5 +1,8 @@
 use icy_engine::get_crc16;
-use std::io::{self, ErrorKind};
+use std::{
+    io::{self, ErrorKind},
+    sync::{Arc, Mutex},
+};
 
 use super::{constants::DEFAULT_BLOCK_LENGTH, get_checksum, Checksum, XYModemConfiguration};
 use crate::{
@@ -53,28 +56,31 @@ impl Ry {
     pub fn update(
         &mut self,
         com: &mut Connection,
-        transfer_state: &mut TransferState,
+        transfer_state: &Arc<Mutex<TransferState>>,
         storage_handler: &mut dyn FileStorageHandler,
     ) -> TerminalResult<()> {
-        transfer_state.update_time();
-        let transfer_info = &mut transfer_state.recieve_state;
-        if !self.files.is_empty() {
-            let cur_file = self.files.len() - 1;
-            let f = &self.files[cur_file];
-            transfer_info.file_name = f.file_name.clone();
-            transfer_info.file_size = f.size;
+        if let Ok(mut transfer_state) = transfer_state.lock() {
+            transfer_state.update_time();
+            let transfer_info = &mut transfer_state.recieve_state;
+            if !self.files.is_empty() {
+                let cur_file = self.files.len() - 1;
+                let f = &self.files[cur_file];
+                transfer_info.file_name = f.file_name.clone();
+                transfer_info.file_size = f.size;
+            }
+            transfer_info.bytes_transfered = self.bytes_send;
+            transfer_info.errors = self.errors;
+            transfer_info.check_size = self.configuration.get_check_and_size();
+            transfer_info.update_bps();
         }
-        transfer_info.bytes_transfered = self.bytes_send;
-        transfer_info.errors = self.errors;
-        transfer_info.check_size = self.configuration.get_check_and_size();
-        transfer_info.update_bps();
 
         match self.recv_state {
             RecvState::None => {}
 
             RecvState::StartReceive(retries) => {
-                transfer_state.current_state = "Start receiving...";
-
+                if let Ok(mut transfer_state) = transfer_state.lock() {
+                    transfer_state.current_state = "Start receiving...";
+                }
                 let start = com.read_u8()?;
                 if start == SOH {
                     if self.configuration.is_ymodem() {
@@ -104,7 +110,9 @@ impl Ry {
             RecvState::ReadYModemHeader(retries) => {
                 let len = 128; // constant header length
 
-                transfer_state.current_state = "Get header...";
+                if let Ok(mut transfer_state) = transfer_state.lock() {
+                    transfer_state.current_state = "Get header...";
+                }
                 let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode {
                     2
                 } else {
@@ -171,13 +179,18 @@ impl Ry {
 
                         let cur_file = self.files.len() - 1;
                         let fd = self.files.get_mut(cur_file).unwrap();
-                        transfer_info.log_info(format!("Start file transfer: {}", fd.file_name));
-
+                        if let Ok(mut transfer_state) = transfer_state.lock() {
+                            let transfer_info = &mut transfer_state.recieve_state;
+                            transfer_info
+                                .log_info(format!("Start file transfer: {}", fd.file_name));
+                        }
                         storage_handler.open_file(&fd.file_name, 0);
                         storage_handler.append(&self.data);
-                        transfer_info.log_info("File transferred.");
-                        transfer_info.files_finished.push(fd.file_name.to_string());
-
+                        if let Ok(mut transfer_state) = transfer_state.lock() {
+                            let transfer_info = &mut transfer_state.recieve_state;
+                            transfer_info.log_info("File transferred.");
+                            transfer_info.files_finished.push(fd.file_name.to_string());
+                        }
                         storage_handler.close();
                         self.data = Vec::new();
 
@@ -217,7 +230,9 @@ impl Ry {
             }
 
             RecvState::ReadBlock(len, retries) => {
-                transfer_state.current_state = "Receiving data...";
+                if let Ok(mut transfer_state) = transfer_state.lock() {
+                    transfer_state.current_state = "Receiving data...";
+                }
                 let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode {
                     2
                 } else {

@@ -3,6 +3,8 @@
 
 pub mod constants;
 
+use std::sync::{Arc, Mutex};
+
 pub use constants::*;
 mod headers;
 pub use headers::*;
@@ -134,19 +136,19 @@ impl Protocol for Zmodem {
     fn update(
         &mut self,
         com: &mut Connection,
-        transfer_state: &mut TransferState,
+        transfer_state: &Arc<Mutex<TransferState>>,
         storage_handler: &mut dyn FileStorageHandler,
     ) -> TerminalResult<bool> {
         if let Some(rz) = &mut self.rz {
             rz.update(com, transfer_state, storage_handler)?;
             if !rz.is_active() {
-                transfer_state.is_finished = true;
+                transfer_state.lock().unwrap().is_finished = true;
                 return Ok(false);
             }
         } else if let Some(sz) = &mut self.sz {
             sz.update(com, transfer_state)?;
             if !sz.is_active() {
-                transfer_state.is_finished = true;
+                transfer_state.lock().unwrap().is_finished = true;
                 return Ok(false);
             }
         }
