@@ -62,7 +62,7 @@ impl MainWindow {
             options,
             auto_login: AutoLogin::new(""),
             auto_file_transfer: AutoFileTransfer::default(),
-            screen_mode: ScreenMode::Vga(80, 25),
+            screen_mode: ScreenMode::default(),
             current_file_transfer: None,
             handled_char: false,
             buffer_parser: Box::<ansi::Parser>::default(),

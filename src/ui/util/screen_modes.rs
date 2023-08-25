@@ -20,6 +20,12 @@ pub enum ScreenMode {
     Videotex,
 }
 
+impl Default for ScreenMode {
+    fn default() -> Self {
+        ScreenMode::Vga(80, 25)
+    }
+}
+
 pub const DEFAULT_MODES: [ScreenMode; 8] = [
     ScreenMode::Vga(80, 25),
     ScreenMode::Vga(80, 50),

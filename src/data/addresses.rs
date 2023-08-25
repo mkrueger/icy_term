@@ -4,7 +4,6 @@ use chrono::{Duration, Utc};
 use icy_engine::ansi::{BaudEmulation, MusicOption};
 use icy_engine::{ansi, ascii, atascii, avatar, petscii, viewdata, BufferParser};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
-use std::backtrace::Backtrace;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
@@ -17,8 +16,9 @@ use std::{
 use toml::Value;
 use versions::Versioning;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Terminal {
+    #[default]
     Ansi,
     Avatar,
     Ascii,
@@ -51,8 +51,9 @@ impl Display for Terminal {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Protocol {
+    #[default]
     Telnet,
     Raw,
     Ssh,
@@ -223,13 +224,13 @@ impl Address {
             user_name: String::new(),
             password: String::new(),
             comment: String::new(),
-            terminal_type: Terminal::Ansi,
+            terminal_type: Terminal::default(),
             font_name: None,
-            screen_mode: ScreenMode::Vga(80, 25),
+            screen_mode: ScreenMode::default(),
             auto_login: String::new(),
             address: String::new(),
-            protocol: Protocol::Telnet,
-            ansi_music: MusicOption::Off,
+            protocol: Protocol::default(),
+            ansi_music: MusicOption::default(),
             ice_mode: true,
             id: unsafe { current_id },
             is_favored: false,
@@ -241,7 +242,7 @@ impl Address {
             last_call_duration: Duration::zero(),
             uploaded_bytes: 0,
             downloaded_bytes: 0,
-            baud_emulation: BaudEmulation::Off,
+            baud_emulation: BaudEmulation::default(),
             override_iemsi_settings: false,
             iemsi_user: String::new(),
             iemsi_password: String::new(),
@@ -553,7 +554,9 @@ fn store_address(file: &mut File, addr: &Address) -> TerminalResult<()> {
         file.write_all(format!("is_favored = {}\n", addr.is_favored).as_bytes())?;
     }
     file.write_all(format!("address = \"{}\"\n", escape(&addr.address)).as_bytes())?;
-    file.write_all(format!("protocol = \"{:?}\"\n", addr.protocol).as_bytes())?;
+    if addr.protocol != Protocol::default() {
+        file.write_all(format!("protocol = \"{:?}\"\n", addr.protocol).as_bytes())?;
+    }
     if !addr.user_name.is_empty() {
         file.write_all(format!("user_name = \"{}\"\n", escape(&addr.user_name)).as_bytes())?;
     }
@@ -563,12 +566,22 @@ fn store_address(file: &mut File, addr: &Address) -> TerminalResult<()> {
     if !addr.auto_login.is_empty() {
         file.write_all(format!("auto_login = \"{}\"\n", escape(&addr.auto_login)).as_bytes())?;
     }
-    file.write_all(format!("terminal_type = \"{:?}\"\n", addr.terminal_type).as_bytes())?;
-    if addr.ansi_music != MusicOption::Off {
+
+    if addr.terminal_type != Terminal::default() {
+        file.write_all(format!("terminal_type = \"{:?}\"\n", addr.terminal_type).as_bytes())?;
+    }
+
+    if addr.ansi_music != MusicOption::default() {
         file.write_all(format!("ansi_music = \"{:?}\"\n", addr.ansi_music).as_bytes())?;
     }
-    file.write_all(format!("baud_emulation = \"{}\"\n", addr.baud_emulation).as_bytes())?;
-    file.write_all(format!("screen_mode = \"{:?}\"\n", addr.screen_mode).as_bytes())?;
+
+    if addr.baud_emulation != BaudEmulation::default() {
+        file.write_all(format!("baud_emulation = \"{}\"\n", addr.baud_emulation).as_bytes())?;
+    }
+
+    if addr.screen_mode != ScreenMode::default() {
+        file.write_all(format!("screen_mode = \"{:?}\"\n", addr.screen_mode).as_bytes())?;
+    }
     if !addr.comment.is_empty() {
         file.write_all(format!("comment = \"{}\"\n", escape(&addr.comment)).as_bytes())?;
     }
