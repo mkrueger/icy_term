@@ -246,6 +246,7 @@ impl MainWindow {
             filter: self.get_options().scaling.get_filter(),
             settings: self.get_options().monitor_settings.clone(),
             stick_to_bottom: true,
+            font_extension: self.screen_mode.get_font_extension(),
             ..Default::default()
         };
         let (response, calc) =

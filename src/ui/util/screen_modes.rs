@@ -3,7 +3,7 @@ use std::fmt::Display;
 use icy_engine::{
     BitFont, Palette, Size, ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, VIEWDATA_PALETTE,
 };
-use icy_engine_egui::BufferInputMode;
+use icy_engine_egui::{BufferInputMode, FontExtension};
 
 use crate::ui::MainWindow;
 
@@ -52,6 +52,14 @@ impl Display for ScreenMode {
 }
 
 impl ScreenMode {
+    pub fn get_font_extension(&self) -> FontExtension {
+        FontExtension::Off
+        /*
+        match self {
+            ScreenMode::Default | ScreenMode::Vga(_, _) => FontExtension::LineGraphicsEnable,
+            _ => FontExtension::Off,
+        }*/
+    }
     pub fn get_input_mode(&self) -> BufferInputMode {
         match self {
             //ScreenMode::Cga(_, _) | ScreenMode::Ega(_, _) |

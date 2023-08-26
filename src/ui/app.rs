@@ -6,6 +6,7 @@ use std::{sync::Arc, time::Duration};
 use eframe::egui::{self};
 use egui::FontId;
 use icy_engine::{ansi, Position};
+use icy_engine_egui::FontExtension;
 
 use crate::{
     check_error,
@@ -37,9 +38,9 @@ impl MainWindow {
             }
         };
 
-        let view = BufferView::new(gl, options.scaling.get_filter());
+        let view = BufferView::new(gl, options.scaling.get_filter(), FontExtension::Off);
 
-        let addresses = match crate::addresses::start_read_book() {
+        let addresses: AddressBook = match crate::addresses::start_read_book() {
             Ok(addresses) => addresses,
             Err(e) => {
                 log::error!("Error reading dialing_directory: {e}");
