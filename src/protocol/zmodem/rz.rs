@@ -10,7 +10,7 @@ use web_time::Instant;
 use crate::{
     protocol::{
         str_from_null_terminated_utf8_unchecked, FileStorageHandler, Header, HeaderType,
-        TransferInformation, TransferState, ZFrameType, Zmodem, ZCRCE, ZCRCG, ZCRCW,
+        TransferState, ZFrameType, Zmodem, ZCRCE, ZCRCG, ZCRCW,
     },
     ui::connection::Connection,
     TerminalResult,

@@ -1,14 +1,40 @@
+use std::io::Write;
+
 use eframe::egui::{self, RichText};
 use egui::TextEdit;
 use egui_file::FileDialog;
 use i18n_embed_fl::fl;
 
-use crate::ui::{MainWindow, MainWindowMode};
+use crate::{
+    ui::{MainWindow, MainWindowMode},
+    Options,
+};
 
 #[derive(Default)]
 pub struct DialogState {
     open_file_dialog: Option<FileDialog>,
     pub capture_session: bool,
+
+    /// debug spew prevention
+    pub show_capture_error: bool,
+}
+impl DialogState {
+    pub(crate) fn append_data(&mut self, options: &Options, data: &[u8]) {
+        if self.capture_session {
+            if let Ok(mut data_file) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&options.capture_filename)
+            {
+                if let Err(err) = data_file.write_all(data) {
+                    if !self.show_capture_error {
+                        self.show_capture_error = true;
+                        log::error!("{err}");
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl MainWindow {
@@ -120,7 +146,7 @@ impl MainWindow {
         }
 
         if changed {
-            self.show_capture_error = false;
+            self.capture_dialog.show_capture_error = false;
             check_error!(self, self.options.store_options(), false);
         }
 

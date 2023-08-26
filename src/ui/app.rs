@@ -6,7 +6,6 @@ use std::{sync::Arc, time::Duration};
 use eframe::egui::{self};
 use egui::FontId;
 use icy_engine::{ansi, Position};
-use web_time::Instant;
 
 use crate::{
     check_error,
@@ -67,7 +66,6 @@ impl MainWindow {
             current_file_transfer: None,
             handled_char: false,
             buffer_parser: Box::<ansi::Parser>::default(),
-            show_capture_error: false,
             #[cfg(target_arch = "wasm32")]
             poll_thread,
             sound_thread: SoundThread::new(),

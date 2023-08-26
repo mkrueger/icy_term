@@ -1,12 +1,11 @@
 #![allow(unsafe_code, clippy::wildcard_imports)]
 
-use chrono::{Duration, Utc};
+use chrono::Utc;
 use egui::Vec2;
 use egui_bind::BindTarget;
 use i18n_embed_fl::fl;
 use icy_engine::{BufferParser, Position};
 use icy_engine_egui::BufferView;
-use std::io::Write;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
@@ -165,9 +164,6 @@ pub struct MainWindow {
     is_fullscreen_mode: bool,
     drag_start: Option<Vec2>,
     last_pos: Position,
-
-    /// debug spew prevention
-    show_capture_error: bool,
 
     auto_file_transfer: AutoFileTransfer,
 
@@ -373,6 +369,7 @@ impl MainWindow {
             address.last_call = Some(Utc::now());
 
             self.auto_login = AutoLogin::new(&cloned_addr.auto_login);
+            self.auto_file_transfer.reset();
             self.buffer_view.lock().buf.clear();
             self.dialing_directory_dialog.cur_addr = i;
             self.buffer_parser = address.get_terminal_parser(&cloned_addr);
@@ -432,20 +429,7 @@ impl MainWindow {
         };
 
         if let Some(data) = data_opt {
-            if self.capture_dialog.capture_session {
-                if let Ok(mut data_file) = std::fs::OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open(&self.options.capture_filename)
-                {
-                    if let Err(err) = data_file.write_all(&data) {
-                        if !self.show_capture_error {
-                            self.show_capture_error = true;
-                            log::error!("{err}");
-                        }
-                    }
-                }
-            }
+            self.capture_dialog.append_data(&self.options, &data);
 
             for ch in data {
                 if self.options.iemsi_autologin && self.connection.as_ref().unwrap().is_connected()
@@ -456,13 +440,11 @@ impl MainWindow {
                         .addresses
                         .get(self.dialing_directory_dialog.cur_addr)
                     {
-                        if let Err(err) = self.auto_login.try_login(
-                            &mut self.connection.as_mut().unwrap(),
-                            adr,
-                            ch,
-                            &self.options,
-                        ) {
-                            log::error!("{err}");
+                        if let Some(con) = &mut self.connection {
+                            if let Err(err) = self.auto_login.try_login(con, adr, ch, &self.options)
+                            {
+                                log::error!("{err}");
+                            }
                         }
                     }
                 }
@@ -501,12 +483,11 @@ impl MainWindow {
                 .addresses
                 .get(self.dialing_directory_dialog.cur_addr)
             {
-                if self.connection.as_ref().unwrap().is_connected() {
-                    if let Err(err) = self
-                        .auto_login
-                        .run_autologin(&mut self.connection.as_mut().unwrap(), adr)
-                    {
-                        log::error!("{err}");
+                if let Some(con) = &mut self.connection {
+                    if con.is_connected() {
+                        if let Err(err) = self.auto_login.run_autologin(con, adr) {
+                            log::error!("{err}");
+                        }
                     }
                 }
             }

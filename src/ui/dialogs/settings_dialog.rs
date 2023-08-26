@@ -5,7 +5,7 @@ use i18n_embed_fl::fl;
 use crate::{
     check_error,
     ui::{MainWindow, MainWindowMode},
-    KeyBindings, Scaling,
+    Scaling,
 };
 use lazy_static::lazy_static;
 lazy_static! {
