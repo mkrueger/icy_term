@@ -594,11 +594,11 @@ fn create_iemsi_ici(adr: &Address, options: &Options) -> EmsiICI {
         data.name = adr.user_name.clone();
         data.password = adr.password.clone();
     }
-    data.location = options.iemsi_location.clone();
-    data.alias = options.iemsi_alias.clone();
-    data.data_telephone = options.iemsi_data_phone.clone();
-    data.voice_telephone = options.iemsi_voice_phone.clone();
-    data.birthdate = options.iemsi_birth_date.clone();
+    data.location = options.iemsi.location.clone();
+    data.alias = options.iemsi.alias.clone();
+    data.data_telephone = options.iemsi.data_phone.clone();
+    data.voice_telephone = options.iemsi.voice_phone.clone();
+    data.birthdate = options.iemsi.birth_date.clone();
     data
 }
 
@@ -823,11 +823,11 @@ mod tests {
         adr.password = "bar".to_string();
 
         let mut opt = Options::default();
-        opt.iemsi_data_phone = "data_phone".to_string();
-        opt.iemsi_voice_phone = "voice_phone".to_string();
-        opt.iemsi_alias = "alias".to_string();
-        opt.iemsi_location = "location".to_string();
-        opt.iemsi_birth_date = "12-30-1976".to_string();
+        opt.iemsi.data_phone = "data_phone".to_string();
+        opt.iemsi.voice_phone = "voice_phone".to_string();
+        opt.iemsi.alias = "alias".to_string();
+        opt.iemsi.location = "location".to_string();
+        opt.iemsi.birth_date = "12-30-1976".to_string();
 
         let mut back_data = Vec::new();
         for b in EMSI_IRQ {

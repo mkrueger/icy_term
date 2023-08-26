@@ -76,7 +76,6 @@ impl MainWindow {
             dialing_directory_dialog: dialogs::dialing_directory_dialog::DialogState::new(
                 addresses,
             ),
-            settings_dialog: dialogs::settings_dialog::DialogState::default(),
             drag_start: None,
             last_pos: Position::default(),
         };
@@ -155,16 +154,11 @@ impl eframe::App for MainWindow {
                 self.update_terminal_window(ctx, frame, true);
                 check_error!(self, res, false);
             }
-            MainWindowMode::ShowSettings(in_dialing_directory) => {
-                if in_dialing_directory {
-                    dialogs::dialing_directory_dialog::view_dialing_directory(self, ctx);
-                } else {
-                    let res = self.update_state();
-                    self.update_terminal_window(ctx, frame, false);
-                    check_error!(self, res, false);
-                    ctx.request_repaint_after(Duration::from_millis(150));
-                }
-                dialogs::settings_dialog::show_settings(self, ctx, frame);
+            MainWindowMode::ShowSettings => {
+                let res = self.update_state();
+                self.update_terminal_window(ctx, frame, false);
+                check_error!(self, res, false);
+                self.state.show_settings(ctx, frame);
             }
             MainWindowMode::DeleteSelectedAddress(uuid) => {
                 self.update_terminal_window(ctx, frame, true);

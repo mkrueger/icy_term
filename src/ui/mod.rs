@@ -57,7 +57,7 @@ pub enum MainWindowMode {
     #[default]
     ShowDialingDirectory,
     ///Shows settings - parameter: show dialing_directory
-    ShowSettings(bool),
+    ShowSettings,
     SelectProtocol(bool),
     FileTransfer(bool),
     DeleteSelectedAddress(usize),
@@ -73,6 +73,8 @@ pub struct MainWindowState {
     pub options: Options,
 
     pub capture_dialog: dialogs::capture_dialog::DialogState,
+    pub settings_dialog: dialogs::settings_dialog::DialogState,
+
     // don't store files in unit test mode
     #[cfg(test)]
     pub options_written: bool,
@@ -116,7 +118,6 @@ pub struct MainWindow {
     pub dialing_directory_dialog: dialogs::dialing_directory_dialog::DialogState,
     pub export_dialog: dialogs::export_dialog::DialogState,
     pub upload_dialog: dialogs::upload_dialog::DialogState,
-    pub settings_dialog: dialogs::settings_dialog::DialogState,
 
     #[cfg(target_arch = "wasm32")]
     poll_thread: com_thread::ConnectionThreadData,
@@ -383,7 +384,7 @@ impl MainWindow {
                 .append_data(&self.state.options, &data);
 
             for ch in data {
-                if self.get_options().iemsi_autologin && self.connection().is_connected() {
+                if self.get_options().iemsi.autologin && self.connection().is_connected() {
                     if let Some(adr) = self
                         .dialing_directory_dialog
                         .addresses
@@ -427,7 +428,7 @@ impl MainWindow {
             }
         }
 
-        if self.get_options().iemsi_autologin {
+        if self.get_options().iemsi.autologin {
             if let Some(adr) = self
                 .dialing_directory_dialog
                 .addresses
@@ -528,10 +529,6 @@ impl MainWindow {
         }
     }
 
-    pub(crate) fn show_settings(&mut self, in_dialing_directory: bool) {
-        self.set_mode(MainWindowMode::ShowSettings(in_dialing_directory));
-    }
-
     fn handle_terminal_key_binds(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         if self.get_options().bind.clear_screen.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
@@ -551,7 +548,7 @@ impl MainWindow {
         }
         if self.get_options().bind.show_settings.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
-            self.set_mode(MainWindowMode::ShowSettings(false));
+            self.set_mode(MainWindowMode::ShowSettings);
         }
         if self.get_options().bind.show_capture.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());

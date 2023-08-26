@@ -88,7 +88,9 @@ macro_rules! keys {
             Ok(())
         }
 
-        pub fn show_keybinds_settings(window: &mut crate::ui::MainWindow, ui: &mut egui::Ui) {
+        pub(crate) fn show_keybinds_settings(state: &crate::ui::MainWindowState, ui: &mut egui::Ui) -> Option<crate::ui::dialogs::settings_dialog::Command>  {
+            let mut bind = state.options.bind.clone();
+            let mut changed_bindings = false;
             egui::Grid::new("keybinds_grid")
                 .num_columns(2)
                 .show(ui, |ui| {
@@ -96,15 +98,22 @@ macro_rules! keys {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             ui.label(fl!(crate::LANGUAGE_LOADER, $translation));
                         });
-                        ui.add(egui_bind::Bind::new(
+                        if ui.add(egui_bind::Bind::new(
                             stringify!($l),
-                            &mut window.state.options.bind.$l,
-                        ));
+                            &mut bind.$l,
+                        )).changed() {
+                            changed_bindings = true;
+                        }
                         ui.end_row();
                     )*
                 });
+            if changed_bindings {
+                println!("changed bindings");
+                Some(crate::ui::dialogs::settings_dialog::Command::UpdateKeybinds(bind))
+            } else {
+                None
+            }
         }
-
     }
 }
 
@@ -244,21 +253,38 @@ keys![
 ];
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct IEMSISettings {
+    pub autologin: bool,
+    pub alias: String,
+    pub location: String,
+    pub data_phone: String,
+    pub voice_phone: String,
+    pub birth_date: String,
+}
+
+impl Default for IEMSISettings {
+    fn default() -> Self {
+        Self {
+            autologin: true,
+            alias: String::default(),
+            location: String::default(),
+            data_phone: String::default(),
+            voice_phone: String::default(),
+            birth_date: String::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Options {
     pub scaling: Scaling,
     pub connect_timeout: Duration,
-    pub monitor_settings: MonitorSettings,
     pub capture_filename: String,
-
     pub console_beep: bool,
 
-    pub iemsi_autologin: bool,
-    pub iemsi_alias: String,
-    pub iemsi_location: String,
-    pub iemsi_data_phone: String,
-    pub iemsi_voice_phone: String,
-    pub iemsi_birth_date: String,
+    pub monitor_settings: MonitorSettings,
     pub bind: KeyBindings,
+    pub iemsi: IEMSISettings,
 }
 
 impl Default for Options {
@@ -268,12 +294,7 @@ impl Default for Options {
             connect_timeout: Duration::default(),
             monitor_settings: MonitorSettings::default(),
             capture_filename: String::default(),
-            iemsi_autologin: true,
-            iemsi_alias: String::default(),
-            iemsi_location: String::default(),
-            iemsi_data_phone: String::default(),
-            iemsi_voice_phone: String::default(),
-            iemsi_birth_date: String::default(),
+            iemsi: IEMSISettings::default(),
             console_beep: true,
             bind: KeyBindings::default(),
         }
@@ -376,29 +397,29 @@ impl Options {
 
             file.write_all("[IEMSI]\n".to_string().as_bytes())?;
 
-            if !self.iemsi_autologin {
-                file.write_all(format!("autologin = {}\n", self.iemsi_autologin).as_bytes())?;
+            if !self.iemsi.autologin {
+                file.write_all(format!("autologin = {}\n", self.iemsi.autologin).as_bytes())?;
             }
-            if !self.iemsi_location.is_empty() {
-                file.write_all(format!("location = \"{}\"\n", self.iemsi_location).as_bytes())?;
+            if !self.iemsi.location.is_empty() {
+                file.write_all(format!("location = \"{}\"\n", self.iemsi.location).as_bytes())?;
             }
-            if !self.iemsi_alias.is_empty() {
-                file.write_all(format!("alias = \"{}\"\n", self.iemsi_alias).as_bytes())?;
+            if !self.iemsi.alias.is_empty() {
+                file.write_all(format!("alias = \"{}\"\n", self.iemsi.alias).as_bytes())?;
             }
-            if !self.iemsi_data_phone.is_empty() {
-                file.write_all(format!("data_phone = \"{}\"\n", self.iemsi_data_phone).as_bytes())?;
+            if !self.iemsi.data_phone.is_empty() {
+                file.write_all(format!("data_phone = \"{}\"\n", self.iemsi.data_phone).as_bytes())?;
             }
-            if !self.iemsi_voice_phone.is_empty() {
+            if !self.iemsi.voice_phone.is_empty() {
                 file.write_all(
-                    format!("voice_phone = \"{}\"\n", self.iemsi_voice_phone).as_bytes(),
+                    format!("voice_phone = \"{}\"\n", self.iemsi.voice_phone).as_bytes(),
                 )?;
             }
-            if !self.iemsi_birth_date.is_empty() {
-                file.write_all(format!("birth_date = \"{}\"\n", self.iemsi_birth_date).as_bytes())?;
+            if !self.iemsi.birth_date.is_empty() {
+                file.write_all(format!("birth_date = \"{}\"\n", self.iemsi.birth_date).as_bytes())?;
             }
 
-            if !self.iemsi_autologin {
-                file.write_all(format!("autologin = {}\n", self.iemsi_autologin).as_bytes())?;
+            if !self.iemsi.autologin {
+                file.write_all(format!("autologin = {}\n", self.iemsi.autologin).as_bytes())?;
             }
 
             write_keybindings(&mut file, &self.bind)?;
@@ -526,32 +547,32 @@ fn parse_iemsi_settings(options: &mut Options, iemsi_settings: &toml::map::Map<S
         match k.as_str() {
             "autologin" => {
                 if let Value::Boolean(autologin) = v {
-                    options.iemsi_autologin = *autologin;
+                    options.iemsi.autologin = *autologin;
                 }
             }
             "location" => {
                 if let Value::String(str) = v {
-                    options.iemsi_location = str.clone();
+                    options.iemsi.location = str.clone();
                 }
             }
             "alias" => {
                 if let Value::String(str) = v {
-                    options.iemsi_alias = str.clone();
+                    options.iemsi.alias = str.clone();
                 }
             }
             "data_phone" => {
                 if let Value::String(str) = v {
-                    options.iemsi_data_phone = str.clone();
+                    options.iemsi.data_phone = str.clone();
                 }
             }
             "voice_phone" => {
                 if let Value::String(str) = v {
-                    options.iemsi_voice_phone = str.clone();
+                    options.iemsi.voice_phone = str.clone();
                 }
             }
             "birth_date" => {
                 if let Value::String(str) = v {
-                    options.iemsi_birth_date = str.clone();
+                    options.iemsi.birth_date = str.clone();
                 }
             }
             _ => {}
@@ -566,7 +587,7 @@ mod tests {
 
     #[test]
     fn test_reset_monitor_settings() {
-        let mut opt = Options::default();
+        let mut opt: Options = Options::default();
         opt.scaling = Scaling::Linear;
         opt.monitor_settings.blur = 0.0;
         opt.monitor_settings.brightness = 1.0;

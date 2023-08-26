@@ -212,7 +212,7 @@ impl MainWindow {
                                     .button(fl!(crate::LANGUAGE_LOADER, "menu-item-settings"))
                                     .clicked()
                                 {
-                                    self.show_settings(false);
+                                    self.set_mode(MainWindowMode::ShowSettings);
                                     ui.close_menu();
                                 }
                             },

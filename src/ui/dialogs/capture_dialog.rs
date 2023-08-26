@@ -140,77 +140,81 @@ impl MainWindowState {
             result = Some(Command::CloseDialog);
         }
 
-        self.handle_command(result);
+        handle_command(self, result);
     }
+}
 
-    fn handle_command(&mut self, command_opt: Option<Command>) {
-        match command_opt {
-            Some(Command::OpenFolder) => {
-                let initial_path = if self.options.capture_filename.is_empty() {
-                    None
-                } else {
-                    Path::new(&self.options.capture_filename)
-                        .parent()
-                        .map(std::path::Path::to_path_buf)
-                };
-                let mut dialog: FileDialog = FileDialog::save_file(initial_path);
-                dialog.open();
-                self.capture_dialog.open_file_dialog = Some(dialog);
-            }
-            Some(Command::StopCapture) => {
-                self.capture_dialog.capture_session = false;
-            }
-            Some(Command::StartCapture) => {
-                self.capture_dialog.capture_session = true;
-            }
-            Some(Command::CloseDialog) => {
-                self.mode = MainWindowMode::ShowTerminal;
-            }
-            Some(Command::ChangeCaptureFileName(file)) => {
-                self.options.capture_filename = file;
-                self.capture_dialog.show_capture_error = false;
-                self.store_options();
-            }
-            _ => {}
+fn handle_command(state: &mut MainWindowState, command_opt: Option<Command>) {
+    match command_opt {
+        Some(Command::OpenFolder) => {
+            let initial_path = if state.options.capture_filename.is_empty() {
+                None
+            } else {
+                Path::new(&state.options.capture_filename)
+                    .parent()
+                    .map(std::path::Path::to_path_buf)
+            };
+            let mut dialog: FileDialog = FileDialog::save_file(initial_path);
+            dialog.open();
+            state.capture_dialog.open_file_dialog = Some(dialog);
         }
+        Some(Command::StopCapture) => {
+            state.capture_dialog.capture_session = false;
+        }
+        Some(Command::StartCapture) => {
+            state.capture_dialog.capture_session = true;
+        }
+        Some(Command::CloseDialog) => {
+            state.mode = MainWindowMode::ShowTerminal;
+        }
+        Some(Command::ChangeCaptureFileName(file)) => {
+            state.options.capture_filename = file;
+            state.capture_dialog.show_capture_error = false;
+            state.store_options();
+        }
+        _ => {}
     }
 }
 
 #[cfg(test)]
 mod tests {
     #![allow(clippy::field_reassign_with_default)]
-    use crate::ui::MainWindowState;
+    use crate::ui::{dialogs::capture_dialog::handle_command, MainWindowState};
 
     #[test]
     fn test_start_capture() {
         let mut state: MainWindowState = MainWindowState::default();
         assert!(!state.capture_dialog.capture_session);
-        state.handle_command(Some(super::Command::StartCapture));
+        handle_command(&mut state, Some(super::Command::StartCapture));
         assert!(state.capture_dialog.capture_session);
+        assert!(!state.options_written);
     }
 
     #[test]
     fn test_stop_capture() {
         let mut state: MainWindowState = MainWindowState::default();
         state.capture_dialog.capture_session = true;
-        state.handle_command(Some(super::Command::StopCapture));
+        handle_command(&mut state, Some(super::Command::StopCapture));
         assert!(!state.capture_dialog.capture_session);
+        assert!(!state.options_written);
     }
 
     #[test]
     fn test_close_dialog() {
         let mut state: MainWindowState = MainWindowState::default();
         state.mode = super::MainWindowMode::ShowCaptureDialog;
-        state.handle_command(Some(super::Command::CloseDialog));
+        handle_command(&mut state, Some(super::Command::CloseDialog));
         assert!(matches!(state.mode, super::MainWindowMode::ShowTerminal));
+        assert!(!state.options_written);
     }
 
     #[test]
     fn test_change_filename() {
         let mut state: MainWindowState = MainWindowState::default();
-        state.handle_command(Some(super::Command::ChangeCaptureFileName(
-            "foo.baz".to_string(),
-        )));
+        handle_command(
+            &mut state,
+            Some(super::Command::ChangeCaptureFileName("foo.baz".to_string())),
+        );
         assert_eq!("foo.baz".to_string(), state.options.capture_filename);
         assert!(state.options_written);
     }
