@@ -364,7 +364,9 @@ impl Options {
                 .as_bytes(),
             )?;
 
-            file.write_all(format!("console_beep = {}\n", self.console_beep).as_bytes())?;
+            if self.console_beep != Options::default().console_beep {
+                file.write_all(format!("console_beep = {}\n", self.console_beep).as_bytes())?;
+            }
 
             file.write_all("[IEMSI]\n".to_string().as_bytes())?;
 
@@ -408,6 +410,15 @@ impl Options {
         let mut result = Options::default();
         parse_value(&mut result, &value);
         result
+    }
+
+    pub(crate) fn reset_monitor_settings(&mut self) {
+        self.scaling = Scaling::Nearest;
+        self.monitor_settings = MonitorSettings::default();
+    }
+
+    pub(crate) fn reset_keybindings(&mut self) {
+        self.bind = KeyBindings::default();
     }
 }
 
@@ -535,5 +546,36 @@ fn parse_iemsi_settings(options: &mut Options, iemsi_settings: &toml::map::Map<S
             }
             _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::field_reassign_with_default)]
+    use super::*;
+
+    #[test]
+    fn test_reset_monitor_settings() {
+        let mut opt = Options::default();
+        opt.scaling = Scaling::Linear;
+        opt.monitor_settings.blur = 0.0;
+        opt.monitor_settings.brightness = 1.0;
+
+        assert_ne!(Options::default().scaling, opt.scaling);
+        assert_ne!(Options::default().monitor_settings, opt.monitor_settings);
+        opt.reset_monitor_settings();
+        assert_eq!(Options::default().scaling, opt.scaling);
+        assert_eq!(Options::default().monitor_settings, opt.monitor_settings);
+    }
+
+    #[test]
+    fn test_reset_keybindings() {
+        let mut opt = Options::default();
+        opt.bind.download = None;
+        opt.bind.full_screen = None;
+
+        assert_ne!(Options::default().bind, opt.bind);
+        opt.reset_keybindings();
+        assert_eq!(Options::default().bind, opt.bind);
     }
 }

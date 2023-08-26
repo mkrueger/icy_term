@@ -103,14 +103,14 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
                         .button(fl!(crate::LANGUAGE_LOADER, "settings-reset-button"))
                         .clicked()
                 {
-                    window.options.scaling = Scaling::Nearest;
+                    window.options.reset_monitor_settings();
                 }
                 if settings_category == 3
                     && ui
                         .button(fl!(crate::LANGUAGE_LOADER, "settings-reset-button"))
                         .clicked()
                 {
-                    window.options.bind = KeyBindings::default();
+                    window.options.reset_keybindings();
                 }
             });
         });
