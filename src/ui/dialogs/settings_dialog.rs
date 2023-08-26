@@ -24,28 +24,28 @@ pub struct DialogState {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) enum Command {
+pub(crate) enum Message {
     SwitchSettingsCategory(usize),
     CloseDialog,
     OpenSettingsFolder,
     ResetMonitorSettings,
     ResetKeybindSettings,
-    SetIEMSI(crate::IEMSISettings),
-    SetMonitorSettings(icy_engine_egui::MonitorSettings),
+    UpdateIEMSI(crate::IEMSISettings),
+    UpdateMonitorSettings(icy_engine_egui::MonitorSettings),
     ChangeOpenglScaling(Scaling),
     UpdateKeybinds(KeyBindings),
     ChangeConsoleBeep(bool),
 }
 
-type ShowSettingsCallback = fn(&MainWindowState, ui: &mut egui::Ui) -> Option<Command>;
-type ResetCommand = Option<Command>;
+type ShowSettingsCallback = fn(&MainWindowState, ui: &mut egui::Ui) -> Option<Message>;
+type ResetMessage = Option<Message>;
 
 lazy_static! {
-    static ref SETTING_CATEGORIES: [(String, ShowSettingsCallback, ResetCommand); 4] = [
+    static ref SETTING_CATEGORIES: [(String, ShowSettingsCallback, ResetMessage); 4] = [
         (
             fl!(crate::LANGUAGE_LOADER, "settings-monitor-category"),
             show_monitor_settings,
-            Some(Command::ResetMonitorSettings)
+            Some(Message::ResetMonitorSettings)
         ),
         (
             fl!(crate::LANGUAGE_LOADER, "settings-iemsi-category"),
@@ -60,7 +60,7 @@ lazy_static! {
         (
             fl!(crate::LANGUAGE_LOADER, "settings-keybinds-category"),
             crate::show_keybinds_settings,
-            Some(Command::ResetKeybindSettings)
+            Some(Message::ResetKeybindSettings)
         ),
     ];
 }
@@ -90,7 +90,7 @@ impl MainWindowState {
                             .selectable_label(settings_category == i, &SETTING_CATEGORIES[i].0)
                             .clicked()
                         {
-                            result = Some(Command::SwitchSettingsCategory(i));
+                            result = Some(Message::SwitchSettingsCategory(i));
                         }
                     }
                 });
@@ -114,7 +114,7 @@ impl MainWindowState {
                         .button(fl!(crate::LANGUAGE_LOADER, "dialing_directory-ok-button"))
                         .clicked()
                     {
-                        result = Some(Command::CloseDialog);
+                        result = Some(Message::CloseDialog);
                     }
 
                     let settings_category = self.settings_dialog.settings_category;
@@ -132,14 +132,14 @@ impl MainWindowState {
             });
 
         if !open {
-            result = Some(Command::CloseDialog);
+            result = Some(Message::CloseDialog);
         }
 
-        handle_command(self, result);
+        update_state(self, result);
     }
 }
 
-fn show_iemsi_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<Command> {
+fn show_iemsi_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<Message> {
     let mut iemsi = state.options.iemsi.clone();
     ui.checkbox(
         &mut iemsi.autologin,
@@ -200,11 +200,11 @@ fn show_iemsi_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<Com
     if iemsi == state.options.iemsi {
         None
     } else {
-        Some(Command::SetIEMSI(iemsi))
+        Some(Message::UpdateIEMSI(iemsi))
     }
 }
 
-fn show_terminal_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<Command> {
+fn show_terminal_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<Message> {
     let mut result = None;
     let mut beep = state.options.console_beep;
 
@@ -218,7 +218,7 @@ fn show_terminal_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<
         )
         .changed()
     {
-        result = Some(Command::ChangeConsoleBeep(beep));
+        result = Some(Message::ChangeConsoleBeep(beep));
     }
 
     ui.add_space(16.0);
@@ -229,14 +229,14 @@ fn show_terminal_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<
         ))
         .clicked()
     {
-        result = Some(Command::OpenSettingsFolder);
+        result = Some(Message::OpenSettingsFolder);
     }
     ui.add_space(8.0);
 
     result
 }
 
-fn show_monitor_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<Command> {
+fn show_monitor_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<Message> {
     let mut result = None;
 
     let text = match state.options.scaling {
@@ -252,7 +252,7 @@ fn show_monitor_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<C
             for t in &Scaling::ALL {
                 let label = RichText::new(format!("{t:?}"));
                 if ui.selectable_value(&mut scaling, *t, label).changed() {
-                    result = Some(Command::ChangeOpenglScaling(scaling));
+                    result = Some(Message::ChangeOpenglScaling(scaling));
                 }
             }
         });
@@ -326,49 +326,49 @@ fn show_monitor_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<C
 
     ui.add_space(8.0);
     if monitor_settings != state.options.monitor_settings {
-        result = Some(Command::SetMonitorSettings(monitor_settings));
+        result = Some(Message::UpdateMonitorSettings(monitor_settings));
     }
     result
 }
 
-fn handle_command(state: &mut MainWindowState, command_opt: Option<Command>) {
-    match command_opt {
-        Some(Command::CloseDialog) => {
+fn update_state(state: &mut MainWindowState, message_opt: Option<Message>) {
+    match message_opt {
+        Some(Message::CloseDialog) => {
             state.mode = MainWindowMode::ShowTerminal;
         }
-        Some(Command::SwitchSettingsCategory(category)) => {
+        Some(Message::SwitchSettingsCategory(category)) => {
             state.settings_dialog.settings_category = category;
         }
-        Some(Command::ResetMonitorSettings) => {
+        Some(Message::ResetMonitorSettings) => {
             state.options.reset_monitor_settings();
             state.store_options();
         }
-        Some(Command::ResetKeybindSettings) => {
+        Some(Message::ResetKeybindSettings) => {
             state.options.reset_keybindings();
             state.store_options();
         }
-        Some(Command::OpenSettingsFolder) => {
+        Some(Message::OpenSettingsFolder) => {
             if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
                 open::that(proj_dirs.config_dir()).unwrap();
             }
         }
-        Some(Command::SetIEMSI(iemsi)) => {
+        Some(Message::UpdateIEMSI(iemsi)) => {
             state.options.iemsi = iemsi;
             state.store_options();
         }
-        Some(Command::SetMonitorSettings(monitor_settings)) => {
+        Some(Message::UpdateMonitorSettings(monitor_settings)) => {
             state.options.monitor_settings = monitor_settings;
             state.store_options();
         }
-        Some(Command::ChangeOpenglScaling(scaling)) => {
+        Some(Message::ChangeOpenglScaling(scaling)) => {
             state.options.scaling = scaling;
             state.store_options();
         }
-        Some(Command::UpdateKeybinds(keybinds)) => {
+        Some(Message::UpdateKeybinds(keybinds)) => {
             state.options.bind = keybinds;
             state.store_options();
         }
-        Some(Command::ChangeConsoleBeep(beep)) => {
+        Some(Message::ChangeConsoleBeep(beep)) => {
             state.options.console_beep = beep;
             state.store_options();
         }
@@ -383,7 +383,7 @@ mod tests {
 
     use crate::{
         ui::{
-            dialogs::settings_dialog::{handle_command, SETTING_CATEGORIES},
+            dialogs::settings_dialog::{update_state, SETTING_CATEGORIES},
             MainWindowState,
         },
         IEMSISettings, KeyBindings, Options, Scaling,
@@ -393,7 +393,7 @@ mod tests {
     fn test_close_dialog() {
         let mut state: MainWindowState = MainWindowState::default();
         state.mode = super::MainWindowMode::ShowSettings;
-        handle_command(&mut state, Some(super::Command::CloseDialog));
+        update_state(&mut state, Some(super::Message::CloseDialog));
         assert!(matches!(state.mode, super::MainWindowMode::ShowTerminal));
         assert!(!state.options_written);
     }
@@ -402,7 +402,7 @@ mod tests {
     fn test_switch_category_dialog() {
         let mut state: MainWindowState = MainWindowState::default();
         for i in 0..SETTING_CATEGORIES.len() {
-            handle_command(&mut state, Some(super::Command::SwitchSettingsCategory(i)));
+            update_state(&mut state, Some(super::Message::SwitchSettingsCategory(i)));
             assert_eq!(i, state.settings_dialog.settings_category);
         }
         assert!(!state.options_written);
@@ -422,7 +422,7 @@ mod tests {
             Options::default().monitor_settings,
             state.options.monitor_settings
         );
-        handle_command(&mut state, Some(super::Command::ResetMonitorSettings));
+        update_state(&mut state, Some(super::Message::ResetMonitorSettings));
         assert_eq!(Options::default().scaling, state.options.scaling);
         assert_eq!(
             Options::default().monitor_settings,
@@ -440,7 +440,7 @@ mod tests {
         state.options = opt;
 
         assert_ne!(Options::default().bind, state.options.bind);
-        handle_command(&mut state, Some(super::Command::ResetKeybindSettings));
+        update_state(&mut state, Some(super::Message::ResetKeybindSettings));
         assert_eq!(Options::default().bind, state.options.bind);
         assert!(state.options_written);
     }
@@ -448,7 +448,7 @@ mod tests {
     #[test]
     fn test_change_console_beep() {
         let mut state: MainWindowState = MainWindowState::default();
-        handle_command(&mut state, Some(super::Command::ChangeConsoleBeep(false)));
+        update_state(&mut state, Some(super::Message::ChangeConsoleBeep(false)));
         assert_ne!(Options::default().console_beep, state.options.console_beep);
         assert!(state.options_written);
     }
@@ -459,7 +459,7 @@ mod tests {
         let mut bind = KeyBindings::default();
         bind.download = None;
         bind.full_screen = None;
-        handle_command(&mut state, Some(super::Command::UpdateKeybinds(bind)));
+        update_state(&mut state, Some(super::Message::UpdateKeybinds(bind)));
         assert_ne!(KeyBindings::default(), state.options.bind);
         assert!(state.options_written);
     }
@@ -470,9 +470,9 @@ mod tests {
         let mut settings = MonitorSettings::default();
         settings.blur = 0.0;
         settings.brightness = 1.0;
-        handle_command(
+        update_state(
             &mut state,
-            Some(super::Command::SetMonitorSettings(settings)),
+            Some(super::Message::UpdateMonitorSettings(settings)),
         );
         assert_ne!(MonitorSettings::default(), state.options.monitor_settings);
         assert!(state.options_written);
@@ -484,7 +484,7 @@ mod tests {
         let mut settings = IEMSISettings::default();
         settings.alias = "foo".to_string();
         settings.voice_phone = "42".to_string();
-        handle_command(&mut state, Some(super::Command::SetIEMSI(settings)));
+        update_state(&mut state, Some(super::Message::UpdateIEMSI(settings)));
         assert_ne!(IEMSISettings::default(), state.options.iemsi);
         assert!(state.options_written);
     }
@@ -492,9 +492,9 @@ mod tests {
     #[test]
     fn test_change_scaling() {
         let mut state: MainWindowState = MainWindowState::default();
-        handle_command(
+        update_state(
             &mut state,
-            Some(super::Command::ChangeOpenglScaling(Scaling::Linear)),
+            Some(super::Message::ChangeOpenglScaling(Scaling::Linear)),
         );
         assert_eq!(Scaling::Linear, state.options.scaling);
         assert!(state.options_written);

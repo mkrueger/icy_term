@@ -88,7 +88,7 @@ macro_rules! keys {
             Ok(())
         }
 
-        pub(crate) fn show_keybinds_settings(state: &crate::ui::MainWindowState, ui: &mut egui::Ui) -> Option<crate::ui::dialogs::settings_dialog::Command>  {
+        pub(crate) fn show_keybinds_settings(state: &crate::ui::MainWindowState, ui: &mut egui::Ui) -> Option<crate::ui::dialogs::settings_dialog::Message>  {
             let mut bind = state.options.bind.clone();
             let mut changed_bindings = false;
             egui::Grid::new("keybinds_grid")
@@ -109,7 +109,7 @@ macro_rules! keys {
                 });
             if changed_bindings {
                 println!("changed bindings");
-                Some(crate::ui::dialogs::settings_dialog::Command::UpdateKeybinds(bind))
+                Some(crate::ui::dialogs::settings_dialog::Message::UpdateKeybinds(bind))
             } else {
                 None
             }
