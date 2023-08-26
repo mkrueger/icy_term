@@ -32,7 +32,7 @@ impl MainWindow {
             .fill(toolbar_bg_color)
             .inner_margin(egui::style::Margin::same(6.0));
 
-        let enable_ui = matches!(self.mode, MainWindowMode::ShowTerminal);
+        let enable_ui = matches!(self.get_mode(), MainWindowMode::ShowTerminal);
         if !self.is_fullscreen_mode {
             egui::TopBottomPanel::top("button_bar")
                 .frame(button_frame)
@@ -55,7 +55,7 @@ impl MainWindow {
                             });
 
                         if r.clicked() {
-                            self.mode = MainWindowMode::SelectProtocol(false);
+                            self.set_mode(MainWindowMode::SelectProtocol(false));
                         }
 
                         let r = ui
@@ -71,7 +71,7 @@ impl MainWindow {
                             });
 
                         if r.clicked() {
-                            self.mode = MainWindowMode::SelectProtocol(true);
+                            self.set_mode(MainWindowMode::SelectProtocol(true));
                         }
 
                         if !self.auto_login.logged_in {
@@ -116,13 +116,13 @@ impl MainWindow {
                         }
 
                         if self.auto_login.iemsi.isi.is_some() {
-                            if self.mode == MainWindowMode::ShowIEMSI {
+                            if self.get_mode() == MainWindowMode::ShowIEMSI {
                                 let r: egui::Response = ui.add(egui::Button::new(RichText::new(
                                     fl!(crate::LANGUAGE_LOADER, "toolbar-hide-iemsi"),
                                 )));
 
                                 if r.clicked() {
-                                    self.mode = MainWindowMode::ShowTerminal;
+                                    self.set_mode(MainWindowMode::ShowTerminal);
                                 }
                             } else {
                                 let r: egui::Response = ui.add(egui::Button::new(RichText::new(
@@ -130,7 +130,7 @@ impl MainWindow {
                                 )));
 
                                 if r.clicked() {
-                                    self.mode = MainWindowMode::ShowIEMSI;
+                                    self.set_mode(MainWindowMode::ShowIEMSI);
                                 }
                             }
                         }
@@ -151,14 +151,14 @@ impl MainWindow {
                             }
                         }
 
-                        if self.capture_dialog.capture_session {
+                        if self.state.capture_dialog.capture_session {
                             let r: egui::Response = ui.add(egui::Button::new(RichText::new(fl!(
                                 crate::LANGUAGE_LOADER,
                                 "toolbar-stop-capture"
                             ))));
 
                             if r.clicked() {
-                                self.capture_dialog.capture_session = false;
+                                self.state.capture_dialog.capture_session = false;
                             }
                         }
 
@@ -204,7 +204,7 @@ impl MainWindow {
                                     .button(fl!(crate::LANGUAGE_LOADER, "menu-item-capture-dialog"))
                                     .clicked()
                                 {
-                                    self.mode = MainWindowMode::ShowCaptureDialog;
+                                    self.set_mode(MainWindowMode::ShowCaptureDialog);
                                     ui.close_menu();
                                 }
 
@@ -242,9 +242,9 @@ impl MainWindow {
 
     fn show_terminal_area(&mut self, ui: &mut egui::Ui) {
         let opt = icy_engine_egui::TerminalOptions {
-            focus_lock: matches!(self.mode, MainWindowMode::ShowTerminal),
-            filter: self.options.scaling.get_filter(),
-            settings: self.options.monitor_settings.clone(),
+            focus_lock: matches!(self.get_mode(), MainWindowMode::ShowTerminal),
+            filter: self.get_options().scaling.get_filter(),
+            settings: self.get_options().monitor_settings.clone(),
             stick_to_bottom: true,
             ..Default::default()
         };
@@ -253,7 +253,7 @@ impl MainWindow {
 
         let mut response = response.context_menu(|ui| terminal_context_menu(ui, self));
 
-        if matches!(self.mode, MainWindowMode::ShowTerminal) && ui.is_enabled() {
+        if matches!(self.get_mode(), MainWindowMode::ShowTerminal) && ui.is_enabled() {
             let events: Vec<egui::Event> = ui.input(|i| i.events.clone());
             for e in events {
                 match e {
@@ -429,7 +429,6 @@ impl MainWindow {
                         }
                         for (k, m) in key_map {
                             if *k == key_code {
-                                self.handled_char = true;
                                 if self.connection.as_ref().unwrap().is_connected() {
                                     let res = self.connection.as_mut().unwrap().send(m.to_vec());
                                     check_error!(self, res, true);

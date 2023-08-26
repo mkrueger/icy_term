@@ -11,8 +11,8 @@ use crate::{
     check_error,
     features::{AutoFileTransfer, AutoLogin},
     ui::{
-        dialogs::{self, capture_dialog},
-        BufferView, ScreenMode,
+        dialogs::{self},
+        BufferView, MainWindowState, ScreenMode,
     },
     util::SoundThread,
     AddressBook, Options,
@@ -57,20 +57,20 @@ impl MainWindow {
         let mut view = MainWindow {
             buffer_view: Arc::new(eframe::epaint::mutex::Mutex::new(view)),
             //address_list: HoverList::new(),
-            mode: MainWindowMode::ShowDialingDirectory,
+            state: MainWindowState {
+                options,
+                ..Default::default()
+            },
             connection: Some(Box::new(connection)),
-            options,
             auto_login: AutoLogin::new(""),
             auto_file_transfer: AutoFileTransfer::default(),
             screen_mode: ScreenMode::default(),
             current_file_transfer: None,
-            handled_char: false,
             buffer_parser: Box::<ansi::Parser>::default(),
             #[cfg(target_arch = "wasm32")]
             poll_thread,
             sound_thread: SoundThread::new(),
             is_fullscreen_mode,
-            capture_dialog: capture_dialog::DialogState::default(),
             export_dialog: dialogs::export_dialog::DialogState::default(),
             upload_dialog: dialogs::upload_dialog::DialogState::default(),
             dialing_directory_dialog: dialogs::dialing_directory_dialog::DialogState::new(
@@ -115,7 +115,7 @@ impl MainWindow {
             if let Some(handle) = fts.join_handle.take() {
                 if let Ok(join) = handle.join() {
                     self.connection = Some(join);
-                    self.mode = MainWindowMode::ShowTerminal;
+                    self.set_mode(MainWindowMode::ShowTerminal);
                 } else {
                     panic!("Error joining file transfer thread.");
                 }
@@ -142,7 +142,7 @@ impl eframe::App for MainWindow {
         #[cfg(not(target_arch = "wasm32"))]
         self.update_title(frame);
 
-        match self.mode {
+        match self.get_mode() {
             MainWindowMode::ShowTerminal => {
                 let res = self.update_state();
                 self.handle_terminal_key_binds(ctx, frame);
@@ -213,7 +213,7 @@ impl eframe::App for MainWindow {
                 let res = self.update_state();
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
-                self.show_caputure_dialog(ctx);
+                self.state.show_caputure_dialog(ctx);
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowExportDialog => {

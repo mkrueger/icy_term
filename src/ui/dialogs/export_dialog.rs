@@ -16,11 +16,11 @@ impl MainWindow {
         let mut dialog: FileDialog = FileDialog::save_file(None);
         dialog.open();
         self.export_dialog.open_file_dialog = Some(dialog);
-        self.mode = MainWindowMode::ShowExportDialog;
+        self.set_mode(MainWindowMode::ShowExportDialog);
     }
     pub fn show_export_dialog(&mut self, ctx: &egui::Context) {
         if ctx.input(|i: &egui::InputState| i.key_down(egui::Key::Escape)) {
-            self.mode = MainWindowMode::ShowTerminal;
+            self.set_mode(MainWindowMode::ShowTerminal);
         }
 
         if let Some(dialog) = &mut self.export_dialog.open_file_dialog {

@@ -1,14 +1,14 @@
 use std::io::Write;
 
+use crate::ui::MainWindowState;
 use eframe::egui::{self, RichText};
 use egui::TextEdit;
+use egui::{Frame, Layout};
 use egui_file::FileDialog;
 use i18n_embed_fl::fl;
+use std::path::Path;
 
-use crate::{
-    ui::{MainWindow, MainWindowMode},
-    Options,
-};
+use crate::{ui::MainWindowMode, Options};
 
 #[derive(Default)]
 pub struct DialogState {
@@ -18,6 +18,15 @@ pub struct DialogState {
     /// debug spew prevention
     pub show_capture_error: bool,
 }
+
+pub enum Command {
+    StartCapture,
+    StopCapture,
+    OpenFolder,
+    CloseDialog,
+    ChangeCaptureFileName(String),
+}
+
 impl DialogState {
     pub(crate) fn append_data(&mut self, options: &Options, data: &[u8]) {
         if self.capture_session {
@@ -37,17 +46,11 @@ impl DialogState {
     }
 }
 
-impl MainWindow {
+impl MainWindowState {
     pub fn show_caputure_dialog(&mut self, ctx: &egui::Context) {
-        use std::path::Path;
-
-        use egui::{Frame, Layout};
-
-        use crate::check_error;
-
+        let mut result = None;
         let mut open = true;
         let mut close_dialog = false;
-        let mut changed = true;
         if ctx.input(|i: &egui::InputState| i.key_down(egui::Key::Escape)) {
             open = false;
         }
@@ -64,24 +67,13 @@ impl MainWindow {
                 )));
 
                 ui.horizontal(|ui| {
-                    let r = ui.add(
-                        TextEdit::singleline(&mut self.options.capture_filename)
-                            .desired_width(370.),
-                    );
+                    let mut file = self.options.capture_filename.clone();
+                    let r = ui.add(TextEdit::singleline(&mut file).desired_width(370.));
                     if r.changed() {
-                        changed = true;
+                        result = Some(Command::ChangeCaptureFileName(file));
                     }
                     if ui.button("…").clicked() {
-                        let initial_path = if self.options.capture_filename.is_empty() {
-                            None
-                        } else {
-                            Path::new(&self.options.capture_filename)
-                                .parent()
-                                .map(std::path::Path::to_path_buf)
-                        };
-                        let mut dialog: FileDialog = FileDialog::save_file(initial_path);
-                        dialog.open();
-                        self.capture_dialog.open_file_dialog = Some(dialog);
+                        result = Some(Command::OpenFolder);
                     }
                 });
                 ui.add_space(8.);
@@ -94,14 +86,14 @@ impl MainWindow {
                             .button(fl!(crate::LANGUAGE_LOADER, "toolbar-stop-capture"))
                             .clicked()
                         {
-                            self.capture_dialog.capture_session = false;
+                            result = Some(Command::StopCapture);
                             close_dialog = true;
                         }
                     } else if ui
                         .button(fl!(crate::LANGUAGE_LOADER, "capture-dialog-capture-button"))
                         .clicked()
                     {
-                        self.capture_dialog.capture_session = true;
+                        result = Some(Command::StartCapture);
                         close_dialog = true;
                     }
 
@@ -138,20 +130,88 @@ impl MainWindow {
             if dialog.show(ctx).selected() {
                 if let Some(path) = dialog.path() {
                     if let Some(s) = path.to_str() {
-                        self.options.capture_filename = s.to_string();
-                        changed = true;
+                        result = Some(Command::ChangeCaptureFileName(s.to_string()));
                     }
                 }
             }
         }
 
-        if changed {
-            self.capture_dialog.show_capture_error = false;
-            check_error!(self, self.options.store_options(), false);
+        if !open || close_dialog {
+            result = Some(Command::CloseDialog);
         }
 
-        if !open || close_dialog {
-            self.mode = MainWindowMode::ShowTerminal;
+        self.handle_command(result);
+    }
+
+    fn handle_command(&mut self, command_opt: Option<Command>) {
+        match command_opt {
+            Some(Command::OpenFolder) => {
+                let initial_path = if self.options.capture_filename.is_empty() {
+                    None
+                } else {
+                    Path::new(&self.options.capture_filename)
+                        .parent()
+                        .map(std::path::Path::to_path_buf)
+                };
+                let mut dialog: FileDialog = FileDialog::save_file(initial_path);
+                dialog.open();
+                self.capture_dialog.open_file_dialog = Some(dialog);
+            }
+            Some(Command::StopCapture) => {
+                self.capture_dialog.capture_session = false;
+            }
+            Some(Command::StartCapture) => {
+                self.capture_dialog.capture_session = true;
+            }
+            Some(Command::CloseDialog) => {
+                self.mode = MainWindowMode::ShowTerminal;
+            }
+            Some(Command::ChangeCaptureFileName(file)) => {
+                self.options.capture_filename = file;
+                self.capture_dialog.show_capture_error = false;
+                self.store_options();
+            }
+            _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::field_reassign_with_default)]
+    use crate::ui::MainWindowState;
+
+    #[test]
+    fn test_start_capture() {
+        let mut state: MainWindowState = MainWindowState::default();
+        assert!(!state.capture_dialog.capture_session);
+        state.handle_command(Some(super::Command::StartCapture));
+        assert!(state.capture_dialog.capture_session);
+    }
+
+    #[test]
+    fn test_stop_capture() {
+        let mut state: MainWindowState = MainWindowState::default();
+        state.capture_dialog.capture_session = true;
+        state.handle_command(Some(super::Command::StopCapture));
+        assert!(!state.capture_dialog.capture_session);
+    }
+
+    #[test]
+    fn test_close_dialog() {
+        let mut state: MainWindowState = MainWindowState::default();
+        state.mode = super::MainWindowMode::ShowCaptureDialog;
+        state.handle_command(Some(super::Command::CloseDialog));
+        assert!(matches!(state.mode, super::MainWindowMode::ShowTerminal));
+    }
+
+    #[test]
+    fn test_change_filename() {
+        let mut state: MainWindowState = MainWindowState::default();
+        state.handle_command(Some(super::Command::ChangeCaptureFileName(
+            "foo.baz".to_string(),
+        )));
+        assert_eq!("foo.baz".to_string(), state.options.capture_filename);
+        assert!(state.options_written);
     }
 }

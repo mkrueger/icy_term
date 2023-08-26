@@ -19,12 +19,12 @@ impl MainWindow {
         dialog.open();
         self.upload_dialog.open_file_dialog = Some(dialog);
         self.upload_dialog.protocol_type = protocol_type;
-        self.mode = MainWindowMode::ShowUploadDialog;
+        self.set_mode(MainWindowMode::ShowUploadDialog);
     }
 
     pub fn show_upload_dialog(&mut self, ctx: &egui::Context) {
         if ctx.input(|i: &egui::InputState| i.key_down(egui::Key::Escape)) {
-            self.mode = MainWindowMode::ShowTerminal;
+            self.set_mode(MainWindowMode::ShowTerminal);
         }
 
         if let Some(dialog) = &mut self.upload_dialog.open_file_dialog {
@@ -43,7 +43,7 @@ impl MainWindow {
                                 check_error!(self, r, true);
                             }
                         }
-                        self.mode = MainWindowMode::ShowTerminal;
+                        self.set_mode(MainWindowMode::ShowTerminal);
                         return;
                     }
 

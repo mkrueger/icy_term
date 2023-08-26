@@ -51,11 +51,11 @@ macro_rules! check_error {
     }};
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub enum MainWindowMode {
     ShowTerminal,
+    #[default]
     ShowDialingDirectory,
-
     ///Shows settings - parameter: show dialing_directory
     ShowSettings(bool),
     SelectProtocol(bool),
@@ -64,7 +64,32 @@ pub enum MainWindowMode {
     ShowCaptureDialog,
     ShowExportDialog,
     ShowUploadDialog,
-    ShowIEMSI, //   AskDeleteEntry
+    ShowIEMSI,
+}
+
+#[derive(Default)]
+pub struct MainWindowState {
+    pub mode: MainWindowMode,
+    pub options: Options,
+
+    pub capture_dialog: dialogs::capture_dialog::DialogState,
+    // don't store files in unit test mode
+    #[cfg(test)]
+    pub options_written: bool,
+}
+
+impl MainWindowState {
+    #[cfg(test)]
+    pub fn store_options(&mut self) {
+        self.options_written = true;
+    }
+
+    #[cfg(not(test))]
+    pub fn store_options(&mut self) {
+        if let Err(err) = self.options.store_options() {
+            log::error!("{err}");
+        }
+    }
 }
 
 pub struct MainWindow {
@@ -75,10 +100,8 @@ pub struct MainWindow {
 
     sound_thread: SoundThread,
 
-    pub mode: MainWindowMode,
-    pub handled_char: bool,
+    pub state: MainWindowState,
 
-    pub options: Options,
     screen_mode: ScreenMode,
     auto_login: AutoLogin,
     is_fullscreen_mode: bool,
@@ -91,7 +114,6 @@ pub struct MainWindow {
     pub current_file_transfer: Option<FileTransferThread>,
 
     pub dialing_directory_dialog: dialogs::dialing_directory_dialog::DialogState,
-    pub capture_dialog: dialogs::capture_dialog::DialogState,
     pub export_dialog: dialogs::export_dialog::DialogState,
     pub upload_dialog: dialogs::upload_dialog::DialogState,
     pub settings_dialog: dialogs::settings_dialog::DialogState,
@@ -101,6 +123,17 @@ pub struct MainWindow {
 }
 
 impl MainWindow {
+    pub fn get_options(&self) -> &Options {
+        &self.state.options
+    }
+
+    pub fn get_mode(&self) -> MainWindowMode {
+        self.state.mode
+    }
+    pub fn set_mode(&mut self, mode: MainWindowMode) {
+        self.state.mode = mode;
+    }
+
     fn connection(&mut self) -> &mut Connection {
         if let Some(ref mut con) = self.connection {
             con
@@ -171,7 +204,7 @@ impl MainWindow {
                 check_error!(self, r, false);
             }
             icy_engine::CallbackAction::Beep => {
-                if self.options.console_beep {
+                if self.get_options().console_beep {
                     let r = self.sound_thread.beep();
                     check_error!(self, r, false);
                 }
@@ -208,7 +241,7 @@ impl MainWindow {
         download: bool,
         files_opt: Option<Vec<FileDescriptor>>,
     ) {
-        self.mode = MainWindowMode::FileTransfer(download);
+        self.set_mode(MainWindowMode::FileTransfer(download));
 
         let r = crate::protocol::DiskStorageHandler::new();
         check_error!(self, r, false);
@@ -228,7 +261,7 @@ impl MainWindow {
         protocol_type: crate::protocol::TransferType,
         download: bool,
     ) {
-        self.mode = MainWindowMode::ShowTerminal;
+        self.set_mode(MainWindowMode::ShowTerminal);
         if self.connection().is_disconnected() {
             return;
         }
@@ -247,11 +280,11 @@ impl MainWindow {
     }
 
     pub fn show_terminal(&mut self) {
-        self.mode = MainWindowMode::ShowTerminal;
+        self.set_mode(MainWindowMode::ShowTerminal);
     }
 
     pub fn show_dialing_directory(&mut self) {
-        self.mode = MainWindowMode::ShowDialingDirectory;
+        self.set_mode(MainWindowMode::ShowDialingDirectory);
     }
 
     pub fn call_bbs_uuid(&mut self, uuid: Option<usize>) {
@@ -276,7 +309,7 @@ impl MainWindow {
     }
 
     pub fn call_bbs(&mut self, i: usize) {
-        self.mode = MainWindowMode::ShowTerminal;
+        self.set_mode(MainWindowMode::ShowTerminal);
         let cloned_addr = self.dialing_directory_dialog.addresses.addresses[i].clone();
 
         {
@@ -315,7 +348,7 @@ impl MainWindow {
         ))
         .unwrap_or_default();
 
-        let timeout = self.options.connect_timeout;
+        let timeout = self.get_options().connect_timeout;
         let window_size = self.screen_mode.get_window_size();
         let r = self
             .connection()
@@ -345,10 +378,12 @@ impl MainWindow {
         };
 
         if let Some(data) = data_opt {
-            self.capture_dialog.append_data(&self.options, &data);
+            self.state
+                .capture_dialog
+                .append_data(&self.state.options, &data);
 
             for ch in data {
-                if self.options.iemsi_autologin && self.connection().is_connected() {
+                if self.get_options().iemsi_autologin && self.connection().is_connected() {
                     if let Some(adr) = self
                         .dialing_directory_dialog
                         .addresses
@@ -356,7 +391,8 @@ impl MainWindow {
                         .get(self.dialing_directory_dialog.cur_addr)
                     {
                         if let Some(con) = &mut self.connection {
-                            if let Err(err) = self.auto_login.try_login(con, adr, ch, &self.options)
+                            if let Err(err) =
+                                self.auto_login.try_login(con, adr, ch, &self.state.options)
                             {
                                 log::error!("{err}");
                             }
@@ -391,7 +427,7 @@ impl MainWindow {
             }
         }
 
-        if self.options.iemsi_autologin {
+        if self.get_options().iemsi_autologin {
             if let Some(adr) = self
                 .dialing_directory_dialog
                 .addresses
@@ -414,7 +450,7 @@ impl MainWindow {
     pub fn hangup(&mut self) {
         check_error!(self, self.connection().disconnect(), false);
         self.sound_thread.clear();
-        self.mode = MainWindowMode::ShowDialingDirectory;
+        self.set_mode(MainWindowMode::ShowDialingDirectory);
     }
 
     pub fn send_login(&mut self) {
@@ -454,7 +490,7 @@ impl MainWindow {
 
     #[cfg(not(target_arch = "wasm32"))]
     pub fn update_title(&mut self, frame: &mut eframe::Frame) {
-        if let MainWindowMode::ShowDialingDirectory = self.mode {
+        if let MainWindowMode::ShowDialingDirectory = self.get_mode() {
             frame.set_window_title(&crate::DEFAULT_TITLE);
         } else {
             if self.connection.is_none() {
@@ -493,52 +529,52 @@ impl MainWindow {
     }
 
     pub(crate) fn show_settings(&mut self, in_dialing_directory: bool) {
-        self.mode = MainWindowMode::ShowSettings(in_dialing_directory);
+        self.set_mode(MainWindowMode::ShowSettings(in_dialing_directory));
     }
 
     fn handle_terminal_key_binds(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        if self.options.bind.clear_screen.pressed(ctx) {
+        if self.get_options().bind.clear_screen.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
             self.buffer_view.lock().clear_buffer_screen();
         }
-        if self.options.bind.dialing_directory.pressed(ctx) {
+        if self.get_options().bind.dialing_directory.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
-            self.mode = MainWindowMode::ShowDialingDirectory;
+            self.set_mode(MainWindowMode::ShowDialingDirectory);
         }
-        if self.options.bind.hangup.pressed(ctx) {
+        if self.get_options().bind.hangup.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
             self.hangup();
         }
-        if self.options.bind.send_login_pw.pressed(ctx) {
+        if self.get_options().bind.send_login_pw.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
             self.send_login();
         }
-        if self.options.bind.show_settings.pressed(ctx) {
+        if self.get_options().bind.show_settings.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
-            self.mode = MainWindowMode::ShowSettings(false);
+            self.set_mode(MainWindowMode::ShowSettings(false));
         }
-        if self.options.bind.show_capture.pressed(ctx) {
+        if self.get_options().bind.show_capture.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
-            self.mode = MainWindowMode::ShowCaptureDialog;
+            self.set_mode(MainWindowMode::ShowCaptureDialog);
         }
-        if self.options.bind.quit.pressed(ctx) {
+        if self.get_options().bind.quit.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
             #[cfg(not(target_arch = "wasm32"))]
             frame.close();
         }
-        if self.options.bind.full_screen.pressed(ctx) {
+        if self.get_options().bind.full_screen.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
             self.is_fullscreen_mode = !self.is_fullscreen_mode;
             #[cfg(not(target_arch = "wasm32"))]
             frame.set_fullscreen(self.is_fullscreen_mode);
         }
-        if self.options.bind.upload.pressed(ctx) {
+        if self.get_options().bind.upload.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
-            self.mode = MainWindowMode::SelectProtocol(false);
+            self.set_mode(MainWindowMode::SelectProtocol(false));
         }
-        if self.options.bind.download.pressed(ctx) {
+        if self.get_options().bind.download.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
-            self.mode = MainWindowMode::SelectProtocol(true);
+            self.set_mode(MainWindowMode::SelectProtocol(true));
         }
     }
 }

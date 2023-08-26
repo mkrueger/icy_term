@@ -995,7 +995,7 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
 
                     if r.clicked() {
                         if let Some(uuid) = window.dialing_directory_dialog.selected_bbs {
-                            window.mode = MainWindowMode::DeleteSelectedAddress(uuid);
+                            window.set_mode(MainWindowMode::DeleteSelectedAddress(uuid));
                         }
                     }
 

@@ -98,7 +98,7 @@ macro_rules! keys {
                         });
                         ui.add(egui_bind::Bind::new(
                             stringify!($l),
-                            &mut window.options.bind.$l,
+                            &mut window.state.options.bind.$l,
                         ));
                         ui.end_row();
                     )*
@@ -368,6 +368,12 @@ impl Options {
                 file.write_all(format!("console_beep = {}\n", self.console_beep).as_bytes())?;
             }
 
+            if !self.capture_filename.is_empty() {
+                file.write_all(
+                    format!("capture_filename = \"{}\"\n", self.capture_filename).as_bytes(),
+                )?;
+            }
+
             file.write_all("[IEMSI]\n".to_string().as_bytes())?;
 
             if !self.iemsi_autologin {
@@ -502,7 +508,11 @@ fn parse_value(options: &mut Options, value: &Value) {
                             options.console_beep = *b;
                         }
                     }
-
+                    "capture_filename" => {
+                        if let Value::String(b) = v {
+                            options.capture_filename = b.clone();
+                        }
+                    }
                     _ => {}
                 }
             }

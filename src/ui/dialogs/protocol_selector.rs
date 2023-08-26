@@ -59,7 +59,7 @@ pub fn view_selector(
     download: bool,
 ) {
     if ctx.input(|i| i.key_down(egui::Key::Escape)) {
-        window.mode = MainWindowMode::ShowTerminal;
+        window.set_mode(MainWindowMode::ShowTerminal);
     }
 
     let title = RichText::new(if download {
@@ -105,7 +105,7 @@ pub fn view_selector(
                 )
                 .clicked()
             {
-                window.mode = MainWindowMode::ShowTerminal;
+                window.set_mode(MainWindowMode::ShowTerminal);
             }
         });
     });

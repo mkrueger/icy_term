@@ -103,6 +103,6 @@ pub fn show_iemsi(window: &mut MainWindow, ctx: &egui::Context) {
         });
 
     if !open || close_dialog {
-        window.mode = MainWindowMode::ShowTerminal;
+        window.set_mode(MainWindowMode::ShowTerminal);
     }
 }

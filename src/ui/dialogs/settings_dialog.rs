@@ -32,7 +32,7 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
         open = false;
     }
 
-    let old_options = window.options.clone();
+    let old_options = window.get_options().clone();
     egui::Window::new(title)
         .open(&mut open)
         .collapsible(false)
@@ -103,36 +103,36 @@ pub fn show_settings(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut 
                         .button(fl!(crate::LANGUAGE_LOADER, "settings-reset-button"))
                         .clicked()
                 {
-                    window.options.reset_monitor_settings();
+                    window.state.options.reset_monitor_settings();
                 }
                 if settings_category == 3
                     && ui
                         .button(fl!(crate::LANGUAGE_LOADER, "settings-reset-button"))
                         .clicked()
                 {
-                    window.options.reset_keybindings();
+                    window.state.options.reset_keybindings();
                 }
             });
         });
 
     if !open || close_dialog {
-        if let MainWindowMode::ShowSettings(show_dialing_directory) = window.mode {
+        if let MainWindowMode::ShowSettings(show_dialing_directory) = window.get_mode() {
             if show_dialing_directory {
-                window.mode = MainWindowMode::ShowDialingDirectory;
+                window.set_mode(MainWindowMode::ShowDialingDirectory);
             } else {
-                window.mode = MainWindowMode::ShowTerminal;
+                window.set_mode(MainWindowMode::ShowTerminal);
             }
         }
     }
 
-    if old_options != window.options {
-        check_error!(window, window.options.store_options(), false);
+    if &old_options != window.get_options() {
+        check_error!(window, window.get_options().store_options(), false);
     }
 }
 
 fn show_iemsi_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
     ui.checkbox(
-        &mut window.options.iemsi_autologin,
+        &mut window.state.options.iemsi_autologin,
         fl!(crate::LANGUAGE_LOADER, "settings-iemsi-autologin-checkbox"),
     );
 
@@ -147,7 +147,7 @@ fn show_iemsi_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
                     "settings-iemsi-alias"
                 )));
             });
-            ui.add(TextEdit::singleline(&mut window.options.iemsi_alias));
+            ui.add(TextEdit::singleline(&mut window.state.options.iemsi_alias));
             ui.end_row();
 
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
@@ -156,7 +156,9 @@ fn show_iemsi_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
                     "settings-iemsi-location"
                 )));
             });
-            ui.add(TextEdit::singleline(&mut window.options.iemsi_location));
+            ui.add(TextEdit::singleline(
+                &mut window.state.options.iemsi_location,
+            ));
             ui.end_row();
 
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
@@ -165,7 +167,9 @@ fn show_iemsi_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
                     "settings-iemsi-data-phone"
                 )));
             });
-            ui.add(TextEdit::singleline(&mut window.options.iemsi_data_phone));
+            ui.add(TextEdit::singleline(
+                &mut window.state.options.iemsi_data_phone,
+            ));
             ui.end_row();
 
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
@@ -174,7 +178,9 @@ fn show_iemsi_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
                     "settings-iemsi-voice-phone"
                 )));
             });
-            ui.add(TextEdit::singleline(&mut window.options.iemsi_voice_phone));
+            ui.add(TextEdit::singleline(
+                &mut window.state.options.iemsi_voice_phone,
+            ));
             ui.end_row();
 
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
@@ -183,7 +189,9 @@ fn show_iemsi_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
                     "settings-iemsi-birth-date"
                 )));
             });
-            ui.add(TextEdit::singleline(&mut window.options.iemsi_birth_date));
+            ui.add(TextEdit::singleline(
+                &mut window.state.options.iemsi_birth_date,
+            ));
             ui.end_row();
         });
 }
@@ -191,7 +199,7 @@ fn show_iemsi_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
 fn show_terminal_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
     if ui
         .checkbox(
-            &mut window.options.console_beep,
+            &mut window.state.options.console_beep,
             fl!(
                 crate::LANGUAGE_LOADER,
                 "settings-terminal-console-beep-checkbox"
@@ -199,7 +207,7 @@ fn show_terminal_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
         )
         .changed()
     {
-        check_error!(window, window.options.store_options(), false);
+        check_error!(window, window.get_options().store_options(), false);
     }
     ui.add_space(16.0);
     if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
@@ -217,7 +225,7 @@ fn show_terminal_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
 }
 
 fn show_monitor_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
-    let text = match window.options.scaling {
+    let text = match window.get_options().scaling {
         Scaling::Nearest => fl!(crate::LANGUAGE_LOADER, "settings-scaling-nearest"),
         Scaling::Linear => fl!(crate::LANGUAGE_LOADER, "settings-scaling-linear"),
         //   _ => "Error".to_string(),
@@ -228,14 +236,14 @@ fn show_monitor_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
         .show_ui(ui, |ui| {
             for t in &Scaling::ALL {
                 let label = RichText::new(format!("{t:?}"));
-                let resp = ui.selectable_value(&mut window.options.scaling, *t, label);
+                let resp = ui.selectable_value(&mut window.state.options.scaling, *t, label);
                 if resp.changed() {
-                    check_error!(window, window.options.store_options(), false);
+                    check_error!(window, window.get_options().store_options(), false);
                 }
             }
         });
 
-    let cur_color = window.options.monitor_settings.monitor_type;
+    let cur_color = window.get_options().monitor_settings.monitor_type;
     egui::ComboBox::from_label(fl!(crate::LANGUAGE_LOADER, "settings-monitor-type"))
         .width(150.)
         .selected_text(&MONITOR_NAMES[cur_color])
@@ -243,24 +251,24 @@ fn show_monitor_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
             (0..MONITOR_NAMES.len()).for_each(|i| {
                 let label = RichText::new(&MONITOR_NAMES[i]);
                 let resp = ui.selectable_value(
-                    &mut window.options.monitor_settings.monitor_type,
+                    &mut window.state.options.monitor_settings.monitor_type,
                     i,
                     label,
                 );
                 if resp.changed() {
-                    check_error!(window, window.options.store_options(), false);
+                    check_error!(window, window.get_options().store_options(), false);
                 }
             });
         });
-    let old_settings = window.options.monitor_settings.clone();
-    let use_filter = window.options.monitor_settings.use_filter;
+    let old_settings = window.get_options().monitor_settings.clone();
+    let use_filter = window.get_options().monitor_settings.use_filter;
 
     ui.add_space(8.0);
     ui.separator();
     ui.add_space(8.0);
 
     ui.checkbox(
-        &mut window.options.monitor_settings.use_filter,
+        &mut window.state.options.monitor_settings.use_filter,
         fl!(
             crate::LANGUAGE_LOADER,
             "settings-monitor-use-crt-filter-checkbox"
@@ -270,20 +278,32 @@ fn show_monitor_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
         // todo: that should take full with, but doesn't work - egui bug ?
         ui.vertical_centered_justified(|ui| {
             ui.add(
-                egui::Slider::new(&mut window.options.monitor_settings.brightness, 0.0..=100.0)
-                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-brightness")),
+                egui::Slider::new(
+                    &mut window.state.options.monitor_settings.brightness,
+                    0.0..=100.0,
+                )
+                .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-brightness")),
             );
             ui.add(
-                egui::Slider::new(&mut window.options.monitor_settings.contrast, 0.0..=100.0)
-                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-contrast")),
+                egui::Slider::new(
+                    &mut window.state.options.monitor_settings.contrast,
+                    0.0..=100.0,
+                )
+                .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-contrast")),
             );
             ui.add(
-                egui::Slider::new(&mut window.options.monitor_settings.saturation, 0.0..=100.0)
-                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-saturation")),
+                egui::Slider::new(
+                    &mut window.state.options.monitor_settings.saturation,
+                    0.0..=100.0,
+                )
+                .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-saturation")),
             );
             ui.add(
-                egui::Slider::new(&mut window.options.monitor_settings.gamma, 0.0..=100.0)
-                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-gamma")),
+                egui::Slider::new(
+                    &mut window.state.options.monitor_settings.gamma,
+                    0.0..=100.0,
+                )
+                .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-gamma")),
             );
             /*  ui.add_enabled(
                 use_filter,
@@ -294,23 +314,29 @@ fn show_monitor_settings(window: &mut MainWindow, ui: &mut egui::Ui) {
                 .text("Light"),
             );*/
             ui.add(
-                egui::Slider::new(&mut window.options.monitor_settings.blur, 0.0..=100.0)
+                egui::Slider::new(&mut window.state.options.monitor_settings.blur, 0.0..=100.0)
                     .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-blur")),
             );
             ui.add(
-                egui::Slider::new(&mut window.options.monitor_settings.curvature, 0.0..=100.0)
-                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-curve")),
+                egui::Slider::new(
+                    &mut window.state.options.monitor_settings.curvature,
+                    0.0..=100.0,
+                )
+                .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-curve")),
             );
             ui.add(
-                egui::Slider::new(&mut window.options.monitor_settings.scanlines, 0.0..=100.0)
-                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-scanlines")),
+                egui::Slider::new(
+                    &mut window.state.options.monitor_settings.scanlines,
+                    0.0..=100.0,
+                )
+                .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-scanlines")),
             );
         });
     });
 
     ui.add_space(8.0);
 
-    if old_settings != window.options.monitor_settings {
-        check_error!(window, window.options.store_options(), false);
+    if old_settings != window.get_options().monitor_settings {
+        check_error!(window, window.get_options().store_options(), false);
     }
 }
