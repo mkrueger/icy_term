@@ -575,14 +575,12 @@ impl MainWindow {
                     if calc.buffer_rect.contains(hover_pos) {
                         let click_pos = calc.calc_click_pos(hover_pos);
                         let mut hovered_link = false;
-                        for hyper_link in self.buffer_view.lock().buf.layers[0].hyperlinks() {
-                            // TODO: Multiline links?
-                            if click_pos.y as i32 == hyper_link.position.y
-                                && click_pos.x as i32 >= hyper_link.position.x
-                                && (click_pos.x as i32) < hyper_link.position.x + hyper_link.length
-                            {
+                        let buf = &self.buffer_view.lock().buf;
+                        for hyper_link in buf.layers[0].hyperlinks() {
+                            if buf.is_position_in_range(Position::new(click_pos.x as i32, click_pos.y as i32), hyper_link.position, hyper_link.length)
+                            { 
                                 ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
-                                let url = hyper_link.url.clone();
+                                let url = hyper_link.get_url(buf);
                                 response = response.on_hover_ui_at_pointer(|ui| {
                                     ui.hyperlink(url.clone());
                                 });

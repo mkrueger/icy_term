@@ -384,6 +384,7 @@ impl MainWindow {
             self.state
                 .capture_dialog
                 .append_data(&self.state.options, &data);
+            let has_data = !data.is_empty();
 
             for ch in data {
                 if self.get_options().iemsi.autologin && self.connection().is_connected() {
@@ -427,6 +428,9 @@ impl MainWindow {
                     self.initiate_file_transfer(protocol_type, download);
                     return Ok(());
                 }
+            }
+            if has_data {
+                self.buffer_view.lock().buf.update_hyperlinks();
             }
         }
 

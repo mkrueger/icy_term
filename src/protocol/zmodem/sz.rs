@@ -250,7 +250,7 @@ impl Sz {
             return Ok(());
         }
         if let Err(err) = err {
-            println!("{err}");
+            log::error!("error reading header: {:?}", err);
             if self.errors > 3 {
                 self.state = SendState::Finished;
                 Zmodem::cancel(com)?;
