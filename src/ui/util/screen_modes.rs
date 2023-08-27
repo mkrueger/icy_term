@@ -61,6 +61,7 @@ impl ScreenMode {
             _ => FontExtension::Off,
         }*/
     }
+
     pub fn get_input_mode(&self) -> BufferInputMode {
         match self {
             //ScreenMode::Cga(_, _) | ScreenMode::Ega(_, _) |
@@ -129,22 +130,23 @@ impl ScreenMode {
         buf.clear();
     }
 
+    #[allow(clippy::match_same_arms)]
     pub(crate) fn get_selection_fg(&self) -> egui::Color32 {
         match self {
-            ScreenMode::Default |
-            ScreenMode::Vga(_, _) => Color32::from_rgb(0xAA, 0x00, 0xAA),
+            ScreenMode::Default | ScreenMode::Vga(_, _) => Color32::from_rgb(0xAA, 0x00, 0xAA),
             ScreenMode::Vic => Color32::from_rgb(0x37, 0x39, 0xC4),
             ScreenMode::Antic => Color32::from_rgb(0x09, 0x51, 0x83),
-            ScreenMode::Videotex =>  Color32::from_rgb(0, 0, 0),
+            ScreenMode::Videotex => Color32::from_rgb(0, 0, 0),
         }
     }
+
+    #[allow(clippy::match_same_arms)]
     pub(crate) fn get_selection_bg(&self) -> egui::Color32 {
         match self {
-            ScreenMode::Default |
-            ScreenMode::Vga(_, _) => Color32::from_rgb(0xAA, 0xAA, 0xAA),
+            ScreenMode::Default | ScreenMode::Vga(_, _) => Color32::from_rgb(0xAA, 0xAA, 0xAA),
             ScreenMode::Vic => Color32::from_rgb(0xB0, 0x3F, 0xB6),
             ScreenMode::Antic => Color32::from_rgb(0xFF, 0xFF, 0xFF),
-            ScreenMode::Videotex =>  Color32::from_rgb(0xFF, 0xFF, 0xFF),
+            ScreenMode::Videotex => Color32::from_rgb(0xFF, 0xFF, 0xFF),
         }
     }
 }

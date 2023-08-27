@@ -119,6 +119,8 @@ pub struct MainWindow {
     pub export_dialog: dialogs::export_dialog::DialogState,
     pub upload_dialog: dialogs::upload_dialog::DialogState,
 
+    pub show_find_dialog: bool,
+    pub find_dialog: dialogs::find_dialog::DialogState,
     #[cfg(target_arch = "wasm32")]
     poll_thread: com_thread::ConnectionThreadData,
 }
@@ -572,6 +574,15 @@ impl MainWindow {
         if self.get_options().bind.download.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
             self.set_mode(MainWindowMode::SelectProtocol(true));
+        }
+
+        if self.get_options().bind.show_find.pressed(ctx) {
+            ctx.input_mut(|i| i.events.clear());
+            self.show_find_dialog = true;
+            self.find_dialog
+                .search_pattern(&self.buffer_view.lock().buf);
+            self.find_dialog
+                .update_pattern(&mut self.buffer_view.lock());
         }
     }
 }

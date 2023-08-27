@@ -231,8 +231,42 @@ impl MainWindow {
                 if !enable_ui {
                     ui.set_enabled(false);
                 }
+                let rect = ui.available_rect_before_wrap();
 
                 self.show_terminal_area(ui);
+                let msg = if self.show_find_dialog {
+                    self.find_dialog.show_ui(ui, rect)
+                } else {
+                    None
+                };
+
+                match msg {
+                    Some(dialogs::find_dialog::Message::ChangePattern(pattern)) => {
+                        self.find_dialog.pattern = pattern.chars().collect();
+                        self.find_dialog
+                            .search_pattern(&self.buffer_view.lock().buf);
+                        self.find_dialog
+                            .update_pattern(&mut self.buffer_view.lock());
+                    }
+                    Some(dialogs::find_dialog::Message::FindNext) => {
+                        self.find_dialog.find_next(&mut self.buffer_view.lock());
+                    }
+                    Some(dialogs::find_dialog::Message::FindPrev) => {
+                        self.find_dialog.find_prev(&mut self.buffer_view.lock());
+                    }
+                    Some(dialogs::find_dialog::Message::CloseDialog) => {
+                        self.show_find_dialog = false;
+                    }
+                    Some(dialogs::find_dialog::Message::SetCasing(case_sensitive)) => {
+                        self.find_dialog.case_sensitive = case_sensitive;
+                        self.find_dialog
+                            .search_pattern(&self.buffer_view.lock().buf);
+                        self.find_dialog
+                            .update_pattern(&mut self.buffer_view.lock());
+                    }
+
+                    None => {}
+                }
             });
 
         if show_dialing_directory {
@@ -245,9 +279,10 @@ impl MainWindow {
 
         settings.selection_fg = self.screen_mode.get_selection_fg();
         settings.selection_bg = self.screen_mode.get_selection_bg();
-        
+
         let opt = icy_engine_egui::TerminalOptions {
-            focus_lock: matches!(self.get_mode(), MainWindowMode::ShowTerminal),
+            focus_lock: matches!(self.get_mode(), MainWindowMode::ShowTerminal)
+                && !self.show_find_dialog,
             filter: self.get_options().scaling.get_filter(),
             settings,
             stick_to_bottom: true,
@@ -260,7 +295,10 @@ impl MainWindow {
 
         let mut response = response.context_menu(|ui| terminal_context_menu(ui, self));
 
-        if matches!(self.get_mode(), MainWindowMode::ShowTerminal) && ui.is_enabled() {
+        if matches!(self.get_mode(), MainWindowMode::ShowTerminal)
+            && ui.is_enabled()
+            && !self.show_find_dialog
+        {
             let events: Vec<egui::Event> = ui.input(|i| i.events.clone());
             for e in events {
                 match e {
@@ -475,7 +513,6 @@ impl MainWindow {
                         let click_pos = calc.calc_click_pos(mouse_pos);
                         self.last_pos = Position::new(click_pos.x as i32, click_pos.y as i32);
                         self.drag_start = Some(click_pos);
-
                         self.buffer_view
                             .lock()
                             .set_selection(Selection::new(click_pos.x, click_pos.y));
@@ -568,8 +605,6 @@ impl MainWindow {
                     }
                 }
             }
-        } else {
-            self.buffer_view.lock().clear_selection();
         }
     }
 }

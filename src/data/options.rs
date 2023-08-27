@@ -249,6 +249,7 @@ keys![
         "settings-keybinds-toggle-fullscreen"
     ),
     (show_settings, O, ALT, "settings-keybinds-show-settings"),
+    (show_find, F, ALT, "settings-keybinds-show-find"),
     (show_capture, P, ALT, "settings-keybinds-capture-control")
 ];
 

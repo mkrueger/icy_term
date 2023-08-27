@@ -79,6 +79,9 @@ impl MainWindow {
             ),
             drag_start: None,
             last_pos: Position::default(),
+
+            show_find_dialog: false,
+            find_dialog: dialogs::find_dialog::DialogState::default(),
         };
 
         #[cfg(not(target_arch = "wasm32"))]

@@ -49,6 +49,7 @@ settings-keybinds-toggle-fullscreen = Vollbildmodus:
 settings-keybinds-upload = Upload:
 settings-keybinds-download = Download:
 settings-keybinds-quit = Beenden:
+settings-keybinds-show-find = Suchen:
 
 dialing_directory-connect-to = Verbinde zu…
 dialing_directory-new_bbs = Neue BBS
@@ -89,6 +90,9 @@ terminal-dialing_directory = Telefonbuch
 terminal-menu-copy = Kopieren
 terminal-menu-paste = Einfügen
 terminal-menu-export = Buffer exportieren…
+terminal-find-hint = Text suchen
+terminal-find-no-results = Keine Ergebnisse
+terminal-find-results = { $cur } von { $total }
 
 protocol-select-download = Download-Protokoll wählen
 protocol-select-upload = Upload-Protokoll wählen
