@@ -1,11 +1,12 @@
 use egui::{FontFamily, FontId, Rect, RichText, SelectableLabel, TextEdit, Ui, Vec2};
 use i18n_embed_fl::fl;
-use icy_engine::{Buffer, Position, Selection};
+use icy_engine::{Buffer, Position, Selection, BufferParser, AttributedChar};
 use icy_engine_egui::BufferView;
 
 #[derive(Default)]
 pub struct DialogState {
     pub pattern: Vec<char>,
+    conv_pattern: Vec<char>,
 
     pub case_sensitive: bool,
 
@@ -27,17 +28,23 @@ fn set_lead(sel: &mut Selection, pos: Position, len: usize) {
 }
 
 impl DialogState {
-    pub fn search_pattern(&mut self, buf: &Buffer) {
+    pub fn search_pattern(&mut self, buf: &Buffer, buffer_parser: &dyn BufferParser) {
         let mut cur_len = 0;
         let mut start_pos = Position::default();
         self.results.clear();
         if self.pattern.is_empty() {
             return;
         }
+
+        if self.case_sensitive {
+            self.conv_pattern = self.pattern.clone();
+        } else { 
+            self.conv_pattern = self.pattern.iter().map(char::to_ascii_lowercase).collect();
+        }
         for y in 0..buf.get_real_buffer_height() {
             for x in 0..buf.get_buffer_width() {
-                let ch = buf.get_char_xy(x, y).ch;
-                if self.compare(cur_len, ch) {
+                let ch = buf.get_char_xy(x, y);
+                if self.compare(buffer_parser, cur_len, ch) {
                     if cur_len == 0 {
                         start_pos = Position::new(x, y);
                     }
@@ -46,7 +53,7 @@ impl DialogState {
                         self.results.push(start_pos);
                         cur_len = 0;
                     }
-                } else if self.compare(0, ch) {
+                } else if self.compare(buffer_parser, 0, ch) {
                     start_pos = Position::new(x, y);
                     cur_len = 1;
                 } else {
@@ -56,11 +63,11 @@ impl DialogState {
         }
     }
 
-    fn compare(&mut self, cur_len: usize, ch: char) -> bool {
+    fn compare(&mut self, buffer_parser: &dyn BufferParser, cur_len: usize, attributed_char: AttributedChar) -> bool {
         if self.case_sensitive {
-            return self.pattern[cur_len] == ch;
+            return self.conv_pattern[cur_len] == buffer_parser.convert_to_unicode(attributed_char);
         }
-        self.pattern[cur_len].to_ascii_lowercase() == ch.to_ascii_lowercase()
+        self.conv_pattern[cur_len] == buffer_parser.convert_to_unicode(attributed_char).to_ascii_lowercase()
     }
 
     pub(crate) fn find_next(&mut self, buf: &mut BufferView) {

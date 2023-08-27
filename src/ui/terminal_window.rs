@@ -244,7 +244,7 @@ impl MainWindow {
                     Some(dialogs::find_dialog::Message::ChangePattern(pattern)) => {
                         self.find_dialog.pattern = pattern.chars().collect();
                         self.find_dialog
-                            .search_pattern(&self.buffer_view.lock().buf);
+                            .search_pattern(&self.buffer_view.lock().buf, &*self.buffer_parser);
                         self.find_dialog
                             .update_pattern(&mut self.buffer_view.lock());
                     }
@@ -260,7 +260,7 @@ impl MainWindow {
                     Some(dialogs::find_dialog::Message::SetCasing(case_sensitive)) => {
                         self.find_dialog.case_sensitive = case_sensitive;
                         self.find_dialog
-                            .search_pattern(&self.buffer_view.lock().buf);
+                            .search_pattern(&self.buffer_view.lock().buf, &*self.buffer_parser);
                         self.find_dialog
                             .update_pattern(&mut self.buffer_view.lock());
                     }

@@ -159,7 +159,7 @@ impl MainWindow {
     }
 
     pub fn output_char(&mut self, ch: char) {
-        let translated_char = self.buffer_parser.convert_from_unicode(ch);
+        let translated_char = self.buffer_parser.convert_from_unicode(ch, 0);
         if self.connection().is_connected() {
             let r = self.connection().send(vec![translated_char as u8]);
             check_error!(self, r, false);
@@ -172,14 +172,14 @@ impl MainWindow {
         if self.connection().is_connected() {
             let mut v = Vec::new();
             for ch in str.chars() {
-                let translated_char = self.buffer_parser.convert_from_unicode(ch);
+                let translated_char = self.buffer_parser.convert_from_unicode(ch, 0);
                 v.push(translated_char as u8);
             }
             let r = self.connection().send(v);
             check_error!(self, r, false);
         } else {
             for ch in str.chars() {
-                let translated_char = self.buffer_parser.convert_from_unicode(ch);
+                let translated_char = self.buffer_parser.convert_from_unicode(ch, 0);
                 if let Err(err) = self.print_char(translated_char as u8) {
                     log::error!("{err}");
                 }
@@ -476,7 +476,7 @@ impl MainWindow {
             .unwrap()
             .password
             .clone();
-        let mut cr: Vec<u8> = [self.buffer_parser.convert_from_unicode('\r') as u8].to_vec();
+        let mut cr: Vec<u8> = [self.buffer_parser.convert_from_unicode('\r', 0) as u8].to_vec();
         for (k, v) in self.screen_mode.get_input_mode().cur_map() {
             if *k == Key::Enter as u32 {
                 cr = v.to_vec();
@@ -580,7 +580,7 @@ impl MainWindow {
             ctx.input_mut(|i| i.events.clear());
             self.show_find_dialog = true;
             self.find_dialog
-                .search_pattern(&self.buffer_view.lock().buf);
+                .search_pattern(&self.buffer_view.lock().buf, &*self.buffer_parser);
             self.find_dialog
                 .update_pattern(&mut self.buffer_view.lock());
         }
