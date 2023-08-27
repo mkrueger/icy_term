@@ -241,10 +241,15 @@ impl MainWindow {
     }
 
     fn show_terminal_area(&mut self, ui: &mut egui::Ui) {
+        let mut settings = self.get_options().monitor_settings.clone();
+
+        settings.selection_fg = self.screen_mode.get_selection_fg();
+        settings.selection_bg = self.screen_mode.get_selection_bg();
+        
         let opt = icy_engine_egui::TerminalOptions {
             focus_lock: matches!(self.get_mode(), MainWindowMode::ShowTerminal),
             filter: self.get_options().scaling.get_filter(),
-            settings: self.get_options().monitor_settings.clone(),
+            settings,
             stick_to_bottom: true,
             font_extension: self.screen_mode.get_font_extension(),
             use_terminal_height: true,

@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use egui::Color32;
 use icy_engine::{
     BitFont, Palette, Size, ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, VIEWDATA_PALETTE,
 };
@@ -126,5 +127,24 @@ impl ScreenMode {
             }
         }
         buf.clear();
+    }
+
+    pub(crate) fn get_selection_fg(&self) -> egui::Color32 {
+        match self {
+            ScreenMode::Default |
+            ScreenMode::Vga(_, _) => Color32::from_rgb(0xAA, 0x00, 0xAA),
+            ScreenMode::Vic => Color32::from_rgb(0x37, 0x39, 0xC4),
+            ScreenMode::Antic => Color32::from_rgb(0x09, 0x51, 0x83),
+            ScreenMode::Videotex =>  Color32::from_rgb(0, 0, 0),
+        }
+    }
+    pub(crate) fn get_selection_bg(&self) -> egui::Color32 {
+        match self {
+            ScreenMode::Default |
+            ScreenMode::Vga(_, _) => Color32::from_rgb(0xAA, 0xAA, 0xAA),
+            ScreenMode::Vic => Color32::from_rgb(0xB0, 0x3F, 0xB6),
+            ScreenMode::Antic => Color32::from_rgb(0xFF, 0xFF, 0xFF),
+            ScreenMode::Videotex =>  Color32::from_rgb(0xFF, 0xFF, 0xFF),
+        }
     }
 }
