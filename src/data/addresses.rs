@@ -538,6 +538,8 @@ fn parse_address(value: &Value) -> Address {
             match name.to_lowercase().as_str() {
                 "vga(80, 25)" => result.screen_mode = ScreenMode::Vga(80, 25),
                 "vga(80, 50)" => result.screen_mode = ScreenMode::Vga(80, 50),
+                "vga(132, 37)" => result.screen_mode = ScreenMode::Vga(132, 37),
+                "vga(132, 52)" => result.screen_mode = ScreenMode::Vga(132, 52),
                 "vic" => result.screen_mode = ScreenMode::Vic,
                 "antic" => result.screen_mode = ScreenMode::Antic,
                 "videotex" => result.screen_mode = ScreenMode::Videotex,

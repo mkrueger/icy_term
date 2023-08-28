@@ -27,9 +27,11 @@ impl Default for ScreenMode {
     }
 }
 
-pub const DEFAULT_MODES: [ScreenMode; 8] = [
+pub const DEFAULT_MODES: [ScreenMode; 10] = [
     ScreenMode::Vga(80, 25),
     ScreenMode::Vga(80, 50),
+    ScreenMode::Vga(132, 37),
+    ScreenMode::Vga(132, 52),
     ScreenMode::Default,
     ScreenMode::Vic,
     ScreenMode::Default,
