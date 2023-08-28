@@ -209,7 +209,7 @@ address = "xibalba.l33t.codes:44510"
 protocol = "Telnet"
 terminal_type = "Ansi"
 screen_mode = "Vga(80, 25)"
-comment = "ENiGMA½ WHQ""
+comment = "ENiGMA½ WHQ"
 "#;
 
 static mut current_id: usize = 0;
@@ -303,7 +303,10 @@ impl Address {
         if let Some(dialing_directory) = Address::get_dialing_directory_file() {
             match fs::read_to_string(dialing_directory) {
                 Ok(input_text) => {
-                    res.load_string(&input_text)?;
+                    if let Err(err) = res.load_string(&input_text) {
+                        log::error!("Error reading phonebook {err}");
+                        return Ok(AddressBook::default())
+                    }
                 }
                 Err(err) => return Err(err.into()),
             }
@@ -703,4 +706,20 @@ fn parse_legacy_address(value: &Value) -> Address {
     }
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::field_reassign_with_default)]
+    use super::*;
+
+    #[test]
+    fn test_load_default_template() {
+        let mut res = AddressBook {
+            write_lock: false,
+            created_backup: false,
+            addresses: Vec::new(),
+        };
+        res.load_string(TEMPLATE).unwrap();
+    }
 }
