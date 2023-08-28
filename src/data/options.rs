@@ -434,10 +434,17 @@ impl Options {
     }
 
     fn from_str(input_text: &str) -> Options {
-        let value = input_text.parse::<Value>().unwrap();
-        let mut result = Options::default();
-        parse_value(&mut result, &value);
-        result
+        match input_text.parse::<Value>() {
+            Ok(value) => {
+            let mut result = Options::default();
+            parse_value(&mut result, &value);
+            result
+            }
+            Err(err) => {
+                log::error!("Error parsing options: {err}");
+                Options::default()
+            }
+        }
     }
 
     pub(crate) fn reset_monitor_settings(&mut self) {
