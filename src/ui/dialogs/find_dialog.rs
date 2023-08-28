@@ -1,6 +1,6 @@
 use egui::{FontFamily, FontId, Rect, RichText, SelectableLabel, TextEdit, Ui, Vec2};
 use i18n_embed_fl::fl;
-use icy_engine::{Buffer, Position, Selection, BufferParser, AttributedChar};
+use icy_engine::{AttributedChar, Buffer, BufferParser, Position, Selection};
 use icy_engine_egui::BufferView;
 
 #[derive(Default)]
@@ -38,7 +38,7 @@ impl DialogState {
 
         if self.case_sensitive {
             self.conv_pattern = self.pattern.clone();
-        } else { 
+        } else {
             self.conv_pattern = self.pattern.iter().map(char::to_ascii_lowercase).collect();
         }
         for y in 0..buf.get_real_buffer_height() {
@@ -63,11 +63,19 @@ impl DialogState {
         }
     }
 
-    fn compare(&mut self, buffer_parser: &dyn BufferParser, cur_len: usize, attributed_char: AttributedChar) -> bool {
+    fn compare(
+        &mut self,
+        buffer_parser: &dyn BufferParser,
+        cur_len: usize,
+        attributed_char: AttributedChar,
+    ) -> bool {
         if self.case_sensitive {
             return self.conv_pattern[cur_len] == buffer_parser.convert_to_unicode(attributed_char);
         }
-        self.conv_pattern[cur_len] == buffer_parser.convert_to_unicode(attributed_char).to_ascii_lowercase()
+        self.conv_pattern[cur_len]
+            == buffer_parser
+                .convert_to_unicode(attributed_char)
+                .to_ascii_lowercase()
     }
 
     pub(crate) fn find_next(&mut self, buf: &mut BufferView) {

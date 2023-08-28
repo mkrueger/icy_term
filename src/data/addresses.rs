@@ -305,7 +305,7 @@ impl Address {
                 Ok(input_text) => {
                     if let Err(err) = res.load_string(&input_text) {
                         log::error!("Error reading phonebook {err}");
-                        return Ok(AddressBook::default())
+                        return Ok(AddressBook::default());
                     }
                 }
                 Err(err) => return Err(err.into()),

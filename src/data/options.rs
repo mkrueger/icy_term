@@ -436,9 +436,9 @@ impl Options {
     fn from_str(input_text: &str) -> Options {
         match input_text.parse::<Value>() {
             Ok(value) => {
-            let mut result = Options::default();
-            parse_value(&mut result, &value);
-            result
+                let mut result = Options::default();
+                parse_value(&mut result, &value);
+                result
             }
             Err(err) => {
                 log::error!("Error parsing options: {err}");

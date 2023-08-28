@@ -577,8 +577,11 @@ impl MainWindow {
                         let mut hovered_link = false;
                         let buf = &self.buffer_view.lock().buf;
                         for hyper_link in buf.layers[0].hyperlinks() {
-                            if buf.is_position_in_range(Position::new(click_pos.x as i32, click_pos.y as i32), hyper_link.position, hyper_link.length)
-                            { 
+                            if buf.is_position_in_range(
+                                Position::new(click_pos.x as i32, click_pos.y as i32),
+                                hyper_link.position,
+                                hyper_link.length,
+                            ) {
                                 ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
                                 let url = hyper_link.get_url(buf);
                                 response = response.on_hover_ui_at_pointer(|ui| {
