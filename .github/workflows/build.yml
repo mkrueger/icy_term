@@ -30,7 +30,7 @@ jobs:
        echo "Copy $DEB to ${{ env.APP_NAME }}_${VERSION}_amd64.deb"
        mv $DEB ${{ env.APP_NAME }}_${VERSION}_amd64.deb
        sed "s/#VERSION/$VERSION/g" <build/file_id.diz  >file_id.diz
-   - name: 'Upload Artifact'
+   - name: 'Upload deb'
      uses: actions/upload-artifact@v3
      with:
        name: ${{ env.APP_NAME }}_linux_${{ env.VERSION }}
@@ -66,21 +66,23 @@ jobs:
         wix build -arch "x64" -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -d "PATH=./cert.pfx" -d "VERSION=${{ env.VERSION }}"  -out "./${{ env.APP_NAME }}-${{ env.VERSION }}-installer.msi" "build/windows/installer.wxs"
     - name: Delete PFX certificate
       run: del "./cert.pfx"
-    - name: 'Upload Artifact'
+    - name: 'Upload installer'
       uses: actions/upload-artifact@v3
       with:
         name: ${{ env.APP_NAME }}_${{ env.VERSION }}_windows_msi
         path: |
           ${{ env.APP_NAME }}-${{ env.VERSION }}-installer.msi
           file_id.diz
-    - name: 'Upload Artifact 2'
+    - name: Copy exe
+      run: cp ".\target\release\${{ env.APP_NAME }}.exe" .
+    - name: 'Upload plain exe'
       uses: actions/upload-artifact@v3
       with:
         name: ${{ env.APP_NAME }}_${{ env.VERSION }}_windows_exe
         path: |
-          .\target\release\Icy*.exe
+          .\${{ env.APP_NAME }}.exe
           file_id.diz
-  
+
   build_mac:
     strategy:
       matrix:
@@ -101,7 +103,6 @@ jobs:
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.OSX_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.OSX_CERTIFICATE_PASSWORD }}
-          # BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
           KEYCHAIN_PASSWORD: ${{ secrets.OSX_CERTIFICATE_PASSWORD }}
         run: |
           # create variables
@@ -111,7 +112,6 @@ jobs:
 
           # import certificate and provisioning profile from secrets
           echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-          # echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
 
           # create temporary keychain
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
@@ -122,9 +122,6 @@ jobs:
           security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
           security list-keychain -d user -s $KEYCHAIN_PATH
 
-          # apply provisioning profile
-          # mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          # cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
       - name: Sign dmg
         id: sign-bundle
         run: |
@@ -148,7 +145,7 @@ jobs:
         run: |
           security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
           # rm ~/Library/MobileDevice/Provisioning\ Profiles/build_pp.mobileprovision       
-      - name: 'Upload Artifact'
+      - name: 'Upload dmg'
         uses: actions/upload-artifact@v3
         with:
           name: ${{ env.APP_NAME }}_osx_${{ env.VERSION }}_${{ matrix.target }}
