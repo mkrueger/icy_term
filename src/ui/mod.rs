@@ -326,7 +326,8 @@ impl MainWindow {
 
             self.auto_login = AutoLogin::new(&cloned_addr.auto_login);
             self.auto_file_transfer.reset();
-            self.buffer_view.lock().buf.clear();
+            self.buffer_view.lock().buf.layers[0].clear();
+            self.buffer_view.lock().buf.stop_sixel_threads();
             self.dialing_directory_dialog.cur_addr = i;
             self.buffer_parser = address.get_terminal_parser(&cloned_addr);
             self.buffer_view

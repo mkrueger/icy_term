@@ -41,8 +41,8 @@ impl DialogState {
         } else {
             self.conv_pattern = self.pattern.iter().map(char::to_ascii_lowercase).collect();
         }
-        for y in 0..buf.get_real_buffer_height() {
-            for x in 0..buf.get_buffer_width() {
+        for y in 0..buf.get_line_count() {
+            for x in 0..buf.get_width() {
                 let ch = buf.get_char_xy(x, y);
                 if self.compare(buffer_parser, cur_len, ch) {
                     if cur_len == 0 {

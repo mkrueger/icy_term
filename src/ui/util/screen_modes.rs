@@ -129,7 +129,8 @@ impl ScreenMode {
                 };
             }
         }
-        buf.clear();
+        buf.layers[0].clear();
+        buf.stop_sixel_threads();
     }
 
     #[allow(clippy::match_same_arms)]
