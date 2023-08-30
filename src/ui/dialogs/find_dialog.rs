@@ -1,6 +1,6 @@
 use egui::{FontFamily, FontId, Rect, RichText, SelectableLabel, TextEdit, Ui, Vec2};
 use i18n_embed_fl::fl;
-use icy_engine::{AttributedChar, Buffer, BufferParser, Position, Selection};
+use icy_engine::{AttributedChar, Buffer, BufferParser, Selection, UPosition};
 use icy_engine_egui::BufferView;
 
 #[derive(Default)]
@@ -11,8 +11,8 @@ pub struct DialogState {
     pub case_sensitive: bool,
 
     cur_sel: usize,
-    cur_pos: Position,
-    results: Vec<Position>,
+    cur_pos: UPosition,
+    results: Vec<UPosition>,
 }
 
 pub enum Message {
@@ -23,14 +23,14 @@ pub enum Message {
     SetCasing(bool),
 }
 
-fn set_lead(sel: &mut Selection, pos: Position, len: usize) {
+fn set_lead(sel: &mut Selection, pos: UPosition, len: usize) {
     sel.set_lead(pos.x as f32 + len as f32, pos.y as f32);
 }
 
 impl DialogState {
     pub fn search_pattern(&mut self, buf: &Buffer, buffer_parser: &dyn BufferParser) {
         let mut cur_len = 0;
-        let mut start_pos = Position::default();
+        let mut start_pos = UPosition::default();
         self.results.clear();
         if self.pattern.is_empty() {
             return;
@@ -43,10 +43,10 @@ impl DialogState {
         }
         for y in 0..buf.get_line_count() {
             for x in 0..buf.get_width() {
-                let ch = buf.get_char_xy(x, y);
+                let ch = buf.get_char((x, y));
                 if self.compare(buffer_parser, cur_len, ch) {
                     if cur_len == 0 {
-                        start_pos = Position::new(x, y);
+                        start_pos = UPosition::new(x, y);
                     }
                     cur_len += 1;
                     if cur_len >= self.pattern.len() {
@@ -54,7 +54,7 @@ impl DialogState {
                         cur_len = 0;
                     }
                 } else if self.compare(buffer_parser, 0, ch) {
-                    start_pos = Position::new(x, y);
+                    start_pos = UPosition::new(x, y);
                     cur_len = 1;
                 } else {
                     cur_len = 0;
@@ -82,25 +82,25 @@ impl DialogState {
         if self.results.is_empty() || self.pattern.is_empty() {
             return;
         }
-        self.cur_pos.x += 1;
         for (i, pos) in self.results.iter().enumerate() {
             if pos >= &self.cur_pos {
                 let mut sel = Selection::new(pos.x as f32, pos.y as f32);
                 set_lead(&mut sel, *pos, self.pattern.len());
                 buf.set_selection(sel);
                 self.cur_pos = *pos;
+                self.cur_pos.x += 1;
                 self.cur_sel = i;
                 return;
             }
         }
-        self.cur_pos = Position::new(-1, -1);
+        self.cur_pos = UPosition::default();
         self.find_next(buf);
     }
 
     pub(crate) fn update_pattern(&mut self, buf: &mut BufferView) {
         if let Some(sel) = buf.get_selection() {
-            if self.results.contains(&sel.anchor_pos) {
-                let p = sel.anchor_pos;
+            if self.results.contains(&sel.anchor_pos.as_uposition()) {
+                let p = sel.anchor_pos.as_uposition();
                 set_lead(sel, p, self.pattern.len());
                 return;
             }
@@ -109,26 +109,35 @@ impl DialogState {
         self.find_next(buf);
     }
 
-    pub(crate) fn find_prev(&mut self, buf: &mut BufferView) {
+    pub(crate) fn find_prev(&mut self, buffer_view: &mut BufferView) {
         if self.results.is_empty() || self.pattern.is_empty() {
             return;
         }
-        self.cur_pos.x -= 1;
         let mut i = self.results.len() as i32 - 1;
+        let w = buffer_view.buf.get_width();
+        if self.cur_pos.x == 0 {
+            if self.cur_pos.y == 0 {
+                self.cur_pos = UPosition::new(usize::MAX, usize::MAX);
+                self.find_prev(buffer_view);
+                return;
+            }
+            self.cur_pos.y -= 1;
+            self.cur_pos.x = w - 1;
+        }
 
         for pos in self.results.iter().rev() {
             if pos < &self.cur_pos {
                 let mut sel = Selection::new(pos.x as f32, pos.y as f32);
                 set_lead(&mut sel, *pos, self.pattern.len());
-                buf.set_selection(sel);
+                buffer_view.set_selection(sel);
                 self.cur_pos = *pos;
                 self.cur_sel = i as usize;
                 return;
             }
             i -= 1;
         }
-        self.cur_pos = Position::new(i32::MAX, i32::MAX);
-        self.find_prev(buf);
+        self.cur_pos = UPosition::new(usize::MAX, usize::MAX);
+        self.find_prev(buffer_view);
     }
 
     pub fn show_ui(&self, ui: &mut Ui, rect: Rect) -> Option<Message> {

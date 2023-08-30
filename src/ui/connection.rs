@@ -131,7 +131,7 @@ impl Connection {
         &self,
         call_adr: &Address,
         timeout: Duration,
-        window_size: icy_engine::Size<u16>,
+        window_size: icy_engine::Size,
     ) -> TerminalResult<()> {
         self.tx
             .send(SendData::OpenConnection(OpenConnectionData::from(
@@ -168,11 +168,11 @@ pub struct OpenConnectionData {
     pub password: String,
     pub protocol: crate::Protocol,
     pub timeout: Duration,
-    pub window_size: icy_engine::Size<u16>,
+    pub window_size: icy_engine::Size,
 }
 
 impl OpenConnectionData {
-    pub fn from(call_adr: &Address, timeout: Duration, window_size: icy_engine::Size<u16>) -> Self {
+    pub fn from(call_adr: &Address, timeout: Duration, window_size: icy_engine::Size) -> Self {
         Self {
             address: call_adr.address.clone(),
             user_name: call_adr.user_name.clone(),

@@ -74,11 +74,11 @@ impl ScreenMode {
         }
     }
 
-    pub fn get_window_size(&self) -> Size<u16> {
+    pub fn get_window_size(&self) -> Size {
         match self {
             // ScreenMode::Cga(w, h) | ScreenMode::Ega(w, h) |
             ScreenMode::Vga(w, h) => {
-                Size::new(u16::try_from(*w).unwrap(), u16::try_from(*h).unwrap())
+                Size::new(*w as usize, *h as usize)
             }
             ScreenMode::Vic => Size::new(40, 25),
             ScreenMode::Antic | ScreenMode::Videotex => Size::new(40, 24),

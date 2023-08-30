@@ -458,7 +458,7 @@ impl MainWindow {
                                 let ch = buffer_view
                                     .lock()
                                     .buf
-                                    .get_char_xy(click_pos.x as i32, click_pos.y as i32);
+                                    .get_char((click_pos.x as usize, click_pos.y as usize));
                                 println!("ch: {ch:?}");
                             }
                         }

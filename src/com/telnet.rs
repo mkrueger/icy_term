@@ -12,7 +12,7 @@ use web_time::Duration;
 pub struct ComTelnetImpl {
     tcp_stream: TcpStream,
     state: ParserState,
-    window_size: Size<u16>, // width, height
+    window_size: Size, // width, height
     terminal: Terminal,
     use_raw_transfer: bool,
 }
