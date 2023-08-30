@@ -198,6 +198,13 @@ impl MainWindow {
                                 if r.clicked() {
                                     ui.close_menu();
                                 }
+                                let r = ui.hyperlink_to(
+                                    fl!(crate::LANGUAGE_LOADER, "menu-item-check-releases"),
+                                    "https://github.com/mkrueger/icy_term/releases/latest",
+                                );
+                                if r.clicked() {
+                                    ui.close_menu();
+                                }
                                 ui.separator();
                                 #[cfg(not(target_arch = "wasm32"))]
                                 if ui

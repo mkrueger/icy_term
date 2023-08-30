@@ -5,7 +5,7 @@ use std::{sync::Arc, time::Duration};
 
 use eframe::egui::{self};
 use egui::FontId;
-use icy_engine::{ansi, Position};
+use icy_engine::Position;
 use icy_engine_egui::FontExtension;
 
 use crate::{

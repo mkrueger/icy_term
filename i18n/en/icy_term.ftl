@@ -119,6 +119,7 @@ transfer-bps = { $bps } per second
 
 menu-item-discuss=Forum
 menu-item-report-bug=Report a bug
+menu-item-check-releases=New releases
 menu-item-settings={ settings-heading }
 menu-item-capture-dialog=Capture…
 
