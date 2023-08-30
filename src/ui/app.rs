@@ -16,7 +16,7 @@ use crate::{
         BufferView, MainWindowState, ScreenMode,
     },
     util::SoundThread,
-    AddressBook, Options,
+    Address, AddressBook, Options,
 };
 
 use super::{MainWindow, MainWindowMode};
@@ -67,7 +67,7 @@ impl MainWindow {
             auto_file_transfer: AutoFileTransfer::default(),
             screen_mode: ScreenMode::default(),
             current_file_transfer: None,
-            buffer_parser: Box::<ansi::Parser>::default(),
+            buffer_parser: crate::Terminal::Ansi.get_parser(&Address::new("default")),
             #[cfg(target_arch = "wasm32")]
             poll_thread,
             sound_thread: SoundThread::new(),

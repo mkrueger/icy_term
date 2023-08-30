@@ -36,6 +36,23 @@ impl Terminal {
         Terminal::ATAscii,
         Terminal::ViewData,
     ];
+
+    #[must_use]
+    pub fn get_parser(&self, addr: &Address) -> Box<dyn BufferParser> {
+        match self {
+            Terminal::Ansi => {
+                let mut parser = ansi::Parser::default();
+                parser.ansi_music = addr.ansi_music;
+                parser.bs_is_ctrl_char = true;
+                Box::new(parser)
+            }
+            Terminal::Avatar => Box::<avatar::Parser>::default(),
+            Terminal::Ascii => Box::<ascii::Parser>::default(),
+            Terminal::PETscii => Box::<petscii::Parser>::default(),
+            Terminal::ATAscii => Box::<atascii::Parser>::default(),
+            Terminal::ViewData => Box::<viewdata::Parser>::default(),
+        }
+    }
 }
 
 impl Display for Terminal {
@@ -215,14 +232,14 @@ comment = "ENiGMA½ WHQ"
 static mut current_id: usize = 0;
 
 impl Address {
-    pub fn new(system_name: String) -> Self {
+    pub fn new(system_name: impl Into<String>) -> Self {
         let time = Utc::now();
         unsafe {
             current_id = current_id.wrapping_add(1);
         }
 
         Self {
-            system_name,
+            system_name: system_name.into(),
             user_name: String::new(),
             password: String::new(),
             comment: String::new(),
@@ -248,22 +265,6 @@ impl Address {
             override_iemsi_settings: false,
             iemsi_user: String::new(),
             iemsi_password: String::new(),
-        }
-    }
-
-    #[must_use]
-    pub fn get_terminal_parser(&self, addr: &Address) -> Box<dyn BufferParser> {
-        match self.terminal_type {
-            Terminal::Ansi => {
-                let mut parser = ansi::Parser::default();
-                parser.ansi_music = addr.ansi_music;
-                Box::new(parser)
-            }
-            Terminal::Avatar => Box::<avatar::Parser>::default(),
-            Terminal::Ascii => Box::<ascii::Parser>::default(),
-            Terminal::PETscii => Box::<petscii::Parser>::default(),
-            Terminal::ATAscii => Box::<atascii::Parser>::default(),
-            Terminal::ViewData => Box::<viewdata::Parser>::default(),
         }
     }
 

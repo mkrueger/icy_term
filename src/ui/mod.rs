@@ -329,7 +329,7 @@ impl MainWindow {
             self.buffer_view.lock().buf.layers[0].clear();
             self.buffer_view.lock().buf.stop_sixel_threads();
             self.dialing_directory_dialog.cur_addr = i;
-            self.buffer_parser = address.get_terminal_parser(&cloned_addr);
+            self.buffer_parser = address.terminal_type.get_parser(&cloned_addr);
             self.buffer_view
                 .lock()
                 .buf
