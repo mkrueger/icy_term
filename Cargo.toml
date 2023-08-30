@@ -1,6 +1,6 @@
 [package]
 name = "icy_term"
-version = "0.6.4"
+version = "0.6.5"
 edition = "2021"
 authors = ["Mike Krüger <mkrueger@posteo.de>"]
 description = "A terminal program supporting CP437, PetScii and ViewData"
@@ -30,8 +30,8 @@ versions = "5.0.1"
 #sound
 rodio = { version = "0.17.1" , default-features = false, features = [] }
 icy_engine = { git ="https://github.com/mkrueger/icy_engine" }
-#icy_engine = { path = "../icy_engine" }
 icy_engine_egui = { git ="https://github.com/mkrueger/icy_engine_egui" }
+#icy_engine = { path = "../icy_engine" }
 #icy_engine_egui = { path = "../icy_engine_egui" }
 
 walkdir = "2"
