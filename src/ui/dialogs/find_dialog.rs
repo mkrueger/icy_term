@@ -99,8 +99,8 @@ impl DialogState {
 
     pub(crate) fn update_pattern(&mut self, buf: &mut BufferView) {
         if let Some(sel) = buf.get_selection() {
-            if self.results.contains(&sel.anchor_pos.as_uposition()) {
-                let p = sel.anchor_pos.as_uposition();
+            if self.results.contains(&sel.anchor.as_position().as_uposition()) {
+                let p = sel.anchor.as_position().as_uposition();
                 set_lead(sel, p, self.pattern.len());
                 return;
             }
