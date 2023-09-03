@@ -24,7 +24,7 @@ pub enum Message {
 }
 
 impl DialogState {
-    pub fn search_pattern(&mut self, buf: &Buffer, buffer_parser: &dyn BufferParser) {
+    pub fn search_pattern(&mut self, buf: &Buffer, buffer_parser: &Box<dyn BufferParser>) {
         let mut cur_len = 0;
         let mut start_pos = UPosition::default();
         self.results.clear();
@@ -61,7 +61,7 @@ impl DialogState {
 
     fn compare(
         &mut self,
-        buffer_parser: &dyn BufferParser,
+        buffer_parser: &Box<dyn BufferParser>,
         cur_len: usize,
         attributed_char: AttributedChar,
     ) -> bool {

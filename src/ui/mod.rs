@@ -601,12 +601,11 @@ impl MainWindow {
         if self.get_options().bind.show_find.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
             self.show_find_dialog = true;
-            self.find_dialog.search_pattern(
-                &self.buffer_view.lock().get_buffer(),
-                &*self.buffer_view.lock().get_parser(),
-            );
+            let lock = &mut self.buffer_view.lock();
+            let (buffer, _, parser) = lock.get_edit_state_mut().get_buffer_and_caret_mut();
+            self.find_dialog.search_pattern(buffer, parser);
             self.find_dialog
-                .update_pattern(&mut self.buffer_view.lock());
+                .update_pattern(lock);
         }
     }
 }

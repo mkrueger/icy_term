@@ -250,12 +250,12 @@ impl MainWindow {
                 match msg {
                     Some(dialogs::find_dialog::Message::ChangePattern(pattern)) => {
                         self.find_dialog.pattern = pattern.chars().collect();
-                        self.find_dialog.search_pattern(
-                            &self.buffer_view.lock().get_buffer(),
-                            &*self.buffer_view.lock().get_parser(),
-                        );
+                        let lock = &mut self.buffer_view.lock();
+                        let (buffer, _, parser) =
+                            lock.get_edit_state_mut().get_buffer_and_caret_mut();
+                        self.find_dialog.search_pattern(buffer, parser);
                         self.find_dialog
-                            .update_pattern(&mut self.buffer_view.lock());
+                            .update_pattern(lock);
                     }
                     Some(dialogs::find_dialog::Message::FindNext) => {
                         self.find_dialog.find_next(&mut self.buffer_view.lock());
@@ -268,12 +268,12 @@ impl MainWindow {
                     }
                     Some(dialogs::find_dialog::Message::SetCasing(case_sensitive)) => {
                         self.find_dialog.case_sensitive = case_sensitive;
-                        self.find_dialog.search_pattern(
-                            &self.buffer_view.lock().get_buffer(),
-                            &*self.buffer_view.lock().get_parser(),
-                        );
+                        let lock = &mut self.buffer_view.lock();
+                        let (buffer, _, parser) =
+                            lock.get_edit_state_mut().get_buffer_and_caret_mut();
+                        self.find_dialog.search_pattern(buffer, parser);
                         self.find_dialog
-                            .update_pattern(&mut self.buffer_view.lock());
+                            .update_pattern(lock);
                     }
 
                     None => {}
@@ -561,6 +561,7 @@ impl MainWindow {
                                 } else {
                                     icy_engine::Shape::Lines
                                 };
+                                l.set_selection(*sel);
                                 l.redraw_view();
                             }
                         }
@@ -575,6 +576,8 @@ impl MainWindow {
                     if let Some(sel) = &mut l.get_selection() {
                         sel.set_lead(click_pos.x, click_pos.y);
                         sel.locked = true;
+                        l.set_selection(*sel);
+
                         l.redraw_view();
                     }
                 }
