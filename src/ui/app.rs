@@ -37,7 +37,9 @@ impl MainWindow {
             }
         };
 
-        let view = BufferView::new(gl, options.scaling.get_filter());
+        let mut view = BufferView::new(gl, options.scaling.get_filter());
+        let buffer_parser = crate::Terminal::Ansi.get_parser(&Address::new("default"));
+        view.get_edit_state_mut().set_parser(buffer_parser);
 
         let addresses: AddressBook = match crate::addresses::start_read_book() {
             Ok(addresses) => addresses,
@@ -66,7 +68,6 @@ impl MainWindow {
             auto_file_transfer: AutoFileTransfer::default(),
             screen_mode: ScreenMode::default(),
             current_file_transfer: None,
-            buffer_parser: crate::Terminal::Ansi.get_parser(&Address::new("default")),
             #[cfg(target_arch = "wasm32")]
             poll_thread,
             sound_thread: SoundThread::new(),

@@ -96,7 +96,6 @@ impl MainWindowState {
 
 pub struct MainWindow {
     buffer_view: Arc<eframe::epaint::mutex::Mutex<BufferView>>,
-    pub buffer_parser: Box<dyn BufferParser>,
 
     connection: Option<Box<Connection>>,
 
@@ -151,15 +150,17 @@ impl MainWindow {
             if ch as u32 > 255 {
                 continue;
             }
-            self.buffer_view
-                .lock()
-                .print_char(&mut self.buffer_parser, ch)?;
+            self.buffer_view.lock().print_char(ch)?;
         }
         Ok(())
     }
 
     pub fn output_char(&mut self, ch: char) {
-        let translated_char = self.buffer_parser.convert_from_unicode(ch, 0);
+        let translated_char = self
+            .buffer_view
+            .lock()
+            .get_parser()
+            .convert_from_unicode(ch, 0);
         if self.connection().is_connected() {
             let r = self.connection().send(vec![translated_char as u8]);
             check_error!(self, r, false);
@@ -172,14 +173,22 @@ impl MainWindow {
         if self.connection().is_connected() {
             let mut v = Vec::new();
             for ch in str.chars() {
-                let translated_char = self.buffer_parser.convert_from_unicode(ch, 0);
+                let translated_char = self
+                    .buffer_view
+                    .lock()
+                    .get_parser()
+                    .convert_from_unicode(ch, 0);
                 v.push(translated_char as u8);
             }
             let r = self.connection().send(v);
             check_error!(self, r, false);
         } else {
             for ch in str.chars() {
-                let translated_char = self.buffer_parser.convert_from_unicode(ch, 0);
+                let translated_char = self
+                    .buffer_view
+                    .lock()
+                    .get_parser()
+                    .convert_from_unicode(ch, 0);
                 if let Err(err) = self.print_char(translated_char as u8) {
                     log::error!("{err}");
                 }
@@ -191,9 +200,7 @@ impl MainWindow {
         let result = self
             .buffer_view
             .lock()
-            .print_char(&mut self.buffer_parser, unsafe {
-                char::from_u32_unchecked(c as u32)
-            })?;
+            .print_char(unsafe { char::from_u32_unchecked(c as u32) })?;
         match result {
             icy_engine::CallbackAction::None => {}
             icy_engine::CallbackAction::SendString(result) => {
@@ -326,13 +333,18 @@ impl MainWindow {
 
             self.auto_login = AutoLogin::new(&cloned_addr.auto_login);
             self.auto_file_transfer.reset();
-            self.buffer_view.lock().buf.layers[0].clear();
-            self.buffer_view.lock().buf.stop_sixel_threads();
-            self.dialing_directory_dialog.cur_addr = i;
-            self.buffer_parser = address.terminal_type.get_parser(&cloned_addr);
+            self.buffer_view.lock().get_buffer_mut().layers[0].clear();
             self.buffer_view
                 .lock()
-                .buf
+                .get_buffer_mut()
+                .stop_sixel_threads();
+            self.dialing_directory_dialog.cur_addr = i;
+            self.buffer_view
+                .lock()
+                .set_parser(address.terminal_type.get_parser(&cloned_addr));
+            self.buffer_view
+                .lock()
+                .get_buffer_mut()
                 .terminal_state
                 .set_baud_rate(address.baud_emulation);
 
@@ -431,7 +443,7 @@ impl MainWindow {
                 }
             }
             if has_data {
-                self.buffer_view.lock().buf.update_hyperlinks();
+                self.buffer_view.lock().get_buffer_mut().update_hyperlinks();
             }
         }
 
@@ -481,7 +493,12 @@ impl MainWindow {
             .unwrap()
             .password
             .clone();
-        let mut cr: Vec<u8> = [self.buffer_parser.convert_from_unicode('\r', 0) as u8].to_vec();
+        let mut cr: Vec<u8> = [self
+            .buffer_view
+            .lock()
+            .get_parser()
+            .convert_from_unicode('\r', 0) as u8]
+        .to_vec();
         for (k, v) in self.screen_mode.get_input_mode().cur_map() {
             if *k == Key::Enter as u32 {
                 cr = v.to_vec();
@@ -584,8 +601,10 @@ impl MainWindow {
         if self.get_options().bind.show_find.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
             self.show_find_dialog = true;
-            self.find_dialog
-                .search_pattern(&self.buffer_view.lock().buf, &*self.buffer_parser);
+            self.find_dialog.search_pattern(
+                &self.buffer_view.lock().get_buffer(),
+                &*self.buffer_view.lock().get_parser(),
+            );
             self.find_dialog
                 .update_pattern(&mut self.buffer_view.lock());
         }

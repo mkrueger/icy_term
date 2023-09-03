@@ -23,10 +23,6 @@ pub enum Message {
     SetCasing(bool),
 }
 
-fn set_lead(sel: &mut Selection, pos: UPosition, len: usize) {
-    sel.set_lead(pos.x as f32 + len as f32, pos.y as f32);
-}
-
 impl DialogState {
     pub fn search_pattern(&mut self, buf: &Buffer, buffer_parser: &dyn BufferParser) {
         let mut cur_len = 0;
@@ -85,7 +81,7 @@ impl DialogState {
         for (i, pos) in self.results.iter().enumerate() {
             if pos >= &self.cur_pos {
                 let mut sel = Selection::new(pos.x as f32, pos.y as f32);
-                set_lead(&mut sel, *pos, self.pattern.len());
+                sel.set_lead(pos.x as f32 + self.pattern.len() as f32, pos.y as f32);
                 buf.set_selection(sel);
                 self.cur_pos = *pos;
                 self.cur_pos.x += 1;
@@ -98,10 +94,14 @@ impl DialogState {
     }
 
     pub(crate) fn update_pattern(&mut self, buf: &mut BufferView) {
-        if let Some(sel) = buf.get_selection() {
-            if self.results.contains(&sel.anchor.as_position().as_uposition()) {
-                let p = sel.anchor.as_position().as_uposition();
-                set_lead(sel, p, self.pattern.len());
+        if let Some(mut sel) = buf.get_selection() {
+            if self
+                .results
+                .contains(&sel.anchor.as_position().as_uposition())
+            {
+                let pos = sel.anchor.as_position().as_uposition();
+                sel.set_lead(pos.x as f32 + self.pattern.len() as f32, pos.y as f32);
+                buf.set_selection(sel);
                 return;
             }
         }
@@ -114,7 +114,7 @@ impl DialogState {
             return;
         }
         let mut i = self.results.len() as i32 - 1;
-        let w = buffer_view.buf.get_width();
+        let w = buffer_view.get_width();
         if self.cur_pos.x == 0 {
             if self.cur_pos.y == 0 {
                 self.cur_pos = UPosition::new(usize::MAX, usize::MAX);
@@ -128,7 +128,7 @@ impl DialogState {
         for pos in self.results.iter().rev() {
             if pos < &self.cur_pos {
                 let mut sel = Selection::new(pos.x as f32, pos.y as f32);
-                set_lead(&mut sel, *pos, self.pattern.len());
+                sel.set_lead(pos.x as f32 + self.pattern.len() as f32, pos.y as f32);
                 buffer_view.set_selection(sel);
                 self.cur_pos = *pos;
                 self.cur_sel = i as usize;

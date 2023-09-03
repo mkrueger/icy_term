@@ -32,12 +32,12 @@ impl MainWindow {
                                 let ext = OsStr::to_str(ext).unwrap().to_lowercase();
                                 self.buffer_view
                                     .lock()
-                                    .buf
+                                    .get_buffer()
                                     .to_bytes(ext.as_str(), &SaveOptions::new())
                             } else {
                                 self.buffer_view
                                     .lock()
-                                    .buf
+                                    .get_buffer()
                                     .to_bytes("ans", &SaveOptions::new())
                             };
                             let r = match content {

@@ -55,7 +55,6 @@ impl Display for ScreenMode {
 }
 
 impl ScreenMode {
-
     pub fn get_input_mode(&self) -> BufferInputMode {
         match self {
             //ScreenMode::Cga(_, _) | ScreenMode::Ega(_, _) |
@@ -77,50 +76,97 @@ impl ScreenMode {
     }
 
     pub fn set_mode(&self, main_window: &MainWindow) {
-        let buf = &mut main_window.buffer_view.lock().buf;
-        buf.set_buffer_size(self.get_window_size());
+        main_window
+            .buffer_view
+            .lock()
+            .get_buffer_mut()
+            .set_buffer_size(self.get_window_size());
         match self {
             ScreenMode::Default => {
-                buf.clear_font_table();
-                buf.set_font(0, BitFont::from_name("IBM VGA").unwrap());
-                buf.palette = Palette::new();
+                main_window
+                    .buffer_view
+                    .lock()
+                    .get_buffer_mut()
+                    .clear_font_table();
+                main_window
+                    .buffer_view
+                    .lock()
+                    .get_buffer_mut()
+                    .set_font(0, BitFont::from_name("IBM VGA").unwrap());
+                main_window.buffer_view.lock().get_buffer_mut().palette = Palette::new();
             }
             // ScreenMode::Cga(_, h) | ScreenMode::Ega(_, h) |
             ScreenMode::Vga(_, h) => {
-                buf.clear_font_table();
-                buf.set_font(
+                main_window
+                    .buffer_view
+                    .lock()
+                    .get_buffer_mut()
+                    .clear_font_table();
+                main_window.buffer_view.lock().get_buffer_mut().set_font(
                     0,
                     BitFont::from_name(if *h >= 50 { "IBM VGA50" } else { "IBM VGA" }).unwrap(),
                 );
-                buf.palette = Palette::new();
+                main_window.buffer_view.lock().get_buffer_mut().palette = Palette::new();
             }
 
             ScreenMode::Vic => {
-                buf.clear_font_table();
-                buf.set_font(0, BitFont::from_name("C64 PETSCII unshifted").unwrap());
-                buf.set_font(1, BitFont::from_name("C64 PETSCII shifted").unwrap());
+                main_window
+                    .buffer_view
+                    .lock()
+                    .get_buffer_mut()
+                    .clear_font_table();
+                main_window
+                    .buffer_view
+                    .lock()
+                    .get_buffer_mut()
+                    .set_font(0, BitFont::from_name("C64 PETSCII unshifted").unwrap());
+                main_window
+                    .buffer_view
+                    .lock()
+                    .get_buffer_mut()
+                    .set_font(1, BitFont::from_name("C64 PETSCII shifted").unwrap());
 
-                buf.palette = Palette {
+                main_window.buffer_view.lock().get_buffer_mut().palette = Palette {
                     colors: C64_DEFAULT_PALETTE.to_vec(),
                 };
             }
             ScreenMode::Antic => {
-                buf.clear_font_table();
-                buf.set_font(0, BitFont::from_name("Atari ATASCII").unwrap());
-                buf.palette = Palette {
+                main_window
+                    .buffer_view
+                    .lock()
+                    .get_buffer_mut()
+                    .clear_font_table();
+                main_window
+                    .buffer_view
+                    .lock()
+                    .get_buffer_mut()
+                    .set_font(0, BitFont::from_name("Atari ATASCII").unwrap());
+                main_window.buffer_view.lock().get_buffer_mut().palette = Palette {
                     colors: ATARI_DEFAULT_PALETTE.to_vec(),
                 };
             }
             ScreenMode::Videotex => {
-                buf.clear_font_table();
-                buf.set_font(0, BitFont::from_name("Viewdata").unwrap());
-                buf.palette = Palette {
+                main_window
+                    .buffer_view
+                    .lock()
+                    .get_buffer_mut()
+                    .clear_font_table();
+                main_window
+                    .buffer_view
+                    .lock()
+                    .get_buffer_mut()
+                    .set_font(0, BitFont::from_name("Viewdata").unwrap());
+                main_window.buffer_view.lock().get_buffer_mut().palette = Palette {
                     colors: VIEWDATA_PALETTE.to_vec(),
                 };
             }
         }
-        buf.layers[0].clear();
-        buf.stop_sixel_threads();
+        main_window.buffer_view.lock().get_buffer_mut().layers[0].clear();
+        main_window
+            .buffer_view
+            .lock()
+            .get_buffer_mut()
+            .stop_sixel_threads();
     }
 
     #[allow(clippy::match_same_arms)]

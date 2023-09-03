@@ -250,8 +250,10 @@ impl MainWindow {
                 match msg {
                     Some(dialogs::find_dialog::Message::ChangePattern(pattern)) => {
                         self.find_dialog.pattern = pattern.chars().collect();
-                        self.find_dialog
-                            .search_pattern(&self.buffer_view.lock().buf, &*self.buffer_parser);
+                        self.find_dialog.search_pattern(
+                            &self.buffer_view.lock().get_buffer(),
+                            &*self.buffer_view.lock().get_parser(),
+                        );
                         self.find_dialog
                             .update_pattern(&mut self.buffer_view.lock());
                     }
@@ -266,8 +268,10 @@ impl MainWindow {
                     }
                     Some(dialogs::find_dialog::Message::SetCasing(case_sensitive)) => {
                         self.find_dialog.case_sensitive = case_sensitive;
-                        self.find_dialog
-                            .search_pattern(&self.buffer_view.lock().buf, &*self.buffer_parser);
+                        self.find_dialog.search_pattern(
+                            &self.buffer_view.lock().get_buffer(),
+                            &*self.buffer_view.lock().get_parser(),
+                        );
                         self.find_dialog
                             .update_pattern(&mut self.buffer_view.lock());
                     }
@@ -316,7 +320,7 @@ impl MainWindow {
                     | egui::Event::Copy => {
                         let buffer_view = self.buffer_view.clone();
                         let mut l = buffer_view.lock();
-                        if let Some(txt) = l.get_copy_text(&*self.buffer_parser) {
+                        if let Some(txt) = l.get_copy_text() {
                             ui.output_mut(|o| o.copied_text = txt);
                         }
                     }
@@ -344,7 +348,7 @@ impl MainWindow {
                             let buffer_view = self.buffer_view.clone();
                             let click_pos = calc.calc_click_pos(pos);
                             let mode: icy_engine::MouseMode =
-                                buffer_view.lock().buf.terminal_state.mouse_mode;
+                                buffer_view.lock().get_buffer().terminal_state.mouse_mode;
 
                             match mode {
                                 icy_engine::MouseMode::VT200
@@ -409,8 +413,12 @@ impl MainWindow {
                             .contains(pos - calc.terminal_rect.left_top().to_vec2())
                             && !calc.scrollbar_rect.contains(pos)
                         {
-                            let mode: icy_engine::MouseMode =
-                                self.buffer_view.lock().buf.terminal_state.mouse_mode;
+                            let mode: icy_engine::MouseMode = self
+                                .buffer_view
+                                .lock()
+                                .get_buffer()
+                                .terminal_state
+                                .mouse_mode;
                             match mode {
                                 icy_engine::MouseMode::VT200
                                 | icy_engine::MouseMode::VT200_Highlight => {
@@ -456,7 +464,7 @@ impl MainWindow {
 
                                 let ch = buffer_view
                                     .lock()
-                                    .buf
+                                    .get_buffer()
                                     .get_char((click_pos.x as usize, click_pos.y as usize));
                                 println!("ch: {ch:?}");
                             }
@@ -581,15 +589,16 @@ impl MainWindow {
                     if calc.buffer_rect.contains(hover_pos) {
                         let click_pos = calc.calc_click_pos(hover_pos);
                         let mut hovered_link = false;
-                        let buf = &self.buffer_view.lock().buf;
-                        for hyper_link in buf.layers[0].hyperlinks() {
-                            if buf.is_position_in_range(
+                        for hyper_link in
+                            self.buffer_view.lock().get_buffer().layers[0].hyperlinks()
+                        {
+                            if self.buffer_view.lock().get_buffer().is_position_in_range(
                                 Position::new(click_pos.x as i32, click_pos.y as i32),
                                 hyper_link.position,
                                 hyper_link.length,
                             ) {
                                 ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
-                                let url = hyper_link.get_url(buf);
+                                let url = hyper_link.get_url(self.buffer_view.lock().get_buffer());
                                 response = response.on_hover_ui_at_pointer(|ui| {
                                     ui.hyperlink(url.clone());
                                 });
