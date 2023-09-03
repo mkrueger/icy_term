@@ -4,7 +4,7 @@ use egui::Color32;
 use icy_engine::{
     BitFont, Palette, Size, ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, VIEWDATA_PALETTE,
 };
-use icy_engine_egui::{BufferInputMode, FontExtension};
+use icy_engine_egui::BufferInputMode;
 
 use crate::ui::MainWindow;
 
@@ -55,14 +55,6 @@ impl Display for ScreenMode {
 }
 
 impl ScreenMode {
-    pub fn get_font_extension(&self) -> FontExtension {
-        FontExtension::Off
-        /*
-        match self {
-            ScreenMode::Default | ScreenMode::Vga(_, _) => FontExtension::LineGraphicsEnable,
-            _ => FontExtension::Off,
-        }*/
-    }
 
     pub fn get_input_mode(&self) -> BufferInputMode {
         match self {

@@ -6,7 +6,6 @@ use std::{sync::Arc, time::Duration};
 use eframe::egui::{self};
 use egui::FontId;
 use icy_engine::Position;
-use icy_engine_egui::FontExtension;
 
 use crate::{
     check_error,
@@ -38,7 +37,7 @@ impl MainWindow {
             }
         };
 
-        let view = BufferView::new(gl, options.scaling.get_filter(), FontExtension::Off);
+        let view = BufferView::new(gl, options.scaling.get_filter());
 
         let addresses: AddressBook = match crate::addresses::start_read_book() {
             Ok(addresses) => addresses,
@@ -87,7 +86,7 @@ impl MainWindow {
         #[cfg(not(target_arch = "wasm32"))]
         parse_command_line(&mut view);
 
-        let ctx = &cc.egui_ctx;
+        let ctx: &egui::Context = &cc.egui_ctx;
 
         // try to detect dark vs light mode from the host system; default to dark
         ctx.set_visuals(if dark_light::detect() == dark_light::Mode::Light {

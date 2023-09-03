@@ -293,7 +293,6 @@ impl MainWindow {
             filter: self.get_options().scaling.get_filter(),
             settings,
             stick_to_bottom: true,
-            font_extension: self.screen_mode.get_font_extension(),
             use_terminal_height: true,
             ..Default::default()
         };
