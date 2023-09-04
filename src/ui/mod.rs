@@ -4,7 +4,7 @@ use chrono::Utc;
 use egui::Vec2;
 use egui_bind::BindTarget;
 use i18n_embed_fl::fl;
-use icy_engine::{BufferParser, Position};
+use icy_engine::Position;
 use icy_engine_egui::BufferView;
 use std::sync::Arc;
 use std::time::Instant;
@@ -603,9 +603,8 @@ impl MainWindow {
             self.show_find_dialog = true;
             let lock = &mut self.buffer_view.lock();
             let (buffer, _, parser) = lock.get_edit_state_mut().get_buffer_and_caret_mut();
-            self.find_dialog.search_pattern(buffer, parser);
-            self.find_dialog
-                .update_pattern(lock);
+            self.find_dialog.search_pattern(buffer, (*parser).as_ref());
+            self.find_dialog.update_pattern(lock);
         }
     }
 }

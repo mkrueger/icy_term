@@ -68,7 +68,7 @@ impl ScreenMode {
     pub fn get_window_size(&self) -> Size {
         match self {
             // ScreenMode::Cga(w, h) | ScreenMode::Ega(w, h) |
-            ScreenMode::Vga(w, h) => Size::new(*w as usize, *h as usize),
+            ScreenMode::Vga(w, h) => Size::new(*w, *h),
             ScreenMode::Vic => Size::new(40, 25),
             ScreenMode::Antic | ScreenMode::Videotex => Size::new(40, 24),
             ScreenMode::Default => Size::new(80, 25),

@@ -1,6 +1,6 @@
 use egui::{FontFamily, FontId, Rect, RichText, SelectableLabel, TextEdit, Ui, Vec2};
 use i18n_embed_fl::fl;
-use icy_engine::{AttributedChar, Buffer, BufferParser, Selection, UPosition};
+use icy_engine::{AttributedChar, Buffer, BufferParser, Position, Selection};
 use icy_engine_egui::BufferView;
 
 #[derive(Default)]
@@ -11,8 +11,8 @@ pub struct DialogState {
     pub case_sensitive: bool,
 
     cur_sel: usize,
-    cur_pos: UPosition,
-    results: Vec<UPosition>,
+    cur_pos: Position,
+    results: Vec<Position>,
 }
 
 pub enum Message {
@@ -24,9 +24,9 @@ pub enum Message {
 }
 
 impl DialogState {
-    pub fn search_pattern(&mut self, buf: &Buffer, buffer_parser: &Box<dyn BufferParser>) {
+    pub fn search_pattern(&mut self, buf: &Buffer, buffer_parser: &dyn BufferParser) {
         let mut cur_len = 0;
-        let mut start_pos = UPosition::default();
+        let mut start_pos = Position::default();
         self.results.clear();
         if self.pattern.is_empty() {
             return;
@@ -42,7 +42,7 @@ impl DialogState {
                 let ch = buf.get_char((x, y));
                 if self.compare(buffer_parser, cur_len, ch) {
                     if cur_len == 0 {
-                        start_pos = UPosition::new(x, y);
+                        start_pos = (x, y).into();
                     }
                     cur_len += 1;
                     if cur_len >= self.pattern.len() {
@@ -50,7 +50,7 @@ impl DialogState {
                         cur_len = 0;
                     }
                 } else if self.compare(buffer_parser, 0, ch) {
-                    start_pos = UPosition::new(x, y);
+                    start_pos = (x, y).into();
                     cur_len = 1;
                 } else {
                     cur_len = 0;
@@ -61,7 +61,7 @@ impl DialogState {
 
     fn compare(
         &mut self,
-        buffer_parser: &Box<dyn BufferParser>,
+        buffer_parser: &dyn BufferParser,
         cur_len: usize,
         attributed_char: AttributedChar,
     ) -> bool {
@@ -89,17 +89,14 @@ impl DialogState {
                 return;
             }
         }
-        self.cur_pos = UPosition::default();
+        self.cur_pos = Position::default();
         self.find_next(buf);
     }
 
     pub(crate) fn update_pattern(&mut self, buf: &mut BufferView) {
         if let Some(mut sel) = buf.get_selection() {
-            if self
-                .results
-                .contains(&sel.anchor.as_position().as_uposition())
-            {
-                let pos = sel.anchor.as_position().as_uposition();
+            if self.results.contains(&sel.anchor.as_position()) {
+                let pos = sel.anchor.as_position();
                 sel.set_lead(pos.x as f32 + self.pattern.len() as f32, pos.y as f32);
                 buf.set_selection(sel);
                 return;
@@ -117,7 +114,7 @@ impl DialogState {
         let w = buffer_view.get_width();
         if self.cur_pos.x == 0 {
             if self.cur_pos.y == 0 {
-                self.cur_pos = UPosition::new(usize::MAX, usize::MAX);
+                self.cur_pos = Position::new(i32::MAX, i32::MAX);
                 self.find_prev(buffer_view);
                 return;
             }
@@ -136,7 +133,7 @@ impl DialogState {
             }
             i -= 1;
         }
-        self.cur_pos = UPosition::new(usize::MAX, usize::MAX);
+        self.cur_pos = Position::new(i32::MAX, i32::MAX);
         self.find_prev(buffer_view);
     }
 

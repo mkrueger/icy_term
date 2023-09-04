@@ -253,9 +253,8 @@ impl MainWindow {
                         let lock = &mut self.buffer_view.lock();
                         let (buffer, _, parser) =
                             lock.get_edit_state_mut().get_buffer_and_caret_mut();
-                        self.find_dialog.search_pattern(buffer, parser);
-                        self.find_dialog
-                            .update_pattern(lock);
+                        self.find_dialog.search_pattern(buffer, (*parser).as_ref());
+                        self.find_dialog.update_pattern(lock);
                     }
                     Some(dialogs::find_dialog::Message::FindNext) => {
                         self.find_dialog.find_next(&mut self.buffer_view.lock());
@@ -271,9 +270,8 @@ impl MainWindow {
                         let lock = &mut self.buffer_view.lock();
                         let (buffer, _, parser) =
                             lock.get_edit_state_mut().get_buffer_and_caret_mut();
-                        self.find_dialog.search_pattern(buffer, parser);
-                        self.find_dialog
-                            .update_pattern(lock);
+                        self.find_dialog.search_pattern(buffer, (*parser).as_ref());
+                        self.find_dialog.update_pattern(lock);
                     }
 
                     None => {}
@@ -592,16 +590,16 @@ impl MainWindow {
                     if calc.buffer_rect.contains(hover_pos) {
                         let click_pos = calc.calc_click_pos(hover_pos);
                         let mut hovered_link = false;
-                        for hyper_link in
-                            self.buffer_view.lock().get_buffer().layers[0].hyperlinks()
-                        {
-                            if self.buffer_view.lock().get_buffer().is_position_in_range(
+                        let lock = self.buffer_view.lock();
+                        let buffer = lock.get_buffer();
+                        for hyper_link in buffer.layers[0].hyperlinks() {
+                            if buffer.is_position_in_range(
                                 Position::new(click_pos.x as i32, click_pos.y as i32),
                                 hyper_link.position,
                                 hyper_link.length,
                             ) {
                                 ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
-                                let url = hyper_link.get_url(self.buffer_view.lock().get_buffer());
+                                let url = hyper_link.get_url(buffer);
                                 response = response.on_hover_ui_at_pointer(|ui| {
                                     ui.hyperlink(url.clone());
                                 });
