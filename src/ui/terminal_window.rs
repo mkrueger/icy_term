@@ -7,7 +7,7 @@ use eframe::{
 };
 use egui::Button;
 use i18n_embed_fl::fl;
-use icy_engine::{Position, Selection};
+use icy_engine::{Position, Selection, TextPane};
 
 use crate::check_error;
 
@@ -318,9 +318,9 @@ impl MainWindow {
                     | egui::Event::Copy => {
                         let buffer_view = self.buffer_view.clone();
                         let mut l = buffer_view.lock();
-                        if let Some(txt) = l.get_copy_text() {
-                            ui.output_mut(|o| o.copied_text = txt);
-                        }
+                            if let Some(txt) = l.get_copy_text() {
+                                ui.output_mut(|o| o.copied_text = txt);
+                                                    }
                     }
                     egui::Event::Paste(text) => {
                         self.output_string(&text);
@@ -464,7 +464,7 @@ impl MainWindow {
                                     .lock()
                                     .get_buffer()
                                     .get_char((click_pos.x as usize, click_pos.y as usize));
-                                println!("ch: {ch:?}");
+                                println!("Char under cursor: {ch:?}");
                             }
                         }
                     }

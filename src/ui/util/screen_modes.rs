@@ -80,7 +80,7 @@ impl ScreenMode {
             .buffer_view
             .lock()
             .get_buffer_mut()
-            .set_buffer_size(self.get_window_size());
+            .set_size(self.get_window_size());
         match self {
             ScreenMode::Default => {
                 main_window

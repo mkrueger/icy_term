@@ -1,6 +1,6 @@
 use egui::{FontFamily, FontId, Rect, RichText, SelectableLabel, TextEdit, Ui, Vec2};
 use i18n_embed_fl::fl;
-use icy_engine::{AttributedChar, Buffer, BufferParser, Position, Selection};
+use icy_engine::{AttributedChar, Buffer, BufferParser, Position, Selection, TextPane};
 use icy_engine_egui::BufferView;
 
 #[derive(Default)]
