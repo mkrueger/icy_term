@@ -80,8 +80,8 @@ impl DialogState {
         }
         for (i, pos) in self.results.iter().enumerate() {
             if pos >= &self.cur_pos {
-                let mut sel = Selection::new(pos.x as f32, pos.y as f32);
-                sel.set_lead(pos.x as f32 + self.pattern.len() as f32, pos.y as f32);
+                let mut sel = Selection::new(*pos);
+                sel.lead = Position::new(pos.x + self.pattern.len() as i32, pos.y);
                 buf.set_selection(sel);
                 self.cur_pos = *pos;
                 self.cur_pos.x += 1;
@@ -95,9 +95,9 @@ impl DialogState {
 
     pub(crate) fn update_pattern(&mut self, buf: &mut BufferView) {
         if let Some(mut sel) = buf.get_selection() {
-            if self.results.contains(&sel.anchor.as_position()) {
-                let pos = sel.anchor.as_position();
-                sel.set_lead(pos.x as f32 + self.pattern.len() as f32, pos.y as f32);
+            if self.results.contains(&sel.anchor) {
+                let pos = sel.anchor;
+                sel.lead = Position::new(pos.x + self.pattern.len() as i32, pos.y);
                 buf.set_selection(sel);
                 return;
             }
@@ -124,8 +124,8 @@ impl DialogState {
 
         for pos in self.results.iter().rev() {
             if pos < &self.cur_pos {
-                let mut sel = Selection::new(pos.x as f32, pos.y as f32);
-                sel.set_lead(pos.x as f32 + self.pattern.len() as f32, pos.y as f32);
+                let mut sel = Selection::new(*pos);
+                sel.lead = Position::new(pos.x + self.pattern.len() as i32, pos.y);
                 buffer_view.set_selection(sel);
                 self.cur_pos = *pos;
                 self.cur_sel = i as usize;

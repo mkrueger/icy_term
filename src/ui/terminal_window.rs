@@ -318,9 +318,9 @@ impl MainWindow {
                     | egui::Event::Copy => {
                         let buffer_view = self.buffer_view.clone();
                         let mut l = buffer_view.lock();
-                            if let Some(txt) = l.get_copy_text() {
-                                ui.output_mut(|o| o.copied_text = txt);
-                                                    }
+                        if let Some(txt) = l.get_copy_text() {
+                            ui.output_mut(|o| o.copied_text = txt);
+                        }
                     }
                     egui::Event::Paste(text) => {
                         self.output_string(&text);
@@ -527,7 +527,7 @@ impl MainWindow {
                         self.drag_start = Some(click_pos);
                         self.buffer_view
                             .lock()
-                            .set_selection(Selection::new(click_pos.x, click_pos.y));
+                            .set_selection(Selection::new((click_pos.x, click_pos.y)));
                         self.buffer_view
                             .lock()
                             .get_selection()
@@ -553,7 +553,7 @@ impl MainWindow {
                         let mut l = self.buffer_view.lock();
                         if let Some(sel) = &mut l.get_selection() {
                             if !sel.locked {
-                                sel.set_lead(click_pos.x, click_pos.y);
+                                sel.lead = Position::new(click_pos.x as i32, click_pos.y as i32);
                                 sel.shape = if ui.input(|i| i.modifiers.alt) {
                                     icy_engine::Shape::Rectangle
                                 } else {
@@ -569,10 +569,8 @@ impl MainWindow {
 
             if response.drag_released_by(PointerButton::Primary) && self.drag_start.is_some() {
                 if let Some(mouse_pos) = response.interact_pointer_pos() {
-                    let click_pos = calc.calc_click_pos(mouse_pos);
                     let mut l = self.buffer_view.lock();
                     if let Some(sel) = &mut l.get_selection() {
-                        sel.set_lead(click_pos.x, click_pos.y);
                         sel.locked = true;
                         l.set_selection(*sel);
 
