@@ -568,7 +568,7 @@ impl MainWindow {
             }
 
             if response.drag_released_by(PointerButton::Primary) && self.drag_start.is_some() {
-                if let Some(mouse_pos) = response.interact_pointer_pos() {
+                if response.interact_pointer_pos().is_some() {
                     let mut l = self.buffer_view.lock();
                     if let Some(sel) = &mut l.get_selection() {
                         sel.locked = true;

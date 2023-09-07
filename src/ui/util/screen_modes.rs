@@ -2,7 +2,8 @@ use std::fmt::Display;
 
 use egui::Color32;
 use icy_engine::{
-    BitFont, Palette, Size, ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, VIEWDATA_PALETTE,
+    BitFont, Palette, Size, ATARI, ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, C64_LOWER,
+    C64_UPPER, CP437, VIEWDATA, VIEWDATA_PALETTE,
 };
 use icy_engine_egui::BufferInputMode;
 
@@ -82,30 +83,18 @@ impl ScreenMode {
             .get_buffer_mut()
             .set_size(self.get_window_size());
         match self {
-            ScreenMode::Default => {
-                main_window
-                    .buffer_view
-                    .lock()
-                    .get_buffer_mut()
-                    .clear_font_table();
-                main_window
-                    .buffer_view
-                    .lock()
-                    .get_buffer_mut()
-                    .set_font(0, BitFont::from_name("IBM VGA").unwrap());
-                main_window.buffer_view.lock().get_buffer_mut().palette = Palette::new();
-            }
             // ScreenMode::Cga(_, h) | ScreenMode::Ega(_, h) |
-            ScreenMode::Vga(_, h) => {
+            ScreenMode::Vga(_, _) | ScreenMode::Default => {
                 main_window
                     .buffer_view
                     .lock()
                     .get_buffer_mut()
                     .clear_font_table();
-                main_window.buffer_view.lock().get_buffer_mut().set_font(
-                    0,
-                    BitFont::from_name(if *h >= 50 { "IBM VGA50" } else { "IBM VGA" }).unwrap(),
-                );
+                main_window
+                    .buffer_view
+                    .lock()
+                    .get_buffer_mut()
+                    .set_font(0, BitFont::from_bytes("", CP437).unwrap());
                 main_window.buffer_view.lock().get_buffer_mut().palette = Palette::new();
             }
 
@@ -119,12 +108,12 @@ impl ScreenMode {
                     .buffer_view
                     .lock()
                     .get_buffer_mut()
-                    .set_font(0, BitFont::from_name("C64 PETSCII unshifted").unwrap());
+                    .set_font(0, BitFont::from_bytes("", C64_LOWER).unwrap());
                 main_window
                     .buffer_view
                     .lock()
                     .get_buffer_mut()
-                    .set_font(1, BitFont::from_name("C64 PETSCII shifted").unwrap());
+                    .set_font(1, BitFont::from_bytes("", C64_UPPER).unwrap());
 
                 main_window.buffer_view.lock().get_buffer_mut().palette = Palette {
                     colors: C64_DEFAULT_PALETTE.to_vec(),
@@ -140,7 +129,7 @@ impl ScreenMode {
                     .buffer_view
                     .lock()
                     .get_buffer_mut()
-                    .set_font(0, BitFont::from_name("Atari ATASCII").unwrap());
+                    .set_font(0, BitFont::from_bytes("", ATARI).unwrap());
                 main_window.buffer_view.lock().get_buffer_mut().palette = Palette {
                     colors: ATARI_DEFAULT_PALETTE.to_vec(),
                 };
@@ -155,7 +144,7 @@ impl ScreenMode {
                     .buffer_view
                     .lock()
                     .get_buffer_mut()
-                    .set_font(0, BitFont::from_name("Viewdata").unwrap());
+                    .set_font(0, BitFont::from_bytes("", VIEWDATA).unwrap());
                 main_window.buffer_view.lock().get_buffer_mut().palette = Palette {
                     colors: VIEWDATA_PALETTE.to_vec(),
                 };
