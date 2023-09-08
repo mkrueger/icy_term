@@ -18,7 +18,7 @@ use eframe::egui;
 use lazy_static::lazy_static;
 use ui::MainWindow;
 use web_time::Instant;
-pub type TerminalResult<T> = Result<T, Box<dyn Error>>;
+pub type TerminalResult<T> = Result<T, Box<dyn Error >>;
 use i18n_embed::fluent::{fluent_language_loader, FluentLanguageLoader};
 
 mod com;

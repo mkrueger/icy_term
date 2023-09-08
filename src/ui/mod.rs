@@ -145,14 +145,15 @@ impl MainWindow {
         }
     }
 
-    pub fn println(&mut self, str: &str) -> TerminalResult<()> {
+    pub fn println(&mut self, str: &str) {
         for ch in str.chars() {
             if ch as u32 > 255 {
                 continue;
             }
-            self.buffer_view.lock().print_char(ch)?;
+            if let Err(err) = self.buffer_view.lock().print_char(ch) {
+                log::error!("{err}");
+            }
         }
-        Ok(())
     }
 
     pub fn output_char(&mut self, ch: char) {
@@ -164,8 +165,8 @@ impl MainWindow {
         if self.connection().is_connected() {
             let r = self.connection().send(vec![translated_char as u8]);
             check_error!(self, r, false);
-        } else if let Err(err) = self.print_char(translated_char as u8) {
-            log::error!("{err}");
+        } else {
+            self.print_char(translated_char as u8);
         }
     }
 
@@ -189,48 +190,48 @@ impl MainWindow {
                     .lock()
                     .get_parser()
                     .convert_from_unicode(ch, 0);
-                if let Err(err) = self.print_char(translated_char as u8) {
-                    log::error!("{err}");
-                }
+                self.print_char(translated_char as u8);
             }
         }
     }
 
-    pub fn print_char(&mut self, c: u8) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn print_char(&mut self, c: u8) {
         let result = self
             .buffer_view
             .lock()
-            .print_char(unsafe { char::from_u32_unchecked(c as u32) })?;
+            .print_char(unsafe { char::from_u32_unchecked(c as u32) });
         match result {
-            icy_engine::CallbackAction::None => {}
-            icy_engine::CallbackAction::SendString(result) => {
+            Ok(icy_engine::CallbackAction::None) => {}
+            Ok(icy_engine::CallbackAction::SendString(result)) => {
                 if self.connection().is_connected() {
                     let r = self.connection().send(result.as_bytes().to_vec());
                     check_error!(self, r, false);
                 }
             }
-            icy_engine::CallbackAction::PlayMusic(music) => {
+            Ok(icy_engine::CallbackAction::PlayMusic(music)) => {
                 let r = self.sound_thread.play_music(music);
                 check_error!(self, r, false);
             }
-            icy_engine::CallbackAction::Beep => {
+            Ok(icy_engine::CallbackAction::Beep) => {
                 if self.get_options().console_beep {
                     let r = self.sound_thread.beep();
                     check_error!(self, r, false);
                 }
             }
-            icy_engine::CallbackAction::ChangeBaudEmulation(baud_emulation) => {
+            Ok(icy_engine::CallbackAction::ChangeBaudEmulation(baud_emulation)) => {
                 let r = self
                     .connection()
                     .set_baud_rate(baud_emulation.get_baud_rate());
                 check_error!(self, r, false);
             }
-            icy_engine::CallbackAction::ResizeTerminal(_, _) => {
+            Ok(icy_engine::CallbackAction::ResizeTerminal(_, _)) => {
                 self.buffer_view.lock().redraw_view();
+            }
+            Err(err) => {
+                log::error!("{err}");
             }
         }
         self.buffer_view.lock().redraw_view();
-        Ok(())
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -361,8 +362,7 @@ impl MainWindow {
             crate::LANGUAGE_LOADER,
             "connect-to",
             address = cloned_addr.address.clone()
-        ))
-        .unwrap_or_default();
+        ));
 
         let timeout = self.get_options().connect_timeout;
         let window_size = self.screen_mode.get_window_size();
@@ -433,9 +433,7 @@ impl MainWindow {
                     }
                 }*/
 
-                if let Err(err) = self.print_char(ch) {
-                    log::error!("{err}");
-                }
+                self.print_char(ch);
 
                 if let Some((protocol_type, download)) = self.auto_file_transfer.try_transfer(ch) {
                     self.initiate_file_transfer(protocol_type, download);

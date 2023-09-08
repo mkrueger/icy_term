@@ -25,6 +25,11 @@ Features supported so far:
 Get the latest release here:
 https://github.com/mkrueger/icy_term/releases/latest
 
+# Help
+
+Contributions are welcome. But also testing & bug reporting or feature requests.
+
+If you can't/want to contriubte code you can donate via paypal to mkrueger@posteo.de
 # Screenshots
 
 Code page 437 (aka "DOS") support:

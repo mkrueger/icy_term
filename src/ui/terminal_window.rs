@@ -491,9 +491,7 @@ impl MainWindow {
                                     check_error!(self, res, true);
                                 } else {
                                     for c in *m {
-                                        if let Err(err) = self.print_char(*c) {
-                                            log::error!("Error printing char: {}", err);
-                                        }
+                                        self.print_char(*c);
                                     }
                                 }
                                 response.mark_changed();
