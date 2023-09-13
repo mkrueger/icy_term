@@ -557,7 +557,9 @@ impl MainWindow {
                                 } else {
                                     icy_engine::Shape::Lines
                                 };
+                                l.clear_selection();
                                 l.set_selection(*sel);
+                                l.get_edit_state_mut().add_selection_to_mask();
                                 l.redraw_view();
                             }
                         }
@@ -570,9 +572,6 @@ impl MainWindow {
                     let mut l = self.buffer_view.lock();
                     if let Some(sel) = &mut l.get_selection() {
                         sel.locked = true;
-                        l.set_selection(*sel);
-
-                        l.redraw_view();
                     }
                 }
                 self.last_pos = Position::new(-1, -1);

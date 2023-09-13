@@ -82,7 +82,9 @@ impl DialogState {
             if pos >= &self.cur_pos {
                 let mut sel = Selection::new(*pos);
                 sel.lead = Position::new(pos.x + self.pattern.len() as i32, pos.y);
+                buf.clear_selection();
                 buf.set_selection(sel);
+                buf.get_edit_state_mut().add_selection_to_mask();
                 self.cur_pos = *pos;
                 self.cur_pos.x += 1;
                 self.cur_sel = i;
@@ -98,7 +100,9 @@ impl DialogState {
             if self.results.contains(&sel.anchor) {
                 let pos = sel.anchor;
                 sel.lead = Position::new(pos.x + self.pattern.len() as i32, pos.y);
+                buf.clear_selection();
                 buf.set_selection(sel);
+                buf.get_edit_state_mut().add_selection_to_mask();
                 return;
             }
         }
@@ -126,7 +130,10 @@ impl DialogState {
             if pos < &self.cur_pos {
                 let mut sel = Selection::new(*pos);
                 sel.lead = Position::new(pos.x + self.pattern.len() as i32, pos.y);
+                buffer_view.clear_selection();
                 buffer_view.set_selection(sel);
+                buffer_view.get_edit_state_mut().add_selection_to_mask();
+
                 self.cur_pos = *pos;
                 self.cur_sel = i as usize;
                 return;
