@@ -115,9 +115,8 @@ impl ScreenMode {
                     .get_buffer_mut()
                     .set_font(1, BitFont::from_bytes("", C64_UPPER).unwrap());
 
-                main_window.buffer_view.lock().get_buffer_mut().palette = Palette {
-                    colors: C64_DEFAULT_PALETTE.to_vec(),
-                };
+                main_window.buffer_view.lock().get_buffer_mut().palette =
+                    Palette::from_colors(C64_DEFAULT_PALETTE.to_vec());
             }
             ScreenMode::Antic => {
                 main_window
@@ -130,9 +129,8 @@ impl ScreenMode {
                     .lock()
                     .get_buffer_mut()
                     .set_font(0, BitFont::from_bytes("", ATARI).unwrap());
-                main_window.buffer_view.lock().get_buffer_mut().palette = Palette {
-                    colors: ATARI_DEFAULT_PALETTE.to_vec(),
-                };
+                main_window.buffer_view.lock().get_buffer_mut().palette =
+                    Palette::from_colors(ATARI_DEFAULT_PALETTE.to_vec());
             }
             ScreenMode::Videotex => {
                 main_window
@@ -145,9 +143,8 @@ impl ScreenMode {
                     .lock()
                     .get_buffer_mut()
                     .set_font(0, BitFont::from_bytes("", VIEWDATA).unwrap());
-                main_window.buffer_view.lock().get_buffer_mut().palette = Palette {
-                    colors: VIEWDATA_PALETTE.to_vec(),
-                };
+                main_window.buffer_view.lock().get_buffer_mut().palette =
+                    Palette::from_colors(VIEWDATA_PALETTE.to_vec());
             }
         }
         main_window.buffer_view.lock().get_buffer_mut().layers[0].clear();

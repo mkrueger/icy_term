@@ -136,7 +136,7 @@ impl MainWindowState {
             }
         }
 
-        if !open || close_dialog {
+        if result.is_none() && (!open || close_dialog) {
             result = Some(Message::CloseDialog);
         }
 
