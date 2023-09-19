@@ -134,7 +134,7 @@ impl SoundThread {
             thread_is_running: true,
         };
 
-        thread::spawn(move || {
+        if let Err(err) = std::thread::Builder::new().name("music_thread".to_string()).spawn(move || {
             while data.thread_is_running {
                 data.handle_queue();
                 data.handle_receive();
@@ -145,7 +145,9 @@ impl SoundThread {
             log::error!(
                 "communication thread closed because it lost connection with the ui thread."
             );
-        });
+        }) {
+            log::error!("Error in starting music thread: {}", err);
+        }
     }
     fn no_thread_running(&self) -> bool {
         self.restart_count > 3

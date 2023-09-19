@@ -172,7 +172,7 @@ impl MainWindow {
 
         let (tx, rx) = mpsc::channel::<SendData>();
         let (tx2, rx2) = mpsc::channel::<SendData>();
-        std::thread::spawn(move || {
+        if let Err(err) = std::thread::Builder::new().name("com_thread".to_string()).spawn(move || {
             let mut data: ConnectionThreadData = ConnectionThreadData::new(tx, rx2);
             while data.thread_is_running {
                 if data.is_connected {
@@ -187,7 +187,9 @@ impl MainWindow {
             log::error!(
                 "communication thread closed because it lost connection with the ui thread."
             );
-        });
+        }) {
+            log::error!("error in communication thread: {}", err);
+        }
         Connection::new(rx, tx2)
     }
 

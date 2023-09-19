@@ -11,7 +11,6 @@ use std::{
     fmt::Display,
     fs::{self},
     path::PathBuf,
-    thread,
 };
 use toml::Value;
 use versions::Versioning;
@@ -447,13 +446,15 @@ impl AddressBook {
 fn start_watch_thread() {
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(dialing_directory) = Address::get_dialing_directory_file() {
-        thread::spawn(move || loop {
+        if let Err(err) = std::thread::Builder::new().name("file_watcher_thread".to_string()).spawn(move || loop {
             if let Some(path) = dialing_directory.parent() {
                 if watch(path).is_err() {
                     return;
                 }
             }
-        });
+        }) {
+            log::error!("Error starting file watcher thread: {err}");
+        }
     }
 }
 

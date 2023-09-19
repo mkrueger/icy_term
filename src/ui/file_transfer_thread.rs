@@ -22,7 +22,7 @@ impl FileTransferThread {
 
         let current_transfer2 = current_transfer.clone();
 
-        let join_handle = thread::spawn(move || {
+        let join_handle = std::thread::Builder::new().name("file_transfer".to_string()).spawn(move || {
             let mut protocol = protocol_type.create();
 
             if let Err(err) = if download {
@@ -75,11 +75,14 @@ impl FileTransferThread {
             }
             connection
         });
+        if let Err(err) = &join_handle {
+            log::error!("Error creating file transfer thread: {err}");
+        }
 
         Self {
             current_transfer,
             file_transfer_dialog: dialogs::up_download_dialog::FileTransferDialog::new(),
-            join_handle: Some(join_handle),
+            join_handle: Some(join_handle.unwrap()),
         }
     }
 }
