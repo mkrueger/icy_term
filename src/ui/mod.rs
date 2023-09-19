@@ -6,6 +6,7 @@ use egui_bind::BindTarget;
 use i18n_embed_fl::fl;
 use icy_engine::Position;
 use icy_engine_egui::BufferView;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -111,6 +112,7 @@ pub struct MainWindow {
 
     auto_file_transfer: AutoFileTransfer,
 
+    pub initial_upload_directory: Option<PathBuf>,
     // protocols
     pub current_file_transfer: Option<FileTransferThread>,
 

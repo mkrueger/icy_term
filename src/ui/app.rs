@@ -3,6 +3,7 @@
 use core::panic;
 use std::{sync::Arc, time::Duration};
 
+use directories::UserDirs;
 use eframe::egui::{self};
 use egui::FontId;
 use icy_engine::Position;
@@ -57,6 +58,13 @@ impl MainWindow {
         let is_fullscreen_mode = cc.integration_info.window_info.fullscreen;
         #[cfg(target_arch = "wasm32")]
         let is_fullscreen_mode = false;
+
+        let mut initial_upload_directory = None;
+
+        if let Some(dirs) = UserDirs::new() {
+            initial_upload_directory = Some(dirs.home_dir().to_path_buf());
+        }
+
         let mut view = MainWindow {
             buffer_view: Arc::new(eframe::epaint::mutex::Mutex::new(view)),
             //address_list: HoverList::new(),
@@ -64,6 +72,7 @@ impl MainWindow {
                 options,
                 ..Default::default()
             },
+            initial_upload_directory,
             connection: Some(Box::new(connection)),
             auto_login: AutoLogin::new(""),
             auto_file_transfer: AutoFileTransfer::default(),

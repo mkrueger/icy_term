@@ -1,3 +1,4 @@
+
 use eframe::egui::{self};
 use egui_file::FileDialog;
 
@@ -15,7 +16,7 @@ pub struct DialogState {
 
 impl MainWindow {
     pub fn init_upload_dialog(&mut self, protocol_type: crate::protocol::TransferType) {
-        let mut dialog: FileDialog = FileDialog::open_file(None);
+        let mut dialog: FileDialog = FileDialog::open_file(self.initial_upload_directory.clone());
         dialog.open();
         self.upload_dialog.open_file_dialog = Some(dialog);
         self.upload_dialog.protocol_type = protocol_type;
@@ -46,7 +47,9 @@ impl MainWindow {
                         self.set_mode(MainWindowMode::ShowTerminal);
                         return;
                     }
-
+                    if let Some(parent) = path.parent() {
+                        self.initial_upload_directory = Some(parent.to_path_buf());
+                    }
                     let fd = FileDescriptor::from_paths(&vec![path.to_path_buf()]);
                     if let Ok(files) = fd {
                         self.start_file_transfer(
