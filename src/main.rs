@@ -12,14 +12,25 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 mod ui;
-use std::error::Error;
+use std::{error::Error, path::PathBuf};
 
+use directories::ProjectDirs;
 use eframe::egui;
 use lazy_static::lazy_static;
 use ui::MainWindow;
 use web_time::Instant;
 pub type TerminalResult<T> = Result<T, Box<dyn Error>>;
 use i18n_embed::fluent::{fluent_language_loader, FluentLanguageLoader};
+use log::LevelFilter;
+use log4rs::{
+    append::{
+        console::{ConsoleAppender, Target},
+        file::FileAppender,
+    },
+    config::{Appender, Config, Root},
+    encode::pattern::PatternEncoder,
+    filter::threshold::ThresholdFilter,
+};
 
 mod com;
 pub mod data;
@@ -78,21 +89,81 @@ static LANGUAGE_LOADER: Lazy<FluentLanguageLoader> = Lazy::new(|| {
     let _result = i18n_embed::select(&loader, &Localizations {}, &requested_languages);
     loader
 });
+
+fn get_log_file() -> anyhow::Result<PathBuf> {
+    if let Some(proj_dirs) = ProjectDirs::from("com", "GitHub", "icy_term") {
+        let dir = proj_dirs.config_dir().join("icy_term.log");
+        return Ok(dir);
+    }
+    Err(anyhow::anyhow!("Error getting log directory"))
+}
+
+
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
-    env_logger::init();
+    use std::fs;
+
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1284. + 8., 839.)),
         multisampling: 0,
         renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
-    eframe::run_native(
+
+    if let Ok(log_file) = get_log_file() {
+        // delete log file when it is too big
+        if let Ok(data) = fs::metadata(&log_file) {
+            if data.len() > 1024 * 256 {
+                fs::remove_file(&log_file).unwrap();
+            }
+        }
+
+        let level = log::LevelFilter::Info;
+
+        // Build a stderr logger.
+        let stderr = ConsoleAppender::builder().target(Target::Stderr).build();
+
+        // Logging to log file.
+        let logfile = FileAppender::builder()
+            // Pattern: https://docs.rs/log4rs/*/log4rs/encode/pattern/index.html
+            .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
+            .build(log_file)
+            .unwrap();
+
+        let config = Config::builder()
+            .appender(Appender::builder().build("logfile", Box::new(logfile)))
+            .appender(
+                Appender::builder()
+                    .filter(Box::new(ThresholdFilter::new(level)))
+                    .build("stderr", Box::new(stderr)),
+            )
+            .build(
+                Root::builder()
+                    .appender("logfile")
+                    .appender("stderr")
+                    .build(LevelFilter::Info),
+            )
+            .unwrap();
+
+        // Use this to change log levels at runtime.
+        // This means you can change the default log level to trace
+        // if you are trying to debug an issue and need more logs on then turn it off
+        // once you are done.
+        let _handle = log4rs::init_config(config);
+    } else {
+        eprintln!("Failed to create log file");
+    }
+
+    log::info!("Starting iCY TERM {}", VERSION);
+
+    if let Err(err) = eframe::run_native(
         &DEFAULT_TITLE,
         options,
         Box::new(|cc| Box::new(MainWindow::new(cc))),
-    )
-    .unwrap();
+    ) {
+        log::error!("Error returned by run_native: {}", err);
+    }
+    log::info!("shutting down.");
 }
 
 lazy_static! {
