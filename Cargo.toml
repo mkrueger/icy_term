@@ -29,10 +29,10 @@ versions = "5.0.1"
 
 #sound
 rodio = { version = "0.17.1" , default-features = false, features = [] }
-#icy_engine = { git ="https://github.com/mkrueger/icy_engine" }
-#icy_engine_egui = { git ="https://github.com/mkrueger/icy_engine_egui" }
-icy_engine = { path = "../icy_engine" }
-icy_engine_egui = { path = "../icy_engine_egui" }
+icy_engine = { git ="https://github.com/mkrueger/icy_engine" }
+icy_engine_egui = { git ="https://github.com/mkrueger/icy_engine_egui" }
+#icy_engine = { path = "../icy_engine" }
+#icy_engine_egui = { path = "../icy_engine_egui" }
 
 walkdir = "2"
 toml = "0.7.6"

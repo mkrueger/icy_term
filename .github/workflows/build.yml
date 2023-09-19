@@ -82,7 +82,55 @@ jobs:
         path: |
           .\${{ env.APP_NAME }}.exe
           file_id.diz
+### 32 bit
+  build_windows_32bit:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build exe
+      run: |
+        rustup install stable-i686-pc-windows-msvc
+        rustup default stable-i686-pc-windows-msvc
+        cargo build --release
+    - name: Install WiX
+      run: dotnet tool install --global wix --version 4.0.1
+    - name: Create PFX certificate
+      id: create-pfx
+      shell: pwsh
+      env:
+        PFX_CONTENT: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+      run: |
+        $encodedBytes=[System.Convert]::FromBase64String($env:PFX_CONTENT);
+        Set-Content "./cert.pfx" -Value $encodedBytes
+        $VERSION=$(cargo pkgid | foreach-object { $_ -replace '(.*)#','' })
+        echo "Version: $VERSION"
+        Add-Content -Path $env:GITHUB_ENV -Value "VERSION=$VERSION"
+        get-content .\build\file_id.diz | %{$_ -replace "#VERSION","$VERSION"} >file_id.diz        
+    - name: Build MSI installer.
+      run: |
+        echo "Building ${{ env.VERSION }} installer…"
+        wix extension add WixToolset.UI.wixext WixToolset.Util.wixext
+        wix build -arch "x64" -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -d "PATH=./cert.pfx" -d "VERSION=${{ env.VERSION }}"  -out "./${{ env.APP_NAME }}-${{ env.VERSION }}-installer.msi" "build/windows/installer.wxs"
+    - name: Delete PFX certificate
+      run: del "./cert.pfx"
+    - name: 'Upload installer'
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ env.APP_NAME }}_${{ env.VERSION }}_32bit_windows_msi
+        path: |
+          ${{ env.APP_NAME }}-${{ env.VERSION }}-installer.msi
+          file_id.diz
+    - name: Copy exe
+      run: cp ".\target\release\${{ env.APP_NAME }}.exe" .
+    - name: 'Upload plain exe'
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ env.APP_NAME }}_${{ env.VERSION }}_32bit_windows_exe
+        path: |
+          .\${{ env.APP_NAME }}.exe
+          file_id.diz
 
+###
   build_mac:
     strategy:
       matrix:
