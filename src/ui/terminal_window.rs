@@ -284,16 +284,14 @@ impl MainWindow {
     }
 
     fn show_terminal_area(&mut self, ui: &mut egui::Ui) {
-        let mut settings = self.get_options().monitor_settings.clone();
+        let mut monitor_settings = self.get_options().monitor_settings.clone();
 
-        settings.selection_fg = self.screen_mode.get_selection_fg();
-        settings.selection_bg = self.screen_mode.get_selection_bg();
+        monitor_settings.selection_fg = self.screen_mode.get_selection_fg();
+        monitor_settings.selection_bg = self.screen_mode.get_selection_bg();
 
         let opt = icy_engine_egui::TerminalOptions {
-            focus_lock: matches!(self.get_mode(), MainWindowMode::ShowTerminal)
-                && !self.show_find_dialog,
             filter: self.get_options().scaling.get_filter(),
-            settings,
+            monitor_settings,
             stick_to_bottom: true,
             use_terminal_height: true,
             ..Default::default()
@@ -559,7 +557,7 @@ impl MainWindow {
                                 };
                                 l.clear_selection();
                                 l.set_selection(*sel);
-                                l.get_edit_state_mut().add_selection_to_mask();
+                                let _ = l.get_edit_state_mut().add_selection_to_mask();
                                 l.redraw_view();
                             }
                         }
@@ -569,7 +567,7 @@ impl MainWindow {
 
             if response.drag_released_by(PointerButton::Primary) && self.drag_start.is_some() {
                 if response.interact_pointer_pos().is_some() {
-                    let mut l = self.buffer_view.lock();
+                    let l = self.buffer_view.lock();
                     if let Some(sel) = &mut l.get_selection() {
                         sel.locked = true;
                     }

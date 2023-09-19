@@ -1,22 +1,13 @@
 use eframe::egui::{self, RichText};
 use egui::{Layout, TextEdit, Vec2};
 use i18n_embed_fl::fl;
+use icy_engine_egui::show_monitor_settings;
 
 use crate::{
     ui::{MainWindowMode, MainWindowState},
-    KeyBindings, Scaling,
+    KeyBindings,
 };
-use lazy_static::lazy_static;
-lazy_static! {
-    static ref MONITOR_NAMES: [String; 6] = [
-        fl!(crate::LANGUAGE_LOADER, "settings-monitor-color"),
-        fl!(crate::LANGUAGE_LOADER, "settings-monitor-grayscale"),
-        fl!(crate::LANGUAGE_LOADER, "settings-monitor-amber"),
-        fl!(crate::LANGUAGE_LOADER, "settings-monitor-green"),
-        fl!(crate::LANGUAGE_LOADER, "settings-monitor-apple2"),
-        fl!(crate::LANGUAGE_LOADER, "settings-monitor-futuristic"),
-    ];
-}
+
 
 #[derive(Default)]
 pub struct DialogState {
@@ -32,7 +23,7 @@ pub(crate) enum Message {
     ResetKeybindSettings,
     UpdateIEMSI(crate::IEMSISettings),
     UpdateMonitorSettings(icy_engine_egui::MonitorSettings),
-    ChangeOpenglScaling(Scaling),
+    // ChangeOpenglScaling(Scaling),
     UpdateKeybinds(KeyBindings),
     ChangeConsoleBeep(bool),
 }
@@ -40,11 +31,11 @@ pub(crate) enum Message {
 type ShowSettingsCallback = fn(&MainWindowState, ui: &mut egui::Ui) -> Option<Message>;
 type ResetMessage = Option<Message>;
 
-lazy_static! {
+lazy_static::lazy_static! {
     static ref SETTING_CATEGORIES: [(String, ShowSettingsCallback, ResetMessage); 4] = [
         (
             fl!(crate::LANGUAGE_LOADER, "settings-monitor-category"),
-            show_monitor_settings,
+            show_monitor_settings2,
             Some(Message::ResetMonitorSettings)
         ),
         (
@@ -236,98 +227,14 @@ fn show_terminal_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<
     result
 }
 
-fn show_monitor_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<Message> {
+fn show_monitor_settings2(state: &MainWindowState, ui: &mut egui::Ui) -> Option<Message> {
     let mut result = None;
 
-    let text = match state.options.scaling {
-        Scaling::Nearest => fl!(crate::LANGUAGE_LOADER, "settings-scaling-nearest"),
-        Scaling::Linear => fl!(crate::LANGUAGE_LOADER, "settings-scaling-linear"),
-        //   _ => "Error".to_string(),
-    };
-    egui::ComboBox::from_label(fl!(crate::LANGUAGE_LOADER, "settings-scaling"))
-        .width(150.)
-        .selected_text(RichText::new(text))
-        .show_ui(ui, |ui| {
-            let mut scaling = state.options.scaling;
-            for t in &Scaling::ALL {
-                let label = RichText::new(format!("{t:?}"));
-                if ui.selectable_value(&mut scaling, *t, label).changed() {
-                    result = Some(Message::ChangeOpenglScaling(scaling));
-                }
-            }
-        });
-
-    let mut monitor_settings = state.options.monitor_settings.clone();
-
-    let cur_color = monitor_settings.monitor_type;
-    egui::ComboBox::from_label(fl!(crate::LANGUAGE_LOADER, "settings-monitor-type"))
-        .width(150.)
-        .selected_text(&MONITOR_NAMES[cur_color])
-        .show_ui(ui, |ui| {
-            (0..MONITOR_NAMES.len()).for_each(|i| {
-                let label = RichText::new(&MONITOR_NAMES[i]);
-                ui.selectable_value(&mut monitor_settings.monitor_type, i, label);
-            });
-        });
-    let use_filter = monitor_settings.use_filter;
-
-    ui.add_space(8.0);
-    ui.separator();
-    ui.add_space(8.0);
-
-    ui.checkbox(
-        &mut monitor_settings.use_filter,
-        fl!(
-            crate::LANGUAGE_LOADER,
-            "settings-monitor-use-crt-filter-checkbox"
-        ),
-    );
-    ui.add_enabled_ui(use_filter, |ui| {
-        // todo: that should take full with, but doesn't work - egui bug ?
-        ui.vertical_centered_justified(|ui| {
-            ui.add(
-                egui::Slider::new(&mut monitor_settings.brightness, 0.0..=100.0)
-                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-brightness")),
-            );
-            ui.add(
-                egui::Slider::new(&mut monitor_settings.contrast, 0.0..=100.0)
-                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-contrast")),
-            );
-            ui.add(
-                egui::Slider::new(&mut monitor_settings.saturation, 0.0..=100.0)
-                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-saturation")),
-            );
-            ui.add(
-                egui::Slider::new(&mut monitor_settings.gamma, 0.0..=100.0)
-                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-gamma")),
-            );
-            /*  ui.add_enabled(
-                use_filter,
-                egui::Slider::new(
-                    &mut window.buffer_view.lock().monitor_settings.light,
-                    0.0..=100.0,
-                )
-                .text("Light"),
-            );*/
-            ui.add(
-                egui::Slider::new(&mut monitor_settings.blur, 0.0..=100.0)
-                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-blur")),
-            );
-            ui.add(
-                egui::Slider::new(&mut monitor_settings.curvature, 0.0..=100.0)
-                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-curve")),
-            );
-            ui.add(
-                egui::Slider::new(&mut monitor_settings.scanlines, 0.0..=100.0)
-                    .text(fl!(crate::LANGUAGE_LOADER, "settings-monitor-scanlines")),
-            );
-        });
-    });
-
-    ui.add_space(8.0);
-    if monitor_settings != state.options.monitor_settings {
-        result = Some(Message::UpdateMonitorSettings(monitor_settings));
+    let monitor_settings = state.options.monitor_settings.clone();
+    if let Some(settings) =  show_monitor_settings(ui, &monitor_settings) {
+        result = Some(Message::UpdateMonitorSettings(settings));
     }
+
     result
 }
 
@@ -359,11 +266,11 @@ fn update_state(state: &mut MainWindowState, message_opt: Option<Message>) {
         Some(Message::UpdateMonitorSettings(monitor_settings)) => {
             state.options.monitor_settings = monitor_settings;
             state.store_options();
-        }
+        }/* 
         Some(Message::ChangeOpenglScaling(scaling)) => {
             state.options.scaling = scaling;
             state.store_options();
-        }
+        }*/
         Some(Message::UpdateKeybinds(keybinds)) => {
             state.options.bind = keybinds;
             state.store_options();
@@ -489,14 +396,4 @@ mod tests {
         assert!(state.options_written);
     }
 
-    #[test]
-    fn test_change_scaling() {
-        let mut state: MainWindowState = MainWindowState::default();
-        update_state(
-            &mut state,
-            Some(super::Message::ChangeOpenglScaling(Scaling::Linear)),
-        );
-        assert_eq!(Scaling::Linear, state.options.scaling);
-        assert!(state.options_written);
-    }
 }
