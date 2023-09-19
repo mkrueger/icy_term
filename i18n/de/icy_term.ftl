@@ -116,6 +116,7 @@ transfer-rate = Transferrate:
 transfer-bps = { $bps } pro Sekunde
 
 menu-item-discuss=Forum
+menu-open_log_file=Logdatei öffnen
 menu-item-report-bug=Fehler melden
 menu-item-check-releases=Neue Releases
 menu-item-settings={ settings-heading }
