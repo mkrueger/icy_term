@@ -8,7 +8,6 @@ use crate::{
     KeyBindings,
 };
 
-
 #[derive(Default)]
 pub struct DialogState {
     pub settings_category: usize,
@@ -231,7 +230,7 @@ fn show_monitor_settings2(state: &MainWindowState, ui: &mut egui::Ui) -> Option<
     let mut result = None;
 
     let monitor_settings = state.options.monitor_settings.clone();
-    if let Some(settings) =  show_monitor_settings(ui, &monitor_settings) {
+    if let Some(settings) = show_monitor_settings(ui, &monitor_settings) {
         result = Some(Message::UpdateMonitorSettings(settings));
     }
 
@@ -266,10 +265,10 @@ fn update_state(state: &mut MainWindowState, message_opt: Option<Message>) {
         Some(Message::UpdateMonitorSettings(monitor_settings)) => {
             state.options.monitor_settings = monitor_settings;
             state.store_options();
-        }/* 
+        } /*
         Some(Message::ChangeOpenglScaling(scaling)) => {
-            state.options.scaling = scaling;
-            state.store_options();
+        state.options.scaling = scaling;
+        state.store_options();
         }*/
         Some(Message::UpdateKeybinds(keybinds)) => {
             state.options.bind = keybinds;
@@ -395,5 +394,4 @@ mod tests {
         assert_ne!(IEMSISettings::default(), state.options.iemsi);
         assert!(state.options_written);
     }
-
 }

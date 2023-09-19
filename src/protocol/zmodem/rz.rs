@@ -108,6 +108,7 @@ impl Rz {
             transfer_info.check_size = "Crc32".to_string();
             transfer_info.update_bps();
         }
+        // println!("rz state {:?}", self.state);
         match self.state {
             RevcState::SendZRINIT => {
                 if self.read_header(com, storage_handler, transfer_state)? {
@@ -129,8 +130,12 @@ impl Rz {
                 match pck {
                     Ok((block, is_last, expect_ack)) => {
                         if expect_ack {
-                            Header::empty(self.get_header_type(), ZFrameType::Ack)
-                                .write(com, self.can_esc_control)?;
+                            Header::from_number(
+                                self.get_header_type(),
+                                ZFrameType::Ack,
+                                block.len() as u32,
+                            )
+                            .write(com, self.can_esc_control)?;
                         }
                         storage_handler.append(&block);
                         if is_last {
@@ -192,6 +197,7 @@ impl Rz {
         self.can_count = 0;
         let res = result?;
         if let Some(res) = res {
+            // println!("got header: {}", res);
             self.use_crc32 = res.header_type == HeaderType::Bin32;
             match res.frame_type {
                 ZFrameType::Sinit => {
@@ -249,6 +255,7 @@ impl Rz {
                                     "Start file transfer: {file_name} ({file_size} bytes)"
                                 ));
                             }
+                            // println!("start file transfer: {} ({})", file_name, file_size);
                             storage_handler.open_file(&file_name, file_size);
 
                             self.state = RevcState::AwaitZDATA;

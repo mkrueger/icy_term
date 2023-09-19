@@ -108,7 +108,6 @@ macro_rules! keys {
                     )*
                 });
             if changed_bindings {
-                println!("changed bindings");
                 Some(crate::ui::dialogs::settings_dialog::Message::UpdateKeybinds(bind))
             } else {
                 None
