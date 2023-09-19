@@ -9,7 +9,7 @@ use egui::Button;
 use i18n_embed_fl::fl;
 use icy_engine::{Position, Selection, TextPane};
 
-use crate::{check_error, get_log_file};
+use crate::check_error;
 
 use super::{dialogs, MainWindow, MainWindowMode};
 
@@ -205,16 +205,6 @@ impl MainWindow {
                                 if r.clicked() {
                                     ui.close_menu();
                                 }
-                                ui.separator();
-
-                                let r: egui::Response = ui.add(egui::Button::new(RichText::new(
-                                    fl!(crate::LANGUAGE_LOADER, "menu-open_log_file"),
-                                )));
-
-                                if r.clicked() {
-                                    let _ = open::that(get_log_file().unwrap());
-                                }
-
                                 ui.separator();
                                 #[cfg(not(target_arch = "wasm32"))]
                                 if ui

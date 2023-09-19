@@ -98,6 +98,7 @@ fn get_log_file() -> anyhow::Result<PathBuf> {
     Err(anyhow::anyhow!("Error getting log directory"))
 }
 
+
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
     use std::fs;
