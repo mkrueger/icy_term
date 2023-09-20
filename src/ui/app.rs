@@ -92,6 +92,7 @@ impl MainWindow {
 
             show_find_dialog: false,
             find_dialog: dialogs::find_dialog::DialogState::default(),
+            shift_pressed_during_selection: false,
         };
 
         #[cfg(not(target_arch = "wasm32"))]

@@ -36,11 +36,11 @@ pub const XON_0x80: u8 = XON | 0x80;
 
 /* ZDLE sequences */
 /// CRC next, frame ends, header packet follows
-pub const ZCRCE: u8 = b'h'; 
+pub const ZCRCE: u8 = b'h';
 /// CRC next, frame continues nonstop
-pub const ZCRCG: u8 = b'i'; 
+pub const ZCRCG: u8 = b'i';
 /// CRC next, frame continues, ZACK expected
-pub const ZCRCQ: u8 = b'j'; 
+pub const ZCRCQ: u8 = b'j';
 /// CRC next, ZACK expected, end of frame
 pub const ZCRCW: u8 = b'k';
 pub const ZRUB0: u8 = b'l'; /* Translate to rubout 0177 */

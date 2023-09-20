@@ -109,6 +109,7 @@ pub struct MainWindow {
     is_fullscreen_mode: bool,
     drag_start: Option<Vec2>,
     last_pos: Position,
+    shift_pressed_during_selection: bool,
 
     auto_file_transfer: AutoFileTransfer,
 

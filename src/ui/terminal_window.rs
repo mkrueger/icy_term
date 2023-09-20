@@ -305,7 +305,7 @@ impl MainWindow {
             && ui.is_enabled()
             && !self.show_find_dialog
         {
-            let events: Vec<egui::Event> = ui.input(|i| i.events.clone());
+            let events = ui.input(|i| i.events.clone());
             for e in events {
                 match e {
                     egui::Event::PointerButton {
@@ -316,6 +316,19 @@ impl MainWindow {
                     | egui::Event::Copy => {
                         let buffer_view = self.buffer_view.clone();
                         let mut l = buffer_view.lock();
+
+                        if self.shift_pressed_during_selection {
+                            if let Some(data) = l.get_edit_state().get_clipboard_data() {
+                                if let Err(err) = icy_engine::util::push_data(
+                                    icy_engine::util::BUFFER_DATA,
+                                    &data,
+                                ) {
+                                    log::error!("error while copy:{err}");
+                                }
+                                return;
+                            }
+                        }
+
                         if let Some(txt) = l.get_copy_text() {
                             ui.output_mut(|o| o.copied_text = txt);
                         }
@@ -566,6 +579,7 @@ impl MainWindow {
             }
 
             if response.drag_released_by(PointerButton::Primary) && self.drag_start.is_some() {
+                self.shift_pressed_during_selection = ui.input(|i| i.modifiers.shift);
                 if response.interact_pointer_pos().is_some() {
                     let l = self.buffer_view.lock();
                     if let Some(sel) = &mut l.get_selection() {

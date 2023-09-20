@@ -1,6 +1,6 @@
 use crate::protocol::{FileDescriptor, TransferState};
 use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
+use std::thread::JoinHandle;
 
 use super::connection::Connection;
 use super::dialogs;
