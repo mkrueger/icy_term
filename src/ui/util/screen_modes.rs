@@ -95,7 +95,7 @@ impl ScreenMode {
                     .lock()
                     .get_buffer_mut()
                     .set_font(0, BitFont::from_bytes("", CP437).unwrap());
-                main_window.buffer_view.lock().get_buffer_mut().palette = Palette::new();
+                main_window.buffer_view.lock().get_buffer_mut().palette = Palette::dos_default();
             }
 
             ScreenMode::Vic => {
