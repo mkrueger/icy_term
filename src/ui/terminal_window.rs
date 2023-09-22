@@ -352,7 +352,7 @@ impl MainWindow {
                         if calc
                             .buffer_rect
                             .contains(pos - calc.terminal_rect.left_top().to_vec2())
-                            && !calc.scrollbar_rect.contains(pos)
+                            && !calc.vert_scrollbar_rect.contains(pos)
                         {
                             let buffer_view = self.buffer_view.clone();
                             let click_pos = calc.calc_click_pos(pos);
@@ -420,7 +420,7 @@ impl MainWindow {
                         if calc
                             .buffer_rect
                             .contains(pos - calc.terminal_rect.left_top().to_vec2())
-                            && !calc.scrollbar_rect.contains(pos)
+                            && !calc.vert_scrollbar_rect.contains(pos)
                         {
                             let mode: icy_engine::MouseMode = self
                                 .buffer_view
@@ -463,7 +463,7 @@ impl MainWindow {
                         if calc
                             .buffer_rect
                             .contains(pos - calc.terminal_rect.left_top().to_vec2())
-                            && !calc.scrollbar_rect.contains(pos)
+                            && !calc.vert_scrollbar_rect.contains(pos)
                         {
                             // Dev feature in debug mode - print char under cursor
                             // when shift is pressed
@@ -518,7 +518,7 @@ impl MainWindow {
             if response.clicked_by(PointerButton::Primary) {
                 if let Some(mouse_pos) = response.interact_pointer_pos() {
                     if calc.buffer_rect.contains(mouse_pos)
-                        && !calc.scrollbar_rect.contains(mouse_pos)
+                        && !calc.vert_scrollbar_rect.contains(mouse_pos)
                     {
                         self.buffer_view.lock().clear_selection();
                     }
@@ -529,7 +529,7 @@ impl MainWindow {
                 self.drag_start = None;
                 if let Some(mouse_pos) = response.interact_pointer_pos() {
                     if calc.buffer_rect.contains(mouse_pos)
-                        && !calc.scrollbar_rect.contains(mouse_pos)
+                        && !calc.vert_scrollbar_rect.contains(mouse_pos)
                     {
                         let click_pos = calc.calc_click_pos(mouse_pos);
                         self.last_pos = Position::new(click_pos.x as i32, click_pos.y as i32);
@@ -623,7 +623,7 @@ impl MainWindow {
                                 break;
                             }
                         }
-                        if !hovered_link && !calc.scrollbar_rect.contains(hover_pos) {
+                        if !hovered_link && !calc.vert_scrollbar_rect.contains(hover_pos) {
                             ui.output_mut(|o| o.cursor_icon = CursorIcon::Text);
                         }
                     }
