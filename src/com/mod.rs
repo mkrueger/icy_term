@@ -28,6 +28,8 @@ pub trait Com: Sync + Send {
     fn set_terminal_type(&mut self, terminal: Terminal);
 
     fn disconnect(&mut self) -> TermComResult<()>;
+
+    fn set_raw_mode(&mut self, _raw_transfer: bool) {}
 }
 pub struct NullConnection {}
 impl Com for NullConnection {

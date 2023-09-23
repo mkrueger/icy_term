@@ -1,15 +1,18 @@
 use icy_engine::get_crc16;
+use log4rs::append::file;
 use std::{
     io::{self, ErrorKind},
     sync::{Arc, Mutex},
+    thread,
 };
+use web_time::Duration;
 
 use super::{constants::DEFAULT_BLOCK_LENGTH, get_checksum, Checksum, XYModemConfiguration};
 use crate::{
     protocol::{
         str_from_null_terminated_utf8_unchecked,
-        xymodem::constants::{ACK, CPMEOF, EOT, EXT_BLOCK_LENGTH, NAK, SOH, STX},
-        FileDescriptor, FileStorageHandler, TransferState,
+        xymodem::constants::{ACK, EOT, EXT_BLOCK_LENGTH, NAK, SOH, STX},
+        FileStorageHandler, TransferState,
     },
     ui::connection::Connection,
     TerminalResult,
@@ -28,11 +31,6 @@ pub enum RecvState {
 /// specification: <http://pauillac.inria.fr/~doligez/zmodem/ymodem.txt>
 pub struct Ry {
     configuration: XYModemConfiguration,
-    pub bytes_send: usize,
-
-    pub files: Vec<FileDescriptor>,
-    data: Vec<u8>,
-
     errors: usize,
     recv_state: RecvState,
 }
@@ -42,10 +40,7 @@ impl Ry {
         Ry {
             configuration,
             recv_state: RecvState::None,
-            files: Vec::new(),
-            data: Vec::new(),
             errors: 0,
-            bytes_send: 0,
         }
     }
 
@@ -62,13 +57,6 @@ impl Ry {
         if let Ok(mut transfer_state) = transfer_state.lock() {
             transfer_state.update_time();
             let transfer_info = &mut transfer_state.recieve_state;
-            if !self.files.is_empty() {
-                let cur_file = self.files.len() - 1;
-                let f = &self.files[cur_file];
-                transfer_info.file_name = f.file_name.clone();
-                transfer_info.file_size = f.size;
-            }
-            transfer_info.bytes_transfered = self.bytes_send;
             transfer_info.errors = self.errors;
             transfer_info.check_size = self.configuration.get_check_and_size();
             transfer_info.update_bps();
@@ -86,6 +74,7 @@ impl Ry {
                     if self.configuration.is_ymodem() {
                         self.recv_state = RecvState::ReadYModemHeader(0);
                     } else {
+                        storage_handler.open_unnamed_file();
                         self.recv_state = RecvState::ReadBlock(DEFAULT_BLOCK_LENGTH, 0);
                     }
                 } else if start == STX {
@@ -120,11 +109,10 @@ impl Ry {
                 };
 
                 let block = com.read_exact(2 + len + chksum_size)?;
-
                 if block[0] != block[1] ^ 0xFF {
                     com.send(vec![NAK])?;
                     self.errors += 1;
-                    self.recv_state = RecvState::StartReceive(retries + 1);
+                    self.recv_state = RecvState::StartReceive(0);
                     return Ok(());
                 }
                 let block = &block[2..];
@@ -143,17 +131,22 @@ impl Ry {
                     return Ok(());
                 }
 
-                let mut fd = FileDescriptor {
-                    file_name: str_from_null_terminated_utf8_unchecked(block),
-                    ..Default::default()
+                let file_name = str_from_null_terminated_utf8_unchecked(block);
+
+                let num = str_from_null_terminated_utf8_unchecked(&block[(file_name.len() + 1)..])
+                    .to_string();
+                let file_size = if let Ok(file_size) = num.parse::<usize>() {
+                    file_size
+                } else {
+                    0
                 };
-                let num =
-                    str_from_null_terminated_utf8_unchecked(&block[(fd.file_name.len() + 1)..])
-                        .to_string();
-                if let Ok(file_size) = num.parse::<usize>() {
-                    fd.size = file_size;
+                if let Ok(mut transfer_state) = transfer_state.lock() {
+                    transfer_state.recieve_state.file_name = file_name.clone();
+                    transfer_state.recieve_state.file_size = file_size;
                 }
-                self.files.push(fd);
+
+                storage_handler.open_file(&file_name, file_size);
+
                 if self.configuration.is_ymodem() {
                     com.send(vec![ACK, b'C'])?;
                 } else {
@@ -170,29 +163,13 @@ impl Ry {
                     } else if start == STX {
                         self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, 0);
                     } else if start == EOT {
-                        while self.data.ends_with(&[CPMEOF]) {
-                            self.data.pop();
-                        }
-                        if self.files.is_empty() {
-                            self.files.push(FileDescriptor::default());
-                        }
+                        storage_handler.remove_cpm_eof();
+                        storage_handler.close();
 
-                        let cur_file = self.files.len() - 1;
-                        let fd = self.files.get_mut(cur_file).unwrap();
-                        if let Ok(mut transfer_state) = transfer_state.lock() {
-                            let transfer_info = &mut transfer_state.recieve_state;
-                            transfer_info
-                                .log_info(format!("Start file transfer: {}", fd.file_name));
-                        }
-                        storage_handler.open_file(&fd.file_name, 0);
-                        storage_handler.append(&self.data);
                         if let Ok(mut transfer_state) = transfer_state.lock() {
                             let transfer_info = &mut transfer_state.recieve_state;
                             transfer_info.log_info("File transferred.");
-                            transfer_info.files_finished.push(fd.file_name.to_string());
                         }
-                        storage_handler.close();
-                        self.data = Vec::new();
 
                         if self.configuration.is_ymodem() {
                             com.send(vec![NAK])?;
@@ -255,7 +232,6 @@ impl Ry {
                             "too many retries",
                         )));
                     }
-
                     self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
                     return Ok(());
                 }
@@ -267,7 +243,13 @@ impl Ry {
                     self.recv_state = RecvState::ReadBlockStart(0, retries + 1);
                     return Ok(());
                 }
-                self.data.extend_from_slice(&block[0..len]);
+
+                storage_handler.append(&block[0..len]);
+                if let Ok(mut transfer_state) = transfer_state.lock() {
+                    transfer_state.recieve_state.bytes_transfered =
+                        storage_handler.current_file_length();
+                }
+
                 if !self.configuration.is_streaming() {
                     com.send(vec![ACK])?;
                 }
@@ -284,7 +266,6 @@ impl Ry {
 
     pub fn recv(&mut self, com: &mut Connection) -> TerminalResult<()> {
         self.await_data(com)?;
-        self.data = Vec::new();
         self.recv_state = RecvState::StartReceive(0);
         Ok(())
     }
@@ -296,6 +277,11 @@ impl Ry {
             com.send(vec![b'C'])?;
         } else {
             com.send(vec![NAK])?;
+        }
+        let mut i = 0;
+        while i < 5 && !com.is_data_available()? {
+            thread::sleep(Duration::from_millis(50));
+            i += 1;
         }
         Ok(1)
     }
@@ -316,4 +302,25 @@ impl Ry {
             }
         }
     }
+    /*
+    fn print_block(&self, block: &[u8]) {
+        if block[0] == block[1] ^ 0xFF {
+            print!("{:02X} {:02X}", block[0], block[1]);
+        } else {
+            println!("ERR  ERR");
+            return;
+        }
+        let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode {
+            2
+        } else {
+            1
+        };
+        print!(" Data[{}] ", block.len() - 2 - chksum_size);
+
+        if self.check_crc(&block[2..]) {
+            println!("CRC OK ");
+        } else {
+            println!("CRC ERR");
+        }
+    }*/
 }

@@ -135,6 +135,10 @@ impl ConnectionThreadData {
                 SendData::SetBaudRate(baud) => {
                     self.baud_rate = baud;
                 }
+
+                SendData::SetRawMode(raw_transfer) => {
+                    self.com.set_raw_mode(raw_transfer);
+                }
                 SendData::Disconnect => {
                     self.disconnect();
                 }

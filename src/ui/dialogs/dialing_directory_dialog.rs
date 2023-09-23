@@ -313,7 +313,9 @@ impl DialogState {
                 });
                 if let Some((mut r, align)) = scroll_to_rect {
                     r.set_top(r.top() - cursor.top() / 2.0);
-                    ui.scroll_to_rect(r, Some(align));
+                    if !ui.is_rect_visible(r) {
+                        ui.scroll_to_rect(r, Some(align));
+                    }
                 }
 
                 if self.scroll_address_list_to_bottom {

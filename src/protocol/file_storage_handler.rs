@@ -3,9 +3,11 @@ use std::{collections::HashMap, fs::File, io::Write, path::PathBuf};
 use crate::TerminalResult;
 
 pub trait FileStorageHandler {
+    fn open_unnamed_file(&mut self);
     fn open_file(&mut self, file_name: &str, total_size: usize);
     fn append(&mut self, data: &[u8]);
     fn close(&mut self);
+    fn remove_cpm_eof(&mut self);
 
     fn current_file_name(&self) -> Option<String>;
     fn current_file_length(&self) -> usize;
@@ -29,8 +31,13 @@ impl TestStorageHandler {
         }
     }
 }
+pub const CPMEOF: u8 = 0x1A;
 
 impl FileStorageHandler for TestStorageHandler {
+    fn open_unnamed_file(&mut self) {
+        self.open_file("No name", 0);
+    }
+
     fn open_file(&mut self, file_name: &str, total_size: usize) {
         let fn_string = file_name.to_string();
         self.cur_file_name = Some(fn_string.clone());
@@ -45,6 +52,15 @@ impl FileStorageHandler for TestStorageHandler {
     fn set_current_size_to(&mut self, size: usize) {
         if let Some(file_name) = &self.cur_file_name {
             self.file.get_mut(file_name).unwrap().resize(size, 0);
+        }
+    }
+
+    fn remove_cpm_eof(&mut self) {
+        if let Some(file_name) = &self.cur_file_name {
+            let m = self.file.get_mut(file_name).unwrap();
+            while m.ends_with(&[CPMEOF]) {
+                m.pop();
+            }
         }
     }
 
@@ -77,6 +93,7 @@ pub struct DiskStorageHandler {
     cur_file_name: Option<String>,
     cur_total_file_size: usize,
     current_file_length: usize,
+    cpm_length: usize,
     output_path: PathBuf,
     file: Option<File>,
 }
@@ -96,12 +113,26 @@ impl DiskStorageHandler {
             cur_file_name: None,
             cur_total_file_size: 0,
             current_file_length: 0,
+            cpm_length: 0,
             file: None,
         })
     }
 }
 
 impl FileStorageHandler for DiskStorageHandler {
+    fn open_unnamed_file(&mut self) {
+        let mut num = 0;
+        let f = "no_name_file.0".to_string();
+        let mut file_name: PathBuf = self.output_path.join(f.clone());
+
+        while file_name.exists() {
+            file_name = self.output_path.join(format!("no_name_file.{num}"));
+            num += 1;
+        }
+
+        self.open_file(&format!("no_name_file.{num}"), 0);
+    }
+
     fn open_file(&mut self, file_name: &str, total_size: usize) {
         let fn_string = file_name.to_string();
         self.cur_file_name = Some(fn_string.clone());
@@ -124,6 +155,16 @@ impl FileStorageHandler for DiskStorageHandler {
         self.current_file_length = 0;
     }
 
+    fn remove_cpm_eof(&mut self) {
+        if let Some(file) = &mut self.file {
+            if let Err(err) = file.set_len((self.current_file_length - self.cpm_length) as u64) {
+                log::error!("Failed to set file length: {err}");
+            }
+            self.current_file_length -= self.cpm_length;
+            self.cpm_length = 0;
+        }
+    }
+
     fn current_file_name(&self) -> Option<String> {
         self.cur_file_name.clone()
     }
@@ -134,6 +175,8 @@ impl FileStorageHandler for DiskStorageHandler {
     }
 
     fn append(&mut self, data: &[u8]) {
+        self.cpm_length = data.len() - data.iter().rev().take_while(|d| **d == CPMEOF).count();
+
         self.file.as_ref().unwrap().write_all(data).unwrap();
         self.current_file_length += data.len();
     }

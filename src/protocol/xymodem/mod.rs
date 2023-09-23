@@ -101,20 +101,15 @@ impl super::Protocol for XYmodem {
 
         transfer_state.protocol_name = self.config.get_protocol_name().to_string();
 
-        // Add ghost file with no name when receiving with x-modem because this protocol
-        // doesn't transfer any file information. User needs to set a file name after download.
-        if !self.config.is_ymodem() {
-            self.ry
-                .as_mut()
-                .unwrap()
-                .files
-                .push(FileDescriptor::default());
-        }
-
         Ok(())
     }
+
     fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
         cancel(com)
+    }
+
+    fn use_raw_transfer(&self) -> bool {
+        true
     }
 }
 

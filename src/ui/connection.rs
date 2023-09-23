@@ -53,6 +53,11 @@ impl Connection {
         self.end_transfer = false;
     }
 
+    pub fn set_raw_mode(&self, raw_mode: bool) -> TerminalResult<()> {
+        self.tx.send(SendData::SetRawMode(raw_mode))?;
+        Ok(())
+    }
+
     fn fill_buffer(&mut self) -> TerminalResult<()> {
         loop {
             match self.rx.try_recv() {
@@ -149,12 +154,13 @@ impl Connection {
         Ok(self.buf.pop_front().unwrap())
     }
 
-    pub(crate) fn read_exact(&mut self, chksum_size: usize) -> TerminalResult<Vec<u8>> {
-        while self.buf.len() < chksum_size {
+    pub(crate) fn read_exact(&mut self, size: usize) -> TerminalResult<Vec<u8>> {
+        while self.buf.len() < size {
             self.fill_buffer()?;
             std::thread::sleep(Duration::from_millis(10));
         }
-        Ok(self.buf.drain(0..chksum_size).collect())
+
+        Ok(self.buf.drain(0..size).collect())
     }
 }
 
@@ -197,4 +203,5 @@ pub enum SendData {
     EndTransfer,
     CancelTransfer,
     SetBaudRate(u32),
+    SetRawMode(bool),
 }

@@ -21,10 +21,14 @@ impl FileTransferThread {
         let current_transfer = Arc::new(Mutex::new(TransferState::default()));
 
         let current_transfer2 = current_transfer.clone();
-
         let join_handle = std::thread::Builder::new().name("file_transfer".to_string()).spawn(move || {
             let mut protocol = protocol_type.create();
-
+            if protocol.use_raw_transfer() {
+                if let Err(err) = connection.set_raw_mode(true) {
+                    log::error!("Error setting raw mode on file transfer thread: {err}");
+                    return connection;
+                }
+            }
             if let Err(err) = if download {
                 protocol.initiate_recv(&mut connection, &mut current_transfer2.lock().unwrap())
             } else {
@@ -71,6 +75,11 @@ impl FileTransferThread {
                             break;
                         }
                     }
+                }
+            }
+            if protocol.use_raw_transfer() {
+                if let Err(err) = connection.set_raw_mode(false) {
+                    log::error!("Error setting raw mode on file transfer thread: {err}");
                 }
             }
             connection

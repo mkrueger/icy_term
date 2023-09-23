@@ -268,6 +268,10 @@ pub trait Protocol {
     ) -> TerminalResult<()>;
 
     fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()>;
+
+    fn use_raw_transfer(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]

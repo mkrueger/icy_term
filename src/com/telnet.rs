@@ -508,6 +508,10 @@ impl Com for ComTelnetImpl {
         self.terminal = terminal;
     }
 
+    fn set_raw_mode(&mut self, raw_transfer: bool) {
+        self.use_raw_transfer = raw_transfer;
+    }
+
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
         let mut buf = [0; 1024 * 256];
         if self.tcp_stream.peek(&mut buf)? == 0 {
@@ -517,7 +521,12 @@ impl Com for ComTelnetImpl {
         match self.tcp_stream.read(&mut buf) {
             Ok(size) => {
                 self.tcp_stream.set_nonblocking(true)?;
-                self.parse(&buf[0..size])
+
+                if self.use_raw_transfer {
+                    Ok(Some(buf[0..size].to_vec()))
+                } else {
+                    self.parse(&buf[0..size])
+                }
             }
             Err(ref e) => {
                 self.tcp_stream.set_nonblocking(true)?;
