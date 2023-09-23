@@ -12,14 +12,14 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 mod ui;
-use std::{error::Error, path::PathBuf};
+use std::path::PathBuf;
 
 use directories::ProjectDirs;
 use eframe::egui;
 use lazy_static::lazy_static;
 use ui::MainWindow;
 use web_time::Instant;
-pub type TerminalResult<T> = Result<T, Box<dyn Error>>;
+pub type TerminalResult<T> = anyhow::Result<T>;
 use i18n_embed::fluent::{fluent_language_loader, FluentLanguageLoader};
 use log::LevelFilter;
 use log4rs::{

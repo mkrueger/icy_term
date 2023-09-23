@@ -1,6 +1,5 @@
 use std::{
     collections::VecDeque,
-    io::{self, ErrorKind},
     sync::mpsc::{channel, Receiver, SendError, Sender, TryRecvError},
 };
 
@@ -88,7 +87,7 @@ impl SoundThread {
                     TryRecvError::Empty => break,
                     TryRecvError::Disconnected => {
                         self.restart_background_thread();
-                        return Err(Box::new(err));
+                        return Err(anyhow::anyhow!("rx.try_recv error: {err}"));
                     }
                 },
             }
@@ -113,10 +112,7 @@ impl SoundThread {
             if self.restart_background_thread() {
                 return self.send_data(data);
             }
-            return Err(Box::new(io::Error::new(
-                ErrorKind::ConnectionAborted,
-                "Sound thread crashed too many times.",
-            )));
+            return Err(anyhow::anyhow!("Sound thread crashed too many times."));
         }
         Ok(())
     }

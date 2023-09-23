@@ -1,7 +1,5 @@
 use icy_engine::get_crc16;
-use log4rs::append::file;
 use std::{
-    io::{self, ErrorKind},
     sync::{Arc, Mutex},
     thread,
 };
@@ -86,10 +84,9 @@ impl Ry {
                         com.send(vec![NAK])?;
                     } else {
                         self.cancel(com)?;
-                        return Err(Box::new(io::Error::new(
-                            ErrorKind::ConnectionAborted,
-                            "too many retries starting the communication",
-                        )));
+                        return Err(anyhow::anyhow!(
+                            "too many retries starting the communication"
+                        ));
                     }
                     self.errors += 1;
                     self.recv_state = RecvState::StartReceive(retries + 1);
@@ -183,10 +180,7 @@ impl Ry {
                             com.send(vec![NAK])?;
                         } else {
                             self.cancel(com)?;
-                            return Err(Box::new(io::Error::new(
-                                ErrorKind::ConnectionAborted,
-                                "too many retries",
-                            )));
+                            return Err(anyhow::anyhow!("too many retries"));
                         }
                         self.errors += 1;
                         self.recv_state = RecvState::ReadBlockStart(0, retries + 1);
@@ -227,10 +221,7 @@ impl Ry {
                         self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
                     } else {
                         self.cancel(com)?;
-                        return Err(Box::new(io::Error::new(
-                            ErrorKind::ConnectionAborted,
-                            "too many retries",
-                        )));
+                        return Err(anyhow::anyhow!("too many retries"));
                     }
                     self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, retries + 1);
                     return Ok(());

@@ -129,7 +129,7 @@ fn from_hex(n: u8) -> TerminalResult<u8> {
     if (b'a'..=b'f').contains(&n) {
         return Ok(10 + n - b'a');
     }
-    Err(Box::new(TransmissionError::HexNumberExpected))
+    Err(TransmissionError::HexNumberExpected.into())
 }
 
 impl Protocol for Zmodem {

@@ -38,7 +38,7 @@ impl MainWindow {
             }
         };
 
-        let mut view = BufferView::new(gl, options.scaling.get_filter());
+        let mut view = BufferView::new(gl);
         view.interactive = true;
         let buffer_parser = crate::Terminal::Ansi.get_parser(&Address::new("default"));
         view.get_edit_state_mut().set_parser(buffer_parser);

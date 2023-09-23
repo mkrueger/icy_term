@@ -70,13 +70,6 @@ impl Rz {
         !matches!(self.state, RevcState::Idle)
     }
 
-    fn get_header_type(&self) -> HeaderType {
-        // does it make sense to value the flags from ZSINIT here?
-        // Hex seems to be understood by all implementations and can be read by a human.
-        // The receiver doesn't send large files so binary headers don't make much sense for the subpackets.
-        HeaderType::Hex
-    }
-
     fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
         self.state = RevcState::Idle;
         Zmodem::cancel(com)
@@ -130,12 +123,11 @@ impl Rz {
                 match pck {
                     Ok((block, is_last, expect_ack)) => {
                         if expect_ack {
-                            Header::from_number(
-                                self.get_header_type(),
-                                ZFrameType::Ack,
-                                block.len() as u32,
-                            )
-                            .write(com, self.can_esc_control)?;
+                            Header::from_number(ZFrameType::Ack, block.len() as u32).write(
+                                com,
+                                HeaderType::Hex,
+                                self.can_esc_control,
+                            )?;
                         }
                         storage_handler.append(&block);
                         if is_last {
@@ -151,11 +143,14 @@ impl Rz {
                         }
                         if storage_handler.current_file_name().is_some() {
                             Header::from_number(
-                                self.get_header_type(),
                                 ZFrameType::RPos,
                                 u32::try_from(storage_handler.current_file_length()).unwrap(),
                             )
-                            .write(com, self.can_esc_control)?;
+                            .write(
+                                com,
+                                HeaderType::Hex,
+                                self.can_esc_control,
+                            )?;
                             self.state = RevcState::AwaitZDATA;
                         }
                         return Ok(());
@@ -170,8 +165,7 @@ impl Rz {
     }
 
     fn request_zpos(&mut self, com: &mut Connection, pos: u32) -> TerminalResult<usize> {
-        Header::from_number(self.get_header_type(), ZFrameType::RPos, pos)
-            .write(com, self.can_esc_control)
+        Header::from_number(ZFrameType::RPos, pos).write(com, HeaderType::Hex, self.can_esc_control)
     }
 
     fn read_header(
@@ -198,7 +192,6 @@ impl Rz {
         let res = result?;
         if let Some(res) = res {
             // println!("got header: {}", res);
-            self.use_crc32 = res.header_type == HeaderType::Bin32;
             match res.frame_type {
                 ZFrameType::Sinit => {
                     let pck = read_subpacket(
@@ -211,15 +204,21 @@ impl Rz {
                         Ok(_) => {
                             // TODO: Atn sequence
                             self.sender_flags = res.f0();
-                            Header::empty(self.get_header_type(), ZFrameType::Ack)
-                                .write(com, self.can_esc_control)?;
+                            Header::empty(ZFrameType::Ack).write(
+                                com,
+                                HeaderType::Hex,
+                                self.can_esc_control,
+                            )?;
                             return Ok(true);
                         }
                         Err(err) => {
                             //transfer_state.write(format!("{}", err));
                             log::error!("{err}");
-                            Header::empty(self.get_header_type(), ZFrameType::Nak)
-                                .write(com, self.can_esc_control)?;
+                            Header::empty(ZFrameType::Nak).write(
+                                com,
+                                HeaderType::Hex,
+                                self.can_esc_control,
+                            )?;
                             return Ok(false);
                         }
                     }
@@ -266,14 +265,20 @@ impl Rz {
                         Err(err) => {
                             log::error!("{err}");
                             self.errors += 1;
-                            Header::empty(HeaderType::Hex, ZFrameType::Nak)
-                                .write(com, self.can_esc_control)?;
-                            Header::from_number(
+                            Header::empty(ZFrameType::Nak).write(
+                                com,
                                 HeaderType::Hex,
+                                self.can_esc_control,
+                            )?;
+                            Header::from_number(
                                 ZFrameType::FErr,
                                 storage_handler.current_file_length() as u32,
                             )
-                            .write(com, self.can_esc_control)?;
+                            .write(
+                                com,
+                                HeaderType::Hex,
+                                self.can_esc_control,
+                            )?;
                             //transfer_state.write(format!("{}", err));
                             return Ok(false);
                         }
@@ -283,15 +288,17 @@ impl Rz {
                     let offset = res.number();
                     if storage_handler.current_file_name().is_none() {
                         self.cancel(com)?;
-                        return Err(Box::new(TransmissionError::ZDataBeforeZFILE));
+                        return Err(TransmissionError::ZDataBeforeZFILE.into());
                     }
-                    let header_type = self.get_header_type();
                     let len = storage_handler.current_file_length();
                     match len.cmp(&(offset as usize)) {
                         Ordering::Greater => storage_handler.set_current_size_to(offset as usize),
                         Ordering::Less => {
-                            Header::from_number(header_type, ZFrameType::RPos, len as u32)
-                                .write(com, self.can_esc_control)?;
+                            Header::from_number(ZFrameType::RPos, len as u32).write(
+                                com,
+                                HeaderType::Hex,
+                                self.can_esc_control,
+                            )?;
                             return Ok(false);
                         }
                         Ordering::Equal => {}
@@ -313,21 +320,30 @@ impl Rz {
                     return Ok(true);
                 }
                 ZFrameType::Fin => {
-                    Header::empty(self.get_header_type(), ZFrameType::Fin)
-                        .write(com, self.can_esc_control)?;
+                    Header::empty(ZFrameType::Fin).write(
+                        com,
+                        HeaderType::Hex,
+                        self.can_esc_control,
+                    )?;
                     //transfer_state.write("Transfer finished.".to_string());
                     self.state = RevcState::Idle;
                     return Ok(true);
                 }
                 ZFrameType::Challenge => {
                     // isn't specfied for receiver side.
-                    Header::from_number(self.get_header_type(), ZFrameType::Ack, res.number())
-                        .write(com, self.can_esc_control)?;
+                    Header::from_number(ZFrameType::Ack, res.number()).write(
+                        com,
+                        HeaderType::Hex,
+                        self.can_esc_control,
+                    )?;
                 }
                 ZFrameType::FreeCnt => {
                     // 0 means unlimited space but sending free hd space to an unknown source is a security issue
-                    Header::from_number(self.get_header_type(), ZFrameType::Ack, 0)
-                        .write(com, self.can_esc_control)?;
+                    Header::from_number(ZFrameType::Ack, 0).write(
+                        com,
+                        HeaderType::Hex,
+                        self.can_esc_control,
+                    )?;
                 }
                 ZFrameType::Command => {
                     // just protocol it.
@@ -348,16 +364,22 @@ impl Rz {
                             log::error!("{err}");
                         }
                     }
-                    Header::from_number(self.get_header_type(), ZFrameType::Compl, 0)
-                        .write(com, self.can_esc_control)?;
+                    Header::from_number(ZFrameType::Compl, 0).write(
+                        com,
+                        HeaderType::Hex,
+                        self.can_esc_control,
+                    )?;
                 }
                 ZFrameType::Abort | ZFrameType::FErr | ZFrameType::Can => {
-                    Header::empty(self.get_header_type(), ZFrameType::Fin)
-                        .write(com, self.can_esc_control)?;
+                    Header::empty(ZFrameType::Fin).write(
+                        com,
+                        HeaderType::Hex,
+                        self.can_esc_control,
+                    )?;
                     self.state = RevcState::Idle;
                 }
                 unk_frame => {
-                    return Err(Box::new(TransmissionError::UnsupportedFrame(unk_frame)));
+                    return Err(TransmissionError::UnsupportedFrame(unk_frame).into());
                 }
             }
         }
@@ -392,8 +414,11 @@ impl Rz {
             flags |= zrinit_flag::ESC8;
         }
 
-        Header::from_flags(self.get_header_type(), ZFrameType::RIinit, 0, 0, 0, flags)
-            .write(com, self.can_esc_control)?;
+        Header::from_flags(ZFrameType::RIinit, 0, 0, 0, flags).write(
+            com,
+            HeaderType::Hex,
+            self.can_esc_control,
+        )?;
         Ok(())
     }
 }
@@ -414,9 +439,7 @@ pub fn read_subpacket(
                         return Ok((data, frame_ends, zack_requested));
                     }
                     Err(err) => {
-                        return Err(Box::new(TransmissionError::GenericError(format!(
-                            "Error during subpacket crc check: {err}"
-                        ))));
+                        return Err(anyhow::anyhow!("Error during subpacket crc check: {err}"));
                     }
                 }
             }
@@ -473,7 +496,7 @@ pub fn read_zdle_byte(
                                 return Ok(ZModemResult::Ok(c ^ 0x40));
                             }
 
-                            return Err(Box::new(TransmissionError::InvalidSubpacket(c)));
+                            return Err(TransmissionError::InvalidSubpacket(c).into());
                         }
                     }
                 }
@@ -508,7 +531,7 @@ fn check_crc(
         if crc == check_crc {
             Ok(true)
         } else {
-            Err(Box::new(TransmissionError::CRC32Mismatch(crc, check_crc)))
+            Err(TransmissionError::CRC32Mismatch(crc, check_crc).into())
         }
     } else {
         let crc = icy_engine::get_crc16_buggy(data, zcrc_byte);
@@ -517,7 +540,7 @@ fn check_crc(
         if crc == check_crc {
             Ok(true)
         } else {
-            Err(Box::new(TransmissionError::CRC16Mismatch(crc, check_crc)))
+            Err(TransmissionError::CRC16Mismatch(crc, check_crc).into())
         }
     }
 }

@@ -102,10 +102,10 @@ impl DiskStorageHandler {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn new() -> TerminalResult<Self> {
         let Some(user_dirs) = directories::UserDirs::new() else {
-            return Err("Failed to get user directories".into());
+            return Err(anyhow::anyhow!("Failed to get user directories"));
         };
         let Some(output_path) = user_dirs.download_dir() else {
-            return Err("Failed to get user directories".into());
+            return Err(anyhow::anyhow!("Failed to get user directories"));
         };
 
         Ok(Self {
@@ -122,15 +122,17 @@ impl DiskStorageHandler {
 impl FileStorageHandler for DiskStorageHandler {
     fn open_unnamed_file(&mut self) {
         let mut num = 0;
-        let f = "no_name_file.0".to_string();
+        let f = "x_modem_transferred_file.0".to_string();
         let mut file_name: PathBuf = self.output_path.join(f.clone());
 
         while file_name.exists() {
-            file_name = self.output_path.join(format!("no_name_file.{num}"));
+            file_name = self
+                .output_path
+                .join(format!("x_modem_transferred_file.{num}"));
             num += 1;
         }
 
-        self.open_file(&format!("no_name_file.{num}"), 0);
+        self.open_file(&format!("x_modem_transferred_file.{num}"), 0);
     }
 
     fn open_file(&mut self, file_name: &str, total_size: usize) {

@@ -3,10 +3,7 @@ use web_time::Instant;
 use crate::{
     ui::connection::Connection, util::PatternRecognizer, Address, Options, TerminalResult,
 };
-use std::{
-    io::{self, ErrorKind},
-    time::Duration,
-};
+use std::time::Duration;
 
 use super::iemsi_com::IEmsi;
 
@@ -181,13 +178,10 @@ impl AutoLogin {
                             }
                             ch => {
                                 self.cur_expr_idx += 1; // escape
-                                return Err(Box::new(io::Error::new(
-                                    ErrorKind::InvalidData,
-                                    format!(
-                                        "invalid escape sequence in autologin string: {:?}",
-                                        char::from_u32(u32::from(*ch))
-                                    ),
-                                )));
+                                return Err(anyhow::anyhow!(
+                                    "invalid escape sequence in autologin string: {:?}",
+                                    *ch as char
+                                ));
                             }
                         }
                         self.cur_expr_idx += 1; // escape

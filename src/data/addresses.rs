@@ -368,7 +368,7 @@ impl AddressBook {
         match input_text.parse::<Value>() {
             Ok(value) => self.parse_addresses(&value),
             Err(err) => {
-                return Err(format!("Error parsing dialing_directory: {err}").into());
+                return Err(anyhow::anyhow!("Error parsing dialing_directory: {err}"));
             }
         }
         Ok(())

@@ -80,10 +80,9 @@ impl Connection {
                     SendData::ConnectionError(err) => {
                         self.is_connected = false;
                         self.end_transfer = true;
-                        return Err(Box::new(std::io::Error::new(
-                            std::io::ErrorKind::ConnectionAborted,
-                            err,
-                        )));
+                        return Err(anyhow::anyhow!(
+                            "Connection aborted while fill_buffer: {err}"
+                        ));
                     }
                     _ => {}
                 },
@@ -92,7 +91,7 @@ impl Connection {
                     mpsc::TryRecvError::Empty => break,
                     mpsc::TryRecvError::Disconnected => {
                         self.is_connected = false;
-                        return Err(Box::new(err));
+                        return Err(anyhow::anyhow!("disconnected: {err}"));
                     }
                 },
             }

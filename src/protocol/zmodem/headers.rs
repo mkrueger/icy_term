@@ -1,7 +1,4 @@
-use std::{
-    fmt::Display,
-    io::{self, ErrorKind},
-};
+use std::fmt::Display;
 
 use crate::{ui::connection::Connection, TerminalResult};
 use icy_engine::{get_crc16, get_crc32, update_crc16};
@@ -48,7 +45,6 @@ pub enum ZFrameType {
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct Header {
-    pub header_type: HeaderType,
     pub frame_type: ZFrameType,
     pub data: [u8; 4],
 }
@@ -58,22 +54,19 @@ impl Display for Header {
         match self.frame_type {
             ZFrameType::RPos | ZFrameType::Eof | ZFrameType::FreeCnt | ZFrameType::Data => write!(
                 f,
-                "[{:?} Header with {:?} number = {}]",
-                self.header_type,
+                "[Header with {:?} number = {}]",
                 self.frame_type,
                 self.number()
             ),
             ZFrameType::Crc | ZFrameType::Challenge => write!(
                 f,
-                "[{:?} Header with {:?} number = x{:08X}]",
-                self.header_type,
+                "[Header with {:?} number = x{:08X}]",
                 self.frame_type,
                 self.number()
             ),
             _ => write!(
                 f,
-                "[{:?} Header with {:?} frame flags = x{:02X}, x{:02X}, x{:02X}, x{:02X}]",
-                self.header_type,
+                "[Header with {:?} frame flags = x{:02X}, x{:02X}, x{:02X}, x{:02X}]",
                 self.frame_type,
                 self.f3(),
                 self.f2(),
@@ -85,32 +78,22 @@ impl Display for Header {
 }
 
 impl Header {
-    pub fn empty(header_type: HeaderType, frame_type: ZFrameType) -> Self {
+    pub fn empty(frame_type: ZFrameType) -> Self {
         Self {
-            header_type,
             frame_type,
             data: [0, 0, 0, 0],
         }
     }
 
-    pub fn from_flags(
-        header_type: HeaderType,
-        frame_type: ZFrameType,
-        f3: u8,
-        f2: u8,
-        f1: u8,
-        f0: u8,
-    ) -> Self {
+    pub fn from_flags(frame_type: ZFrameType, f3: u8, f2: u8, f1: u8, f0: u8) -> Self {
         Self {
-            header_type,
             frame_type,
             data: [f3, f2, f1, f0],
         }
     }
 
-    pub fn from_number(header_type: HeaderType, frame_type: ZFrameType, number: u32) -> Self {
+    pub fn from_number(frame_type: ZFrameType, number: u32) -> Self {
         Self {
-            header_type,
             frame_type,
             data: u32::to_le_bytes(number),
         }
@@ -136,10 +119,10 @@ impl Header {
         u32::from_le_bytes(self.data)
     }
 
-    pub fn build(&self, escape_ctrl_chars: bool) -> Vec<u8> {
+    pub fn build(&self, header_type: HeaderType, escape_ctrl_chars: bool) -> Vec<u8> {
         let mut res = Vec::new();
 
-        match self.header_type {
+        match header_type {
             HeaderType::Bin => {
                 res.extend_from_slice(&[ZPAD, ZDLE, ZBIN, self.frame_type as u8]);
                 append_zdle_encoded(&mut res, &self.data, escape_ctrl_chars);
@@ -182,9 +165,14 @@ impl Header {
         res
     }
 
-    pub fn write(&self, com: &mut Connection, escape_ctrl_chars: bool) -> TerminalResult<usize> {
-        // println!("send header: {:?}", self);
-        com.send(self.build(escape_ctrl_chars))?;
+    pub fn write(
+        &self,
+        com: &mut Connection,
+        header_type: HeaderType,
+        escape_ctrl_chars: bool,
+    ) -> TerminalResult<usize> {
+        println!("send header:{:?}  - {:?}", header_type, self);
+        com.send(self.build(header_type, escape_ctrl_chars))?;
         Ok(12)
     }
 
@@ -210,7 +198,7 @@ impl Header {
             frame_types::ZFREECNT => Ok(ZFrameType::FreeCnt),
             frame_types::ZCOMMAND => Ok(ZFrameType::Command),
             frame_types::ZSTDERR => Ok(ZFrameType::StdErr),
-            _ => Err(Box::new(TransmissionError::InvalidFrameType(ftype))),
+            _ => Err(TransmissionError::InvalidFrameType(ftype).into()),
         }
     }
 
@@ -221,7 +209,7 @@ impl Header {
             *can_count += 1;
         }
         if zpad != ZPAD {
-            return Err(Box::new(TransmissionError::ZPADExected(zpad)));
+            return Err(TransmissionError::ZPADExected(zpad).into());
         }
         *can_count = 0;
         let mut next = com.read_u8()?;
@@ -229,7 +217,7 @@ impl Header {
             next = com.read_u8()?;
         }
         if next != ZDLE {
-            return Err(Box::new(TransmissionError::ZLDEExected(next)));
+            return Err(TransmissionError::ZLDEExected(next).into());
         }
 
         let header_type = com.read_u8()?;
@@ -238,7 +226,7 @@ impl Header {
             ZBIN32 => 9,
             ZHEX => 14,
             _ => {
-                return Err(Box::new(TransmissionError::UnknownHeaderType(header_type)));
+                return Err(TransmissionError::UnknownHeaderType(header_type).into());
             }
         };
 
@@ -248,13 +236,9 @@ impl Header {
                 let crc16 = get_crc16(&header_data[0..5]);
                 let check_crc16 = u16::from_le_bytes(header_data[5..7].try_into().unwrap());
                 if crc16 != check_crc16 {
-                    return Err(Box::new(TransmissionError::CRC16Mismatch(
-                        crc16,
-                        check_crc16,
-                    )));
+                    return Err(TransmissionError::CRC16Mismatch(crc16, check_crc16).into());
                 }
                 Ok(Some(Header {
-                    header_type: HeaderType::Bin,
                     frame_type: Header::get_frame_type(header_data[0])?,
                     data: header_data[1..5].try_into().unwrap(),
                 }))
@@ -264,13 +248,11 @@ impl Header {
                 let crc32 = get_crc32(data);
                 let check_crc32 = u32::from_le_bytes(header_data[5..9].try_into().unwrap());
                 if crc32 != check_crc32 {
-                    return Err(Box::new(io::Error::new(
-                        ErrorKind::InvalidData,
-                        format!("crc32 mismatch got {crc32:08X} expected {check_crc32:08X}"),
-                    )));
+                    return Err(anyhow::anyhow!(
+                        "crc32 mismatch got {crc32:08X} expected {check_crc32:08X}"
+                    ));
                 }
                 Ok(Some(Header {
-                    header_type: HeaderType::Bin32,
                     frame_type: Header::get_frame_type(header_data[0])?,
                     data: header_data[1..5].try_into().unwrap(),
                 }))
@@ -291,14 +273,12 @@ impl Header {
                     check_crc16 = check_crc16 << 4 | u16::from(from_hex(*b)?);
                 }
                 if crc16 != check_crc16 {
-                    return Err(Box::new(io::Error::new(
-                        ErrorKind::InvalidData,
-                        format!("crc16 mismatch got {crc16:04X} expected {check_crc16:04X}"),
-                    )));
+                    return Err(anyhow::anyhow!(
+                        "crc16 mismatch got {crc16:04X} expected {check_crc16:04X}"
+                    ));
                 }
-                // read rest
+                // read rest;
                 let eol = com.read_u8()?;
-
                 // don't check the next bytes. Errors there don't impact much
                 if eol == b'\r' {
                     com.read_u8()?; // \n windows eol
@@ -308,7 +288,6 @@ impl Header {
                 }
 
                 Ok(Some(Header {
-                    header_type: HeaderType::Hex,
                     frame_type: Header::get_frame_type(data[0])?,
                     data: data[1..5].try_into().unwrap(),
                 }))

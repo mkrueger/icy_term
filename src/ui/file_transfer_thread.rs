@@ -43,15 +43,14 @@ impl FileTransferThread {
             }
 
             if let Ok(mut storage_handler) = crate::protocol::DiskStorageHandler::new() {
-                let mut is_running = true;
-                while is_running {
+                loop {
                     if let Err(err) = connection.update_state() {
                         log::error!("Error updating state on file transfer thread: {err}");
                         break;
                     }
                     match protocol.update(&mut connection, &current_transfer2, &mut storage_handler)
                     {
-                        Ok(b) => is_running &= b,
+                        Ok(b) => if !b { println!("break!!!"); break; } ,
                         Err(err) => {
                             log::error!("Error updating protocol on file transfer thread: {err}");
                             break;
@@ -60,6 +59,7 @@ impl FileTransferThread {
                     match current_transfer2.lock() {
                         Ok(ct) => {
                             if ct.request_cancel {
+                                println!("request cancel!");
                                 if let Err(err) = protocol.cancel(&mut connection) {
                                     log::error!(
                                         "Error sending cancel request on file transfer thread: {err}"
@@ -82,6 +82,8 @@ impl FileTransferThread {
                     log::error!("Error setting raw mode on file transfer thread: {err}");
                 }
             }
+            current_transfer2.lock().unwrap().is_finished = true;
+
             connection
         });
         if let Err(err) = &join_handle {

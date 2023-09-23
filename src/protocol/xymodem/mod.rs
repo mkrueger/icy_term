@@ -75,7 +75,7 @@ impl super::Protocol for XYmodem {
         transfer_state: &mut TransferState,
     ) -> TerminalResult<()> {
         if !self.config.is_ymodem() && files.len() != 1 {
-            return Err(Box::new(TransmissionError::XModem1File));
+            return Err(TransmissionError::XModem1File.into());
         }
 
         let mut sy = sy::Sy::new(self.config);

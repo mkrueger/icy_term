@@ -1,10 +1,7 @@
 #![allow(dead_code, clippy::wildcard_imports, clippy::needless_range_loop)]
 
 // IEMSI autologin implementation http://ftsc.org/docs/fsc-0056.001
-use std::{
-    fmt,
-    io::{self, ErrorKind},
-};
+use std::fmt;
 
 use icy_engine::{get_crc16, get_crc32, update_crc32};
 
@@ -304,10 +301,7 @@ impl EmsiICI {
         ])?;
 
         if data.len() > EmsiICI::MAX_SIZE {
-            return Err(Box::new(io::Error::new(
-                ErrorKind::OutOfMemory,
-                "maximum size exceeded",
-            )));
+            return Err(anyhow::anyhow!("maximum size exceeded"));
         }
         let mut result = Vec::new();
         result.extend_from_slice(b"**EMSI_ICI");
@@ -651,10 +645,7 @@ fn parse_emsi_blocks(data: &[u8]) -> TerminalResult<Vec<String>> {
                 i += 3;
                 continue;
             }
-            return Err(Box::new(io::Error::new(
-                ErrorKind::InvalidData,
-                "Escape char in emsi string invalid.",
-            )));
+            return Err(anyhow::anyhow!("Escape char in emsi string invalid."));
         }
 
         str.push(char::from_u32(u32::from(data[i])).unwrap());
@@ -686,10 +677,7 @@ fn encode_emsi(data: &[&str]) -> TerminalResult<Vec<u8>> {
             }
             let val = ch as u32;
             if val > 255 {
-                return Err(Box::new(io::Error::new(
-                    ErrorKind::InvalidData,
-                    "Unicode chars not supported",
-                )));
+                return Err(anyhow::anyhow!("Unicode chars not supported"));
             }
             // control codes.
             if val < 32 || val == 127 {

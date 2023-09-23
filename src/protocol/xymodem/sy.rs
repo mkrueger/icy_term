@@ -123,7 +123,7 @@ impl Sy {
                     self.errors += 1;
                     if retries > 5 {
                         self.send_state = SendState::None;
-                        return Err(Box::new(TransmissionError::TooManyRetriesSendingHeader));
+                        return Err(TransmissionError::TooManyRetriesSendingHeader.into());
                     }
                     self.send_state = SendState::SendYModemHeader(retries + 1);
                     return Ok(());
@@ -175,7 +175,7 @@ impl Sy {
                     if can2 == CAN {
                         self.send_state = SendState::None;
                         //transfer_info.write("Got cancel ...".to_string());
-                        return Err(Box::new(TransmissionError::Cancel));
+                        return Err(TransmissionError::Cancel.into());
                     }
                 }
 
@@ -191,7 +191,7 @@ impl Sy {
 
                     if retries > 5 {
                         self.eot(com)?;
-                        return Err(Box::new(TransmissionError::TooManyRetriesSendingHeader));
+                        return Err(TransmissionError::TooManyRetriesSendingHeader.into());
                     }
                     self.send_state = SendState::SendData(cur_offset, retries + 1);
                     return Ok(());
@@ -291,8 +291,8 @@ impl Sy {
                 };
                 Ok(())
             }
-            CAN => Err(Box::new(TransmissionError::Cancel)),
-            _ => Err(Box::new(TransmissionError::InvalidMode(ch))),
+            CAN => Err(TransmissionError::Cancel.into()),
+            _ => Err(TransmissionError::InvalidMode(ch).into()),
         }
     }
 
