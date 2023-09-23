@@ -408,7 +408,7 @@ impl Sz {
                         Zmodem::cancel(com)?;
                         return Ok(());
                     }
-                    self.send_zfile(com, tries + 1); /* resend */
+                    // self.send_zfile(com, tries + 1); /* resend */
                 }
                 _ => {
                     log::error!("unexpected header {header:?}");

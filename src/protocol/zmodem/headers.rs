@@ -21,26 +21,46 @@ pub enum HeaderType {
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum ZFrameType {
-    RQInit = 0,     // Request receive init
-    RIinit = 1,     // Receive init
-    Sinit = 2,      // Send init sequence (optional)
-    Ack = 3,        // ACK to above
-    File = 4,       // File name from sender
-    Skip = 5,       // To sender: skip this file
-    Nak = 6,        // Last packet was garbled
-    Abort = 7,      // Abort batch transfers
-    Fin = 8,        // Finish session
-    RPos = 9,       // Resume data trans at this position
-    Data = 10,      // Data packet(s) follow
-    Eof = 11,       // End of file
-    FErr = 12,      // Fatal Read or Write error Detected
-    Crc = 13,       // Request for file CRC and response
-    Challenge = 14, // Receiver's Challenge
-    Compl = 15,     // Request is complete
-    Can = 16,       // Other end canned session with CAN*5
-    FreeCnt = 17,   // Request for free bytes on filesystem
-    Command = 18,   // Command from sending program
-    StdErr = 19,    // Output to standard error, data follows
+    /// Request receive init (s->r)
+    RQInit = 0,
+    /// Receive init (r->s)
+    RIinit = 1,
+    // Send init sequence (optional) (s->r)
+    Sinit = 2,
+    // ACK to RQInit, RInit or SInit (s<->r)
+    Ack = 3,
+    /// File name from sender (s->r)
+    File = 4,
+    /// To sender: skip this file (r->s)
+    Skip = 5,
+    /// Last packet was garbled (???)
+    Nak = 6,
+    /// Abort batch transfers (???)
+    Abort = 7,
+    /// Finish session (s<->r)
+    Fin = 8,
+    /// Resume data trans at this position (r->s)
+    RPos = 9,
+    /// Data packet(s) follow (s->r)
+    Data = 10,
+    /// End of file (s->r)
+    Eof = 11,
+    /// Fatal Read or Write error Detected (?)
+    FErr = 12,
+    /// Request for file CRC and response (?)
+    Crc = 13,
+    /// Receiver's Challenge (r->s)
+    Challenge = 14,
+    /// Request is complete (?)
+    Compl = 15,
+    /// Other end canned session with CAN*5 (?)
+    Can = 16,
+    /// Request for free bytes on filesystem (s->r)
+    FreeCnt = 17,
+    /// Command from sending program (s->r)
+    Command = 18,
+    /// Output to standard error, data follows (?)
+    StdErr = 19,
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -171,7 +191,7 @@ impl Header {
         header_type: HeaderType,
         escape_ctrl_chars: bool,
     ) -> TerminalResult<usize> {
-        println!("send header:{:?}  - {:?}", header_type, self);
+        // println!("send header:{:?}  - {:?}", header_type, self);
         com.send(self.build(header_type, escape_ctrl_chars))?;
         Ok(12)
     }

@@ -44,6 +44,7 @@ pub struct Rz {
     can_break: bool,
     want_fcs_16: bool,
     escape_8th_bit: bool,
+    attn_seq: Vec<u8>,
 }
 
 impl Rz {
@@ -63,6 +64,7 @@ impl Rz {
             no_streaming: false,
             want_fcs_16: true,
             escape_8th_bit: false,
+            attn_seq: vec![0],
         }
     }
 
@@ -201,8 +203,8 @@ impl Rz {
                         self.can_esc_control,
                     );
                     match pck {
-                        Ok(_) => {
-                            // TODO: Atn sequence
+                        Ok(attn_seq) => {
+                            self.attn_seq = attn_seq.0;
                             self.sender_flags = res.f0();
                             Header::empty(ZFrameType::Ack).write(
                                 com,
@@ -265,13 +267,9 @@ impl Rz {
                         Err(err) => {
                             log::error!("{err}");
                             self.errors += 1;
-                            Header::empty(ZFrameType::Nak).write(
-                                com,
-                                HeaderType::Hex,
-                                self.can_esc_control,
-                            )?;
+                            com.send(self.attn_seq.clone())?;
                             Header::from_number(
-                                ZFrameType::FErr,
+                                ZFrameType::RPos,
                                 storage_handler.current_file_length() as u32,
                             )
                             .write(
