@@ -145,4 +145,6 @@ show-iemsi-dialog-notice=Notiz:
 show-iemsi-dialog-capabilities=Server-Fähigkeiten:
 show-iemsi-dialog-id=Id:
 
-delete-entry-heading=Delete entry
+delete-bbs-title=BBS Löschen
+delete-bbs-question=Sind Sie sicher, dass '{ $system }' gelöscht werden soll?
+delete-bbs-delete-button=Löschen

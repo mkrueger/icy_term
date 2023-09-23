@@ -4,7 +4,7 @@ use eframe::{
     emath::NumExt,
     epaint::{FontFamily, FontId, Vec2},
 };
-use egui::{Id, Rect};
+use egui::{Align, Id, Key, Rect};
 use i18n_embed_fl::fl;
 use icy_engine::ansi::{BaudEmulation, MusicOption};
 
@@ -41,6 +41,7 @@ pub struct DialogState {
     pub cur_addr: usize,
     pub selected_bbs: Option<usize>,
     pub scroll_address_list_to_bottom: bool,
+    pub scroll_to: Option<(usize, Align)>,
     pub dialing_directory_filter: DialingDirectoryFilter,
     pub dialing_directory_filter_string: String,
     rng: Rng,
@@ -251,32 +252,19 @@ impl DialogState {
 
     fn render_list(&mut self, ui: &mut egui::Ui) -> Option<usize> {
         // let row_height = 18. * 2.;
-        let addresses: Vec<Address> =
-            if let DialingDirectoryFilter::Favourites = self.dialing_directory_filter {
-                self.addresses
-                    .addresses
-                    .iter()
-                    .filter(|a| a.is_favored && self.filter_bbs(a))
-                    .cloned()
-                    .collect()
-            } else {
-                self.addresses
-                    .addresses
-                    .iter()
-                    .filter(|a| self.filter_bbs(a))
-                    .cloned()
-                    .collect()
-            };
+        let addresses = self.get_filtered_addresses();
 
         if addresses.is_empty() {
             ui.label(fl!(crate::LANGUAGE_LOADER, "dialing_directory-no-entries"));
         }
 
         let mut result = None;
+        let cursor = ui.cursor();
 
         ScrollArea::vertical()
             .auto_shrink([false; 2])
             .show(ui, |ui| {
+                let mut scroll_to_rect = None;
                 ui.vertical(|ui| {
                     (0..addresses.len()).for_each(|i| {
                         let addr = &addresses[i];
@@ -304,7 +292,12 @@ impl DialogState {
                             } else {
                                 AddressRow::new(selected, addr.clone())
                             });
-
+                            if let Some((scroll_to, align)) = self.scroll_to {
+                                if scroll_to == i {
+                                    scroll_to_rect = Some((r.rect, align));
+                                    self.scroll_to = None;
+                                }
+                            }
                             if r.clicked() {
                                 if i == 0 && show_quick_connect {
                                     self.select_bbs(None);
@@ -318,12 +311,38 @@ impl DialogState {
                         });
                     });
                 });
+                if let Some((mut r, align)) = scroll_to_rect {
+                    r.set_top(r.top() - cursor.top() / 2.0);
+                    ui.scroll_to_rect(r, Some(align));
+                }
+
                 if self.scroll_address_list_to_bottom {
                     self.scroll_address_list_to_bottom = false;
                     ui.scroll_to_cursor(Some(egui::Align::BOTTOM));
                 }
             });
+
         result
+    }
+
+    fn get_filtered_addresses(&mut self) -> Vec<Address> {
+        let addresses: Vec<Address> =
+            if let DialingDirectoryFilter::Favourites = self.dialing_directory_filter {
+                self.addresses
+                    .addresses
+                    .iter()
+                    .filter(|a| a.is_favored && self.filter_bbs(a))
+                    .cloned()
+                    .collect()
+            } else {
+                self.addresses
+                    .addresses
+                    .iter()
+                    .filter(|a| self.filter_bbs(a))
+                    .cloned()
+                    .collect()
+            };
+        addresses
     }
 
     fn filter_bbs(&self, a: &Address) -> bool {
@@ -846,6 +865,54 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
     if ctx.input(|i| i.key_down(egui::Key::Escape)) {
         open = false;
     }
+
+    if !matches!(
+        window.dialing_directory_dialog.address_category,
+        AddressCategory::Notes
+    ) {
+        if ctx.input(|i| i.key_pressed(Key::Enter)) {
+            window.call_bbs_uuid(window.dialing_directory_dialog.selected_bbs);
+        }
+        if ctx.input(|i| i.key_pressed(Key::ArrowUp)) {
+            if let Some(selected) = window.dialing_directory_dialog.selected_bbs {
+                let addresses = window.dialing_directory_dialog.get_filtered_addresses();
+                for (i, addr) in addresses.iter().enumerate() {
+                    if addr.id == selected {
+                        if i > 0 {
+                            window
+                                .dialing_directory_dialog
+                                .select_bbs(Some(addresses[i - 1].id));
+                            window.dialing_directory_dialog.scroll_to =
+                                Some((addresses[i - 1].id, Align::TOP));
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        if ctx.input(|i| i.key_pressed(Key::ArrowDown)) {
+            let addresses = window.dialing_directory_dialog.get_filtered_addresses();
+            if let Some(selected) = window.dialing_directory_dialog.selected_bbs {
+                for (i, addr) in addresses.iter().enumerate() {
+                    if addr.id == selected {
+                        if i + 1 < addresses.len() {
+                            window
+                                .dialing_directory_dialog
+                                .select_bbs(Some(addresses[i + 1].id));
+                            window.dialing_directory_dialog.scroll_to =
+                                Some((addresses[i + 1].id, Align::BOTTOM));
+                        }
+                        break;
+                    }
+                }
+            } else {
+                window
+                    .dialing_directory_dialog
+                    .select_bbs(Some(addresses[0].id));
+            }
+        }
+    }
+
     let w = egui::Window::new("")
         .collapsible(false)
         .vscroll(false)
