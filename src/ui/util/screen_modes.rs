@@ -1,9 +1,8 @@
 use std::fmt::Display;
 
-use egui::Color32;
 use icy_engine::{
     BitFont, Palette, Size, ATARI, ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, C64_LOWER,
-    C64_UPPER, CP437, VIEWDATA, VIEWDATA_PALETTE,
+    C64_UPPER, CP437, VIEWDATA, VIEWDATA_PALETTE, Color,
 };
 use icy_engine_egui::BufferInputMode;
 
@@ -156,22 +155,22 @@ impl ScreenMode {
     }
 
     #[allow(clippy::match_same_arms)]
-    pub(crate) fn get_selection_fg(&self) -> egui::Color32 {
+    pub(crate) fn get_selection_fg(&self) -> Color {
         match self {
-            ScreenMode::Default | ScreenMode::Vga(_, _) => Color32::from_rgb(0xAA, 0x00, 0xAA),
-            ScreenMode::Vic => Color32::from_rgb(0x37, 0x39, 0xC4),
-            ScreenMode::Antic => Color32::from_rgb(0x09, 0x51, 0x83),
-            ScreenMode::Videotex => Color32::from_rgb(0, 0, 0),
+            ScreenMode::Default | ScreenMode::Vga(_, _) => Color::new(0xAA, 0x00, 0xAA),
+            ScreenMode::Vic => Color::new(0x37, 0x39, 0xC4),
+            ScreenMode::Antic => Color::new(0x09, 0x51, 0x83),
+            ScreenMode::Videotex => Color::new(0, 0, 0),
         }
     }
 
     #[allow(clippy::match_same_arms)]
-    pub(crate) fn get_selection_bg(&self) -> egui::Color32 {
+    pub(crate) fn get_selection_bg(&self) -> Color {
         match self {
-            ScreenMode::Default | ScreenMode::Vga(_, _) => Color32::from_rgb(0xAA, 0xAA, 0xAA),
-            ScreenMode::Vic => Color32::from_rgb(0xB0, 0x3F, 0xB6),
-            ScreenMode::Antic => Color32::from_rgb(0xFF, 0xFF, 0xFF),
-            ScreenMode::Videotex => Color32::from_rgb(0xFF, 0xFF, 0xFF),
+            ScreenMode::Default | ScreenMode::Vga(_, _) => Color::new(0xAA, 0xAA, 0xAA),
+            ScreenMode::Vic => Color::new(0xB0, 0x3F, 0xB6),
+            ScreenMode::Antic => Color::new(0xFF, 0xFF, 0xFF),
+            ScreenMode::Videotex => Color::new(0xFF, 0xFF, 0xFF),
         }
     }
 }
