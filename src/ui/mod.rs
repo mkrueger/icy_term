@@ -353,7 +353,6 @@ impl MainWindow {
                 .set_baud_rate(address.baud_emulation);
 
             self.buffer_view.lock().redraw_font();
-            self.buffer_view.lock().redraw_palette();
             self.buffer_view.lock().redraw_view();
             self.buffer_view.lock().clear();
         }
