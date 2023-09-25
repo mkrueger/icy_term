@@ -298,7 +298,6 @@ impl MainWindow {
         };
         let (response, calc) =
             icy_engine_egui::show_terminal_area(ui, self.buffer_view.clone(), opt);
-
         let mut response = response.context_menu(|ui| terminal_context_menu(ui, self));
 
         if matches!(self.get_mode(), MainWindowMode::ShowTerminal)
@@ -505,7 +504,7 @@ impl MainWindow {
                                         self.print_char(*c);
                                     }
                                 }
-                                response.mark_changed();
+                                response.request_focus();
                                 ui.input_mut(|i| i.consume_key(modifiers, key));
                                 break;
                             }
