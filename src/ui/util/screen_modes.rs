@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
 use icy_engine::{
-    BitFont, Palette, Size, ATARI, ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, C64_LOWER,
-    C64_UPPER, CP437, VIEWDATA, VIEWDATA_PALETTE, Color,
+    BitFont, Color, Palette, Size, ATARI, ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, C64_LOWER,
+    C64_UPPER, CP437, VIEWDATA, VIEWDATA_PALETTE,
 };
 use icy_engine_egui::BufferInputMode;
 

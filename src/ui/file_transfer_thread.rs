@@ -50,7 +50,7 @@ impl FileTransferThread {
                     }
                     match protocol.update(&mut connection, &current_transfer2, &mut storage_handler)
                     {
-                        Ok(b) => if !b { println!("break!!!"); break; } ,
+                        Ok(b) => if !b { break; } ,
                         Err(err) => {
                             log::error!("Error updating protocol on file transfer thread: {err}");
                             break;
@@ -59,7 +59,6 @@ impl FileTransferThread {
                     match current_transfer2.lock() {
                         Ok(ct) => {
                             if ct.request_cancel {
-                                println!("request cancel!");
                                 if let Err(err) = protocol.cancel(&mut connection) {
                                     log::error!(
                                         "Error sending cancel request on file transfer thread: {err}"

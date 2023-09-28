@@ -463,6 +463,7 @@ impl MainWindow {
                 }
             }
         }
+        self.buffer_view.lock().get_edit_state_mut().is_buffer_dirty = true;
 
         Ok(())
     }
