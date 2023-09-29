@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::{ui::connection::Connection, TerminalResult};
-use icy_engine::{get_crc16, get_crc32, update_crc16};
+use icy_engine::{get_crc16, get_crc16_buggy, get_crc32, update_crc16};
 
 use crate::protocol::{frame_types::ZACK, XON};
 
@@ -146,7 +146,7 @@ impl Header {
             HeaderType::Bin => {
                 res.extend_from_slice(&[ZPAD, ZDLE, ZBIN, self.frame_type as u8]);
                 append_zdle_encoded(&mut res, &self.data, escape_ctrl_chars);
-                let crc16 = get_crc16(&res[3..]);
+                let crc16 = get_crc16_buggy(&res[3..]);
                 append_zdle_encoded(&mut res, &u16::to_le_bytes(crc16), escape_ctrl_chars);
             }
 
@@ -253,7 +253,7 @@ impl Header {
         let header_data = read_zdle_bytes(com, header_data_size)?;
         match header_type {
             ZBIN => {
-                let crc16 = get_crc16(&header_data[0..5]);
+                let crc16 = get_crc16_buggy(&header_data[0..5]);
                 let check_crc16 = u16::from_le_bytes(header_data[5..7].try_into().unwrap());
                 if crc16 != check_crc16 {
                     return Err(TransmissionError::CRC16Mismatch(crc16, check_crc16).into());
@@ -286,16 +286,14 @@ impl Header {
                     from_hex(header_data[8])? << 4 | from_hex(header_data[9])?,
                 ];
 
-                let crc16 = get_crc16(&data);
+                let crc16 = get_crc16_buggy(&data);
 
                 let mut check_crc16 = 0;
                 for b in &header_data[10..14] {
                     check_crc16 = check_crc16 << 4 | u16::from(from_hex(*b)?);
                 }
                 if crc16 != check_crc16 {
-                    return Err(anyhow::anyhow!(
-                        "crc16 mismatch got {crc16:04X} expected {check_crc16:04X}"
-                    ));
+                    return Err(TransmissionError::CRC16Mismatch(crc16, check_crc16).into());
                 }
                 // read rest;
                 let eol = com.read_u8()?;

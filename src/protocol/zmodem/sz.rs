@@ -59,7 +59,7 @@ impl Sz {
     fn can_fdx(&self) -> bool {
         self.receiver_capabilities & super::zrinit_flag::CANFDX != 0
     }
-    fn _can_receive_data_during_io(&self) -> bool {
+    fn can_receive_data_during_io(&self) -> bool {
         self.receiver_capabilities & super::zrinit_flag::CANOVIO != 0
     }
     fn _can_send_break(&self) -> bool {
@@ -167,7 +167,7 @@ impl Sz {
                 }
                 let old_pos = self.cur_file_pos;
                 let end_pos = min(self.data.len(), self.cur_file_pos + self.package_len);
-                let nonstop = !self.can_fdx();
+                let nonstop = !self.can_receive_data_during_io();
 
                 let crc_byte = if self.cur_file_pos + self.package_len < self.data.len() {
                     if nonstop {

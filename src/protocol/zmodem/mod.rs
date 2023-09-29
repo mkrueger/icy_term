@@ -17,7 +17,7 @@ mod rz;
 use rz::Rz;
 
 mod err;
-// mod tests;
+mod tests;
 
 use self::{err::TransmissionError, rz::read_zdle_byte};
 
@@ -54,8 +54,9 @@ impl Zmodem {
 
     pub fn encode_subpacket_crc16(zcrc_byte: u8, data: &[u8], escape_ctl_chars: bool) -> Vec<u8> {
         let mut v = Vec::new();
-        let crc = icy_engine::get_crc16_buggy(data, zcrc_byte);
+        let crc = icy_engine::get_crc16_buggy_zlde(data, zcrc_byte);
         append_zdle_encoded(&mut v, data, escape_ctl_chars);
+
         v.extend_from_slice(&[ZDLE, zcrc_byte]);
         append_zdle_encoded(&mut v, &u16::to_le_bytes(crc), escape_ctl_chars);
         v

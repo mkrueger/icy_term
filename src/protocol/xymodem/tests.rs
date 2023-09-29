@@ -1,21 +1,19 @@
 /*
-use crate::{com::TestChannel, protocol::TransferState};
 
 #[cfg(test)]
 use crate::protocol::Protocol;
 #[cfg(test)]
-use crate::{com::TestChannel, protocol::TransferState};
 
 #[cfg(test)]
 pub fn run_protocols(
-    mut com: TestChannel,
+    mut com: crate::com::TestChannel,
     files: Vec<crate::protocol::FileDescriptor>,
     mut recv: Box<dyn Protocol>,
     mut send: Box<dyn Protocol>,
 ) -> crate::protocol::TestStorageHandler {
     use std::thread;
 
-    use crate::protocol::TestStorageHandler;
+    use crate::protocol::{TestStorageHandler, TransferState};
 
     let handle1 = std::thread::spawn(move || {
         println!("start send thread.");

@@ -19,7 +19,7 @@ use crate::{
 use super::{constants::*, err::TransmissionError, read_zdle_bytes, zrinit_flag::CANFDX};
 
 #[derive(Debug)]
-pub enum RevcState {
+pub enum RecvState {
     Idle,
     Await,
     AwaitZDATA,
@@ -29,7 +29,7 @@ pub enum RevcState {
 }
 
 pub struct Rz {
-    state: RevcState,
+    state: RecvState,
     pub errors: usize,
     retries: usize,
     can_count: usize,
@@ -50,13 +50,13 @@ pub struct Rz {
 impl Rz {
     pub fn new(block_length: usize) -> Self {
         Self {
-            state: RevcState::Idle,
+            state: RecvState::Idle,
             block_length,
             retries: 0,
             can_count: 0,
             errors: 0,
             sender_flags: 0,
-            use_crc32: false,
+            use_crc32: true,
             last_send: Instant::now(),
             can_fullduplex: true,
             can_esc_control: false,
@@ -69,11 +69,11 @@ impl Rz {
     }
 
     pub fn is_active(&self) -> bool {
-        !matches!(self.state, RevcState::Idle)
+        !matches!(self.state, RecvState::Idle)
     }
 
     fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
-        self.state = RevcState::Idle;
+        self.state = RecvState::Idle;
         Zmodem::cancel(com)
     }
 
@@ -83,7 +83,7 @@ impl Rz {
         transfer_state: &Arc<Mutex<TransferState>>,
         storage_handler: &mut dyn FileStorageHandler,
     ) -> TerminalResult<()> {
-        if let RevcState::Idle = self.state {
+        if let RecvState::Idle = self.state {
             return Ok(());
         }
         if self.retries > 5 {
@@ -105,7 +105,7 @@ impl Rz {
         }
         // println!("rz state {:?}", self.state);
         match self.state {
-            RevcState::SendZRINIT => {
+            RecvState::SendZRINIT => {
                 if self.read_header(com, storage_handler, transfer_state)? {
                     return Ok(());
                 }
@@ -116,10 +116,10 @@ impl Rz {
                     self.last_send = Instant::now();
                 }*/
             }
-            RevcState::AwaitZDATA => {
+            RecvState::AwaitZDATA => {
                 self.read_header(com, storage_handler, transfer_state)?;
             }
-            RevcState::AwaitFileData => {
+            RecvState::AwaitFileData => {
                 let pck =
                     read_subpacket(com, self.block_length, self.use_crc32, self.can_esc_control);
                 match pck {
@@ -133,7 +133,7 @@ impl Rz {
                         }
                         storage_handler.append(&block);
                         if is_last {
-                            self.state = RevcState::AwaitEOF;
+                            self.state = RecvState::AwaitEOF;
                         }
                     }
                     Err(err) => {
@@ -153,7 +153,7 @@ impl Rz {
                                 HeaderType::Hex,
                                 self.can_esc_control,
                             )?;
-                            self.state = RevcState::AwaitZDATA;
+                            self.state = RecvState::AwaitZDATA;
                         }
                         return Ok(());
                     }
@@ -183,7 +183,7 @@ impl Rz {
                 self.cancel(com)?;
                 self.cancel(com)?;
                 self.cancel(com)?;
-                self.state = RevcState::Idle;
+                self.state = RecvState::Idle;
                 return Ok(false);
             }
             //transfer_state.write(format!("{}", err));
@@ -191,10 +191,10 @@ impl Rz {
             return Ok(false);
         }
         self.can_count = 0;
-        let res = result?;
-        if let Some(res) = res {
-            // println!("got header: {}", res);
-            match res.frame_type {
+        let header_opt = result?;
+        if let Some(header) = header_opt {
+            // println!("got header: {header}");
+            match header.frame_type {
                 ZFrameType::Sinit => {
                     let pck = read_subpacket(
                         com,
@@ -205,7 +205,7 @@ impl Rz {
                     match pck {
                         Ok(attn_seq) => {
                             self.attn_seq = attn_seq.0;
-                            self.sender_flags = res.f0();
+                            self.sender_flags = header.f0();
                             Header::empty(ZFrameType::Ack).write(
                                 com,
                                 HeaderType::Hex,
@@ -227,7 +227,7 @@ impl Rz {
                 }
 
                 ZFrameType::RQInit => {
-                    self.state = RevcState::SendZRINIT;
+                    self.state = RecvState::SendZRINIT;
                     return Ok(true);
                 }
                 ZFrameType::File => {
@@ -256,10 +256,10 @@ impl Rz {
                                     "Start file transfer: {file_name} ({file_size} bytes)"
                                 ));
                             }
-                            // println!("start file transfer: {} ({})", file_name, file_size);
+                            // println!("start file transfer: {file_name} ({file_size})");
                             storage_handler.open_file(&file_name, file_size);
 
-                            self.state = RevcState::AwaitZDATA;
+                            self.state = RecvState::AwaitZDATA;
                             self.request_zpos(com, storage_handler.current_file_length() as u32)?;
 
                             return Ok(true);
@@ -283,7 +283,7 @@ impl Rz {
                     }
                 }
                 ZFrameType::Data => {
-                    let offset = res.number();
+                    let offset = header.number();
                     if storage_handler.current_file_name().is_none() {
                         self.cancel(com)?;
                         return Err(TransmissionError::ZDataBeforeZFILE.into());
@@ -301,7 +301,7 @@ impl Rz {
                         }
                         Ordering::Equal => {}
                     }
-                    self.state = RevcState::AwaitFileData;
+                    self.state = RecvState::AwaitFileData;
                     return Ok(true);
                 }
                 ZFrameType::Eof => {
@@ -314,7 +314,7 @@ impl Rz {
                         }
                     }
                     storage_handler.close();
-                    self.state = RevcState::SendZRINIT;
+                    self.state = RecvState::SendZRINIT;
                     return Ok(true);
                 }
                 ZFrameType::Fin => {
@@ -324,12 +324,12 @@ impl Rz {
                         self.can_esc_control,
                     )?;
                     //transfer_state.write("Transfer finished.".to_string());
-                    self.state = RevcState::Idle;
+                    self.state = RecvState::Idle;
                     return Ok(true);
                 }
                 ZFrameType::Challenge => {
                     // isn't specfied for receiver side.
-                    Header::from_number(ZFrameType::Ack, res.number()).write(
+                    Header::from_number(ZFrameType::Ack, header.number()).write(
                         com,
                         HeaderType::Hex,
                         self.can_esc_control,
@@ -374,7 +374,7 @@ impl Rz {
                         HeaderType::Hex,
                         self.can_esc_control,
                     )?;
-                    self.state = RevcState::Idle;
+                    self.state = RecvState::Idle;
                 }
                 unk_frame => {
                     return Err(TransmissionError::UnsupportedFrame(unk_frame).into());
@@ -385,7 +385,7 @@ impl Rz {
     }
 
     pub fn recv(&mut self, com: &mut Connection) -> TerminalResult<()> {
-        self.state = RevcState::Await;
+        self.state = RecvState::Await;
         self.retries = 0;
         self.send_zrinit(com)?;
         Ok(())
@@ -411,7 +411,6 @@ impl Rz {
         if self.escape_8th_bit {
             flags |= zrinit_flag::ESC8;
         }
-
         Header::from_flags(ZFrameType::RIinit, 0, 0, 0, flags).write(
             com,
             HeaderType::Hex,
@@ -532,7 +531,8 @@ fn check_crc(
             Err(TransmissionError::CRC32Mismatch(crc, check_crc).into())
         }
     } else {
-        let crc = icy_engine::get_crc16_buggy(data, zcrc_byte);
+        let crc = icy_engine::get_crc16_buggy_zlde(data, zcrc_byte);
+
         let crc_bytes = read_zdle_bytes(com, 2)?;
         let check_crc = u16::from_le_bytes(crc_bytes.try_into().unwrap());
         if crc == check_crc {
