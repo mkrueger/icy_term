@@ -1,6 +1,4 @@
 #![allow(clippy::float_cmp)]
-
-use clipboard::{ClipboardContext, ClipboardProvider};
 use eframe::{
     egui::{self, CursorIcon, PointerButton, RichText},
     epaint::{FontFamily, FontId, Vec2},
@@ -310,26 +308,8 @@ impl MainWindow {
                         button: PointerButton::Middle,
                         pressed: true,
                         ..
-                    }
-                    | egui::Event::Copy => {
-                        let buffer_view = self.buffer_view.clone();
-                        let mut l = buffer_view.lock();
-
-                        if self.shift_pressed_during_selection {
-                            if let Some(data) = l.get_edit_state().get_clipboard_data() {
-                                if let Err(err) = icy_engine::util::push_data(
-                                    icy_engine::util::BUFFER_DATA,
-                                    &data,
-                                ) {
-                                    log::error!("error while copy:{err}");
-                                }
-                                return;
-                            }
-                        }
-
-                        if let Some(txt) = l.get_copy_text() {
-                            ui.output_mut(|o| o.copied_text = txt);
-                        }
+                    } => {
+                        self.copy_to_clipboard();
                     }
                     egui::Event::Paste(text) => {
                         self.output_string(&text);
@@ -629,6 +609,25 @@ impl MainWindow {
             }
         }
     }
+
+    fn copy_to_clipboard(&mut self) {
+        let buffer_view = self.buffer_view.clone();
+        let mut l = buffer_view.lock();
+        if self.shift_pressed_during_selection {
+            if let Some(data) = l.get_edit_state().get_clipboard_data() {
+                if let Err(err) = icy_engine::util::push_data(icy_engine::util::BUFFER_DATA, &data)
+                {
+                    log::error!("error while copy:{err}");
+                }
+                return;
+            }
+        }
+
+        if let Some(txt) = l.get_copy_text() {
+            let mut clipboard = arboard::Clipboard::new().unwrap();
+            clipboard.set_text(txt).unwrap();
+        }
+    }
 }
 
 fn terminal_context_menu(ui: &mut egui::Ui, window: &mut MainWindow) {
@@ -638,7 +637,7 @@ fn terminal_context_menu(ui: &mut egui::Ui, window: &mut MainWindow) {
         .button(fl!(crate::LANGUAGE_LOADER, "terminal-menu-copy"))
         .clicked()
     {
-        ui.input_mut(|i| i.events.push(egui::Event::Copy));
+        window.copy_to_clipboard();
         ui.close_menu();
     }
 
@@ -646,9 +645,9 @@ fn terminal_context_menu(ui: &mut egui::Ui, window: &mut MainWindow) {
         .button(fl!(crate::LANGUAGE_LOADER, "terminal-menu-paste"))
         .clicked()
     {
-        let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
-        if let Ok(text) = ctx.get_contents() {
-            ui.input_mut(|i| i.events.push(egui::Event::Paste(text)));
+        let mut clipboard = arboard::Clipboard::new().unwrap();
+        if let Ok(text) = clipboard.get_text() {
+            window.output_string(&text);
         }
         ui.close_menu();
     }
