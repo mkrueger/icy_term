@@ -514,20 +514,44 @@ impl DialogState {
                         "dialing_directory-screen_mode"
                     )));
                 });
-
-                egui::ComboBox::from_id_source("combobox2")
-                    .selected_text(RichText::new(format!("{}", adr.screen_mode)))
-                    .width(250.)
-                    .show_ui(ui, |ui| {
-                        for mode in &DEFAULT_MODES {
-                            if matches!(mode, ScreenMode::Default) {
-                                ui.separator();
-                                continue;
+                ui.horizontal(|ui| {
+                    egui::ComboBox::from_id_source("combobox2")
+                        .selected_text(RichText::new(format!("{}", adr.screen_mode)))
+                        .width(250.)
+                        .show_ui(ui, |ui| {
+                            for mode in &DEFAULT_MODES {
+                                if matches!(mode, ScreenMode::Default) {
+                                    ui.separator();
+                                    continue;
+                                }
+                                let label = RichText::new(format!("{mode}"));
+                                ui.selectable_value(&mut adr.screen_mode, *mode, label);
                             }
-                            let label = RichText::new(format!("{mode}"));
-                            ui.selectable_value(&mut adr.screen_mode, *mode, label);
+                        });
+
+                    if adr.screen_mode.is_custom_vga() {
+                        ui.label("Width:");
+                        let mut txt = if let ScreenMode::Vga(w, _) = adr.screen_mode {
+                            w.to_string()
+                        } else {
+                            "0".to_string()
+                        };
+                        ui.add(TextEdit::singleline(&mut txt).desired_width(50.));
+                        if let ScreenMode::Vga(w, h) = adr.screen_mode {
+                            adr.screen_mode = ScreenMode::Vga(txt.parse().unwrap_or(w), h);
                         }
-                    });
+                        ui.label("Height:");
+                        let mut txt = if let ScreenMode::Vga(_, h) = adr.screen_mode {
+                            h.to_string()
+                        } else {
+                            "0".to_string()
+                        };
+                        ui.add(TextEdit::singleline(&mut txt).desired_width(50.));
+                        if let ScreenMode::Vga(w, h) = adr.screen_mode {
+                            adr.screen_mode = ScreenMode::Vga(w, txt.parse().unwrap_or(h));
+                        }
+                    }
+                });
                 ui.end_row();
 
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {

@@ -27,11 +27,21 @@ impl Default for ScreenMode {
     }
 }
 
-pub const DEFAULT_MODES: [ScreenMode; 10] = [
+impl ScreenMode {
+    pub fn is_custom_vga(self) -> bool {
+        match self {
+            ScreenMode::Vga(w, h) => w == 40 && h == 25 || !DEFAULT_MODES.contains(&self),
+            _ => false,
+        }
+    }
+}
+
+pub const DEFAULT_MODES: [ScreenMode; 11] = [
     ScreenMode::Vga(80, 25),
     ScreenMode::Vga(80, 50),
     ScreenMode::Vga(132, 37),
     ScreenMode::Vga(132, 52),
+    ScreenMode::Vga(40, 25), // Custom VGA
     ScreenMode::Default,
     ScreenMode::Vic,
     ScreenMode::Default,
@@ -43,7 +53,13 @@ pub const DEFAULT_MODES: [ScreenMode; 10] = [
 impl Display for ScreenMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ScreenMode::Vga(w, h) => write!(f, "VGA {w}x{h}"),
+            ScreenMode::Vga(w, h) => {
+                if self.is_custom_vga() {
+                    write!(f, "Custom VGA")
+                } else {
+                    write!(f, "VGA {w}x{h}")
+                }
+            }
             // ScreenMode::Ega(w, h) => write!(f, "EGA {w}x{h}"),
             // ScreenMode::Cga(w, h) => write!(f, "CGA {w}x{h}"),
             ScreenMode::Vic => write!(f, "VIC-II"),
@@ -80,6 +96,12 @@ impl ScreenMode {
             .buffer_view
             .lock()
             .get_buffer_mut()
+            .set_size(self.get_window_size());
+        main_window
+            .buffer_view
+            .lock()
+            .get_buffer_mut()
+            .terminal_state
             .set_size(self.get_window_size());
         match self {
             // ScreenMode::Cga(_, h) | ScreenMode::Ega(_, h) |

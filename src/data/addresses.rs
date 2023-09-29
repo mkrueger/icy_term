@@ -4,6 +4,7 @@ use chrono::{Duration, Utc};
 use icy_engine::ansi::{BaudEmulation, MusicOption};
 use icy_engine::{ansi, ascii, atascii, avatar, petscii, viewdata, BufferParser};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
+use regex::Regex;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
@@ -461,6 +462,10 @@ fn start_watch_thread() {
     }
 }
 
+lazy_static::lazy_static! {
+    pub static ref vga_regex: Regex = Regex::new("vga\\((\\d+),\\s*(\\d+)\\)").unwrap();
+}
+
 fn parse_address(value: &Value) -> Address {
     let mut result = Address::new(String::new());
     if let Value::Table(table) = value {
@@ -543,15 +548,29 @@ fn parse_address(value: &Value) -> Address {
         }
 
         if let Some(Value::String(name)) = table.get("screen_mode") {
-            match name.to_lowercase().as_str() {
-                "vga(80, 25)" => result.screen_mode = ScreenMode::Vga(80, 25),
-                "vga(80, 50)" => result.screen_mode = ScreenMode::Vga(80, 50),
-                "vga(132, 37)" => result.screen_mode = ScreenMode::Vga(132, 37),
-                "vga(132, 52)" => result.screen_mode = ScreenMode::Vga(132, 52),
+            let lower_name = &name.to_lowercase();
+            let lowercase = lower_name.as_str();
+            match lowercase {
                 "vic" => result.screen_mode = ScreenMode::Vic,
                 "antic" => result.screen_mode = ScreenMode::Antic,
                 "videotex" => result.screen_mode = ScreenMode::Videotex,
-                _ => {}
+                _ => {
+                    if let Some(caps) = vga_regex.captures(lowercase) {
+                        let mut width = 80;
+                        if let Some(w) = caps.get(1) {
+                            if let Ok(w) = w.as_str().parse::<i32>() {
+                                width = w;
+                            }
+                        }
+                        let mut height = 25;
+                        if let Some(h) = caps.get(1) {
+                            if let Ok(h) = h.as_str().parse::<i32>() {
+                                height = h;
+                            }
+                        }
+                        result.screen_mode = ScreenMode::Vga(width, height);
+                    }
+                }
             }
         }
         if let Some(Value::Table(map)) = table.get("IEMSI") {
