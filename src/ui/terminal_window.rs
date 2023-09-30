@@ -407,6 +407,7 @@ impl MainWindow {
                         let click_pos = calc.calc_click_pos(mouse_pos);
                         self.last_pos = Position::new(click_pos.x as i32, click_pos.y as i32);
                         self.drag_start = Some(click_pos);
+                        self.buffer_view.lock().get_edit_state_mut().set_mask_size();
                         self.buffer_view.lock().set_selection(Selection::new((click_pos.x, click_pos.y)));
                         self.buffer_view.lock().get_selection().as_mut().unwrap().shape = if response.ctx.input(|i| i.modifiers.alt) {
                             icy_engine::Shape::Rectangle
@@ -426,6 +427,8 @@ impl MainWindow {
                     if cur != self.last_pos {
                         self.last_pos = cur;
                         let mut l = self.buffer_view.lock();
+                        l.get_edit_state_mut().set_mask_size();
+
                         if let Some(sel) = &mut l.get_selection() {
                             if !sel.locked {
                                 sel.lead = Position::new(click_pos.x as i32, click_pos.y as i32);

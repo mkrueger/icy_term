@@ -7,6 +7,7 @@ use std::{
 use egui::Modifiers;
 use egui_bind::KeyOrPointer;
 use i18n_embed_fl::fl;
+use icy_engine::Color;
 use icy_engine_egui::MonitorSettings;
 use toml::Value;
 
@@ -331,6 +332,7 @@ impl Options {
             file.write_all(b"version = \"1.1\"\n")?;
 
             file.write_all(format!("scaling = \"{:?}\"\n", self.scaling).as_bytes())?;
+            file.write_all(format!("border_color = {:?}\n", self.monitor_settings.border_color.to_hex()).as_bytes())?;
             file.write_all(format!("use_crt_filter = {:?}\n", self.monitor_settings.use_filter).as_bytes())?;
             file.write_all(format!("monitor_type = {:?}\n", self.monitor_settings.monitor_type).as_bytes())?;
             file.write_all(format!("monitor_gamma = {:?}\n", self.monitor_settings.gamma).as_bytes())?;
@@ -424,6 +426,16 @@ fn parse_value(options: &mut Options, value: &Value) {
                                 "Nearest" => options.scaling = Scaling::Nearest,
                                 "Linear" => options.scaling = Scaling::Linear,
                                 _ => {}
+                            }
+                        }
+                    }
+                    "border_color" => {
+                        if let Value::String(str) = v {
+                            match Color::from_hex(str) {
+                                Ok(color) => options.monitor_settings.border_color = color,
+                                Err(err) => {
+                                    log::error!("Error parsing border_color: {}", err);
+                                }
                             }
                         }
                     }
