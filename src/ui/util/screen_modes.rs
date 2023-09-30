@@ -1,9 +1,6 @@
 use std::fmt::Display;
 
-use icy_engine::{
-    BitFont, Color, Palette, Size, ATARI, ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, C64_LOWER,
-    C64_UPPER, CP437, VIEWDATA, VIEWDATA_PALETTE,
-};
+use icy_engine::{BitFont, Color, Palette, Size, ATARI, ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, C64_LOWER, C64_UPPER, CP437, VIEWDATA, VIEWDATA_PALETTE};
 use icy_engine_egui::BufferInputMode;
 
 use crate::ui::MainWindow;
@@ -92,25 +89,12 @@ impl ScreenMode {
     }
 
     pub fn set_mode(&self, main_window: &MainWindow) {
-        main_window
-            .buffer_view
-            .lock()
-            .get_buffer_mut()
-            .set_size(self.get_window_size());
-        main_window
-            .buffer_view
-            .lock()
-            .get_buffer_mut()
-            .terminal_state
-            .set_size(self.get_window_size());
+        main_window.buffer_view.lock().get_buffer_mut().set_size(self.get_window_size());
+        main_window.buffer_view.lock().get_buffer_mut().terminal_state.set_size(self.get_window_size());
         match self {
             // ScreenMode::Cga(_, h) | ScreenMode::Ega(_, h) |
             ScreenMode::Vga(_, _) | ScreenMode::Default => {
-                main_window
-                    .buffer_view
-                    .lock()
-                    .get_buffer_mut()
-                    .clear_font_table();
+                main_window.buffer_view.lock().get_buffer_mut().clear_font_table();
                 main_window
                     .buffer_view
                     .lock()
@@ -120,11 +104,7 @@ impl ScreenMode {
             }
 
             ScreenMode::Vic => {
-                main_window
-                    .buffer_view
-                    .lock()
-                    .get_buffer_mut()
-                    .clear_font_table();
+                main_window.buffer_view.lock().get_buffer_mut().clear_font_table();
                 main_window
                     .buffer_view
                     .lock()
@@ -136,44 +116,29 @@ impl ScreenMode {
                     .get_buffer_mut()
                     .set_font(1, BitFont::from_bytes("", C64_UPPER).unwrap());
 
-                main_window.buffer_view.lock().get_buffer_mut().palette =
-                    Palette::from_colors(C64_DEFAULT_PALETTE.to_vec());
+                main_window.buffer_view.lock().get_buffer_mut().palette = Palette::from_colors(C64_DEFAULT_PALETTE.to_vec());
             }
             ScreenMode::Antic => {
-                main_window
-                    .buffer_view
-                    .lock()
-                    .get_buffer_mut()
-                    .clear_font_table();
+                main_window.buffer_view.lock().get_buffer_mut().clear_font_table();
                 main_window
                     .buffer_view
                     .lock()
                     .get_buffer_mut()
                     .set_font(0, BitFont::from_bytes("", ATARI).unwrap());
-                main_window.buffer_view.lock().get_buffer_mut().palette =
-                    Palette::from_colors(ATARI_DEFAULT_PALETTE.to_vec());
+                main_window.buffer_view.lock().get_buffer_mut().palette = Palette::from_colors(ATARI_DEFAULT_PALETTE.to_vec());
             }
             ScreenMode::Videotex => {
-                main_window
-                    .buffer_view
-                    .lock()
-                    .get_buffer_mut()
-                    .clear_font_table();
+                main_window.buffer_view.lock().get_buffer_mut().clear_font_table();
                 main_window
                     .buffer_view
                     .lock()
                     .get_buffer_mut()
                     .set_font(0, BitFont::from_bytes("", VIEWDATA).unwrap());
-                main_window.buffer_view.lock().get_buffer_mut().palette =
-                    Palette::from_colors(VIEWDATA_PALETTE.to_vec());
+                main_window.buffer_view.lock().get_buffer_mut().palette = Palette::from_colors(VIEWDATA_PALETTE.to_vec());
             }
         }
         main_window.buffer_view.lock().get_buffer_mut().layers[0].clear();
-        main_window
-            .buffer_view
-            .lock()
-            .get_buffer_mut()
-            .stop_sixel_threads();
+        main_window.buffer_view.lock().get_buffer_mut().stop_sixel_threads();
     }
 
     #[allow(clippy::match_same_arms)]

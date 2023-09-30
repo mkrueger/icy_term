@@ -30,10 +30,7 @@ impl SSHComImpl {
 
         //  :TODO: SECURITY: verify_known_hosts() implemented here -- ie: user must accept & we save somewhere
 
-        session.userauth_password(
-            Some(connection_data.user_name.as_str()),
-            Some(connection_data.password.as_str()),
-        )?;
+        session.userauth_password(Some(connection_data.user_name.as_str()), Some(connection_data.password.as_str()))?;
 
         let chan = session.new_channel()?;
         chan.open_session()?;
@@ -66,10 +63,7 @@ impl SSHComImpl {
                 }
                 _ => Ok(((*host).to_string(), Self::default_port())),
             },
-            _ => Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Invalid address",
-            ))),
+            _ => Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid address"))),
         }
     }
 }
@@ -96,10 +90,7 @@ impl Com for SSHComImpl {
                         if e.kind() == std::io::ErrorKind::WouldBlock {
                             return Ok(None);
                         }
-                        Err(Box::new(std::io::Error::new(
-                            ErrorKind::ConnectionAborted,
-                            format!("Connection aborted: {e}"),
-                        )))
+                        Err(Box::new(std::io::Error::new(ErrorKind::ConnectionAborted, format!("Connection aborted: {e}"))))
                     }
                 }
             }

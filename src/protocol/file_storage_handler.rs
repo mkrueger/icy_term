@@ -66,10 +66,7 @@ impl FileStorageHandler for TestStorageHandler {
 
     fn append(&mut self, data: &[u8]) {
         if let Some(file_name) = &self.cur_file_name {
-            self.file
-                .get_mut(file_name)
-                .unwrap()
-                .extend_from_slice(data);
+            self.file.get_mut(file_name).unwrap().extend_from_slice(data);
         }
     }
     fn close(&mut self) {
@@ -126,9 +123,7 @@ impl FileStorageHandler for DiskStorageHandler {
         let mut file_name: PathBuf = self.output_path.join(f.clone());
 
         while file_name.exists() {
-            file_name = self
-                .output_path
-                .join(format!("x_modem_transferred_file.{num}"));
+            file_name = self.output_path.join(format!("x_modem_transferred_file.{num}"));
             num += 1;
         }
 
@@ -140,11 +135,7 @@ impl FileStorageHandler for DiskStorageHandler {
         self.cur_file_name = Some(fn_string.clone());
         self.cur_total_file_size = total_size;
 
-        let f = if file_name.is_empty() {
-            "new_file".to_string()
-        } else {
-            fn_string
-        };
+        let f = if file_name.is_empty() { "new_file".to_string() } else { fn_string };
 
         let mut file_name: PathBuf = self.output_path.join(f.clone());
         let mut i = 1;

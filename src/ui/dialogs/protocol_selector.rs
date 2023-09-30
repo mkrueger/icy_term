@@ -44,20 +44,11 @@ lazy_static! {
             "Ymodem-G".to_string(),
             fl!(crate::LANGUAGE_LOADER, "protocol-ymodemg-description")
         ),
-        (
-            TransferType::Text,
-            "Text".to_string(),
-            fl!(crate::LANGUAGE_LOADER, "protocol-text-description")
-        )
+        (TransferType::Text, "Text".to_string(), fl!(crate::LANGUAGE_LOADER, "protocol-text-description"))
     ];
 }
 
-pub fn view_selector(
-    window: &mut MainWindow,
-    ctx: &egui::Context,
-    _frame: &mut eframe::Frame,
-    download: bool,
-) {
+pub fn view_selector(window: &mut MainWindow, ctx: &egui::Context, _frame: &mut eframe::Frame, download: bool) {
     if ctx.input(|i| i.key_down(egui::Key::Escape)) {
         window.set_mode(MainWindowMode::ShowTerminal);
     }
@@ -85,10 +76,7 @@ pub fn view_selector(
                             continue;
                         }
                         ui.with_layout(ui.layout().with_cross_justify(true), |ui| {
-                            if ui
-                                .selectable_label(false, RichText::new(title).strong())
-                                .clicked()
-                            {
+                            if ui.selectable_label(false, RichText::new(title).strong()).clicked() {
                                 window.initiate_file_transfer(*protocol, download);
                             }
                         });
@@ -98,13 +86,7 @@ pub fn view_selector(
                 });
         });
         modal.buttons(ui, |ui| {
-            if modal
-                .button(
-                    ui,
-                    fl!(crate::LANGUAGE_LOADER, "dialing_directory-cancel-button"),
-                )
-                .clicked()
-            {
+            if modal.button(ui, fl!(crate::LANGUAGE_LOADER, "dialing_directory-cancel-button")).clicked() {
                 window.set_mode(MainWindowMode::ShowTerminal);
             }
         });

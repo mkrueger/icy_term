@@ -509,13 +509,7 @@ impl IEmsi {
         Ok(false)
     }
 
-    pub fn try_login(
-        &mut self,
-        con: &mut Connection,
-        adr: &Address,
-        ch: u8,
-        options: &Options,
-    ) -> TerminalResult<bool> {
+    pub fn try_login(&mut self, con: &mut Connection, adr: &Address, ch: u8, options: &Options) -> TerminalResult<bool> {
         if self.aborted {
             return Ok(false);
         }
@@ -527,12 +521,7 @@ impl IEmsi {
         Ok(self.logged_in)
     }
 
-    pub fn advance_char(
-        &mut self,
-        adr: &Address,
-        ch: u8,
-        options: &Options,
-    ) -> TerminalResult<Option<Vec<u8>>> {
+    pub fn advance_char(&mut self, adr: &Address, ch: u8, options: &Options) -> TerminalResult<Option<Vec<u8>>> {
         if self.aborted {
             return Ok(None);
         }
@@ -639,8 +628,7 @@ fn parse_emsi_blocks(data: &[u8]) -> TerminalResult<Vec<String>> {
                 continue;
             }
             if i + 2 < data.len() {
-                let b =
-                    u32::try_from(get_value(data[i + 1]) * 16 + get_value(data[i + 2])).unwrap();
+                let b = u32::try_from(get_value(data[i + 1]) * 16 + get_value(data[i + 2])).unwrap();
                 str.push(char::from_u32(b).unwrap());
                 i += 3;
                 continue;
@@ -740,10 +728,7 @@ mod tests {
         assert_eq!("Canada, eh!", isi.location);
         assert_eq!("sysop", isi.operator);
         assert_eq!("63555308", isi.localtime);
-        assert_eq!(
-            "Copyright 1989-2000 Bruce F. Morse, All Rights Reserved",
-            isi.notice
-        );
+        assert_eq!("Copyright 1989-2000 Bruce F. Morse, All Rights Reserved", isi.notice);
         assert_eq!("\x01", isi.wait);
         assert_eq!("ZAP", isi.capabilities);
     }

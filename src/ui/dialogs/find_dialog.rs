@@ -59,19 +59,11 @@ impl DialogState {
         }
     }
 
-    fn compare(
-        &mut self,
-        buffer_parser: &dyn BufferParser,
-        cur_len: usize,
-        attributed_char: AttributedChar,
-    ) -> bool {
+    fn compare(&mut self, buffer_parser: &dyn BufferParser, cur_len: usize, attributed_char: AttributedChar) -> bool {
         if self.case_sensitive {
             return self.conv_pattern[cur_len] == buffer_parser.convert_to_unicode(attributed_char);
         }
-        self.conv_pattern[cur_len]
-            == buffer_parser
-                .convert_to_unicode(attributed_char)
-                .to_ascii_lowercase()
+        self.conv_pattern[cur_len] == buffer_parser.convert_to_unicode(attributed_char).to_ascii_lowercase()
     }
 
     pub(crate) fn find_next(&mut self, buf: &mut BufferView) {
@@ -157,19 +149,11 @@ impl DialogState {
         let img_size = 18.0;
 
         ui.allocate_ui_at_rect(max_rect, |ui| {
-            ui.painter().rect(
-                max_rect,
-                4.0,
-                ui.visuals().extreme_bg_color,
-                ui.visuals().window_stroke,
-            );
+            ui.painter().rect(max_rect, 4.0, ui.visuals().extreme_bg_color, ui.visuals().window_stroke);
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 ui.add_space(8.0);
-                let r = ui.add(
-                    TextEdit::singleline(&mut pattern)
-                        .hint_text(fl!(crate::LANGUAGE_LOADER, "terminal-find-hint")),
-                );
+                let r = ui.add(TextEdit::singleline(&mut pattern).hint_text(fl!(crate::LANGUAGE_LOADER, "terminal-find-hint")));
 
                 ui.memory_mut(|m| m.request_focus(r.id));
 
@@ -203,9 +187,7 @@ impl DialogState {
                 if ui.input(|i| i.key_pressed(egui::Key::PageUp)) {
                     message = Some(Message::FindPrev);
                 }
-                if ui.input(|i| {
-                    i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::PageDown)
-                }) {
+                if ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::PageDown)) {
                     message = Some(Message::FindNext);
                 }
 
@@ -226,10 +208,7 @@ impl DialogState {
 
                 if self.results.is_empty() {
                     if !self.pattern.is_empty() {
-                        ui.colored_label(
-                            ui.style().visuals.error_fg_color,
-                            fl!(crate::LANGUAGE_LOADER, "terminal-find-no-results"),
-                        );
+                        ui.colored_label(ui.style().visuals.error_fg_color, fl!(crate::LANGUAGE_LOADER, "terminal-find-no-results"));
                     }
                 } else {
                     ui.label(fl!(

@@ -6,10 +6,7 @@ use std::{
 };
 
 use crate::{
-    protocol::{
-        zfile_flag, zmodem::err::TransmissionError, FileDescriptor, Header, HeaderType,
-        TransferState, ZFrameType, Zmodem, ZCRCE, ZCRCG,
-    },
+    protocol::{zfile_flag, zmodem::err::TransmissionError, FileDescriptor, Header, HeaderType, TransferState, ZFrameType, Zmodem, ZCRCE, ZCRCG},
     ui::connection::Connection,
     TerminalResult,
 };
@@ -105,11 +102,7 @@ impl Sz {
         self.cur_file += 1;
     }
 
-    pub fn update(
-        &mut self,
-        com: &mut Connection,
-        transfer_state: &Arc<Mutex<TransferState>>,
-    ) -> TerminalResult<()> {
+    pub fn update(&mut self, com: &mut Connection, transfer_state: &Arc<Mutex<TransferState>>) -> TerminalResult<()> {
         if let SendState::Finished = self.state {
             return Ok(());
         }
@@ -153,11 +146,7 @@ impl Sz {
                     //println!("no file to send!");
                     return Ok(());
                 }
-                Header::from_number(ZFrameType::Data, self.cur_file_pos as u32).write(
-                    com,
-                    self.get_header_type(),
-                    self.can_esc_control(),
-                )?;
+                Header::from_number(ZFrameType::Data, self.cur_file_pos as u32).write(com, self.get_header_type(), self.can_esc_control())?;
                 self.state = SendState::SendDataPackages;
             }
             SendState::SendDataPackages => {
@@ -180,15 +169,10 @@ impl Sz {
                 } else {
                     ZCRCW
                 };
-                p.extend_from_slice(
-                    &self.encode_subpacket(crc_byte, &self.data[self.cur_file_pos..end_pos]),
-                );
+                p.extend_from_slice(&self.encode_subpacket(crc_byte, &self.data[self.cur_file_pos..end_pos]));
                 self.cur_file_pos = end_pos;
                 if end_pos >= self.data.len() {
-                    p.extend_from_slice(
-                        &Header::from_number(ZFrameType::Eof, end_pos as u32)
-                            .build(self.get_header_type(), self.can_esc_control()),
-                    );
+                    p.extend_from_slice(&Header::from_number(ZFrameType::Eof, end_pos as u32).build(self.get_header_type(), self.can_esc_control()));
                     // println!("send eof!");
                     //transfer_info.write("Done sending file date.".to_string());
                     // transfer_state.current_state = "Done data";
@@ -322,18 +306,10 @@ impl Sz {
                     return Ok(());
                 }
                 ZFrameType::Challenge => {
-                    Header::from_number(ZFrameType::Ack, res.number()).write(
-                        com,
-                        self.get_header_type(),
-                        self.can_esc_control(),
-                    )?;
+                    Header::from_number(ZFrameType::Ack, res.number()).write(com, self.get_header_type(), self.can_esc_control())?;
                 }
                 ZFrameType::Abort | ZFrameType::FErr | ZFrameType::Can => {
-                    Header::empty(ZFrameType::Fin).write(
-                        com,
-                        self.get_header_type(),
-                        self.can_esc_control(),
-                    )?;
+                    Header::empty(ZFrameType::Fin).write(com, self.get_header_type(), self.can_esc_control())?;
                     self.state = SendState::Finished;
                 }
                 unk_frame => {
@@ -353,24 +329,13 @@ impl Sz {
         //transfer_state.write("Send file header".to_string());
         // println!("send zfile!");
         b.extend_from_slice(
-            &Header::from_flags(
-                ZFrameType::File,
-                0,
-                0,
-                zfile_flag::ZMNEW,
-                zfile_flag::ZCRESUM,
-            )
-            .build(self.get_header_type(), self.can_esc_control()),
+            &Header::from_flags(ZFrameType::File, 0, 0, zfile_flag::ZMNEW, zfile_flag::ZCRESUM).build(self.get_header_type(), self.can_esc_control()),
         );
         let cur_file_size = usize::try_from(self.cur_file).unwrap();
         let f = &self.files[cur_file_size];
         self.data = f.get_data();
         let data = if f.date > 0 {
-            let bytes_left = self
-                .files
-                .iter()
-                .skip(cur_file_size + 1)
-                .fold(0, |b, f| b + f.size);
+            let bytes_left = self.files.iter().skip(cur_file_size + 1).fold(0, |b, f| b + f.size);
             format!(
                 "{}\0{} {} 0 0 {} {}\0",
                 f.file_name,
@@ -436,20 +401,12 @@ impl Sz {
     pub fn send_zrqinit(&mut self, com: &mut Connection) -> TerminalResult<()> {
         self.cur_file = -1;
         self.transfered_file = true;
-        Header::empty(ZFrameType::RQInit).write(
-            com,
-            self.get_header_type(),
-            self.can_esc_control(),
-        )?;
+        Header::empty(ZFrameType::RQInit).write(com, self.get_header_type(), self.can_esc_control())?;
         Ok(())
     }
 
     pub fn send_zfin(&mut self, com: &mut Connection, size: u32) -> TerminalResult<()> {
-        Header::from_number(ZFrameType::Fin, size).write(
-            com,
-            self.get_header_type(),
-            self.can_esc_control(),
-        )?;
+        Header::from_number(ZFrameType::Fin, size).write(com, self.get_header_type(), self.can_esc_control())?;
         self.state = SendState::Await;
         Ok(())
     }

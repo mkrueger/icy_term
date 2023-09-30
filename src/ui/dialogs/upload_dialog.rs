@@ -30,10 +30,7 @@ impl MainWindow {
         if let Some(dialog) = &mut self.upload_dialog.open_file_dialog {
             if dialog.show(ctx).selected() {
                 if let Some(path) = dialog.path() {
-                    if matches!(
-                        self.upload_dialog.protocol_type,
-                        crate::protocol::TransferType::Text
-                    ) {
+                    if matches!(self.upload_dialog.protocol_type, crate::protocol::TransferType::Text) {
                         match std::fs::read(path) {
                             Ok(bytes) => {
                                 let r = self.connection.as_mut().unwrap().send(bytes);
@@ -51,11 +48,7 @@ impl MainWindow {
                     }
                     let fd = FileDescriptor::from_paths(&vec![path.to_path_buf()]);
                     if let Ok(files) = fd {
-                        self.start_file_transfer(
-                            self.upload_dialog.protocol_type,
-                            false,
-                            Some(files),
-                        );
+                        self.start_file_transfer(self.upload_dialog.protocol_type, false, Some(files));
                     }
                 }
             }

@@ -19,13 +19,7 @@ impl FileTransferDialog {
         Self { selected_log: 0 }
     }
 
-    pub fn show_dialog(
-        &mut self,
-        ctx: &egui::Context,
-        _frame: &mut eframe::Frame,
-        transfer_state: &TransferState,
-        download: bool,
-    ) -> bool {
+    pub fn show_dialog(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame, transfer_state: &TransferState, download: bool) -> bool {
         let mut open = true;
         let mut close_dialog = false;
         if ctx.input(|i: &egui::InputState| i.key_down(egui::Key::Escape)) {
@@ -45,11 +39,7 @@ impl FileTransferDialog {
             .resizable(false)
             .show(ctx, |ui| {
                 let state = transfer_state;
-                let transfer_info = if download {
-                    &state.recieve_state
-                } else {
-                    &state.send_state
-                };
+                let transfer_info = if download { &state.recieve_state } else { &state.send_state };
 
                 let check = transfer_info.check_size.clone();
                 let file_name = transfer_info.file_name.clone();
@@ -57,11 +47,7 @@ impl FileTransferDialog {
                 let bb = BytesConfig::default();
 
                 let elapsed_time: Duration = state.end_time.duration_since(state.start_time);
-                let elapsed_time = format!(
-                    "{:02}:{:02}",
-                    elapsed_time.as_secs() / 60,
-                    elapsed_time.as_secs() % 60
-                );
+                let elapsed_time = format!("{:02}:{:02}", elapsed_time.as_secs() / 60, elapsed_time.as_secs() % 60);
 
                 let cur_state = if download {
                     &transfer_state.recieve_state
@@ -82,28 +68,19 @@ impl FileTransferDialog {
                 table.body(|mut body| {
                     body.row(row_height, |mut row| {
                         row.col(|ui| {
-                            ui.label(RichText::new(fl!(
-                                crate::LANGUAGE_LOADER,
-                                "transfer-protocol"
-                            )));
+                            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-protocol")));
                             ui.label(RichText::new(state.protocol_name.clone()));
                         });
                     });
 
                     body.row(row_height, |mut row| {
                         row.col(|ui| {
-                            ui.label(RichText::new(fl!(
-                                crate::LANGUAGE_LOADER,
-                                "transfer-checksize"
-                            )));
+                            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-checksize")));
                             ui.label(RichText::new(check));
                         });
 
                         row.col(|ui| {
-                            ui.label(RichText::new(fl!(
-                                crate::LANGUAGE_LOADER,
-                                "transfer-elapsedtime"
-                            )));
+                            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-elapsedtime")));
                             ui.label(RichText::new(elapsed_time));
                         });
                     });
@@ -114,10 +91,7 @@ impl FileTransferDialog {
                     ui.label(RichText::new(file_name));
                 });
                 ui.add(
-                    ProgressBar::new(
-                        transfer_info.bytes_transfered as f32 / transfer_info.file_size as f32,
-                    )
-                    .text(RichText::new(format!(
+                    ProgressBar::new(transfer_info.bytes_transfered as f32 / transfer_info.file_size as f32).text(RichText::new(format!(
                         "{}% {}/{}",
                         (transfer_info.bytes_transfered * 100) / max(1, transfer_info.file_size),
                         bb.bytes(transfer_info.bytes_transfered as u64),
@@ -127,11 +101,7 @@ impl FileTransferDialog {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-rate")));
                     let bps = bb.bytes(transfer_info.get_bps()).to_string();
-                    ui.label(RichText::new(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "transfer-bps",
-                        bps = bps
-                    )));
+                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "transfer-bps", bps = bps)));
                 });
 
                 if cur_state.has_log_entries() {
@@ -140,30 +110,21 @@ impl FileTransferDialog {
 
                     ui.horizontal(|ui| {
                         if ui
-                            .selectable_label(
-                                self.selected_log == 0,
-                                format!("All ({})", cur_state.log_count()),
-                            )
+                            .selectable_label(self.selected_log == 0, format!("All ({})", cur_state.log_count()))
                             .clicked()
                         {
                             self.selected_log = 0;
                         }
 
                         if ui
-                            .selectable_label(
-                                self.selected_log == 1,
-                                format!("Warnings ({})", cur_state.warnings()),
-                            )
+                            .selectable_label(self.selected_log == 1, format!("Warnings ({})", cur_state.warnings()))
                             .clicked()
                         {
                             self.selected_log = 1;
                         }
 
                         if ui
-                            .selectable_label(
-                                self.selected_log == 2,
-                                format!("Errors ({})", cur_state.errors()),
-                            )
+                            .selectable_label(self.selected_log == 2, format!("Errors ({})", cur_state.errors()))
                             .clicked()
                         {
                             self.selected_log = 2;
@@ -186,22 +147,10 @@ impl FileTransferDialog {
                                 match transfer_info.get_log_message(self.selected_log, i) {
                                     Some(msg) => match msg {
                                         OutputLogMessage::Error(msg) => {
-                                            ui.add(
-                                                Label::new(
-                                                    RichText::new(msg)
-                                                        .color(ctx.style().visuals.error_fg_color),
-                                                )
-                                                .wrap(false),
-                                            );
+                                            ui.add(Label::new(RichText::new(msg).color(ctx.style().visuals.error_fg_color)).wrap(false));
                                         }
                                         OutputLogMessage::Warning(msg) => {
-                                            ui.add(
-                                                Label::new(
-                                                    RichText::new(msg)
-                                                        .color(ctx.style().visuals.warn_fg_color),
-                                                )
-                                                .wrap(false),
-                                            );
+                                            ui.add(Label::new(RichText::new(msg).color(ctx.style().visuals.warn_fg_color)).wrap(false));
                                         }
                                         OutputLogMessage::Info(msg) => {
                                             ui.add(Label::new(RichText::new(msg)).wrap(false));

@@ -34,22 +34,16 @@ impl WebSocketComImpl {
 
         // build an ws:// or wss:// address
         //  :TODO: default port if not supplied in address
-        let url = format!(
-            "{}://{}",
-            Self::schema_prefix(is_secure),
-            connection_data.address
-        );
+        let url = format!("{}://{}", Self::schema_prefix(is_secure), connection_data.address);
 
         let req = Uri::try_from(url)?.into_client_request()?;
 
         let mut root_store = RootCertStore::empty();
-        root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-            OwnedTrustAnchor::from_subject_spki_name_constraints(
-                ta.subject,
-                ta.spki,
-                ta.name_constraints,
-            )
-        }));
+        root_store.add_trust_anchors(
+            webpki_roots::TLS_SERVER_ROOTS
+                .iter()
+                .map(|ta| OwnedTrustAnchor::from_subject_spki_name_constraints(ta.subject, ta.spki, ta.name_constraints)),
+        );
 
         let config = rustls::ClientConfig::builder()
             .with_safe_defaults()
@@ -63,8 +57,7 @@ impl WebSocketComImpl {
 
         let stream = TcpStream::connect(connection_data.address.clone())?;
         let connector: tungstenite::Connector = tungstenite::Connector::Rustls(config);
-        let (mut socket, _) =
-            tungstenite::client_tls_with_config(req, stream, None, Some(connector))?;
+        let (mut socket, _) = tungstenite::client_tls_with_config(req, stream, None, Some(connector))?;
 
         let s = socket.get_mut();
         match s {
@@ -104,10 +97,7 @@ impl Com for WebSocketComImpl {
         match self.socket.read() {
             Ok(msg) => Ok(Some(msg.into_data())),
             Err(Error::Io(e)) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(None),
-            Err(e) => Err(Box::new(std::io::Error::new(
-                ErrorKind::ConnectionAborted,
-                format!("Connection aborted: {e}"),
-            ))),
+            Err(e) => Err(Box::new(std::io::Error::new(ErrorKind::ConnectionAborted, format!("Connection aborted: {e}")))),
         }
     }
     fn send(&mut self, buf: &[u8]) -> TermComResult<usize> {

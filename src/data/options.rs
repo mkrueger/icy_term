@@ -230,23 +230,13 @@ fn convert_to_string(key: KeyType) -> String {
 
 keys![
     (hangup, H, ALT, "settings-keybinds-disconnect"),
-    (
-        dialing_directory,
-        D,
-        ALT,
-        "settings-keybinds-dialing-directory"
-    ),
+    (dialing_directory, D, ALT, "settings-keybinds-dialing-directory"),
     (send_login_pw, L, ALT, "settings-keybinds-send-login"),
     (upload, PageUp, ALT, "settings-keybinds-upload"),
     (download, PageDown, ALT, "settings-keybinds-download"),
     (clear_screen, C, ALT, "settings-keybinds-clear-screen"),
     (quit, X, ALT, "settings-keybinds-quit"),
-    (
-        full_screen,
-        F11,
-        NONE,
-        "settings-keybinds-toggle-fullscreen"
-    ),
+    (full_screen, F11, NONE, "settings-keybinds-toggle-fullscreen"),
     (show_settings, O, ALT, "settings-keybinds-show-settings"),
     (show_find, F, ALT, "settings-keybinds-show-find"),
     (show_capture, P, ALT, "settings-keybinds-capture-control")
@@ -341,58 +331,22 @@ impl Options {
             file.write_all(b"version = \"1.1\"\n")?;
 
             file.write_all(format!("scaling = \"{:?}\"\n", self.scaling).as_bytes())?;
-            file.write_all(
-                format!("use_crt_filter = {:?}\n", self.monitor_settings.use_filter).as_bytes(),
-            )?;
-            file.write_all(
-                format!("monitor_type = {:?}\n", self.monitor_settings.monitor_type).as_bytes(),
-            )?;
-            file.write_all(
-                format!("monitor_gamma = {:?}\n", self.monitor_settings.gamma).as_bytes(),
-            )?;
-            file.write_all(
-                format!("monitor_contrast = {:?}\n", self.monitor_settings.contrast).as_bytes(),
-            )?;
-            file.write_all(
-                format!(
-                    "monitor_saturation = {:?}\n",
-                    self.monitor_settings.saturation
-                )
-                .as_bytes(),
-            )?;
-            file.write_all(
-                format!(
-                    "monitor_brightness = {:?}\n",
-                    self.monitor_settings.brightness
-                )
-                .as_bytes(),
-            )?;
-            file.write_all(
-                format!("monitor_blur = {:?}\n", self.monitor_settings.blur).as_bytes(),
-            )?;
-            file.write_all(
-                format!(
-                    "monitor_curvature = {:?}\n",
-                    self.monitor_settings.curvature
-                )
-                .as_bytes(),
-            )?;
-            file.write_all(
-                format!(
-                    "monitor_scanlines = {:?}\n",
-                    self.monitor_settings.scanlines
-                )
-                .as_bytes(),
-            )?;
+            file.write_all(format!("use_crt_filter = {:?}\n", self.monitor_settings.use_filter).as_bytes())?;
+            file.write_all(format!("monitor_type = {:?}\n", self.monitor_settings.monitor_type).as_bytes())?;
+            file.write_all(format!("monitor_gamma = {:?}\n", self.monitor_settings.gamma).as_bytes())?;
+            file.write_all(format!("monitor_contrast = {:?}\n", self.monitor_settings.contrast).as_bytes())?;
+            file.write_all(format!("monitor_saturation = {:?}\n", self.monitor_settings.saturation).as_bytes())?;
+            file.write_all(format!("monitor_brightness = {:?}\n", self.monitor_settings.brightness).as_bytes())?;
+            file.write_all(format!("monitor_blur = {:?}\n", self.monitor_settings.blur).as_bytes())?;
+            file.write_all(format!("monitor_curvature = {:?}\n", self.monitor_settings.curvature).as_bytes())?;
+            file.write_all(format!("monitor_scanlines = {:?}\n", self.monitor_settings.scanlines).as_bytes())?;
 
             if self.console_beep != Options::default().console_beep {
                 file.write_all(format!("console_beep = {}\n", self.console_beep).as_bytes())?;
             }
 
             if !self.capture_filename.is_empty() {
-                file.write_all(
-                    format!("capture_filename = \"{}\"\n", self.capture_filename).as_bytes(),
-                )?;
+                file.write_all(format!("capture_filename = \"{}\"\n", self.capture_filename).as_bytes())?;
             }
 
             file.write_all("[IEMSI]\n".to_string().as_bytes())?;
@@ -410,9 +364,7 @@ impl Options {
                 file.write_all(format!("data_phone = \"{}\"\n", self.iemsi.data_phone).as_bytes())?;
             }
             if !self.iemsi.voice_phone.is_empty() {
-                file.write_all(
-                    format!("voice_phone = \"{}\"\n", self.iemsi.voice_phone).as_bytes(),
-                )?;
+                file.write_all(format!("voice_phone = \"{}\"\n", self.iemsi.voice_phone).as_bytes())?;
             }
             if !self.iemsi.birth_date.is_empty() {
                 file.write_all(format!("birth_date = \"{}\"\n", self.iemsi.birth_date).as_bytes())?;

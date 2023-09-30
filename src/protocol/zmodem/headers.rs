@@ -72,18 +72,10 @@ pub struct Header {
 impl Display for Header {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.frame_type {
-            ZFrameType::RPos | ZFrameType::Eof | ZFrameType::FreeCnt | ZFrameType::Data => write!(
-                f,
-                "[Header with {:?} number = {}]",
-                self.frame_type,
-                self.number()
-            ),
-            ZFrameType::Crc | ZFrameType::Challenge => write!(
-                f,
-                "[Header with {:?} number = x{:08X}]",
-                self.frame_type,
-                self.number()
-            ),
+            ZFrameType::RPos | ZFrameType::Eof | ZFrameType::FreeCnt | ZFrameType::Data => {
+                write!(f, "[Header with {:?} number = {}]", self.frame_type, self.number())
+            }
+            ZFrameType::Crc | ZFrameType::Challenge => write!(f, "[Header with {:?} number = x{:08X}]", self.frame_type, self.number()),
             _ => write!(
                 f,
                 "[Header with {:?} frame flags = x{:02X}, x{:02X}, x{:02X}, x{:02X}]",
@@ -185,12 +177,7 @@ impl Header {
         res
     }
 
-    pub fn write(
-        &self,
-        com: &mut Connection,
-        header_type: HeaderType,
-        escape_ctrl_chars: bool,
-    ) -> TerminalResult<usize> {
+    pub fn write(&self, com: &mut Connection, header_type: HeaderType, escape_ctrl_chars: bool) -> TerminalResult<usize> {
         // println!("send header:{:?}  - {:?}", header_type, self);
         com.send(self.build(header_type, escape_ctrl_chars))?;
         Ok(12)
@@ -268,9 +255,7 @@ impl Header {
                 let crc32 = get_crc32(data);
                 let check_crc32 = u32::from_le_bytes(header_data[5..9].try_into().unwrap());
                 if crc32 != check_crc32 {
-                    return Err(anyhow::anyhow!(
-                        "crc32 mismatch got {crc32:08X} expected {check_crc32:08X}"
-                    ));
+                    return Err(anyhow::anyhow!("crc32 mismatch got {crc32:08X} expected {check_crc32:08X}"));
                 }
                 Ok(Some(Header {
                     frame_type: Header::get_frame_type(header_data[0])?,

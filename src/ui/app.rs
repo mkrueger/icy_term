@@ -26,10 +26,7 @@ impl MainWindow {
         use egui::FontFamily::Proportional;
         use egui::TextStyle::{Body, Button, Heading, Monospace, Small};
 
-        let gl = cc
-            .gl
-            .as_ref()
-            .expect("You need to run eframe with the glow backend");
+        let gl = cc.gl.as_ref().expect("You need to run eframe with the glow backend");
         let options = match Options::load_options() {
             Ok(options) => options,
             Err(e) => {
@@ -68,10 +65,7 @@ impl MainWindow {
         let mut view = MainWindow {
             buffer_view: Arc::new(eframe::epaint::mutex::Mutex::new(view)),
             //address_list: HoverList::new(),
-            state: MainWindowState {
-                options,
-                ..Default::default()
-            },
+            state: MainWindowState { options, ..Default::default() },
             initial_upload_directory,
             connection: Some(Box::new(connection)),
             auto_login: AutoLogin::new(""),
@@ -84,9 +78,7 @@ impl MainWindow {
             is_fullscreen_mode,
             export_dialog: dialogs::export_dialog::DialogState::default(),
             upload_dialog: dialogs::upload_dialog::DialogState::default(),
-            dialing_directory_dialog: dialogs::dialing_directory_dialog::DialogState::new(
-                addresses,
-            ),
+            dialing_directory_dialog: dialogs::dialing_directory_dialog::DialogState::new(addresses),
             drag_start: None,
             last_pos: Position::default(),
 
@@ -201,10 +193,7 @@ impl eframe::App for MainWindow {
                     if let Some(state) = state {
                         if state.is_finished {
                             join_thread = true;
-                        } else if !fts
-                            .file_transfer_dialog
-                            .show_dialog(ctx, frame, &state, download)
-                        {
+                        } else if !fts.file_transfer_dialog.show_dialog(ctx, frame, &state, download) {
                             fts.current_transfer.lock().unwrap().request_cancel = true;
                             join_thread = true;
                         }

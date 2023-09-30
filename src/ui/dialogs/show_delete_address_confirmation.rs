@@ -17,30 +17,17 @@ pub fn show_dialog(window: &mut MainWindow, ctx: &egui::Context, uuid: usize) {
                 fl!(
                     crate::LANGUAGE_LOADER,
                     "delete-bbs-question",
-                    system = window
-                        .dialing_directory_dialog
-                        .get_address_mut(Some(uuid))
-                        .system_name
-                        .clone()
+                    system = window.dialing_directory_dialog.get_address_mut(Some(uuid)).system_name.clone()
                 ),
             );
         });
         modal.buttons(ui, |ui| {
-            if modal
-                .button(ui, fl!(crate::LANGUAGE_LOADER, "delete-bbs-delete-button"))
-                .clicked()
-            {
+            if modal.button(ui, fl!(crate::LANGUAGE_LOADER, "delete-bbs-delete-button")).clicked() {
                 window.dialing_directory_dialog.delete_bbs(uuid);
                 window.set_mode(MainWindowMode::ShowDialingDirectory);
             }
 
-            if modal
-                .button(
-                    ui,
-                    fl!(crate::LANGUAGE_LOADER, "dialing_directory-cancel-button"),
-                )
-                .clicked()
-            {
+            if modal.button(ui, fl!(crate::LANGUAGE_LOADER, "dialing_directory-cancel-button")).clicked() {
                 window.set_mode(MainWindowMode::ShowDialingDirectory);
             }
         });

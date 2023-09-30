@@ -24,36 +24,17 @@ impl std::fmt::Display for TransmissionError {
             // TransmissionError::Cancel => write!(f, "transmission canceled"),
             // TransmissionError::InvalidMode(m) => write!(f, "invalid x/y modem mode: {}", m),
             TransmissionError::InvalidSubpacket(m) => {
-                write!(
-                    f,
-                    "Error invalid byte in subpacket got {m}/x{m:X} after ZDLE"
-                )
+                write!(f, "Error invalid byte in subpacket got {m}/x{m:X} after ZDLE")
             }
             TransmissionError::InvalidFrameType(ft) => write!(f, "invalid frame type {ft}"),
-            TransmissionError::ZPADExected(b) => write!(
-                f,
-                "ZPAD expected got {} (0x{:X})",
-                char::try_from(*b).unwrap(),
-                b
-            ),
-            TransmissionError::ZLDEExected(b) => write!(
-                f,
-                "ZDLE expected got {} (0x{:X})",
-                char::try_from(*b).unwrap(),
-                b
-            ),
+            TransmissionError::ZPADExected(b) => write!(f, "ZPAD expected got {} (0x{:X})", char::try_from(*b).unwrap(), b),
+            TransmissionError::ZLDEExected(b) => write!(f, "ZDLE expected got {} (0x{:X})", char::try_from(*b).unwrap(), b),
             TransmissionError::UnknownHeaderType(ht) => write!(f, "unknown header type {ht}"),
             TransmissionError::CRC16Mismatch(crc, check_crc) => {
-                write!(
-                    f,
-                    "crc16 mismatch got 0x{crc:04X} expected 0x{check_crc:04X}"
-                )
+                write!(f, "crc16 mismatch got 0x{crc:04X} expected 0x{check_crc:04X}")
             }
             TransmissionError::CRC32Mismatch(crc, check_crc) => {
-                write!(
-                    f,
-                    "crc32 mismatch got 0x{crc:08X} expected 0x{check_crc:08X}"
-                )
+                write!(f, "crc32 mismatch got 0x{crc:08X} expected 0x{check_crc:08X}")
             }
             TransmissionError::ZDataBeforeZFILE => write!(f, "Got ZDATA before ZFILE"),
             TransmissionError::UnsupportedFrame(ft) => write!(f, "unsupported frame {ft:?}"),

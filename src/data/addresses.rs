@@ -272,13 +272,8 @@ impl Address {
     pub fn get_dialing_directory_file() -> Option<PathBuf> {
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
-            if !proj_dirs.config_dir().exists()
-                && fs::create_dir_all(proj_dirs.config_dir()).is_err()
-            {
-                log::error!(
-                    "Can't create configuration directory {:?}",
-                    proj_dirs.config_dir()
-                );
+            if !proj_dirs.config_dir().exists() && fs::create_dir_all(proj_dirs.config_dir()).is_err() {
+                log::error!("Can't create configuration directory {:?}", proj_dirs.config_dir());
                 return None;
             }
             let dialing_directory = proj_dirs.config_dir().join("phonebook.toml");
@@ -377,8 +372,7 @@ impl AddressBook {
 
     fn parse_addresses(&mut self, value: &Value) {
         if let Value::Table(table) = value {
-            let version: Option<String> = if let Some(Value::String(version)) = table.get("version")
-            {
+            let version: Option<String> = if let Some(Value::String(version)) = table.get("version") {
                 Some(version.clone())
             } else {
                 None
@@ -447,16 +441,13 @@ impl AddressBook {
 fn start_watch_thread() {
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(dialing_directory) = Address::get_dialing_directory_file() {
-        if let Err(err) = std::thread::Builder::new()
-            .name("file_watcher_thread".to_string())
-            .spawn(move || loop {
-                if let Some(path) = dialing_directory.parent() {
-                    if watch(path).is_err() {
-                        return;
-                    }
+        if let Err(err) = std::thread::Builder::new().name("file_watcher_thread".to_string()).spawn(move || loop {
+            if let Some(path) = dialing_directory.parent() {
+                if watch(path).is_err() {
+                    return;
                 }
-            })
-        {
+            }
+        }) {
             log::error!("Error starting file watcher thread: {err}");
         }
     }
@@ -643,24 +634,17 @@ fn store_address(file: &mut File, addr: &Address) -> TerminalResult<()> {
     }
     file.write_all(format!("created = \"{}\"\n", addr.created.to_rfc3339()).as_bytes())?;
 
-    if addr.override_iemsi_settings
-        || !addr.iemsi_user.is_empty()
-        || !addr.iemsi_password.is_empty()
-    {
+    if addr.override_iemsi_settings || !addr.iemsi_user.is_empty() || !addr.iemsi_password.is_empty() {
         file.write_all("[addresses.IEMSI]\n".to_string().as_bytes())?;
 
         if addr.override_iemsi_settings {
-            file.write_all(
-                format!("override_settings = {}\n", addr.override_iemsi_settings).as_bytes(),
-            )?;
+            file.write_all(format!("override_settings = {}\n", addr.override_iemsi_settings).as_bytes())?;
         }
         if !addr.iemsi_user.is_empty() {
             file.write_all(format!("user_name = \"{}\"\n", escape(&addr.iemsi_user)).as_bytes())?;
         }
         if !addr.iemsi_password.is_empty() {
-            file.write_all(
-                format!("password = \"{}\"\n", escape(&addr.iemsi_password)).as_bytes(),
-            )?;
+            file.write_all(format!("password = \"{}\"\n", escape(&addr.iemsi_password)).as_bytes())?;
         }
     }
 

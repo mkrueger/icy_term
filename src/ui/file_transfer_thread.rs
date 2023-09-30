@@ -12,12 +12,7 @@ pub struct FileTransferThread {
 }
 
 impl FileTransferThread {
-    pub fn new(
-        mut connection: Box<Connection>,
-        protocol_type: crate::protocol::TransferType,
-        download: bool,
-        files_opt: Option<Vec<FileDescriptor>>,
-    ) -> Self {
+    pub fn new(mut connection: Box<Connection>, protocol_type: crate::protocol::TransferType, download: bool, files_opt: Option<Vec<FileDescriptor>>) -> Self {
         let current_transfer = Arc::new(Mutex::new(TransferState::default()));
 
         let current_transfer2 = current_transfer.clone();
@@ -32,11 +27,7 @@ impl FileTransferThread {
             if let Err(err) = if download {
                 protocol.initiate_recv(&mut connection, &mut current_transfer2.lock().unwrap())
             } else {
-                protocol.initiate_send(
-                    &mut connection,
-                    files_opt.unwrap(),
-                    &mut current_transfer2.lock().unwrap(),
-                )
+                protocol.initiate_send(&mut connection, files_opt.unwrap(), &mut current_transfer2.lock().unwrap())
             } {
                 log::error!("{err}");
                 return connection;
@@ -48,9 +39,12 @@ impl FileTransferThread {
                         log::error!("Error updating state on file transfer thread: {err}");
                         break;
                     }
-                    match protocol.update(&mut connection, &current_transfer2, &mut storage_handler)
-                    {
-                        Ok(b) => if !b { break; } ,
+                    match protocol.update(&mut connection, &current_transfer2, &mut storage_handler) {
+                        Ok(b) => {
+                            if !b {
+                                break;
+                            }
+                        }
                         Err(err) => {
                             log::error!("Error updating protocol on file transfer thread: {err}");
                             break;
@@ -60,17 +54,13 @@ impl FileTransferThread {
                         Ok(ct) => {
                             if ct.request_cancel {
                                 if let Err(err) = protocol.cancel(&mut connection) {
-                                    log::error!(
-                                        "Error sending cancel request on file transfer thread: {err}"
-                                    );
+                                    log::error!("Error sending cancel request on file transfer thread: {err}");
                                 }
                                 break;
                             }
                         }
                         Err(err) => {
-                            log::error!(
-                                "Error locking current_transfer on file transfer thread: {err}"
-                            );
+                            log::error!("Error locking current_transfer on file transfer thread: {err}");
                             break;
                         }
                     }

@@ -52,10 +52,7 @@ impl ConnectionThreadData {
                 return false;
             }
         } else if self.baud_rate == 0 {
-            if let Err(err) = self
-                .tx
-                .send(SendData::Data(self.data_buffer.drain(..).collect()))
-            {
+            if let Err(err) = self.tx.send(SendData::Data(self.data_buffer.drain(..).collect())) {
                 log::error!("{err}");
                 self.thread_is_running &= self.tx.send(SendData::Disconnect).is_ok();
                 self.disconnect();
@@ -64,13 +61,10 @@ impl ConnectionThreadData {
             let cur_time = Instant::now();
             let bytes_per_sec = self.baud_rate / BITS_PER_BYTE;
             let elapsed_ms = cur_time.duration_since(self.last_send_time).as_millis() as u32;
-            let bytes_to_send: usize = ((bytes_per_sec.saturating_mul(elapsed_ms)) / 1000)
-                .min(self.data_buffer.len() as u32) as usize;
+            let bytes_to_send: usize = ((bytes_per_sec.saturating_mul(elapsed_ms)) / 1000).min(self.data_buffer.len() as u32) as usize;
 
             if bytes_to_send > 0 {
-                if let Err(err) = self.tx.send(SendData::Data(
-                    self.data_buffer.drain(..bytes_to_send).collect(),
-                )) {
+                if let Err(err) = self.tx.send(SendData::Data(self.data_buffer.drain(..bytes_to_send).collect())) {
                     log::error!("{err}");
                     self.thread_is_running &= self.tx.send(SendData::Disconnect).is_ok();
                 }
@@ -82,23 +76,15 @@ impl ConnectionThreadData {
 
     fn try_connect(&mut self, connection_data: &OpenConnectionData) -> TermComResult<()> {
         self.com = match connection_data.protocol {
-            crate::addresses::Protocol::Telnet => {
-                Box::new(crate::com::ComTelnetImpl::connect(connection_data)?)
-            }
-            crate::addresses::Protocol::Raw => {
-                Box::new(crate::com::ComRawImpl::connect(connection_data)?)
-            }
+            crate::addresses::Protocol::Telnet => Box::new(crate::com::ComTelnetImpl::connect(connection_data)?),
+            crate::addresses::Protocol::Raw => Box::new(crate::com::ComRawImpl::connect(connection_data)?),
             #[cfg(not(target_arch = "wasm32"))]
-            crate::addresses::Protocol::Ssh => {
-                Box::new(crate::com::ssh::SSHComImpl::connect(connection_data)?)
-            }
+            crate::addresses::Protocol::Ssh => Box::new(crate::com::ssh::SSHComImpl::connect(connection_data)?),
             crate::addresses::Protocol::WebSocket(_) => {
                 #[cfg(target_arch = "wasm32")] //TODO
                 panic!("WebSocket is not supported on web");
 
-                Box::new(crate::com::websocket::WebSocketComImpl::connect(
-                    connection_data,
-                )?)
+                Box::new(crate::com::websocket::WebSocketComImpl::connect(connection_data)?)
             }
             #[cfg(target_arch = "wasm32")]
             crate::addresses::Protocol::Ssh => Box::new(crate::com::NullConnection {}),
@@ -109,21 +95,16 @@ impl ConnectionThreadData {
     pub fn handle_receive(&mut self) {
         while let Ok(result) = self.rx.try_recv() {
             match result {
-                SendData::OpenConnection(connection_data) => {
-                    match self.try_connect(&connection_data) {
-                        Ok(()) => {
-                            self.thread_is_running &= self.tx.send(SendData::Connected).is_ok();
-                            self.is_connected = true;
-                        }
-                        Err(err) => {
-                            self.thread_is_running &= self
-                                .tx
-                                .send(SendData::ConnectionError(err.to_string()))
-                                .is_ok();
-                            self.disconnect();
-                        }
+                SendData::OpenConnection(connection_data) => match self.try_connect(&connection_data) {
+                    Ok(()) => {
+                        self.thread_is_running &= self.tx.send(SendData::Connected).is_ok();
+                        self.is_connected = true;
                     }
-                }
+                    Err(err) => {
+                        self.thread_is_running &= self.tx.send(SendData::ConnectionError(err.to_string())).is_ok();
+                        self.disconnect();
+                    }
+                },
                 SendData::Data(buf) => {
                     if let Err(err) = self.com.send(&buf) {
                         log::error!("{err}");
@@ -176,25 +157,20 @@ impl MainWindow {
 
         let (tx, rx) = mpsc::channel::<SendData>();
         let (tx2, rx2) = mpsc::channel::<SendData>();
-        if let Err(err) = std::thread::Builder::new()
-            .name("com_thread".to_string())
-            .spawn(move || {
-                let mut data: ConnectionThreadData = ConnectionThreadData::new(tx, rx2);
-                while data.thread_is_running {
-                    if data.is_connected {
-                        if !data.read_data() {
-                            std::thread::sleep(Duration::from_millis(25));
-                        }
-                    } else {
-                        std::thread::sleep(Duration::from_millis(100));
+        if let Err(err) = std::thread::Builder::new().name("com_thread".to_string()).spawn(move || {
+            let mut data: ConnectionThreadData = ConnectionThreadData::new(tx, rx2);
+            while data.thread_is_running {
+                if data.is_connected {
+                    if !data.read_data() {
+                        std::thread::sleep(Duration::from_millis(25));
                     }
-                    data.handle_receive();
+                } else {
+                    std::thread::sleep(Duration::from_millis(100));
                 }
-                log::error!(
-                    "communication thread closed because it lost connection with the ui thread."
-                );
-            })
-        {
+                data.handle_receive();
+            }
+            log::error!("communication thread closed because it lost connection with the ui thread.");
+        }) {
             log::error!("error in communication thread: {}", err);
         }
         Connection::new(rx, tx2)

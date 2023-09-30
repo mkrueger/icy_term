@@ -68,12 +68,7 @@ impl super::Protocol for XYmodem {
         Ok(true)
     }
 
-    fn initiate_send(
-        &mut self,
-        _com: &mut Connection,
-        files: Vec<FileDescriptor>,
-        transfer_state: &mut TransferState,
-    ) -> TerminalResult<()> {
+    fn initiate_send(&mut self, _com: &mut Connection, files: Vec<FileDescriptor>, transfer_state: &mut TransferState) -> TerminalResult<()> {
         if !self.config.is_ymodem() && files.len() != 1 {
             return Err(TransmissionError::XModem1File.into());
         }
@@ -90,11 +85,7 @@ impl super::Protocol for XYmodem {
         Ok(())
     }
 
-    fn initiate_recv(
-        &mut self,
-        com: &mut Connection,
-        transfer_state: &mut TransferState,
-    ) -> TerminalResult<()> {
+    fn initiate_recv(&mut self, com: &mut Connection, transfer_state: &mut TransferState) -> TerminalResult<()> {
         let mut ry = ry::Ry::new(self.config);
         ry.recv(com)?;
         self.ry = Some(ry);
@@ -133,10 +124,7 @@ impl XYModemConfiguration {
     fn new(variant: XYModemVariant) -> Self {
         let (block_length, checksum_mode) = match variant {
             XYModemVariant::XModem => (DEFAULT_BLOCK_LENGTH, Checksum::Default),
-            XYModemVariant::XModem1k
-            | XYModemVariant::XModem1kG
-            | XYModemVariant::YModem
-            | XYModemVariant::YModemG => (EXT_BLOCK_LENGTH, Checksum::CRC16),
+            XYModemVariant::XModem1k | XYModemVariant::XModem1kG | XYModemVariant::YModem | XYModemVariant::YModemG => (EXT_BLOCK_LENGTH, Checksum::CRC16),
         };
 
         Self {
@@ -157,31 +145,17 @@ impl XYModemConfiguration {
     }
 
     fn get_check_and_size(&self) -> String {
-        let checksum = if let Checksum::Default = self.checksum_mode {
-            "Checksum"
-        } else {
-            "Crc"
-        };
-        let block = if self.block_length == DEFAULT_BLOCK_LENGTH {
-            "128"
-        } else {
-            "1k"
-        };
+        let checksum = if let Checksum::Default = self.checksum_mode { "Checksum" } else { "Crc" };
+        let block = if self.block_length == DEFAULT_BLOCK_LENGTH { "128" } else { "1k" };
         format!("{checksum}/{block}")
     }
 
     fn is_ymodem(&self) -> bool {
-        matches!(
-            self.variant,
-            XYModemVariant::YModem | XYModemVariant::YModemG
-        )
+        matches!(self.variant, XYModemVariant::YModem | XYModemVariant::YModemG)
     }
 
     fn is_streaming(&self) -> bool {
-        matches!(
-            self.variant,
-            XYModemVariant::XModem1kG | XYModemVariant::YModemG
-        )
+        matches!(self.variant, XYModemVariant::XModem1kG | XYModemVariant::YModemG)
     }
 
     fn use_crc(&self) -> bool {

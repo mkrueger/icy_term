@@ -30,11 +30,7 @@ pub enum Message {
 impl DialogState {
     pub(crate) fn append_data(&mut self, options: &Options, data: &[u8]) {
         if self.capture_session {
-            if let Ok(mut data_file) = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(&options.capture_filename)
-            {
+            if let Ok(mut data_file) = std::fs::OpenOptions::new().create(true).append(true).open(&options.capture_filename) {
                 if let Err(err) = data_file.write_all(data) {
                     if !self.show_capture_error {
                         self.show_capture_error = true;
@@ -61,10 +57,7 @@ impl MainWindowState {
             .frame(window_frame)
             .resizable(false)
             .show(ctx, |ui| {
-                ui.label(RichText::new(fl!(
-                    crate::LANGUAGE_LOADER,
-                    "capture-dialog-capture-label"
-                )));
+                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "capture-dialog-capture-label")));
 
                 ui.horizontal(|ui| {
                     let mut file = self.options.capture_filename.clone();
@@ -82,30 +75,18 @@ impl MainWindowState {
 
                 ui.with_layout(Layout::right_to_left(egui::Align::TOP), |ui| {
                     if self.capture_dialog.capture_session {
-                        if ui
-                            .button(fl!(crate::LANGUAGE_LOADER, "toolbar-stop-capture"))
-                            .clicked()
-                        {
+                        if ui.button(fl!(crate::LANGUAGE_LOADER, "toolbar-stop-capture")).clicked() {
                             result = Some(Message::StopCapture);
                             close_dialog = true;
                         }
-                    } else if ui
-                        .button(fl!(crate::LANGUAGE_LOADER, "capture-dialog-capture-button"))
-                        .clicked()
-                    {
+                    } else if ui.button(fl!(crate::LANGUAGE_LOADER, "capture-dialog-capture-button")).clicked() {
                         result = Some(Message::StartCapture);
                         close_dialog = true;
                     }
 
                     #[cfg(not(target_arch = "wasm32"))]
                     if let Some(path) = Path::new(&self.options.capture_filename).parent() {
-                        if ui
-                            .button(fl!(
-                                crate::LANGUAGE_LOADER,
-                                "capture-dialog-open-folder-button"
-                            ))
-                            .clicked()
-                        {
+                        if ui.button(fl!(crate::LANGUAGE_LOADER, "capture-dialog-open-folder-button")).clicked() {
                             if let Some(s) = path.to_str() {
                                 if let Err(err) = open::that(s) {
                                     log::error!("Failed to open folder: {}", err);
@@ -114,13 +95,7 @@ impl MainWindowState {
                         }
                     }
 
-                    if ui
-                        .button(fl!(
-                            crate::LANGUAGE_LOADER,
-                            "dialing_directory-cancel-button"
-                        ))
-                        .clicked()
-                    {
+                    if ui.button(fl!(crate::LANGUAGE_LOADER, "dialing_directory-cancel-button")).clicked() {
                         close_dialog = true;
                     }
                 });
@@ -150,9 +125,7 @@ fn update_state(state: &mut MainWindowState, msg_opt: Option<Message>) {
             let initial_path = if state.options.capture_filename.is_empty() {
                 None
             } else {
-                Path::new(&state.options.capture_filename)
-                    .parent()
-                    .map(std::path::Path::to_path_buf)
+                Path::new(&state.options.capture_filename).parent().map(std::path::Path::to_path_buf)
             };
             let mut dialog: FileDialog = FileDialog::save_file(initial_path);
             dialog.open();
@@ -211,10 +184,7 @@ mod tests {
     #[test]
     fn test_change_filename() {
         let mut state: MainWindowState = MainWindowState::default();
-        update_state(
-            &mut state,
-            Some(super::Message::ChangeCaptureFileName("foo.baz".to_string())),
-        );
+        update_state(&mut state, Some(super::Message::ChangeCaptureFileName("foo.baz".to_string())));
         assert_eq!("foo.baz".to_string(), state.options.capture_filename);
         assert!(state.options_written);
     }

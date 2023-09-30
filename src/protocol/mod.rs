@@ -119,9 +119,7 @@ pub struct TransferInformation {
 
 impl TransferInformation {
     pub fn update_bps(&mut self) {
-        let bytes = self
-            .bytes_transfered
-            .saturating_sub(self.bytes_transferred_timed);
+        let bytes = self.bytes_transfered.saturating_sub(self.bytes_transferred_timed);
         let length = Instant::now().duration_since(self.time);
 
         if length > Duration::from_secs(10) {
@@ -166,16 +164,8 @@ impl TransferInformation {
     pub fn get_log_message(&self, category: usize, index: usize) -> Option<&OutputLogMessage> {
         match category {
             0 => self.output_log.get(index),
-            1 => self
-                .output_log
-                .iter()
-                .filter(|p| matches!(p, OutputLogMessage::Warning(_)))
-                .nth(index),
-            2 => self
-                .output_log
-                .iter()
-                .filter(|p| matches!(p, OutputLogMessage::Error(_)))
-                .nth(index),
+            1 => self.output_log.iter().filter(|p| matches!(p, OutputLogMessage::Warning(_))).nth(index),
+            2 => self.output_log.iter().filter(|p| matches!(p, OutputLogMessage::Error(_))).nth(index),
             _ => None,
         }
     }
@@ -254,18 +244,9 @@ pub trait Protocol {
         storage_handler: &mut dyn FileStorageHandler,
     ) -> TerminalResult<bool>;
 
-    fn initiate_send(
-        &mut self,
-        com: &mut Connection,
-        files: Vec<FileDescriptor>,
-        transfer_state: &mut TransferState,
-    ) -> TerminalResult<()>;
+    fn initiate_send(&mut self, com: &mut Connection, files: Vec<FileDescriptor>, transfer_state: &mut TransferState) -> TerminalResult<()>;
 
-    fn initiate_recv(
-        &mut self,
-        com: &mut Connection,
-        transfer_state: &mut TransferState,
-    ) -> TerminalResult<()>;
+    fn initiate_recv(&mut self, com: &mut Connection, transfer_state: &mut TransferState) -> TerminalResult<()>;
 
     fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()>;
 

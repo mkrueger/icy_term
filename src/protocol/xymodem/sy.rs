@@ -65,11 +65,7 @@ impl Sy {
         matches!(self.send_state, SendState::None)
     }
 
-    pub fn update(
-        &mut self,
-        com: &mut Connection,
-        transfer_state: &Arc<Mutex<TransferState>>,
-    ) -> TerminalResult<()> {
+    pub fn update(&mut self, com: &mut Connection, transfer_state: &Arc<Mutex<TransferState>>) -> TerminalResult<()> {
         if let Ok(mut transfer_state) = transfer_state.lock() {
             transfer_state.update_time();
             let transfer_info = &mut transfer_state.send_state;
@@ -296,30 +292,14 @@ impl Sy {
         }
     }
 
-    fn send_block(
-        &mut self,
-        com: &mut Connection,
-        data: &[u8],
-        pad_byte: u8,
-    ) -> TerminalResult<()> {
-        let block_len = if data.len() <= DEFAULT_BLOCK_LENGTH {
-            SOH
-        } else {
-            STX
-        };
+    fn send_block(&mut self, com: &mut Connection, data: &[u8], pad_byte: u8) -> TerminalResult<()> {
+        let block_len = if data.len() <= DEFAULT_BLOCK_LENGTH { SOH } else { STX };
         let mut block = Vec::new();
         block.push(block_len);
         block.push(self.block_number);
         block.push(!self.block_number);
         block.extend_from_slice(data);
-        block.resize(
-            (if block_len == SOH {
-                DEFAULT_BLOCK_LENGTH
-            } else {
-                EXT_BLOCK_LENGTH
-            }) + 3,
-            pad_byte,
-        );
+        block.resize((if block_len == SOH { DEFAULT_BLOCK_LENGTH } else { EXT_BLOCK_LENGTH }) + 3, pad_byte);
 
         match self.configuration.checksum_mode {
             Checksum::Default => {

@@ -41,12 +41,7 @@ macro_rules! check_error {
             $main_window.output_string(format!("\n\r{err}\n\r").as_str());
 
             if $terminate_connection {
-                $main_window
-                    .connection
-                    .as_ref()
-                    .unwrap()
-                    .disconnect()
-                    .unwrap_or_default();
+                $main_window.connection.as_ref().unwrap().disconnect().unwrap_or_default();
             }
         }
     }};
@@ -160,11 +155,7 @@ impl MainWindow {
     }
 
     pub fn output_char(&mut self, ch: char) {
-        let translated_char = self
-            .buffer_view
-            .lock()
-            .get_parser()
-            .convert_from_unicode(ch, 0);
+        let translated_char = self.buffer_view.lock().get_parser().convert_from_unicode(ch, 0);
         if self.connection().is_connected() {
             let r = self.connection().send(vec![translated_char as u8]);
             check_error!(self, r, false);
@@ -177,32 +168,21 @@ impl MainWindow {
         if self.connection().is_connected() {
             let mut v = Vec::new();
             for ch in str.chars() {
-                let translated_char = self
-                    .buffer_view
-                    .lock()
-                    .get_parser()
-                    .convert_from_unicode(ch, 0);
+                let translated_char = self.buffer_view.lock().get_parser().convert_from_unicode(ch, 0);
                 v.push(translated_char as u8);
             }
             let r = self.connection().send(v);
             check_error!(self, r, false);
         } else {
             for ch in str.chars() {
-                let translated_char = self
-                    .buffer_view
-                    .lock()
-                    .get_parser()
-                    .convert_from_unicode(ch, 0);
+                let translated_char = self.buffer_view.lock().get_parser().convert_from_unicode(ch, 0);
                 self.print_char(translated_char as u8);
             }
         }
     }
 
     pub fn print_char(&mut self, c: u8) {
-        let result = self
-            .buffer_view
-            .lock()
-            .print_char(unsafe { char::from_u32_unchecked(c as u32) });
+        let result = self.buffer_view.lock().print_char(unsafe { char::from_u32_unchecked(c as u32) });
         match result {
             Ok(icy_engine::CallbackAction::None) => {}
             Ok(icy_engine::CallbackAction::SendString(result)) => {
@@ -222,9 +202,7 @@ impl MainWindow {
                 }
             }
             Ok(icy_engine::CallbackAction::ChangeBaudEmulation(baud_emulation)) => {
-                let r = self
-                    .connection()
-                    .set_baud_rate(baud_emulation.get_baud_rate());
+                let r = self.connection().set_baud_rate(baud_emulation.get_baud_rate());
                 check_error!(self, r, false);
             }
             Ok(icy_engine::CallbackAction::ResizeTerminal(_, _)) => {
@@ -239,42 +217,23 @@ impl MainWindow {
 
     #[cfg(target_arch = "wasm32")]
 
-    fn start_file_transfer(
-        &mut self,
-        protocol_type: crate::protocol::TransferType,
-        download: bool,
-        files_opt: Option<Vec<FileDescriptor>>,
-    ) {
+    fn start_file_transfer(&mut self, protocol_type: crate::protocol::TransferType, download: bool, files_opt: Option<Vec<FileDescriptor>>) {
         // TODO
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn start_file_transfer(
-        &mut self,
-        protocol_type: crate::protocol::TransferType,
-        download: bool,
-        files_opt: Option<Vec<FileDescriptor>>,
-    ) {
+    fn start_file_transfer(&mut self, protocol_type: crate::protocol::TransferType, download: bool, files_opt: Option<Vec<FileDescriptor>>) {
         self.set_mode(MainWindowMode::FileTransfer(download));
 
         let r = crate::protocol::DiskStorageHandler::new();
         check_error!(self, r, false);
         if let Some(mut con) = self.connection.take() {
             con.start_transfer();
-            self.current_file_transfer = Some(FileTransferThread::new(
-                con,
-                protocol_type,
-                download,
-                files_opt,
-            ));
+            self.current_file_transfer = Some(FileTransferThread::new(con, protocol_type, download, files_opt));
         }
     }
 
-    pub(crate) fn initiate_file_transfer(
-        &mut self,
-        protocol_type: crate::protocol::TransferType,
-        download: bool,
-    ) {
+    pub(crate) fn initiate_file_transfer(&mut self, protocol_type: crate::protocol::TransferType, download: bool) {
         self.set_mode(MainWindowMode::ShowTerminal);
         if self.connection().is_disconnected() {
             return;
@@ -308,13 +267,7 @@ impl MainWindow {
         }
 
         let uuid = uuid.unwrap();
-        for (i, adr) in self
-            .dialing_directory_dialog
-            .addresses
-            .addresses
-            .iter()
-            .enumerate()
-        {
+        for (i, adr) in self.dialing_directory_dialog.addresses.addresses.iter().enumerate() {
             if adr.id == uuid {
                 self.call_bbs(i);
                 return;
@@ -338,19 +291,10 @@ impl MainWindow {
             self.auto_login = AutoLogin::new(&cloned_addr.auto_login);
             self.auto_file_transfer.reset();
             self.buffer_view.lock().get_buffer_mut().layers[0].clear();
-            self.buffer_view
-                .lock()
-                .get_buffer_mut()
-                .stop_sixel_threads();
+            self.buffer_view.lock().get_buffer_mut().stop_sixel_threads();
             self.dialing_directory_dialog.cur_addr = i;
-            self.buffer_view
-                .lock()
-                .set_parser(address.terminal_type.get_parser(&cloned_addr));
-            self.buffer_view
-                .lock()
-                .get_buffer_mut()
-                .terminal_state
-                .set_baud_rate(address.baud_emulation);
+            self.buffer_view.lock().set_parser(address.terminal_type.get_parser(&cloned_addr));
+            self.buffer_view.lock().get_buffer_mut().terminal_state.set_baud_rate(address.baud_emulation);
 
             self.buffer_view.lock().redraw_font();
             self.buffer_view.lock().redraw_view();
@@ -360,21 +304,13 @@ impl MainWindow {
         let r = self.dialing_directory_dialog.addresses.store_phone_book();
         check_error!(self, r, false);
 
-        self.println(&fl!(
-            crate::LANGUAGE_LOADER,
-            "connect-to",
-            address = cloned_addr.address.clone()
-        ));
+        self.println(&fl!(crate::LANGUAGE_LOADER, "connect-to", address = cloned_addr.address.clone()));
 
         let timeout = self.get_options().connect_timeout;
         let window_size = self.screen_mode.get_window_size();
-        let r = self
-            .connection()
-            .connect(&cloned_addr, timeout, window_size);
+        let r = self.connection().connect(&cloned_addr, timeout, window_size);
         check_error!(self, r, false);
-        let r = self
-            .connection()
-            .set_baud_rate(cloned_addr.baud_emulation.get_baud_rate());
+        let r = self.connection().set_baud_rate(cloned_addr.baud_emulation.get_baud_rate());
         check_error!(self, r, false);
     }
 
@@ -396,23 +332,14 @@ impl MainWindow {
         };
 
         if let Some(data) = data_opt {
-            self.state
-                .capture_dialog
-                .append_data(&self.state.options, &data);
+            self.state.capture_dialog.append_data(&self.state.options, &data);
             let has_data = !data.is_empty();
 
             for ch in data {
                 if self.get_options().iemsi.autologin && self.connection().is_connected() {
-                    if let Some(adr) = self
-                        .dialing_directory_dialog
-                        .addresses
-                        .addresses
-                        .get(self.dialing_directory_dialog.cur_addr)
-                    {
+                    if let Some(adr) = self.dialing_directory_dialog.addresses.addresses.get(self.dialing_directory_dialog.cur_addr) {
                         if let Some(con) = &mut self.connection {
-                            if let Err(err) =
-                                self.auto_login.try_login(con, adr, ch, &self.state.options)
-                            {
+                            if let Err(err) = self.auto_login.try_login(con, adr, ch, &self.state.options) {
                                 log::error!("{err}");
                             }
                         }
@@ -448,12 +375,7 @@ impl MainWindow {
         }
 
         if self.get_options().iemsi.autologin {
-            if let Some(adr) = self
-                .dialing_directory_dialog
-                .addresses
-                .addresses
-                .get(self.dialing_directory_dialog.cur_addr)
-            {
+            if let Some(adr) = self.dialing_directory_dialog.addresses.addresses.get(self.dialing_directory_dialog.cur_addr) {
                 if let Some(con) = &mut self.connection {
                     if con.is_connected() {
                         if let Err(err) = self.auto_login.run_autologin(con, adr) {
@@ -494,12 +416,7 @@ impl MainWindow {
             .unwrap()
             .password
             .clone();
-        let mut cr: Vec<u8> = [self
-            .buffer_view
-            .lock()
-            .get_parser()
-            .convert_from_unicode('\r', 0) as u8]
-        .to_vec();
+        let mut cr: Vec<u8> = [self.buffer_view.lock().get_parser().convert_from_unicode('\r', 0) as u8].to_vec();
         for (k, v) in self.screen_mode.get_input_mode().cur_map() {
             if *k == Key::Enter as u32 {
                 cr = v.to_vec();
@@ -527,8 +444,7 @@ impl MainWindow {
                 let sec = d.as_secs();
                 let minutes = sec / 60;
                 let hours = minutes / 60;
-                let cur = &self.dialing_directory_dialog.addresses.addresses
-                    [self.dialing_directory_dialog.cur_addr];
+                let cur = &self.dialing_directory_dialog.addresses.addresses[self.dialing_directory_dialog.cur_addr];
                 let t = format!("{:02}:{:02}:{:02}", hours, minutes % 60, sec % 60);
                 let s = if cur.system_name.is_empty() {
                     cur.address.clone()
@@ -536,19 +452,9 @@ impl MainWindow {
                     cur.system_name.clone()
                 };
 
-                fl!(
-                    crate::LANGUAGE_LOADER,
-                    "title-connected",
-                    version = crate::VERSION,
-                    time = t,
-                    name = s
-                )
+                fl!(crate::LANGUAGE_LOADER, "title-connected", version = crate::VERSION, time = t, name = s)
             } else {
-                fl!(
-                    crate::LANGUAGE_LOADER,
-                    "title-offline",
-                    version = crate::VERSION
-                )
+                fl!(crate::LANGUAGE_LOADER, "title-offline", version = crate::VERSION)
             };
             frame.set_window_title(str.as_str());
         }

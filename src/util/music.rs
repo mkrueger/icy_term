@@ -130,21 +130,16 @@ impl SoundThread {
             thread_is_running: true,
         };
 
-        if let Err(err) = std::thread::Builder::new()
-            .name("music_thread".to_string())
-            .spawn(move || {
-                while data.thread_is_running {
-                    data.handle_queue();
-                    data.handle_receive();
-                    if data.music.is_empty() {
-                        thread::sleep(Duration::from_millis(100));
-                    }
+        if let Err(err) = std::thread::Builder::new().name("music_thread".to_string()).spawn(move || {
+            while data.thread_is_running {
+                data.handle_queue();
+                data.handle_receive();
+                if data.music.is_empty() {
+                    thread::sleep(Duration::from_millis(100));
                 }
-                log::error!(
-                    "communication thread closed because it lost connection with the ui thread."
-                );
-            })
-        {
+            }
+            log::error!("communication thread closed because it lost connection with the ui thread.");
+        }) {
             log::error!("Error in starting music thread: {}", err);
         }
     }
@@ -200,8 +195,7 @@ impl SoundThread {
                 MusicAction::PlayNote(freq, length, dotted) => {
                     let f = *freq;
 
-                    let mut duration =
-                        if *dotted { 420_000_u64 } else { 300_000_u64 } / u64::from(*length);
+                    let mut duration = if *dotted { 420_000_u64 } else { 300_000_u64 } / u64::from(*length);
 
                     let pause_length = match cur_style {
                         MusicStyle::Legato => 0,

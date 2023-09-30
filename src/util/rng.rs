@@ -16,13 +16,9 @@ impl Rng {
     pub(crate) fn gen_range<R: RangeBounds<u8>>(&mut self, arg: R) -> u32 {
         let bounds = (arg.start_bound(), arg.end_bound());
         let res = match bounds {
-            (Bound::Included(a), Bound::Included(b)) => {
-                (*a as usize) + (self.next() as usize) % (*b + 1 - *a) as usize
-            }
+            (Bound::Included(a), Bound::Included(b)) => (*a as usize) + (self.next() as usize) % (*b + 1 - *a) as usize,
 
-            (Bound::Included(a), Bound::Excluded(b)) => {
-                (*a as usize) + (self.next() as usize) % (*b - *a) as usize
-            }
+            (Bound::Included(a), Bound::Excluded(b)) => (*a as usize) + (self.next() as usize) % (*b - *a) as usize,
             _ => panic!("Unsupported range bounds"),
         };
 
@@ -33,9 +29,7 @@ impl Rng {
 impl Default for Rng {
     fn default() -> Self {
         Self {
-            state: Instant::now()
-                .duration_since(crate::START_TIME.to_owned())
-                .as_nanos() as i32,
+            state: Instant::now().duration_since(crate::START_TIME.to_owned()).as_nanos() as i32,
         }
     }
 }

@@ -84,9 +84,7 @@ impl Ry {
                         com.send(vec![NAK])?;
                     } else {
                         self.cancel(com)?;
-                        return Err(anyhow::anyhow!(
-                            "too many retries starting the communication"
-                        ));
+                        return Err(anyhow::anyhow!("too many retries starting the communication"));
                     }
                     self.errors += 1;
                     self.recv_state = RecvState::StartReceive(retries + 1);
@@ -99,11 +97,7 @@ impl Ry {
                 if let Ok(mut transfer_state) = transfer_state.lock() {
                     transfer_state.current_state = "Get header...";
                 }
-                let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode {
-                    2
-                } else {
-                    1
-                };
+                let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode { 2 } else { 1 };
 
                 let block = com.read_exact(2 + len + chksum_size)?;
                 if block[0] != block[1] ^ 0xFF {
@@ -130,13 +124,8 @@ impl Ry {
 
                 let file_name = str_from_null_terminated_utf8_unchecked(block);
 
-                let num = str_from_null_terminated_utf8_unchecked(&block[(file_name.len() + 1)..])
-                    .to_string();
-                let file_size = if let Ok(file_size) = num.parse::<usize>() {
-                    file_size
-                } else {
-                    0
-                };
+                let num = str_from_null_terminated_utf8_unchecked(&block[(file_name.len() + 1)..]).to_string();
+                let file_size = if let Ok(file_size) = num.parse::<usize>() { file_size } else { 0 };
                 if let Ok(mut transfer_state) = transfer_state.lock() {
                     transfer_state.recieve_state.file_name = file_name.clone();
                     transfer_state.recieve_state.file_size = file_size;
@@ -204,11 +193,7 @@ impl Ry {
                 if let Ok(mut transfer_state) = transfer_state.lock() {
                     transfer_state.current_state = "Receiving data...";
                 }
-                let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode {
-                    2
-                } else {
-                    1
-                };
+                let chksum_size = if let Checksum::CRC16 = self.configuration.checksum_mode { 2 } else { 1 };
                 let block = com.read_exact(2 + len + chksum_size)?;
                 if block[0] != block[1] ^ 0xFF {
                     com.send(vec![NAK])?;
@@ -237,8 +222,7 @@ impl Ry {
 
                 storage_handler.append(&block[0..len]);
                 if let Ok(mut transfer_state) = transfer_state.lock() {
-                    transfer_state.recieve_state.bytes_transfered =
-                        storage_handler.current_file_length();
+                    transfer_state.recieve_state.bytes_transfered = storage_handler.current_file_length();
                 }
 
                 if !self.configuration.is_streaming() {

@@ -342,12 +342,7 @@ impl ComTelnetImpl {
                         terminal_type::SEND => {
                             // Send
                             if cmd == telnet_option::TerminalType as i32 {
-                                let mut buf: Vec<u8> = vec![
-                                    telnet_cmd::Iac,
-                                    telnet_cmd::SB,
-                                    telnet_option::TerminalType,
-                                    terminal_type::IS,
-                                ];
+                                let mut buf: Vec<u8> = vec![telnet_cmd::Iac, telnet_cmd::SB, telnet_option::TerminalType, terminal_type::IS];
 
                                 match self.terminal {
                                     //  :TODO: Let's extend this to allow for some of the semi-standard BBS IDs, e.g. "xterm" (ANSI), "ansi-256-color", etc.
@@ -367,8 +362,7 @@ impl ComTelnetImpl {
                         }
                         24 => {
                             // Terminal type
-                            self.state =
-                                ParserState::SubCommand(telnet_option::TerminalType as i32);
+                            self.state = ParserState::SubCommand(telnet_option::TerminalType as i32);
                         }
                         _ => {}
                     }
@@ -376,8 +370,7 @@ impl ComTelnetImpl {
                 ParserState::Iac => match telnet_cmd::check(*b) {
                     Ok(telnet_cmd::Ayt) => {
                         self.state = ParserState::Data;
-                        self.tcp_stream
-                            .write_all(&telnet_cmd::make_cmd(telnet_cmd::Nop))?;
+                        self.tcp_stream.write_all(&telnet_cmd::make_cmd(telnet_cmd::Nop))?;
                     }
                     Ok(telnet_cmd::SE | telnet_cmd::Nop | telnet_cmd::GA) => {
                         self.state = ParserState::Data;
@@ -415,26 +408,16 @@ impl ComTelnetImpl {
                     let opt = telnet_option::check(*b)?;
                     if let telnet_option::TransmitBinary = opt {
                         self.tcp_stream
-                            .write_all(&telnet_cmd::make_cmd_with_option(
-                                telnet_cmd::DO,
-                                telnet_option::TransmitBinary,
-                            ))?;
+                            .write_all(&telnet_cmd::make_cmd_with_option(telnet_cmd::DO, telnet_option::TransmitBinary))?;
                     } else if let telnet_option::Echo = opt {
                         self.tcp_stream
-                            .write_all(&telnet_cmd::make_cmd_with_option(
-                                telnet_cmd::DO,
-                                telnet_option::Echo,
-                            ))?;
+                            .write_all(&telnet_cmd::make_cmd_with_option(telnet_cmd::DO, telnet_option::Echo))?;
                     } else if let telnet_option::SuppressGoAhead = opt {
                         self.tcp_stream
-                            .write_all(&telnet_cmd::make_cmd_with_option(
-                                telnet_cmd::DO,
-                                telnet_option::SuppressGoAhead,
-                            ))?;
+                            .write_all(&telnet_cmd::make_cmd_with_option(telnet_cmd::DO, telnet_option::SuppressGoAhead))?;
                     } else {
                         log::warn!("unsupported will option {}", telnet_option::to_string(opt));
-                        self.tcp_stream
-                            .write_all(&telnet_cmd::make_cmd_with_option(telnet_cmd::Dont, opt))?;
+                        self.tcp_stream.write_all(&telnet_cmd::make_cmd_with_option(telnet_cmd::Dont, opt))?;
                     }
                 }
                 ParserState::Wont => {
@@ -448,25 +431,15 @@ impl ComTelnetImpl {
                     match opt {
                         telnet_option::TransmitBinary => {
                             self.tcp_stream
-                                .write_all(&telnet_cmd::make_cmd_with_option(
-                                    telnet_cmd::Will,
-                                    telnet_option::TransmitBinary,
-                                ))?;
+                                .write_all(&telnet_cmd::make_cmd_with_option(telnet_cmd::Will, telnet_option::TransmitBinary))?;
                         }
                         telnet_option::TerminalType => {
                             self.tcp_stream
-                                .write_all(&telnet_cmd::make_cmd_with_option(
-                                    telnet_cmd::Will,
-                                    telnet_option::TerminalType,
-                                ))?;
+                                .write_all(&telnet_cmd::make_cmd_with_option(telnet_cmd::Will, telnet_option::TerminalType))?;
                         }
                         telnet_option::NegotiateAboutWindowSize => {
                             // NAWS: send our current window size
-                            let mut buf: Vec<u8> = telnet_cmd::make_cmd_with_option(
-                                telnet_cmd::SB,
-                                telnet_option::NegotiateAboutWindowSize,
-                            )
-                            .to_vec();
+                            let mut buf: Vec<u8> = telnet_cmd::make_cmd_with_option(telnet_cmd::SB, telnet_option::NegotiateAboutWindowSize).to_vec();
                             buf.extend(self.window_size.width.to_be_bytes());
                             buf.extend(self.window_size.height.to_be_bytes());
                             buf.push(telnet_cmd::Iac);
@@ -476,11 +449,7 @@ impl ComTelnetImpl {
                         }
                         _ => {
                             log::warn!("unsupported do option {}", telnet_option::to_string(opt));
-                            self.tcp_stream
-                                .write_all(&telnet_cmd::make_cmd_with_option(
-                                    telnet_cmd::Wont,
-                                    opt,
-                                ))?;
+                            self.tcp_stream.write_all(&telnet_cmd::make_cmd_with_option(telnet_cmd::Wont, opt))?;
                         }
                     }
                 }
@@ -533,10 +502,7 @@ impl Com for ComTelnetImpl {
                 if e.kind() == io::ErrorKind::WouldBlock {
                     return Ok(None);
                 }
-                Err(Box::new(io::Error::new(
-                    ErrorKind::ConnectionAborted,
-                    format!("Connection aborted: {e}"),
-                )))
+                Err(Box::new(io::Error::new(ErrorKind::ConnectionAborted, format!("Connection aborted: {e}"))))
             }
         }
     }
@@ -563,10 +529,7 @@ impl Com for ComTelnetImpl {
                     std::thread::sleep(Duration::from_millis(100));
                     return self.send(buf);
                 }
-                Err(Box::new(io::Error::new(
-                    ErrorKind::ConnectionAborted,
-                    format!("Connection aborted: {e}"),
-                )))
+                Err(Box::new(io::Error::new(ErrorKind::ConnectionAborted, format!("Connection aborted: {e}"))))
             }
         }
     }

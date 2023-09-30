@@ -80,9 +80,7 @@ impl Connection {
                     SendData::ConnectionError(err) => {
                         self.is_connected = false;
                         self.end_transfer = true;
-                        return Err(anyhow::anyhow!(
-                            "Connection aborted while fill_buffer: {err}"
-                        ));
+                        return Err(anyhow::anyhow!("Connection aborted while fill_buffer: {err}"));
                     }
                     _ => {}
                 },
@@ -131,18 +129,9 @@ impl Connection {
         Ok(())
     }
 
-    pub(crate) fn connect(
-        &self,
-        call_adr: &Address,
-        timeout: Duration,
-        window_size: icy_engine::Size,
-    ) -> TerminalResult<()> {
+    pub(crate) fn connect(&self, call_adr: &Address, timeout: Duration, window_size: icy_engine::Size) -> TerminalResult<()> {
         self.tx
-            .send(SendData::OpenConnection(OpenConnectionData::from(
-                call_adr,
-                timeout,
-                window_size,
-            )))?;
+            .send(SendData::OpenConnection(OpenConnectionData::from(call_adr, timeout, window_size)))?;
         Ok(())
     }
 

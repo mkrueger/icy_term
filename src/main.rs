@@ -59,22 +59,14 @@ const localization_files: [&str; 2] = ["en/icy_term.ftl", "de/icy_term.ftl"];
 impl i18n_embed::I18nAssets for Localizations {
     fn get_file(&self, file_path: &str) -> Option<std::borrow::Cow<'_, [u8]>> {
         match file_path {
-            "en/icy_term.ftl" => Some(std::borrow::Cow::Borrowed(include_bytes!(
-                "../i18n/en/icy_term.ftl"
-            ))),
-            "de/icy_term.ftl" => Some(std::borrow::Cow::Borrowed(include_bytes!(
-                "../i18n/de/icy_term.ftl"
-            ))),
+            "en/icy_term.ftl" => Some(std::borrow::Cow::Borrowed(include_bytes!("../i18n/en/icy_term.ftl"))),
+            "de/icy_term.ftl" => Some(std::borrow::Cow::Borrowed(include_bytes!("../i18n/de/icy_term.ftl"))),
             _ => None,
         }
     }
 
     fn filenames_iter(&self) -> Box<dyn Iterator<Item = String>> {
-        Box::new(
-            localization_files
-                .iter()
-                .map(std::string::ToString::to_string),
-        )
+        Box::new(localization_files.iter().map(std::string::ToString::to_string))
     }
 }
 
@@ -136,12 +128,7 @@ fn main() {
                     .filter(Box::new(ThresholdFilter::new(level)))
                     .build("stderr", Box::new(stderr)),
             )
-            .build(
-                Root::builder()
-                    .appender("logfile")
-                    .appender("stderr")
-                    .build(LevelFilter::Info),
-            )
+            .build(Root::builder().appender("logfile").appender("stderr").build(LevelFilter::Info))
             .unwrap();
 
         // Use this to change log levels at runtime.
@@ -155,11 +142,7 @@ fn main() {
 
     log::info!("Starting iCY TERM {}", VERSION);
 
-    if let Err(err) = eframe::run_native(
-        &DEFAULT_TITLE,
-        options,
-        Box::new(|cc| Box::new(MainWindow::new(cc))),
-    ) {
+    if let Err(err) = eframe::run_native(&DEFAULT_TITLE, options, Box::new(|cc| Box::new(MainWindow::new(cc)))) {
         log::error!("Error returned by run_native: {}", err);
     }
     log::info!("shutting down.");
@@ -175,11 +158,7 @@ fn main() {
     let web_options = eframe::WebOptions::default();
     wasm_bindgen_futures::spawn_local(async {
         eframe::WebRunner::new()
-            .start(
-                "icy_term_canvas",
-                web_options,
-                Box::new(|cc| Box::new(MainWindow::new(cc))),
-            )
+            .start("icy_term_canvas", web_options, Box::new(|cc| Box::new(MainWindow::new(cc))))
             .await
             .expect("failed to start eframe");
     });

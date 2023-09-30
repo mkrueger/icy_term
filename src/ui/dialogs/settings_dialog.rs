@@ -76,10 +76,7 @@ impl MainWindowState {
                     egui::widgets::global_dark_light_mode_switch(ui);
                     let settings_category = self.settings_dialog.settings_category;
                     for i in 0..SETTING_CATEGORIES.len() {
-                        if ui
-                            .selectable_label(settings_category == i, &SETTING_CATEGORIES[i].0)
-                            .clicked()
-                        {
+                        if ui.selectable_label(settings_category == i, &SETTING_CATEGORIES[i].0).clicked() {
                             result = Some(Message::SwitchSettingsCategory(i));
                         }
                     }
@@ -91,29 +88,20 @@ impl MainWindowState {
                         result = Some(cmd);
                     }
                 } else {
-                    ui.colored_label(
-                        ui.style().visuals.error_fg_color,
-                        "Invalid settings category",
-                    );
+                    ui.colored_label(ui.style().visuals.error_fg_color, "Invalid settings category");
                 }
 
                 ui.separator();
                 ui.add_space(4.0);
                 ui.with_layout(Layout::right_to_left(egui::Align::TOP), |ui| {
-                    if ui
-                        .button(fl!(crate::LANGUAGE_LOADER, "dialing_directory-ok-button"))
-                        .clicked()
-                    {
+                    if ui.button(fl!(crate::LANGUAGE_LOADER, "dialing_directory-ok-button")).clicked() {
                         result = Some(Message::CloseDialog);
                     }
 
                     let settings_category = self.settings_dialog.settings_category;
                     if let Some(cat) = SETTING_CATEGORIES.get(settings_category) {
                         if let Some(reset_cmd) = &cat.2 {
-                            if ui
-                                .button(fl!(crate::LANGUAGE_LOADER, "settings-reset-button"))
-                                .clicked()
-                            {
+                            if ui.button(fl!(crate::LANGUAGE_LOADER, "settings-reset-button")).clicked() {
                                 result = Some(reset_cmd.clone());
                             }
                         }
@@ -131,10 +119,7 @@ impl MainWindowState {
 
 fn show_iemsi_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<Message> {
     let mut iemsi = state.options.iemsi.clone();
-    ui.checkbox(
-        &mut iemsi.autologin,
-        fl!(crate::LANGUAGE_LOADER, "settings-iemsi-autologin-checkbox"),
-    );
+    ui.checkbox(&mut iemsi.autologin, fl!(crate::LANGUAGE_LOADER, "settings-iemsi-autologin-checkbox"));
 
     egui::Grid::new("some_unique_id")
         .num_columns(2)
@@ -142,46 +127,31 @@ fn show_iemsi_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<Mes
         .min_row_height(24.)
         .show(ui, |ui| {
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(RichText::new(fl!(
-                    crate::LANGUAGE_LOADER,
-                    "settings-iemsi-alias"
-                )));
+                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-iemsi-alias")));
             });
             ui.add(TextEdit::singleline(&mut iemsi.alias));
             ui.end_row();
 
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(RichText::new(fl!(
-                    crate::LANGUAGE_LOADER,
-                    "settings-iemsi-location"
-                )));
+                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-iemsi-location")));
             });
             ui.add(TextEdit::singleline(&mut iemsi.location));
             ui.end_row();
 
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(RichText::new(fl!(
-                    crate::LANGUAGE_LOADER,
-                    "settings-iemsi-data-phone"
-                )));
+                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-iemsi-data-phone")));
             });
             ui.add(TextEdit::singleline(&mut iemsi.data_phone));
             ui.end_row();
 
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(RichText::new(fl!(
-                    crate::LANGUAGE_LOADER,
-                    "settings-iemsi-voice-phone"
-                )));
+                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-iemsi-voice-phone")));
             });
             ui.add(TextEdit::singleline(&mut iemsi.voice_phone));
             ui.end_row();
 
             ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(RichText::new(fl!(
-                    crate::LANGUAGE_LOADER,
-                    "settings-iemsi-birth-date"
-                )));
+                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-iemsi-birth-date")));
             });
             ui.add(TextEdit::singleline(&mut iemsi.birth_date));
             ui.end_row();
@@ -199,26 +169,14 @@ fn show_terminal_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<
     let mut beep = state.options.console_beep;
 
     if ui
-        .checkbox(
-            &mut beep,
-            fl!(
-                crate::LANGUAGE_LOADER,
-                "settings-terminal-console-beep-checkbox"
-            ),
-        )
+        .checkbox(&mut beep, fl!(crate::LANGUAGE_LOADER, "settings-terminal-console-beep-checkbox"))
         .changed()
     {
         result = Some(Message::ChangeConsoleBeep(beep));
     }
 
     ui.add_space(16.0);
-    if ui
-        .button(fl!(
-            crate::LANGUAGE_LOADER,
-            "settings-terminal-open-settings-dir-button"
-        ))
-        .clicked()
-    {
+    if ui.button(fl!(crate::LANGUAGE_LOADER, "settings-terminal-open-settings-dir-button")).clicked() {
         result = Some(Message::OpenSettingsFolder);
     }
     ui.add_space(8.0);
@@ -324,16 +282,10 @@ mod tests {
         state.options = opt;
 
         assert_ne!(Options::default().scaling, state.options.scaling);
-        assert_ne!(
-            Options::default().monitor_settings,
-            state.options.monitor_settings
-        );
+        assert_ne!(Options::default().monitor_settings, state.options.monitor_settings);
         update_state(&mut state, Some(super::Message::ResetMonitorSettings));
         assert_eq!(Options::default().scaling, state.options.scaling);
-        assert_eq!(
-            Options::default().monitor_settings,
-            state.options.monitor_settings
-        );
+        assert_eq!(Options::default().monitor_settings, state.options.monitor_settings);
         assert!(state.options_written);
     }
 
@@ -376,10 +328,7 @@ mod tests {
         let mut settings = MonitorSettings::default();
         settings.blur = 0.0;
         settings.brightness = 1.0;
-        update_state(
-            &mut state,
-            Some(super::Message::UpdateMonitorSettings(settings)),
-        );
+        update_state(&mut state, Some(super::Message::UpdateMonitorSettings(settings)));
         assert_ne!(MonitorSettings::default(), state.options.monitor_settings);
         assert!(state.options_written);
     }

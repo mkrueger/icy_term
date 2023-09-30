@@ -1,8 +1,6 @@
 use web_time::Instant;
 
-use crate::{
-    ui::connection::Connection, util::PatternRecognizer, Address, Options, TerminalResult,
-};
+use crate::{ui::connection::Connection, util::PatternRecognizer, Address, Options, TerminalResult};
 use std::time::Duration;
 
 use super::iemsi_com::IEmsi;
@@ -45,19 +43,14 @@ impl AutoLogin {
             b'D' => {
                 // Delay for x seconds. !D4= Delay for 4 seconds
                 let ch = self.login_expr[self.cur_expr_idx + 2];
-                self.continue_time =
-                    self.last_char_recv + Duration::from_secs(u64::from(ch - b'0'));
+                self.continue_time = self.last_char_recv + Duration::from_secs(u64::from(ch - b'0'));
                 self.cur_expr_idx += 3;
             }
             b'E' => {
                 // wait until data came in
                 match self.first_char_recv {
                     Some(_) => {
-                        if Instant::now()
-                            .duration_since(self.last_char_recv)
-                            .as_millis()
-                            < 500
-                        {
+                        if Instant::now().duration_since(self.last_char_recv).as_millis() < 500 {
                             return Ok(true);
                         }
                     }
@@ -110,13 +103,7 @@ impl AutoLogin {
         Ok(true)
     }
 
-    pub fn try_login(
-        &mut self,
-        connection: &mut Connection,
-        adr: &Address,
-        ch: u8,
-        options: &Options,
-    ) -> TerminalResult<()> {
+    pub fn try_login(&mut self, connection: &mut Connection, adr: &Address, ch: u8, options: &Options) -> TerminalResult<()> {
         if self.logged_in || self.disabled {
             return Ok(());
         }
@@ -158,9 +145,7 @@ impl AutoLogin {
                     self.run_command(con, adr)?;
                 }
                 b'\\' => {
-                    while self.cur_expr_idx < self.login_expr.len()
-                        && self.login_expr[self.cur_expr_idx] == b'\\'
-                    {
+                    while self.cur_expr_idx < self.login_expr.len() && self.login_expr[self.cur_expr_idx] == b'\\' {
                         self.cur_expr_idx += 1; // escape
                         let ch = self.login_expr.get(self.cur_expr_idx).unwrap();
                         match ch {
@@ -178,10 +163,7 @@ impl AutoLogin {
                             }
                             ch => {
                                 self.cur_expr_idx += 1; // escape
-                                return Err(anyhow::anyhow!(
-                                    "invalid escape sequence in autologin string: {:?}",
-                                    *ch as char
-                                ));
+                                return Err(anyhow::anyhow!("invalid escape sequence in autologin string: {:?}", *ch as char));
                             }
                         }
                         self.cur_expr_idx += 1; // escape

@@ -156,12 +156,7 @@ impl Protocol for Zmodem {
         Ok(true)
     }
 
-    fn initiate_send(
-        &mut self,
-        com: &mut Connection,
-        files: Vec<FileDescriptor>,
-        transfer_state: &mut TransferState,
-    ) -> TerminalResult<()> {
+    fn initiate_send(&mut self, com: &mut Connection, files: Vec<FileDescriptor>, transfer_state: &mut TransferState) -> TerminalResult<()> {
         transfer_state.protocol_name = self.get_name().to_string();
         let mut sz = Sz::new(self.block_length);
         sz.send(com, files);
@@ -169,11 +164,7 @@ impl Protocol for Zmodem {
         Ok(())
     }
 
-    fn initiate_recv(
-        &mut self,
-        com: &mut Connection,
-        transfer_state: &mut TransferState,
-    ) -> TerminalResult<()> {
+    fn initiate_recv(&mut self, com: &mut Connection, transfer_state: &mut TransferState) -> TerminalResult<()> {
         transfer_state.protocol_name = self.get_name().to_string();
         let mut rz = Rz::new(self.block_length);
         rz.recv(com)?;

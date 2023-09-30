@@ -48,10 +48,7 @@ impl Com for ComRawImpl {
                 if e.kind() == io::ErrorKind::WouldBlock {
                     return Ok(None);
                 }
-                Err(Box::new(io::Error::new(
-                    ErrorKind::ConnectionAborted,
-                    format!("Connection aborted: {e}"),
-                )))
+                Err(Box::new(io::Error::new(ErrorKind::ConnectionAborted, format!("Connection aborted: {e}"))))
             }
         }
     }
@@ -66,10 +63,7 @@ impl Com for ComRawImpl {
                     std::thread::sleep(Duration::from_millis(100));
                     return self.send(buf);
                 }
-                Err(Box::new(io::Error::new(
-                    ErrorKind::ConnectionAborted,
-                    format!("Connection aborted: {e}"),
-                )))
+                Err(Box::new(io::Error::new(ErrorKind::ConnectionAborted, format!("Connection aborted: {e}"))))
             }
         }
     }

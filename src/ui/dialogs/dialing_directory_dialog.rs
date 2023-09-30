@@ -119,43 +119,27 @@ impl DialogState {
             .show(ui, |ui| {
                 // Protocol row
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(RichText::new(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-protocol"
-                    )));
+                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-protocol")));
                 });
 
                 egui::ComboBox::from_id_source("combobox1")
-                    .selected_text(RichText::new(format!(
-                        "{}",
-                        self.get_address_mut(self.selected_bbs).protocol
-                    )))
+                    .selected_text(RichText::new(format!("{}", self.get_address_mut(self.selected_bbs).protocol)))
                     .width(PROTOCOL_COMBOBOX_WIDTH)
                     .show_ui(ui, |ui| {
                         for prot in &addresses::Protocol::ALL {
                             let label = RichText::new(format!("{prot}"));
-                            ui.selectable_value(
-                                &mut self.get_address_mut(self.selected_bbs).protocol,
-                                *prot,
-                                label,
-                            );
+                            ui.selectable_value(&mut self.get_address_mut(self.selected_bbs).protocol, *prot, label);
                         }
                     });
                 ui.end_row();
 
                 // Screen mode row
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(RichText::new(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-screen_mode"
-                    )));
+                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-screen_mode")));
                 });
 
                 egui::ComboBox::from_id_source("combobox2")
-                    .selected_text(RichText::new(format!(
-                        "{}",
-                        self.get_address_mut(self.selected_bbs).screen_mode
-                    )))
+                    .selected_text(RichText::new(format!("{}", self.get_address_mut(self.selected_bbs).screen_mode)))
                     .width(250.)
                     .show_ui(ui, |ui| {
                         for mode in &DEFAULT_MODES {
@@ -164,62 +148,38 @@ impl DialogState {
                                 continue;
                             }
                             let label = RichText::new(format!("{mode}"));
-                            ui.selectable_value(
-                                &mut self.get_address_mut(self.selected_bbs).screen_mode,
-                                *mode,
-                                label,
-                            );
+                            ui.selectable_value(&mut self.get_address_mut(self.selected_bbs).screen_mode, *mode, label);
                         }
                     });
                 ui.end_row();
 
                 // Terminal type row
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(RichText::new(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-terminal_type"
-                    )));
+                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-terminal_type")));
                 });
                 egui::ComboBox::from_id_source("combobox3")
-                    .selected_text(RichText::new(format!(
-                        "{}",
-                        self.get_address_mut(self.selected_bbs).terminal_type
-                    )))
+                    .selected_text(RichText::new(format!("{}", self.get_address_mut(self.selected_bbs).terminal_type)))
                     .width(250.)
                     .show_ui(ui, |ui| {
                         for t in &Terminal::ALL {
                             let label = RichText::new(format!("{t}"));
-                            ui.selectable_value(
-                                &mut self.get_address_mut(self.selected_bbs).terminal_type,
-                                *t,
-                                label,
-                            );
+                            ui.selectable_value(&mut self.get_address_mut(self.selected_bbs).terminal_type, *t, label);
                         }
                     });
                 ui.end_row();
 
                 // Baud emulation
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(RichText::new(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-baud-emulation"
-                    )))
+                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-baud-emulation")))
                 });
 
                 egui::ComboBox::from_id_source("combobox5")
-                    .selected_text(RichText::new(format!(
-                        "{}",
-                        self.get_address_mut(self.selected_bbs).baud_emulation
-                    )))
+                    .selected_text(RichText::new(format!("{}", self.get_address_mut(self.selected_bbs).baud_emulation)))
                     .width(250.)
                     .show_ui(ui, |ui| {
                         for b in &BaudEmulation::OPTIONS {
                             let label = RichText::new(format!("{b}"));
-                            ui.selectable_value(
-                                &mut self.get_address_mut(self.selected_bbs).baud_emulation,
-                                *b,
-                                label,
-                            );
+                            ui.selectable_value(&mut self.get_address_mut(self.selected_bbs).baud_emulation, *b, label);
                         }
                     });
                 ui.end_row();
@@ -230,13 +190,8 @@ impl DialogState {
             let msg = fl!(crate::LANGUAGE_LOADER, "dialing_directory-version-warning");
             ui.label(RichText::new(msg).color(ui.ctx().style().visuals.warn_fg_color));
         } else {
-            let r: egui::Response = ui.button(
-                RichText::new(fl!(
-                    crate::LANGUAGE_LOADER,
-                    "dialing_directory-add-bbs-button"
-                ))
-                .font(FontId::new(20.0, FontFamily::Proportional)),
-            );
+            let r: egui::Response =
+                ui.button(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-add-bbs-button")).font(FontId::new(20.0, FontFamily::Proportional)));
 
             if r.clicked() {
                 let mut cloned_addr = self.addresses.addresses[0].clone();
@@ -261,89 +216,71 @@ impl DialogState {
         let mut result = None;
         let cursor = ui.cursor();
 
-        ScrollArea::vertical()
-            .auto_shrink([false; 2])
-            .show(ui, |ui| {
-                let mut scroll_to_rect = None;
-                ui.vertical(|ui| {
-                    (0..addresses.len()).for_each(|i| {
-                        let addr = &addresses[i];
-                        ui.with_layout(ui.layout().with_cross_justify(true), |ui| {
-                            let show_quick_connect =
-                                self.dialing_directory_filter_string.is_empty()
-                                    && matches!(
-                                        self.dialing_directory_filter,
-                                        DialingDirectoryFilter::All
-                                    );
-                            let selected = match self.selected_bbs {
-                                Some(uuid) => addr.id == uuid,
-                                None => i == 0 && show_quick_connect,
-                            };
-                            let r = ui.add(if i == 0 && show_quick_connect {
-                                let mut addr = AddressRow::new(
-                                    selected,
-                                    Address::new(fl!(
-                                        crate::LANGUAGE_LOADER,
-                                        "dialing_directory-connect-to-address"
-                                    )),
-                                );
-                                addr.centered = true;
-                                addr
-                            } else {
-                                AddressRow::new(selected, addr.clone())
-                            });
-                            if let Some((scroll_to, align)) = self.scroll_to {
-                                if scroll_to == i {
-                                    scroll_to_rect = Some((r.rect, align));
-                                    self.scroll_to = None;
-                                }
-                            }
-                            if r.clicked() {
-                                if i == 0 && show_quick_connect {
-                                    self.select_bbs(None);
-                                } else {
-                                    self.select_bbs(Some(addr.id));
-                                }
-                            }
-                            if r.double_clicked() {
-                                result = Some(addr.id);
-                            }
+        ScrollArea::vertical().auto_shrink([false; 2]).show(ui, |ui| {
+            let mut scroll_to_rect = None;
+            ui.vertical(|ui| {
+                (0..addresses.len()).for_each(|i| {
+                    let addr = &addresses[i];
+                    ui.with_layout(ui.layout().with_cross_justify(true), |ui| {
+                        let show_quick_connect =
+                            self.dialing_directory_filter_string.is_empty() && matches!(self.dialing_directory_filter, DialingDirectoryFilter::All);
+                        let selected = match self.selected_bbs {
+                            Some(uuid) => addr.id == uuid,
+                            None => i == 0 && show_quick_connect,
+                        };
+                        let r = ui.add(if i == 0 && show_quick_connect {
+                            let mut addr = AddressRow::new(selected, Address::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-connect-to-address")));
+                            addr.centered = true;
+                            addr
+                        } else {
+                            AddressRow::new(selected, addr.clone())
                         });
+                        if let Some((scroll_to, align)) = self.scroll_to {
+                            if scroll_to == i {
+                                scroll_to_rect = Some((r.rect, align));
+                                self.scroll_to = None;
+                            }
+                        }
+                        if r.clicked() {
+                            if i == 0 && show_quick_connect {
+                                self.select_bbs(None);
+                            } else {
+                                self.select_bbs(Some(addr.id));
+                            }
+                        }
+                        if r.double_clicked() {
+                            result = Some(addr.id);
+                        }
                     });
                 });
-                if let Some((mut r, align)) = scroll_to_rect {
-                    r.set_top(r.top() - cursor.top() / 2.0);
-                    if !ui.is_rect_visible(r) {
-                        ui.scroll_to_rect(r, Some(align));
-                    }
-                }
-
-                if self.scroll_address_list_to_bottom {
-                    self.scroll_address_list_to_bottom = false;
-                    ui.scroll_to_cursor(Some(egui::Align::BOTTOM));
-                }
             });
+            if let Some((mut r, align)) = scroll_to_rect {
+                r.set_top(r.top() - cursor.top() / 2.0);
+                if !ui.is_rect_visible(r) {
+                    ui.scroll_to_rect(r, Some(align));
+                }
+            }
+
+            if self.scroll_address_list_to_bottom {
+                self.scroll_address_list_to_bottom = false;
+                ui.scroll_to_cursor(Some(egui::Align::BOTTOM));
+            }
+        });
 
         result
     }
 
     fn get_filtered_addresses(&mut self) -> Vec<Address> {
-        let addresses: Vec<Address> =
-            if let DialingDirectoryFilter::Favourites = self.dialing_directory_filter {
-                self.addresses
-                    .addresses
-                    .iter()
-                    .filter(|a| a.is_favored && self.filter_bbs(a))
-                    .cloned()
-                    .collect()
-            } else {
-                self.addresses
-                    .addresses
-                    .iter()
-                    .filter(|a| self.filter_bbs(a))
-                    .cloned()
-                    .collect()
-            };
+        let addresses: Vec<Address> = if let DialingDirectoryFilter::Favourites = self.dialing_directory_filter {
+            self.addresses
+                .addresses
+                .iter()
+                .filter(|a| a.is_favored && self.filter_bbs(a))
+                .cloned()
+                .collect()
+        } else {
+            self.addresses.addresses.iter().filter(|a| self.filter_bbs(a)).cloned().collect()
+        };
         addresses
     }
 
@@ -352,8 +289,7 @@ impl DialogState {
             return true;
         }
         let lower = self.dialing_directory_filter_string.to_lowercase();
-        a.system_name.to_lowercase().contains(lower.as_str())
-            || a.address.to_lowercase().contains(lower.as_str())
+        a.system_name.to_lowercase().contains(lower.as_str()) || a.address.to_lowercase().contains(lower.as_str())
     }
 
     #[allow(clippy::range_plus_one)]
@@ -366,10 +302,7 @@ impl DialogState {
                 TextEdit::singleline(&mut adr.system_name)
                     .id(Id::new("dialing_directory-name-placeholder"))
                     .desired_width(f32::INFINITY)
-                    .hint_text(RichText::new(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-name-placeholder"
-                    ))),
+                    .hint_text(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-name-placeholder"))),
             );
             let text = if adr.is_favored {
                 RichText::new("★")
@@ -391,21 +324,12 @@ impl DialogState {
                 let converted: DateTime<Local> = DateTime::from(*last_call);
                 ui.label(
                     converted
-                        .format(
-                            fl!(
-                                crate::LANGUAGE_LOADER,
-                                "dialing_directory-last-call-date-format"
-                            )
-                            .as_str(),
-                        )
+                        .format(fl!(crate::LANGUAGE_LOADER, "dialing_directory-last-call-date-format").as_str())
                         .to_string(),
                 );
             }
             None => {
-                ui.label(RichText::new(fl!(
-                    crate::LANGUAGE_LOADER,
-                    "dialing_directory-not-called"
-                )));
+                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-not-called")));
             }
         }
 
@@ -437,28 +361,16 @@ impl DialogState {
         ui.horizontal(|ui| {
             ui.add_space(16.);
 
-            ui.selectable_value(
-                &mut self.address_category,
-                AddressCategory::Server,
-                "Server",
-            );
+            ui.selectable_value(&mut self.address_category, AddressCategory::Server, "Server");
             ui.add_space(8.);
 
             ui.selectable_value(&mut self.address_category, AddressCategory::Login, "Login");
             ui.add_space(8.);
 
-            ui.selectable_value(
-                &mut self.address_category,
-                AddressCategory::Terminal,
-                "Terminal",
-            );
+            ui.selectable_value(&mut self.address_category, AddressCategory::Terminal, "Terminal");
             ui.add_space(8.);
 
-            ui.selectable_value(
-                &mut self.address_category,
-                AddressCategory::Notes,
-                "Comment",
-            );
+            ui.selectable_value(&mut self.address_category, AddressCategory::Notes, "Comment");
         });
         ui.separator();
         ui.add_space(8.);
@@ -475,30 +387,18 @@ impl DialogState {
             }
 
             AddressCategory::Notes => {
-                ui.add(
-                    TextEdit::multiline(&mut self.get_address_mut(self.selected_bbs).comment)
-                        .desired_width(f32::INFINITY),
-                );
+                ui.add(TextEdit::multiline(&mut self.get_address_mut(self.selected_bbs).comment).desired_width(f32::INFINITY));
             }
         }
 
-        let converted: DateTime<Local> =
-            DateTime::from(self.get_address_mut(self.selected_bbs).created);
+        let converted: DateTime<Local> = DateTime::from(self.get_address_mut(self.selected_bbs).created);
         ui.with_layout(Layout::left_to_right(egui::Align::BOTTOM), |ui| {
-            let str = fl!(
-                crate::LANGUAGE_LOADER,
-                "dialing_directory-created-at-date-format"
-            );
+            let str = fl!(crate::LANGUAGE_LOADER, "dialing_directory-created-at-date-format");
             ui.label(converted.format(str.as_str()).to_string());
         });
     }
 
-    const MUSIC_OPTIONS: [MusicOption; 4] = [
-        MusicOption::Off,
-        MusicOption::Banana,
-        MusicOption::Conflicting,
-        MusicOption::Both,
-    ];
+    const MUSIC_OPTIONS: [MusicOption; 4] = [MusicOption::Off, MusicOption::Banana, MusicOption::Conflicting, MusicOption::Both];
 
     fn render_terminal_category(&mut self, ui: &mut egui::Ui) {
         let adr = self.get_address_mut(self.selected_bbs);
@@ -509,10 +409,7 @@ impl DialogState {
             .show(ui, |ui| {
                 // Screen mode row
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(RichText::new(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-screen_mode"
-                    )));
+                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-screen_mode")));
                 });
                 ui.horizontal(|ui| {
                     egui::ComboBox::from_id_source("combobox2")
@@ -555,10 +452,7 @@ impl DialogState {
                 ui.end_row();
 
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(RichText::new(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-terminal_type"
-                    )));
+                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-terminal_type")));
                 });
                 egui::ComboBox::from_id_source("combobox3")
                     .selected_text(RichText::new(format!("{}", adr.terminal_type)))
@@ -573,10 +467,7 @@ impl DialogState {
 
                 if adr.terminal_type == Terminal::Ansi {
                     ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(RichText::new(fl!(
-                            crate::LANGUAGE_LOADER,
-                            "dialing_directory-music-option"
-                        )));
+                        ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-music-option")));
                     });
                     egui::ComboBox::from_id_source("combobox4")
                         .selected_text(RichText::new(format!("{}", adr.ansi_music)))
@@ -592,10 +483,7 @@ impl DialogState {
 
                 // Baud emulation
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(RichText::new(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-baud-emulation"
-                    )))
+                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-baud-emulation")))
                 });
 
                 egui::ComboBox::from_id_source("combobox5")
@@ -619,47 +507,27 @@ impl DialogState {
             .show(ui, |ui| {
                 // User row
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(RichText::new(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-user"
-                    )));
+                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-user")));
                 });
-                ui.add(
-                    TextEdit::singleline(&mut self.get_address_mut(self.selected_bbs).user_name)
-                        .desired_width(f32::INFINITY),
-                );
+                ui.add(TextEdit::singleline(&mut self.get_address_mut(self.selected_bbs).user_name).desired_width(f32::INFINITY));
                 ui.end_row();
 
                 // Password row
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(RichText::new(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-password"
-                    )));
+                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-password")));
                 });
                 ui.with_layout(Layout::left_to_right(egui::Align::Center), |ui| {
                     let pw = self.show_passwords;
-                    ui.add(
-                        TextEdit::singleline(&mut self.get_address_mut(self.selected_bbs).password)
-                            .password(!pw),
-                    );
+                    ui.add(TextEdit::singleline(&mut self.get_address_mut(self.selected_bbs).password).password(!pw));
 
                     if ui.selectable_label(self.show_passwords, "👁").clicked() {
                         self.show_passwords = !self.show_passwords;
                     }
 
-                    if ui
-                        .button(RichText::new(fl!(
-                            crate::LANGUAGE_LOADER,
-                            "dialing_directory-generate"
-                        )))
-                        .clicked()
-                    {
+                    if ui.button(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-generate"))).clicked() {
                         let mut pw = String::new();
                         for _ in 0..16 {
-                            pw.push(unsafe {
-                                char::from_u32_unchecked(self.rng.gen_range(b'0'..=b'z'))
-                            });
+                            pw.push(unsafe { char::from_u32_unchecked(self.rng.gen_range(b'0'..=b'z')) });
                         }
                         self.get_address_mut(self.selected_bbs).password = pw;
                     }
@@ -668,61 +536,31 @@ impl DialogState {
 
                 // Autologin row
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(RichText::new(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-autologin"
-                    )));
+                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-autologin")));
                 });
-                ui.add(
-                    TextEdit::singleline(&mut self.get_address_mut(self.selected_bbs).auto_login)
-                        .desired_width(f32::INFINITY),
-                );
+                ui.add(TextEdit::singleline(&mut self.get_address_mut(self.selected_bbs).auto_login).desired_width(f32::INFINITY));
                 ui.end_row();
                 ui.label("");
 
                 ui.checkbox(
-                    &mut self
-                        .get_address_mut(self.selected_bbs)
-                        .override_iemsi_settings,
-                    fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-custom-iemsi-login-data"
-                    ),
+                    &mut self.get_address_mut(self.selected_bbs).override_iemsi_settings,
+                    fl!(crate::LANGUAGE_LOADER, "dialing_directory-custom-iemsi-login-data"),
                 );
                 ui.end_row();
 
-                if self
-                    .get_address_mut(self.selected_bbs)
-                    .override_iemsi_settings
-                {
+                if self.get_address_mut(self.selected_bbs).override_iemsi_settings {
                     ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(RichText::new(fl!(
-                            crate::LANGUAGE_LOADER,
-                            "dialing_directory-user"
-                        )));
+                        ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-user")));
                     });
-                    ui.add(
-                        TextEdit::singleline(
-                            &mut self.get_address_mut(self.selected_bbs).iemsi_user,
-                        )
-                        .desired_width(f32::INFINITY),
-                    );
+                    ui.add(TextEdit::singleline(&mut self.get_address_mut(self.selected_bbs).iemsi_user).desired_width(f32::INFINITY));
                     ui.end_row();
 
                     ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(RichText::new(fl!(
-                            crate::LANGUAGE_LOADER,
-                            "dialing_directory-password"
-                        )));
+                        ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-password")));
                     });
                     ui.with_layout(Layout::left_to_right(egui::Align::Center), |ui| {
                         let pw = self.show_passwords;
-                        ui.add(
-                            TextEdit::singleline(
-                                &mut self.get_address_mut(self.selected_bbs).iemsi_password,
-                            )
-                            .password(!pw),
-                        );
+                        ui.add(TextEdit::singleline(&mut self.get_address_mut(self.selected_bbs).iemsi_password).password(!pw));
 
                         if ui.selectable_label(self.show_passwords, "👁").clicked() {
                             self.show_passwords = !self.show_passwords;
@@ -741,20 +579,14 @@ impl DialogState {
             .show(ui, |ui| {
                 // Addreess row
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(RichText::new(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-address"
-                    )));
+                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-address")));
                 });
                 ui.add(TextEdit::singleline(&mut adr.address));
                 ui.end_row();
 
                 // Protocol row
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(RichText::new(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-protocol"
-                    )));
+                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-protocol")));
                 });
 
                 egui::ComboBox::from_id_source("combobox1")
@@ -795,11 +627,7 @@ impl AddressRow {
 
 impl egui::Widget for AddressRow {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
-        let Self {
-            selected,
-            centered,
-            addr,
-        } = self;
+        let Self { selected, centered, addr } = self;
 
         let button_padding = ui.spacing().button_padding;
         let total_extra = button_padding + button_padding + Vec2::new(0.0, 8.0);
@@ -810,8 +638,7 @@ impl egui::Widget for AddressRow {
                 .font(FontId::new(14.0, FontFamily::Proportional))
                 .color(ui.ctx().style().visuals.warn_fg_color),
         );
-        let star_text: egui::widget_text::WidgetTextGalley =
-            star_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
+        let star_text: egui::widget_text::WidgetTextGalley = star_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
         let star_text_size = star_text.size();
 
         let rt = RichText::new(addr.system_name.clone())
@@ -822,44 +649,24 @@ impl egui::Widget for AddressRow {
         let name_text = name_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
         let name_text_size = name_text.size();
 
-        let addr_text = WidgetText::from(
-            RichText::new(addr.address.clone()).font(FontId::new(12.0, FontFamily::Monospace)),
-        );
+        let addr_text = WidgetText::from(RichText::new(addr.address.clone()).font(FontId::new(12.0, FontFamily::Monospace)));
         let addr_text = addr_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
 
         let mut desired_size = total_extra + name_text.size() + Vec2::new(0.0, addr_text.size().y);
         desired_size.x = phone_list_width;
-        desired_size.y = desired_size
-            .y
-            .at_least(ui.spacing().interact_size.y)
-            .floor();
+        desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y).floor();
         let (rect, response) = ui.allocate_at_least(desired_size, egui::Sense::click());
-        response.widget_info(|| {
-            egui::WidgetInfo::selected(
-                egui::WidgetType::SelectableLabel,
-                selected,
-                name_text.text(),
-            )
-        });
+        response.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, selected, name_text.text()));
 
         if ui.is_rect_visible(response.rect) {
             let visuals = ui.style().interact_selectable(&response, selected);
 
             if selected || response.hovered() || response.highlighted() || response.has_focus() {
                 let rect = rect.expand(visuals.expansion);
-                ui.painter().rect(
-                    rect,
-                    visuals.rounding,
-                    visuals.weak_bg_fill,
-                    visuals.bg_stroke,
-                );
+                ui.painter().rect(rect, visuals.rounding, visuals.weak_bg_fill, visuals.bg_stroke);
             }
             if centered {
-                let text_pos = rect.left_top()
-                    + Vec2::new(
-                        (rect.width() - name_text_size.x) / 2.0,
-                        rect.height() / 2.0 - name_text_size.y / 2.0,
-                    );
+                let text_pos = rect.left_top() + Vec2::new((rect.width() - name_text_size.x) / 2.0, rect.height() / 2.0 - name_text_size.y / 2.0);
                 name_text.paint_with_visuals(ui.painter(), text_pos, &visuals);
             } else {
                 let text_pos = rect.left_top() + button_padding;
@@ -869,8 +676,7 @@ impl egui::Widget for AddressRow {
                 addr_text.paint_with_visuals(ui.painter(), text_pos, &visuals);
 
                 if addr.is_favored {
-                    let text_pos =
-                        rect.right_top() - button_padding - Vec2::new(star_text_size.x, -2.);
+                    let text_pos = rect.right_top() - button_padding - Vec2::new(star_text_size.x, -2.);
                     star_text.paint_with_visuals(ui.painter(), text_pos, &visuals);
                 }
             }
@@ -892,10 +698,7 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
         open = false;
     }
 
-    if !matches!(
-        window.dialing_directory_dialog.address_category,
-        AddressCategory::Notes
-    ) {
+    if !matches!(window.dialing_directory_dialog.address_category, AddressCategory::Notes) {
         if ctx.input(|i| i.key_pressed(Key::Enter)) {
             window.call_bbs_uuid(window.dialing_directory_dialog.selected_bbs);
         }
@@ -905,11 +708,8 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
                 for (i, addr) in addresses.iter().enumerate() {
                     if addr.id == selected {
                         if i > 0 {
-                            window
-                                .dialing_directory_dialog
-                                .select_bbs(Some(addresses[i - 1].id));
-                            window.dialing_directory_dialog.scroll_to =
-                                Some((addresses[i - 1].id, Align::TOP));
+                            window.dialing_directory_dialog.select_bbs(Some(addresses[i - 1].id));
+                            window.dialing_directory_dialog.scroll_to = Some((addresses[i - 1].id, Align::TOP));
                         }
                         break;
                     }
@@ -922,19 +722,14 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
                 for (i, addr) in addresses.iter().enumerate() {
                     if addr.id == selected {
                         if i + 1 < addresses.len() {
-                            window
-                                .dialing_directory_dialog
-                                .select_bbs(Some(addresses[i + 1].id));
-                            window.dialing_directory_dialog.scroll_to =
-                                Some((addresses[i + 1].id, Align::BOTTOM));
+                            window.dialing_directory_dialog.select_bbs(Some(addresses[i + 1].id));
+                            window.dialing_directory_dialog.scroll_to = Some((addresses[i + 1].id, Align::BOTTOM));
                         }
                         break;
                     }
                 }
             } else {
-                window
-                    .dialing_directory_dialog
-                    .select_bbs(Some(addresses[0].id));
+                window.dialing_directory_dialog.select_bbs(Some(addresses[0].id));
             }
         }
     }
@@ -944,10 +739,7 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
         .vscroll(false)
         .resizable(true)
         .title_bar(false)
-        .fixed_rect(Rect::from_min_size(
-            egui::Pos2::new(x_pos, y_pos),
-            Vec2::new(width, height),
-        ))
+        .fixed_rect(Rect::from_min_size(egui::Pos2::new(x_pos, y_pos), Vec2::new(width, height)))
         .open(&mut open);
 
     w.show(ctx, |ui| {
@@ -957,24 +749,11 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
             .show_inside(ui, |ui| {
                 ui.with_layout(Layout::left_to_right(egui::Align::TOP), |ui| {
                     ui.horizontal(|ui| {
-                        let selected = matches!(
-                            window.dialing_directory_dialog.dialing_directory_filter,
-                            DialingDirectoryFilter::Favourites
-                        );
+                        let selected = matches!(window.dialing_directory_dialog.dialing_directory_filter, DialingDirectoryFilter::Favourites);
                         let r: egui::Response = ui
-                            .selectable_label(
-                                selected,
-                                RichText::new("★")
-                                    .font(FontId::new(22.0, FontFamily::Proportional)),
-                            )
+                            .selectable_label(selected, RichText::new("★").font(FontId::new(22.0, FontFamily::Proportional)))
                             .on_hover_ui(|ui| {
-                                ui.label(
-                                    RichText::new(fl!(
-                                        crate::LANGUAGE_LOADER,
-                                        "dialing_directory-starred-items"
-                                    ))
-                                    .small(),
-                                );
+                                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-starred-items")).small());
                             });
 
                         if r.clicked() {
@@ -986,36 +765,18 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
                         }
 
                         ui.add(
-                            TextEdit::singleline(
-                                &mut window
-                                    .dialing_directory_dialog
-                                    .dialing_directory_filter_string,
-                            )
-                            .desired_width(f32::INFINITY)
-                            .hint_text(RichText::new(fl!(
-                                crate::LANGUAGE_LOADER,
-                                "dialing_directory-filter-placeholder"
-                            ))),
+                            TextEdit::singleline(&mut window.dialing_directory_dialog.dialing_directory_filter_string)
+                                .desired_width(f32::INFINITY)
+                                .hint_text(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-filter-placeholder"))),
                         );
 
                         let r: egui::Response = ui
-                            .button(
-                                RichText::new("✖")
-                                    .font(FontId::new(16.0, FontFamily::Proportional)),
-                            )
+                            .button(RichText::new("✖").font(FontId::new(16.0, FontFamily::Proportional)))
                             .on_hover_ui(|ui| {
-                                ui.label(
-                                    RichText::new(fl!(
-                                        crate::LANGUAGE_LOADER,
-                                        "dialing_directory-clear-filter"
-                                    ))
-                                    .small(),
-                                );
+                                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-clear-filter")).small());
                             });
                         if r.clicked() {
-                            window
-                                .dialing_directory_dialog
-                                .dialing_directory_filter_string = String::new();
+                            window.dialing_directory_dialog.dialing_directory_filter_string = String::new();
                         }
                     });
                 });
@@ -1027,36 +788,17 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
                 if !window.dialing_directory_dialog.addresses.write_lock {
                     ui.with_layout(Layout::left_to_right(egui::Align::BOTTOM), |ui| {
                         let r: egui::Response = ui
-                            .button(
-                                RichText::new("➕")
-                                    .font(FontId::new(20.0, FontFamily::Proportional)),
-                            )
+                            .button(RichText::new("➕").font(FontId::new(20.0, FontFamily::Proportional)))
                             .on_hover_ui(|ui| {
-                                ui.label(
-                                    RichText::new(fl!(
-                                        crate::LANGUAGE_LOADER,
-                                        "dialing_directory-add"
-                                    ))
-                                    .small(),
-                                );
+                                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-add")).small());
                             });
 
                         if r.clicked() {
-                            let adr = Address::new(fl!(
-                                crate::LANGUAGE_LOADER,
-                                "dialing_directory-new_bbs"
-                            ));
+                            let adr = Address::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-new_bbs"));
                             window.dialing_directory_dialog.select_bbs(Some(adr.id));
-                            window
-                                .dialing_directory_dialog
-                                .addresses
-                                .addresses
-                                .push(adr);
-                            window.dialing_directory_dialog.dialing_directory_filter =
-                                DialingDirectoryFilter::All;
-                            window
-                                .dialing_directory_dialog
-                                .scroll_address_list_to_bottom = true;
+                            window.dialing_directory_dialog.addresses.addresses.push(adr);
+                            window.dialing_directory_dialog.dialing_directory_filter = DialingDirectoryFilter::All;
+                            window.dialing_directory_dialog.scroll_address_list_to_bottom = true;
                         }
                     });
                 }
@@ -1071,19 +813,10 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
                     let r: egui::Response = ui
                         .add_enabled(
                             window.dialing_directory_dialog.selected_bbs.is_some(),
-                            egui::Button::new(
-                                RichText::new("🗑")
-                                    .font(FontId::new(26.0, FontFamily::Proportional)),
-                            ),
+                            egui::Button::new(RichText::new("🗑").font(FontId::new(26.0, FontFamily::Proportional))),
                         )
                         .on_hover_ui(|ui| {
-                            ui.label(
-                                RichText::new(fl!(
-                                    crate::LANGUAGE_LOADER,
-                                    "dialing_directory-delete"
-                                ))
-                                .small(),
-                            );
+                            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-delete")).small());
                         });
 
                     if r.clicked() {
@@ -1092,41 +825,20 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
                         }
                     }
 
-                    let connect_text = WidgetText::from(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-connect-button"
-                    ));
-                    let connect_text_size = connect_text
-                        .into_galley(ui, Some(false), 1000., egui::TextStyle::Button)
-                        .size();
+                    let connect_text = WidgetText::from(fl!(crate::LANGUAGE_LOADER, "dialing_directory-connect-button"));
+                    let connect_text_size = connect_text.into_galley(ui, Some(false), 1000., egui::TextStyle::Button).size();
 
-                    let cancel_text = WidgetText::from(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-cancel-button"
-                    ));
-                    let cancel_text_size = cancel_text
-                        .into_galley(ui, Some(false), 1000., egui::TextStyle::Button)
-                        .size();
+                    let cancel_text = WidgetText::from(fl!(crate::LANGUAGE_LOADER, "dialing_directory-cancel-button"));
+                    let cancel_text_size = cancel_text.into_galley(ui, Some(false), 1000., egui::TextStyle::Button).size();
 
-                    ui.add_space(
-                        ui.available_size_before_wrap().x
-                            - connect_text_size.x
-                            - cancel_text_size.x
-                            - 8.,
-                    );
+                    ui.add_space(ui.available_size_before_wrap().x - connect_text_size.x - cancel_text_size.x - 8.);
 
-                    let r: egui::Response = ui.add(egui::Button::new(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-cancel-button"
-                    )));
+                    let r: egui::Response = ui.add(egui::Button::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-cancel-button")));
                     if r.clicked() {
                         window.show_terminal();
                     }
 
-                    let r: egui::Response = ui.add(egui::Button::new(fl!(
-                        crate::LANGUAGE_LOADER,
-                        "dialing_directory-connect-button"
-                    )));
+                    let r: egui::Response = ui.add(egui::Button::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-connect-button")));
                     if r.clicked() {
                         window.call_bbs_uuid(window.dialing_directory_dialog.selected_bbs);
                     }
