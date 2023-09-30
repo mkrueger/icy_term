@@ -56,8 +56,8 @@ impl Sy {
             errors: 0,
             bytes_send: 0,
             block_number: match configuration.variant {
-                XYModemVariant::YModem | XYModemVariant::YModemG => 1,
-                _ => 0,
+                XYModemVariant::YModem | XYModemVariant::YModemG => 0,
+                _ => 1,
             },
             cur_file: 0,
             transfer_stopped: false,
@@ -82,7 +82,6 @@ impl Sy {
             transfer_info.check_size = self.configuration.get_check_and_size();
             transfer_info.update_bps();
         }
-        println!("send state: {:?} {:?}", self.send_state, self.configuration.variant);
 
         match self.send_state {
             SendState::None => {}

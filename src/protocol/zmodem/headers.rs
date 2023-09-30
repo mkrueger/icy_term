@@ -114,16 +114,28 @@ impl Header {
     pub fn f0(&self) -> u8 {
         self.data[3]
     }
+    pub fn p3(&self) -> u8 {
+        self.data[3]
+    }
 
     pub fn f1(&self) -> u8 {
+        self.data[2]
+    }
+    pub fn p2(&self) -> u8 {
         self.data[2]
     }
 
     pub fn f2(&self) -> u8 {
         self.data[1]
     }
+    pub fn p1(&self) -> u8 {
+        self.data[1]
+    }
 
     pub fn f3(&self) -> u8 {
+        self.data[0]
+    }
+    pub fn p0(&self) -> u8 {
         self.data[0]
     }
 
@@ -178,7 +190,7 @@ impl Header {
     }
 
     pub fn write(&self, com: &mut dyn DataConnection, header_type: HeaderType, escape_ctrl_chars: bool) -> TerminalResult<usize> {
-        // println!("send header:{:?}  - {:?}", header_type, self);
+        println!("send header:{:?}  - {:?}", header_type, self);
         com.send(self.build(header_type, escape_ctrl_chars))?;
         Ok(12)
     }

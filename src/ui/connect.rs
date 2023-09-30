@@ -206,36 +206,63 @@ pub enum SendData {
 
 #[cfg(test)]
 pub struct TestConnection {
-    buffer: std::collections::VecDeque<u8>,
+    pub is_sender: bool,
+    send_buffer: std::collections::VecDeque<u8>,
+    recv_buffer: std::collections::VecDeque<u8>,
 }
 
 #[cfg(test)]
 impl TestConnection {
-    pub fn new() -> Self {
-        Self { buffer: VecDeque::new() }
+    pub fn new(is_sender: bool) -> Self {
+        Self {
+            is_sender,
+            send_buffer: VecDeque::new(),
+            recv_buffer: VecDeque::new(),
+        }
+    }
+
+    fn get_send_buffer(&mut self) -> &mut VecDeque<u8> {
+        if self.is_sender {
+            &mut self.send_buffer
+        } else {
+            &mut self.recv_buffer
+        }
+    }
+
+    fn get_recv_buffer(&mut self) -> &mut VecDeque<u8> {
+        if self.is_sender {
+            &mut self.recv_buffer
+        } else {
+            &mut self.send_buffer
+        }
+    }
+
+    pub fn read_receive_buffer(&self) -> Vec<u8> {
+        self.send_buffer.clone().into()
     }
 }
 
 #[cfg(test)]
 impl DataConnection for TestConnection {
     fn is_data_available(&mut self) -> TerminalResult<bool> {
-        Ok(!self.buffer.is_empty())
+        Ok(!self.get_recv_buffer().is_empty())
     }
 
     fn read_buffer(&mut self) -> Vec<u8> {
-        self.buffer.drain(0..self.buffer.len()).collect()
+        let len = self.get_recv_buffer().len();
+        self.get_recv_buffer().drain(0..len).collect()
     }
 
     fn read_u8(&mut self) -> TerminalResult<u8> {
-        Ok(self.buffer.pop_front().unwrap())
+        Ok(self.get_recv_buffer().pop_front().unwrap())
     }
 
     fn read_exact(&mut self, size: usize) -> TerminalResult<Vec<u8>> {
-        Ok(self.buffer.drain(..size).collect())
+        Ok(self.get_recv_buffer().drain(..size).collect())
     }
 
     fn send(&mut self, vec: Vec<u8>) -> TerminalResult<()> {
-        self.buffer.extend(vec);
+        self.get_send_buffer().extend(vec);
         Ok(())
     }
 }

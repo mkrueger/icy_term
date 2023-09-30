@@ -34,6 +34,8 @@ pub struct Sz {
     retries: usize,
     can_count: usize,
     receiver_capabilities: u8,
+
+    nonstop: bool,
 }
 
 impl Sz {
@@ -50,6 +52,7 @@ impl Sz {
             receiver_capabilities: 0,
             can_count: 0,
             package_len: block_length,
+            nonstop: true,
         }
     }
 
@@ -125,7 +128,7 @@ impl Sz {
             transfer_info.check_size = format!("Crc32/{}", self.package_len);
             transfer_info.update_bps();
         }
-        // println!("sz state: {:?}", self.state  );
+        println!("sz state: {:?}", self.state);
         match self.state {
             SendState::Await => {
                 self.read_next_header(com)?;
@@ -156,15 +159,14 @@ impl Sz {
                 }
                 let old_pos = self.cur_file_pos;
                 let end_pos = min(self.data.len(), self.cur_file_pos + self.package_len);
-                let nonstop = !self.can_receive_data_during_io();
-
+                println!("nonstop:{}", self.nonstop);
                 let crc_byte = if self.cur_file_pos + self.package_len < self.data.len() {
-                    if nonstop {
+                    if self.nonstop {
                         ZCRCG
                     } else {
                         ZCRCQ
                     }
-                } else if nonstop {
+                } else if self.nonstop {
                     ZCRCE
                 } else {
                     ZCRCW
@@ -180,7 +182,7 @@ impl Sz {
                     self.state = SendState::Await;
                 }
                 com.send(p)?;
-                if !nonstop {
+                if !self.nonstop {
                     let ack = Header::read(com, &mut self.can_count)?;
                     if let Some(header) = ack {
                         // println!("got header after data package: {header}",);
@@ -249,6 +251,11 @@ impl Sz {
                     }
                     self.cur_file_pos = 0;
                     self.receiver_capabilities = res.f0();
+                    let block_size = res.p0() as usize + ((res.p1() as usize) << 8);
+                    self.nonstop = block_size == 0;
+                    if block_size != 0 {
+                        self.package_len = block_size;
+                    }
                     /*
                     if self._can_decrypt() {
                         println!("receiver can decrypt");
