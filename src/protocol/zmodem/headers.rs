@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::{ui::connection::Connection, TerminalResult};
-use icy_engine::{get_crc16, get_crc16_buggy, get_crc32, update_crc16};
+use icy_engine::{get_crc16_buggy, get_crc32, update_crc16};
 
 use crate::protocol::{frame_types::ZACK, XON};
 
