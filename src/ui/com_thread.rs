@@ -9,7 +9,7 @@ use web_time::Instant;
 
 use crate::com::{Com, TermComResult};
 
-use super::connection::{Connection, OpenConnectionData, SendData};
+use super::connect::{Connection, OpenConnectionData, SendData};
 use super::MainWindow;
 
 const BITS_PER_BYTE: u32 = 8;

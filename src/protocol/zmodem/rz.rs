@@ -9,7 +9,7 @@ use web_time::Instant;
 
 use crate::{
     protocol::{str_from_null_terminated_utf8_unchecked, FileStorageHandler, Header, HeaderType, TransferState, ZFrameType, Zmodem, ZCRCE, ZCRCG, ZCRCW},
-    ui::connection::Connection,
+    ui::connect::DataConnection,
     TerminalResult,
 };
 
@@ -69,14 +69,14 @@ impl Rz {
         !matches!(self.state, RecvState::Idle)
     }
 
-    fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
+    fn cancel(&mut self, com: &mut dyn DataConnection) -> TerminalResult<()> {
         self.state = RecvState::Idle;
         Zmodem::cancel(com)
     }
 
     pub fn update(
         &mut self,
-        com: &mut Connection,
+        com: &mut dyn DataConnection,
         transfer_state: &Arc<Mutex<TransferState>>,
         storage_handler: &mut dyn FileStorageHandler,
     ) -> TerminalResult<()> {
@@ -154,13 +154,13 @@ impl Rz {
         Ok(())
     }
 
-    fn request_zpos(&mut self, com: &mut Connection, pos: u32) -> TerminalResult<usize> {
+    fn request_zpos(&mut self, com: &mut dyn DataConnection, pos: u32) -> TerminalResult<usize> {
         Header::from_number(ZFrameType::RPos, pos).write(com, HeaderType::Hex, self.can_esc_control)
     }
 
     fn read_header(
         &mut self,
-        com: &mut Connection,
+        com: &mut dyn DataConnection,
         storage_handler: &mut dyn FileStorageHandler,
         transfer_state: &Arc<Mutex<TransferState>>,
     ) -> TerminalResult<bool> {
@@ -316,14 +316,14 @@ impl Rz {
         Ok(false)
     }
 
-    pub fn recv(&mut self, com: &mut Connection) -> TerminalResult<()> {
+    pub fn recv(&mut self, com: &mut dyn DataConnection) -> TerminalResult<()> {
         self.state = RecvState::Await;
         self.retries = 0;
         self.send_zrinit(com)?;
         Ok(())
     }
 
-    pub fn send_zrinit(&mut self, com: &mut Connection) -> TerminalResult<()> {
+    pub fn send_zrinit(&mut self, com: &mut dyn DataConnection) -> TerminalResult<()> {
         let mut flags = 0;
         if self.can_fullduplex {
             flags |= CANFDX;
@@ -348,7 +348,7 @@ impl Rz {
     }
 }
 
-pub fn read_subpacket(com: &mut Connection, block_length: usize, use_crc32: bool, escape_ctrl_chars: bool) -> TerminalResult<(Vec<u8>, bool, bool)> {
+pub fn read_subpacket(com: &mut dyn DataConnection, block_length: usize, use_crc32: bool, escape_ctrl_chars: bool) -> TerminalResult<(Vec<u8>, bool, bool)> {
     let mut data = Vec::with_capacity(block_length);
     loop {
         match read_zdle_byte(com, escape_ctrl_chars)? {
@@ -374,7 +374,7 @@ pub enum ZModemResult {
     CrcCheckRequested(u8, bool, bool),
 }
 
-pub fn read_zdle_byte(com: &mut Connection, escape_ctrl_chars: bool) -> TerminalResult<ZModemResult> {
+pub fn read_zdle_byte(com: &mut dyn DataConnection, escape_ctrl_chars: bool) -> TerminalResult<ZModemResult> {
     loop {
         let c = com.read_u8()?;
         match c {
@@ -432,7 +432,7 @@ pub fn read_zdle_byte(com: &mut Connection, escape_ctrl_chars: bool) -> Terminal
     }
 }
 
-fn check_crc(com: &mut Connection, use_crc32: bool, data: &[u8], zcrc_byte: u8) -> TerminalResult<bool> {
+fn check_crc(com: &mut dyn DataConnection, use_crc32: bool, data: &[u8], zcrc_byte: u8) -> TerminalResult<bool> {
     if use_crc32 {
         let mut crc = get_crc32(data);
         crc = !update_crc32(!crc, zcrc_byte);

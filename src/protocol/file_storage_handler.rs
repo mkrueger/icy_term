@@ -69,6 +69,7 @@ impl FileStorageHandler for TestStorageHandler {
             self.file.get_mut(file_name).unwrap().extend_from_slice(data);
         }
     }
+
     fn close(&mut self) {
         self.cur_file_name = None;
         self.cur_file_size = 0;

@@ -1,57 +1,48 @@
-/*
-
 #[cfg(test)]
 use crate::protocol::Protocol;
-#[cfg(test)]
 
 #[cfg(test)]
-pub fn run_protocols(
-    mut com: crate::com::TestChannel,
-    files: Vec<crate::protocol::FileDescriptor>,
-    mut recv: Box<dyn Protocol>,
-    mut send: Box<dyn Protocol>,
-) -> crate::protocol::TestStorageHandler {
-    use std::thread;
-
+pub fn test_sender(test_connection: &mut dyn crate::ui::connect::DataConnection, files: Vec<crate::protocol::FileDescriptor>, send: &mut dyn Protocol) {
     use crate::protocol::{TestStorageHandler, TransferState};
+    use std::sync::{Arc, Mutex};
 
-    let handle1 = std::thread::spawn(move || {
-        println!("start send thread.");
-        let mut storage_handler: TestStorageHandler = TestStorageHandler::new();
-        let mut transfer_state: TransferState = TransferState::default();
-        send.initiate_send(&mut com.sender, files, &mut transfer_state)
-            .expect("error.");
-        while !transfer_state.is_finished {
-            send.update(&mut com.sender, &mut transfer_state, &mut storage_handler)
-                .expect("error.");
-        }
-        println!("end send thread.");
-    });
+    let send_transfer_state = Arc::new(Mutex::new(TransferState::default()));
+    send.initiate_send(test_connection, files, &mut send_transfer_state.lock().unwrap())
+        .expect("error.");
 
-    let handle2 = thread::spawn(move || {
-        println!("start recv thread.");
-        let mut storage_handler: TestStorageHandler = TestStorageHandler::new();
-        let mut transfer_state: TransferState = TransferState::default();
-        recv.initiate_recv(&mut com.receiver, &mut transfer_state)
-            .expect("error.");
+    let mut storage_handler = TestStorageHandler::new();
+    while !send_transfer_state.lock().unwrap().is_finished {
+        send.update(test_connection, &send_transfer_state, &mut storage_handler).expect("error.");
+    }
+}
 
-        while !transfer_state.is_finished {
-            recv.update(&mut com.receiver, &mut transfer_state, &mut storage_handler)
-                .expect("error.");
-        }
-        println!("end recv thread.");
-        storage_handler
-    });
+#[cfg(test)]
+pub fn test_receiver(test_connection: &mut dyn crate::ui::connect::DataConnection, receiver: &mut dyn Protocol) -> crate::protocol::TestStorageHandler {
+    use crate::protocol::{TestStorageHandler, TransferState};
+    use std::sync::{Arc, Mutex};
 
-    handle1.join().unwrap();
-    handle2.join().unwrap()
+    let send_transfer_state = Arc::new(Mutex::new(TransferState::default()));
+    receiver
+        .initiate_recv(test_connection, &mut send_transfer_state.lock().unwrap())
+        .expect("error.");
+
+    let mut storage_handler = TestStorageHandler::new();
+    while !send_transfer_state.lock().unwrap().is_finished {
+        receiver.update(test_connection, &send_transfer_state, &mut storage_handler).expect("error.");
+    }
+    storage_handler
 }
 
 #[cfg(test)]
 mod xy_modem_tests {
     use crate::{
         com::TestChannel,
-        protocol::{FileDescriptor, Protocol, XYModemVariant, XYmodem},
+        protocol::{
+            tests::{test_receiver, test_sender},
+            xymodem::constants::{ACK, EOT, NAK, SOH, STX},
+            FileDescriptor, XYModemVariant,
+        },
+        ui::connect::{DataConnection, TestConnection},
     };
 
     fn create_channel() -> TestChannel {
@@ -66,255 +57,181 @@ mod xy_modem_tests {
     }
 
     #[test]
-    fn test_xmodem_simple() {
-        let send: Box<dyn Protocol> =
-            Box::new(crate::protocol::XYmodem::new(XYModemVariant::XModem));
-        let recv: Box<dyn Protocol> = Box::new(XYmodem::new(XYModemVariant::XModem));
+    fn test_xmodem_128block_sender() {
+        let mut test_connection: TestConnection = TestConnection::new();
 
+        let mut send = crate::protocol::XYmodem::new(XYModemVariant::XModem);
+
+        let mut data = vec![1u8, 2, 5, 10];
+        let files = vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())];
+
+        test_connection
+            .send(vec![
+                NAK, ACK, ACK, // ACK EOT
+            ])
+            .unwrap();
+
+        test_sender(&mut test_connection, files, &mut send);
+
+        // construct result
+        let mut result = vec![SOH, 0x01, 0xFE];
+        data.resize(128, 0x1A);
+        result.extend_from_slice(&data);
+        result.push(0xAA); // CHECKSUM
+        result.push(EOT);
+
+        assert_eq!(result, test_connection.read_buffer());
+    }
+
+    #[test]
+    fn test_xmodem_128block_case2_sender() {
+        let mut test_connection: TestConnection = TestConnection::new();
+        let mut send = crate::protocol::XYmodem::new(XYModemVariant::XModem);
+        let mut data = vec![1u8, 2, 5, 10];
+        let files = vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())];
+
+        test_connection.send(vec![b'C', ACK, ACK]).unwrap();
+
+        test_sender(&mut test_connection, files, &mut send);
+
+        // construct result
+        let mut result = vec![SOH, 0x01, 0xFE];
+        data.resize(128, 0x1A);
+        result.extend_from_slice(&data);
+        result.push(150); // CHECKSUM
+        result.push(207); // CHECKSUM
+        result.push(EOT);
+
+        assert_eq!(result, test_connection.read_buffer());
+    }
+
+    #[test]
+    fn test_xmodem_1kblock_sender() {
+        let mut test_connection: TestConnection = TestConnection::new();
+        let mut send = crate::protocol::XYmodem::new(XYModemVariant::XModem1k);
+        let mut data = vec![5; 900];
+        let files = vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())];
+
+        test_connection
+            .send(vec![
+                b'C', ACK, ACK, // ACK EOT
+            ])
+            .unwrap();
+
+        test_sender(&mut test_connection, files, &mut send);
+
+        // construct result
+        let mut result = vec![STX, 0x01, 0xFE];
+        data.resize(1024, 0x1A);
+        result.extend_from_slice(&data);
+        result.push(184); // CHECKSUM
+        result.push(85); // CHECKSUM
+        result.push(EOT);
+
+        assert_eq!(result, test_connection.read_buffer());
+    }
+
+    #[test]
+    fn test_xmodem_128block_receiver() {
+        let mut test_connection: TestConnection = TestConnection::new();
+        let mut recv = crate::protocol::XYmodem::new(XYModemVariant::XModem);
         let data = vec![1u8, 2, 5, 10];
-        let com = create_channel();
-        let files = vec![FileDescriptor::create_test(
-            "foo.bar".to_string(),
-            data.clone(),
-        )];
 
-        let storage_handler =
-            crate::protocol::xymodem::tests::run_protocols(com, files, recv, send);
-        let recv_data: Vec<Vec<u8>> = storage_handler.file.values().cloned().collect();
+        let mut result = vec![SOH, 0x01, 0xFE];
+        let mut cloned_data = data.clone();
+        cloned_data.resize(128, 0x1A);
+        result.extend_from_slice(&cloned_data);
+        result.push(0xAA); // CHECKSUM
+        result.push(EOT);
+        test_connection.send(result).unwrap();
 
-        assert_eq!(1, recv_data.len());
-        let send_data = &recv_data[0];
-        assert_eq!(&data, send_data);
+        let storage_handler = test_receiver(&mut test_connection, &mut recv);
+        assert_eq!(1, storage_handler.file.len());
+        for (_, file_data) in storage_handler.file {
+            assert_eq!(data, file_data);
+        }
     }
 
-    /*
     #[test]
-    fn test_xmodem1k_simple() {
-        let mut send = XYmodem::new(XYModemVariant::XModem1k);
-        let mut recv = XYmodem::new(XYModemVariant::XModem1k);
+    fn test_xmodem_1kblock_receiver() {
+        let mut test_connection: TestConnection = TestConnection::new();
+        let mut recv = crate::protocol::XYmodem::new(XYModemVariant::XModem1k);
+        let data = vec![5; 900];
 
+        let mut result = vec![STX, 0x01, 0xFE];
+        let mut cloned_data = data.clone();
+        cloned_data.resize(1024, 0x1A);
+        result.extend_from_slice(&cloned_data);
+        result.push(184); // CHECKSUM
+        result.push(85); // CHECKSUM
+        result.push(EOT);
+        test_connection.send(result).unwrap();
+
+        let storage_handler = test_receiver(&mut test_connection, &mut recv);
+        assert_eq!(1, storage_handler.file.len());
+        for (_, file_data) in storage_handler.file {
+            assert_eq!(data, file_data);
+        }
+    }
+
+    #[test]
+    fn test_ymodem_sender() {
+        let mut test_connection: TestConnection = TestConnection::new();
+
+        let mut send = crate::protocol::XYmodem::new(XYModemVariant::YModem);
+
+        let mut data = vec![1u8, 2, 5, 10];
+        let files = vec![FileDescriptor::create_test("foo.bar".to_string(), data.clone())];
+
+        test_connection
+            .send(vec![
+                b'C', ACK, b'C', ACK, ACK, ACK, // ACK EOT
+            ])
+            .unwrap();
+
+        test_sender(&mut test_connection, files, &mut send);
+
+        // construct result
+        let mut result = vec![SOH, 0x00, 0xFF];
+        result.extend_from_slice(b"foo.bar");
+        result.extend_from_slice(&[0, b'4']); // length
+
+        result.extend_from_slice(vec![0; 128 - "foo.bar".len() - 2].as_slice());
+        result.extend_from_slice(&[108, 107]); // CHECKSUM
+
+        result.extend_from_slice(&[SOH, 0x01, 0xFE]);
+        data.resize(128, 0x1A);
+        result.extend_from_slice(&data);
+        result.extend_from_slice(&[150, 207]); // CHECKSUM
+        result.push(EOT);
+
+        assert_eq!(result, test_connection.read_buffer());
+    }
+
+    #[test]
+    fn test_ymodem_receiver() {
+        let mut test_connection: TestConnection = TestConnection::new();
+        let mut recv = crate::protocol::XYmodem::new(XYModemVariant::YModem);
         let data = vec![1u8, 2, 5, 10];
-        let mut com = create_channel();
-        let mut send_state = send
-            .initiate_send(
-                &mut com.sender,
-                vec![FileDescriptor::create_test(
-                    "foo.bar".to_string(),
-                    data.clone(),
-                )],
-            )
-            .expect("error.");
-        let mut recv_state = recv.initiate_recv(&mut com.receiver).expect("error.");
-        let mut i = 0;
-        while !send_state.is_finished || !recv_state.is_finished {
-            i += 1;
-            if i > 10 {
-                break;
-            }
-            send.update(&mut com.sender, &mut send_state)
-                .expect("error.");
-            recv.update(&mut com.receiver, &mut recv_state)
-                .expect("error.");
-        }
+        let mut result = vec![SOH, 0x00, 0xFF];
 
-        let rdata = recv.get_received_files();
-        assert_eq!(1, rdata.len());
-        let sdata = &rdata[0].get_data().unwrap();
-        assert_eq!(&data, sdata);
+        result.extend_from_slice(b"foo.bar");
+        result.extend_from_slice(&[0, b'4']); // length
+
+        result.extend_from_slice(vec![0; 128 - "foo.bar".len() - 2].as_slice());
+        result.extend_from_slice(&[108, 107]); // CHECKSUM
+
+        result.extend_from_slice(&[SOH, 0x01, 0xFE]);
+
+        let mut cloned_data = data.clone();
+        cloned_data.resize(128, 0x1A);
+        result.extend_from_slice(&cloned_data);
+        result.extend_from_slice(&[150, 207]); // CHECKSUM
+        result.push(EOT);
+        test_connection.send(result).unwrap();
+
+        let storage_handler = test_receiver(&mut test_connection, &mut recv);
+        assert_eq!(1, storage_handler.file.len());
+        assert_eq!(data, storage_handler.file["foo.bar"]);
     }
-
-    #[test]
-    fn test_xmodem1k_g_simple() {
-        let mut send = XYmodem::new(XYModemVariant::XModem1kG);
-        let mut recv = XYmodem::new(XYModemVariant::XModem1kG);
-
-        let mut data = Vec::new();
-        for i in 0..10 * 1024 {
-            data.push(i as u8);
-        }
-
-        let mut com = create_channel();
-        let mut send_state = send
-            .initiate_send(
-                &mut com.sender,
-                vec![FileDescriptor::create_test(
-                    "foo.bar".to_string(),
-                    data.clone(),
-                )],
-            )
-            .expect("error.");
-        let mut recv_state = recv.initiate_recv(&mut com.receiver).expect("error.");
-        let mut i = 0;
-        while !send_state.is_finished || !recv_state.is_finished {
-            i += 1;
-            if i > 100 {
-                break;
-            }
-            send.update(&mut com.sender, &mut send_state)
-                .expect("error.");
-            recv.update(&mut com.receiver, &mut recv_state)
-                .expect("error.");
-        }
-
-        let rdata = recv.get_received_files();
-        assert_eq!(1, rdata.len());
-        let sdata = &rdata[0].get_data().unwrap();
-        assert_eq!(&data, sdata);
-    }
-
-    #[test]
-    fn test_xmodem_longer_file() {
-        for test_len in [128, 255, 256, 2048, 4097] {
-            let mut send = XYmodem::new(XYModemVariant::XModem);
-            let mut recv = XYmodem::new(XYModemVariant::XModem);
-
-            let mut data = Vec::new();
-            for i in 0..test_len {
-                data.push(i as u8);
-            }
-
-            let mut com = create_channel();
-            let mut send_state = send
-                .initiate_send(
-                    &mut com.sender,
-                    vec![FileDescriptor::create_test(
-                        "foo.bar".to_string(),
-                        data.clone(),
-                    )],
-                )
-                .expect("error.");
-            let mut recv_state = recv.initiate_recv(&mut com.receiver).expect("error.");
-            let mut i = 0;
-            while !send_state.is_finished || !recv_state.is_finished {
-                i += 1;
-                if i > 100 {
-                    break;
-                }
-                send.update(&mut com.sender, &mut send_state)
-                    .expect("error.");
-                recv.update(&mut com.receiver, &mut recv_state)
-                    .expect("error.");
-            }
-
-            let rdata = recv.get_received_files();
-            assert_eq!(1, rdata.len());
-            let sdata = &rdata[0].get_data().unwrap();
-            assert_eq!(&data, sdata);
-        }
-    }
-
-
-    #[test]
-    fn test_ymodem_simple() {
-        let mut send = XYmodem::new(XYModemVariant::YModem);
-        let mut recv = XYmodem::new(XYModemVariant::YModem);
-
-        let data = vec![1u8, 2, 5, 10];
-        let mut com = create_channel();
-
-        let mut send_state = send
-            .initiate_send(
-                &mut com.sender,
-                vec![FileDescriptor::create_test(
-                    "foo.bar".to_string(),
-                    data.clone(),
-                )],
-            )
-            .expect("error.");
-        let mut recv_state = recv.initiate_recv(&mut com.receiver).expect("error.");
-        let mut i = 0;
-        while !send_state.is_finished || !recv_state.is_finished {
-            i += 1;
-            if i > 100 {
-                break;
-            }
-            send.update(&mut com.sender, &mut send_state)
-                .expect("error.");
-            recv.update(&mut com.receiver, &mut recv_state)
-                .expect("error.");
-        }
-
-        let rdata = recv.get_received_files();
-        assert_eq!(1, rdata.len());
-        assert_eq!(&data, &rdata[0].get_data().unwrap());
-    }
-
-    #[test]
-    fn test_ymodem_g_simple() {
-        let mut send = XYmodem::new(XYModemVariant::YModemG);
-        let mut recv = XYmodem::new(XYModemVariant::YModemG);
-
-        let data = vec![1u8, 2, 5, 10];
-        let mut com = create_channel();
-
-        let mut send_state = send
-            .initiate_send(
-                &mut com.sender,
-                vec![FileDescriptor::create_test(
-                    "foo.bar".to_string(),
-                    data.clone(),
-                )],
-            )
-            .expect("error.");
-        let mut recv_state = recv.initiate_recv(&mut com.receiver).expect("error.");
-        let mut i = 0;
-        while !send_state.is_finished || !recv_state.is_finished {
-            i += 1;
-            if i > 100 {
-                break;
-            }
-            send.update(&mut com.sender, &mut send_state)
-                .expect("error.");
-            recv.update(&mut com.receiver, &mut recv_state)
-                .expect("error.");
-        }
-
-        let rdata = recv.get_received_files();
-        assert_eq!(1, rdata.len());
-        assert_eq!(&data, &rdata[0].get_data().unwrap());
-    }
-
-    #[test]
-    fn test_ymodem_batch() {
-        let mut send = XYmodem::new(XYModemVariant::YModem);
-        let mut recv = XYmodem::new(XYModemVariant::YModem);
-
-        let data1 = vec![1u8, 2, 5, 10];
-        let data2 = vec![1u8, 42, 18, 19];
-        let mut com = create_channel();
-        let mut send_state = send
-            .initiate_send(
-                &mut com.sender,
-                vec![
-                    FileDescriptor::create_test("foo.bar".to_string(), data1.clone()),
-                    FileDescriptor::create_test("baz".to_string(), data2.clone()),
-                ],
-            )
-            .expect("error.");
-
-        let mut recv_state = recv.initiate_recv(&mut com.receiver).expect("error.");
-        let mut i = 0;
-        while !send_state.is_finished || !recv_state.is_finished {
-            i += 1;
-            if i > 100 {
-                break;
-            }
-            send.update(&mut com.sender, &mut send_state)
-                .expect("error.");
-            recv.update(&mut com.receiver, &mut recv_state)
-                .expect("error.");
-        }
-
-        let rdata = recv.get_received_files();
-        assert_eq!(2, rdata.len());
-
-        assert_eq!(&data1, &rdata[0].get_data().unwrap());
-        assert_eq!(data1.len(), rdata[0].size);
-
-        assert_eq!(&data2, &rdata[1].get_data().unwrap());
-        assert_eq!(data2.len(), rdata[1].size);
-    }
-
-    */
 }
-*/

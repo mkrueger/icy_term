@@ -2,7 +2,7 @@ use crate::protocol::{FileDescriptor, TransferState};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
-use super::connection::Connection;
+use super::connect::Connection;
 use super::dialogs;
 pub struct FileTransferThread {
     pub current_transfer: Arc<Mutex<TransferState>>,
@@ -25,9 +25,9 @@ impl FileTransferThread {
                 }
             }
             if let Err(err) = if download {
-                protocol.initiate_recv(&mut connection, &mut current_transfer2.lock().unwrap())
+                protocol.initiate_recv(&mut *connection, &mut current_transfer2.lock().unwrap())
             } else {
-                protocol.initiate_send(&mut connection, files_opt.unwrap(), &mut current_transfer2.lock().unwrap())
+                protocol.initiate_send(&mut *connection, files_opt.unwrap(), &mut current_transfer2.lock().unwrap())
             } {
                 log::error!("{err}");
                 return connection;
@@ -39,7 +39,7 @@ impl FileTransferThread {
                         log::error!("Error updating state on file transfer thread: {err}");
                         break;
                     }
-                    match protocol.update(&mut connection, &current_transfer2, &mut storage_handler) {
+                    match protocol.update(&mut *connection, &current_transfer2, &mut storage_handler) {
                         Ok(b) => {
                             if !b {
                                 break;
@@ -53,7 +53,7 @@ impl FileTransferThread {
                     match current_transfer2.lock() {
                         Ok(ct) => {
                             if ct.request_cancel {
-                                if let Err(err) = protocol.cancel(&mut connection) {
+                                if let Err(err) = protocol.cancel(&mut *connection) {
                                     log::error!("Error sending cancel request on file transfer thread: {err}");
                                 }
                                 break;

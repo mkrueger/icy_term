@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     protocol::{zfile_flag, zmodem::err::TransmissionError, FileDescriptor, Header, HeaderType, TransferState, ZFrameType, Zmodem, ZCRCE, ZCRCG},
-    ui::connection::Connection,
+    ui::connect::DataConnection,
     TerminalResult,
 };
 
@@ -102,7 +102,7 @@ impl Sz {
         self.cur_file += 1;
     }
 
-    pub fn update(&mut self, com: &mut Connection, transfer_state: &Arc<Mutex<TransferState>>) -> TerminalResult<()> {
+    pub fn update(&mut self, com: &mut dyn DataConnection, transfer_state: &Arc<Mutex<TransferState>>) -> TerminalResult<()> {
         if let SendState::Finished = self.state {
             return Ok(());
         }
@@ -214,7 +214,7 @@ impl Sz {
         Ok(())
     }
 
-    fn read_next_header(&mut self, com: &mut Connection) -> TerminalResult<()> {
+    fn read_next_header(&mut self, com: &mut dyn DataConnection) -> TerminalResult<()> {
         let err = Header::read(com, &mut self.can_count);
         if self.can_count >= 5 {
             // transfer_info.write("Received cancel...".to_string());
@@ -320,7 +320,7 @@ impl Sz {
         Ok(())
     }
 
-    fn send_zfile(&mut self, com: &mut Connection, tries: i32) -> TerminalResult<()> {
+    fn send_zfile(&mut self, com: &mut dyn DataConnection, tries: i32) -> TerminalResult<()> {
         if self.cur_file < 0 || self.cur_file >= self.files.len() as i32 {
             self.state = SendState::Finished;
             return Ok(());
@@ -388,7 +388,7 @@ impl Sz {
         Ok(())
     }
 
-    pub fn send(&mut self, _com: &mut Connection, files: Vec<FileDescriptor>) {
+    pub fn send(&mut self, _com: &mut dyn DataConnection, files: Vec<FileDescriptor>) {
         //println!("initiate zmodem send {}", files.len());
         self.state = SendState::SendZRQInit;
         self.files = files;
@@ -398,14 +398,14 @@ impl Sz {
         //        com.write(b"rz\r")?;
     }
 
-    pub fn send_zrqinit(&mut self, com: &mut Connection) -> TerminalResult<()> {
+    pub fn send_zrqinit(&mut self, com: &mut dyn DataConnection) -> TerminalResult<()> {
         self.cur_file = -1;
         self.transfered_file = true;
         Header::empty(ZFrameType::RQInit).write(com, self.get_header_type(), self.can_esc_control())?;
         Ok(())
     }
 
-    pub fn send_zfin(&mut self, com: &mut Connection, size: u32) -> TerminalResult<()> {
+    pub fn send_zfin(&mut self, com: &mut dyn DataConnection, size: u32) -> TerminalResult<()> {
         Header::from_number(ZFrameType::Fin, size).write(com, self.get_header_type(), self.can_esc_control())?;
         self.state = SendState::Await;
         Ok(())

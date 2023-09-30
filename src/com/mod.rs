@@ -16,7 +16,7 @@ pub mod websocket;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod ssh;
 
-use crate::{addresses::Terminal, ui::connection::OpenConnectionData};
+use crate::{addresses::Terminal, ui::connect::OpenConnectionData};
 pub type TermComResult<T> = Result<T, Box<dyn Error + Send + Sync>>;
 
 pub trait Com: Sync + Send {

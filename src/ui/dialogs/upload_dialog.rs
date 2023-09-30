@@ -4,7 +4,7 @@ use egui_file::FileDialog;
 use crate::{
     check_error,
     protocol::FileDescriptor,
-    ui::{MainWindow, MainWindowMode},
+    ui::{connect::DataConnection, MainWindow, MainWindowMode},
 };
 
 #[derive(Default)]

@@ -12,7 +12,7 @@ use crate::{
         xymodem::constants::{ACK, EOT, EXT_BLOCK_LENGTH, NAK, SOH, STX},
         FileStorageHandler, TransferState,
     },
-    ui::connection::Connection,
+    ui::connect::DataConnection,
     TerminalResult,
 };
 
@@ -48,7 +48,7 @@ impl Ry {
 
     pub fn update(
         &mut self,
-        com: &mut Connection,
+        com: &mut dyn DataConnection,
         transfer_state: &Arc<Mutex<TransferState>>,
         storage_handler: &mut dyn FileStorageHandler,
     ) -> TerminalResult<()> {
@@ -59,7 +59,6 @@ impl Ry {
             transfer_info.check_size = self.configuration.get_check_and_size();
             transfer_info.update_bps();
         }
-
         match self.recv_state {
             RecvState::None => {}
 
@@ -76,6 +75,7 @@ impl Ry {
                         self.recv_state = RecvState::ReadBlock(DEFAULT_BLOCK_LENGTH, 0);
                     }
                 } else if start == STX {
+                    storage_handler.open_unnamed_file();
                     self.recv_state = RecvState::ReadBlock(EXT_BLOCK_LENGTH, 0);
                 } else {
                     if retries < 3 {
@@ -234,18 +234,18 @@ impl Ry {
         Ok(())
     }
 
-    pub fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
+    pub fn cancel(&mut self, com: &mut dyn DataConnection) -> TerminalResult<()> {
         self.recv_state = RecvState::None;
         super::cancel(com)
     }
 
-    pub fn recv(&mut self, com: &mut Connection) -> TerminalResult<()> {
+    pub fn recv(&mut self, com: &mut dyn DataConnection) -> TerminalResult<()> {
         self.await_data(com)?;
         self.recv_state = RecvState::StartReceive(0);
         Ok(())
     }
 
-    fn await_data(&mut self, com: &mut Connection) -> TerminalResult<usize> {
+    fn await_data(&mut self, com: &mut dyn DataConnection) -> TerminalResult<usize> {
         if self.configuration.is_streaming() {
             com.send(vec![b'G'])?;
         } else if self.configuration.use_crc() {

@@ -13,12 +13,13 @@ use std::time::Instant;
 use eframe::egui::Key;
 
 use crate::features::{AutoFileTransfer, AutoLogin};
+use crate::ui::connect::DataConnection;
 use crate::util::SoundThread;
 use crate::Options;
 use crate::{protocol::FileDescriptor, TerminalResult};
 
 pub mod app;
-pub mod connection;
+pub mod connect;
 
 pub mod terminal_window;
 pub use terminal_window::*;
@@ -26,7 +27,7 @@ pub use terminal_window::*;
 pub mod util;
 pub use util::*;
 
-use self::connection::Connection;
+use self::connect::Connection;
 use self::file_transfer_thread::FileTransferThread;
 pub mod dialogs;
 

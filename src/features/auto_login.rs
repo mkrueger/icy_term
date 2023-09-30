@@ -1,6 +1,10 @@
 use web_time::Instant;
 
-use crate::{ui::connection::Connection, util::PatternRecognizer, Address, Options, TerminalResult};
+use crate::{
+    ui::connect::{Connection, DataConnection},
+    util::PatternRecognizer,
+    Address, Options, TerminalResult,
+};
 use std::time::Duration;
 
 use super::iemsi_com::IEmsi;

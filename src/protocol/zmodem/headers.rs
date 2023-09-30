@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{ui::connection::Connection, TerminalResult};
+use crate::{ui::connect::DataConnection, TerminalResult};
 use icy_engine::{get_crc16_buggy, get_crc32, update_crc16};
 
 use crate::protocol::{frame_types::ZACK, XON};
@@ -177,7 +177,7 @@ impl Header {
         res
     }
 
-    pub fn write(&self, com: &mut Connection, header_type: HeaderType, escape_ctrl_chars: bool) -> TerminalResult<usize> {
+    pub fn write(&self, com: &mut dyn DataConnection, header_type: HeaderType, escape_ctrl_chars: bool) -> TerminalResult<usize> {
         // println!("send header:{:?}  - {:?}", header_type, self);
         com.send(self.build(header_type, escape_ctrl_chars))?;
         Ok(12)
@@ -209,7 +209,7 @@ impl Header {
         }
     }
 
-    pub fn read(com: &mut Connection, can_count: &mut usize) -> TerminalResult<Option<Header>> {
+    pub fn read(com: &mut dyn DataConnection, can_count: &mut usize) -> TerminalResult<Option<Header>> {
         let zpad = com.read_u8()?;
         if zpad == 0x18 {
             // CAN

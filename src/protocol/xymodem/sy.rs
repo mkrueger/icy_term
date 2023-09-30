@@ -14,7 +14,7 @@ use crate::{
         xymodem::constants::{ACK, CPMEOF, EOT, EXT_BLOCK_LENGTH, NAK, SOH, STX},
         FileDescriptor, TransferState,
     },
-    ui::connection::Connection,
+    ui::connect::DataConnection,
     TerminalResult,
 };
 
@@ -55,7 +55,10 @@ impl Sy {
             data: Vec::new(),
             errors: 0,
             bytes_send: 0,
-            block_number: 0,
+            block_number: match configuration.variant {
+                XYModemVariant::YModem | XYModemVariant::YModemG => 1,
+                _ => 0,
+            },
             cur_file: 0,
             transfer_stopped: false,
         }
@@ -65,7 +68,7 @@ impl Sy {
         matches!(self.send_state, SendState::None)
     }
 
-    pub fn update(&mut self, com: &mut Connection, transfer_state: &Arc<Mutex<TransferState>>) -> TerminalResult<()> {
+    pub fn update(&mut self, com: &mut dyn DataConnection, transfer_state: &Arc<Mutex<TransferState>>) -> TerminalResult<()> {
         if let Ok(mut transfer_state) = transfer_state.lock() {
             transfer_state.update_time();
             let transfer_info = &mut transfer_state.send_state;
@@ -79,7 +82,7 @@ impl Sy {
             transfer_info.check_size = self.configuration.get_check_and_size();
             transfer_info.update_bps();
         }
-        // println!("send state: {:?} {:?}", self.send_state, self.configuration.variant);
+        println!("send state: {:?} {:?}", self.send_state, self.configuration.variant);
 
         match self.send_state {
             SendState::None => {}
@@ -198,9 +201,14 @@ impl Sy {
             }
             SendState::YModemEndHeader(step) => match step {
                 0 => {
-                    if self.read_command(com)? == NAK {
+                    let read_command = self.read_command(com)?;
+                    if read_command == NAK {
                         com.send(vec![EOT])?;
                         self.send_state = SendState::YModemEndHeader(1);
+                        return Ok(());
+                    }
+                    if read_command == ACK {
+                        self.send_state = SendState::None;
                         return Ok(());
                     }
                     self.cancel(com)?;
@@ -228,7 +236,7 @@ impl Sy {
         Ok(())
     }
 
-    fn check_eof(&mut self, com: &mut Connection) -> TerminalResult<()> {
+    fn check_eof(&mut self, com: &mut dyn DataConnection) -> TerminalResult<()> {
         if self.bytes_send >= self.files[self.cur_file].size {
             self.eot(com)?;
             if self.configuration.is_ymodem() {
@@ -241,9 +249,10 @@ impl Sy {
     }
 
     #[allow(clippy::unused_self)]
-    fn read_command(&self, com: &mut Connection) -> TerminalResult<u8> {
+    fn read_command(&self, com: &mut dyn DataConnection) -> TerminalResult<u8> {
         let ch = com.read_u8()?;
-        /* let cmd = match ch {
+        /*
+         let cmd = match ch {
             b'C' => "[C]",
             EOT => "[EOT]",
             ACK => "[ACK]",
@@ -251,24 +260,21 @@ impl Sy {
             CAN => "[CAN]",
             _ => ""
         };
-
-        if cmd.len() > 0 {
-            "GOT CMD: {}", cmd);
-        } else {
-            println!("GOT CMD: #{} (0x{:X})", ch, ch);
-        }*/
+        println!("GOT CMD: #{} (0x{:X})", cmd, ch);*/
 
         Ok(ch)
     }
 
     #[allow(clippy::unused_self)]
-    fn eot(&self, com: &mut Connection) -> TerminalResult<usize> {
+    fn eot(&self, com: &mut dyn DataConnection) -> TerminalResult<usize> {
         // println!("[EOT]");
         com.send(vec![EOT])?;
+        self.read_command(com)?; // read ACK
+
         Ok(1)
     }
 
-    pub fn get_mode(&mut self, com: &mut Connection) -> TerminalResult<()> {
+    pub fn get_mode(&mut self, com: &mut dyn DataConnection) -> TerminalResult<()> {
         let ch = self.read_command(com)?;
         match ch {
             NAK => {
@@ -292,7 +298,7 @@ impl Sy {
         }
     }
 
-    fn send_block(&mut self, com: &mut Connection, data: &[u8], pad_byte: u8) -> TerminalResult<()> {
+    fn send_block(&mut self, com: &mut dyn DataConnection, data: &[u8], pad_byte: u8) -> TerminalResult<()> {
         let block_len = if data.len() <= DEFAULT_BLOCK_LENGTH { SOH } else { STX };
         let mut block = Vec::new();
         block.push(block_len);
@@ -317,7 +323,7 @@ impl Sy {
         Ok(())
     }
 
-    fn send_ymodem_header(&mut self, com: &mut Connection) -> TerminalResult<()> {
+    fn send_ymodem_header(&mut self, com: &mut dyn DataConnection) -> TerminalResult<()> {
         if self.cur_file < self.files.len() {
             // restart from 0
             let mut block = Vec::new();
@@ -334,7 +340,7 @@ impl Sy {
         }
     }
 
-    fn send_data_block(&mut self, com: &mut Connection, offset: usize) -> TerminalResult<bool> {
+    fn send_data_block(&mut self, com: &mut dyn DataConnection, offset: usize) -> TerminalResult<bool> {
         let data_len = self.data.len();
         if offset >= data_len {
             return Ok(false);
@@ -350,7 +356,7 @@ impl Sy {
         Ok(true)
     }
 
-    pub fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
+    pub fn cancel(&mut self, com: &mut dyn DataConnection) -> TerminalResult<()> {
         self.send_state = SendState::None;
         super::cancel(com)
     }
@@ -362,7 +368,7 @@ impl Sy {
         self.bytes_send = 0;
     }
 
-    pub fn end_ymodem(&mut self, com: &mut Connection) -> TerminalResult<()> {
+    pub fn end_ymodem(&mut self, com: &mut dyn DataConnection) -> TerminalResult<()> {
         self.send_block(com, &[0], 0)?;
         self.transfer_stopped = true;
         Ok(())

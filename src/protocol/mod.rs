@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::ui::connection::Connection;
+use crate::ui::connect::DataConnection;
 use crate::TerminalResult;
 use std::fs;
 use std::path::PathBuf;
@@ -239,16 +239,16 @@ impl TransferState {
 pub trait Protocol {
     fn update(
         &mut self,
-        com: &mut Connection,
+        com: &mut dyn DataConnection,
         transfer_state: &Arc<Mutex<TransferState>>,
         storage_handler: &mut dyn FileStorageHandler,
     ) -> TerminalResult<bool>;
 
-    fn initiate_send(&mut self, com: &mut Connection, files: Vec<FileDescriptor>, transfer_state: &mut TransferState) -> TerminalResult<()>;
+    fn initiate_send(&mut self, com: &mut dyn DataConnection, files: Vec<FileDescriptor>, transfer_state: &mut TransferState) -> TerminalResult<()>;
 
-    fn initiate_recv(&mut self, com: &mut Connection, transfer_state: &mut TransferState) -> TerminalResult<()>;
+    fn initiate_recv(&mut self, com: &mut dyn DataConnection, transfer_state: &mut TransferState) -> TerminalResult<()>;
 
-    fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()>;
+    fn cancel(&mut self, com: &mut dyn DataConnection) -> TerminalResult<()>;
 
     fn use_raw_transfer(&self) -> bool {
         false

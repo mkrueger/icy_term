@@ -1,8 +1,14 @@
+use crate::{Address, Terminal, TerminalResult};
 use std::{collections::VecDeque, sync::mpsc};
-
 use web_time::{Duration, Instant};
 
-use crate::{Address, Terminal, TerminalResult};
+pub trait DataConnection {
+    fn is_data_available(&mut self) -> TerminalResult<bool>;
+    fn read_buffer(&mut self) -> Vec<u8>;
+    fn read_u8(&mut self) -> TerminalResult<u8>;
+    fn read_exact(&mut self, size: usize) -> TerminalResult<Vec<u8>>;
+    fn send(&mut self, vec: Vec<u8>) -> TerminalResult<()>;
+}
 
 /// Connection is used for the ui and com thread to communicate.
 #[derive(Debug)]
@@ -13,6 +19,42 @@ pub struct Connection {
     pub tx: mpsc::Sender<SendData>,
     end_transfer: bool,
     buf: std::collections::VecDeque<u8>,
+}
+
+impl DataConnection for Connection {
+    fn is_data_available(&mut self) -> TerminalResult<bool> {
+        self.fill_buffer()?;
+        Ok(!self.buf.is_empty())
+    }
+
+    fn read_buffer(&mut self) -> Vec<u8> {
+        self.buf.drain(0..self.buf.len()).collect()
+    }
+
+    fn read_u8(&mut self) -> TerminalResult<u8> {
+        while !self.is_data_available()? {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        Ok(self.buf.pop_front().unwrap())
+    }
+
+    fn read_exact(&mut self, size: usize) -> TerminalResult<Vec<u8>> {
+        while self.buf.len() < size {
+            self.fill_buffer()?;
+            std::thread::sleep(Duration::from_millis(10));
+        }
+
+        Ok(self.buf.drain(0..size).collect())
+    }
+
+    fn send(&mut self, vec: Vec<u8>) -> TerminalResult<()> {
+        if let Err(err) = self.tx.send(SendData::Data(vec)) {
+            log::error!("Error sending data: {err}");
+            self.is_connected = false;
+            self.disconnect()?;
+        }
+        Ok(())
+    }
 }
 
 impl Connection {
@@ -34,15 +76,6 @@ impl Connection {
 
     pub fn get_connection_time(&self) -> Instant {
         self.connection_time
-    }
-
-    pub fn send(&mut self, vec: Vec<u8>) -> TerminalResult<()> {
-        if let Err(err) = self.tx.send(SendData::Data(vec)) {
-            log::error!("Error sending data: {err}");
-            self.is_connected = false;
-            self.disconnect()?;
-        }
-        Ok(())
     }
 
     pub fn update_state(&mut self) -> TerminalResult<()> {
@@ -82,7 +115,9 @@ impl Connection {
                         self.end_transfer = true;
                         return Err(anyhow::anyhow!("Connection aborted while fill_buffer: {err}"));
                     }
-                    _ => {}
+                    _ => {
+                        return Err(anyhow::anyhow!("Unsupported send data: {data:?}"));
+                    }
                 },
 
                 Err(err) => match err {
@@ -95,15 +130,6 @@ impl Connection {
             }
         }
         Ok(())
-    }
-
-    pub fn is_data_available(&mut self) -> TerminalResult<bool> {
-        self.fill_buffer()?;
-        Ok(!self.buf.is_empty())
-    }
-
-    pub fn read_buffer(&mut self) -> Vec<u8> {
-        self.buf.drain(0..self.buf.len()).collect()
     }
 
     pub fn disconnect(&self) -> TerminalResult<()> {
@@ -124,31 +150,15 @@ impl Connection {
         self.is_connected
     }
 
-    pub(crate) fn set_baud_rate(&self, baud_rate: u32) -> TerminalResult<()> {
+    pub fn set_baud_rate(&self, baud_rate: u32) -> TerminalResult<()> {
         self.tx.send(SendData::SetBaudRate(baud_rate))?;
         Ok(())
     }
 
-    pub(crate) fn connect(&self, call_adr: &Address, timeout: Duration, window_size: icy_engine::Size) -> TerminalResult<()> {
+    pub fn connect(&self, call_adr: &Address, timeout: Duration, window_size: icy_engine::Size) -> TerminalResult<()> {
         self.tx
             .send(SendData::OpenConnection(OpenConnectionData::from(call_adr, timeout, window_size)))?;
         Ok(())
-    }
-
-    pub(crate) fn read_u8(&mut self) -> TerminalResult<u8> {
-        while !self.is_data_available()? {
-            std::thread::sleep(Duration::from_millis(10));
-        }
-        Ok(self.buf.pop_front().unwrap())
-    }
-
-    pub(crate) fn read_exact(&mut self, size: usize) -> TerminalResult<Vec<u8>> {
-        while self.buf.len() < size {
-            self.fill_buffer()?;
-            std::thread::sleep(Duration::from_millis(10));
-        }
-
-        Ok(self.buf.drain(0..size).collect())
     }
 }
 
@@ -192,4 +202,40 @@ pub enum SendData {
     CancelTransfer,
     SetBaudRate(u32),
     SetRawMode(bool),
+}
+
+#[cfg(test)]
+pub struct TestConnection {
+    buffer: std::collections::VecDeque<u8>,
+}
+
+#[cfg(test)]
+impl TestConnection {
+    pub fn new() -> Self {
+        Self { buffer: VecDeque::new() }
+    }
+}
+
+#[cfg(test)]
+impl DataConnection for TestConnection {
+    fn is_data_available(&mut self) -> TerminalResult<bool> {
+        Ok(!self.buffer.is_empty())
+    }
+
+    fn read_buffer(&mut self) -> Vec<u8> {
+        self.buffer.drain(0..self.buffer.len()).collect()
+    }
+
+    fn read_u8(&mut self) -> TerminalResult<u8> {
+        Ok(self.buffer.pop_front().unwrap())
+    }
+
+    fn read_exact(&mut self, size: usize) -> TerminalResult<Vec<u8>> {
+        Ok(self.buffer.drain(..size).collect())
+    }
+
+    fn send(&mut self, vec: Vec<u8>) -> TerminalResult<()> {
+        self.buffer.extend(vec);
+        Ok(())
+    }
 }

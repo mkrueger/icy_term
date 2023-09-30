@@ -7,7 +7,7 @@ use egui::Button;
 use i18n_embed_fl::fl;
 use icy_engine::{Position, Selection, TextPane};
 
-use crate::check_error;
+use crate::{check_error, ui::connect::DataConnection};
 
 use super::{dialogs, MainWindow, MainWindowMode};
 

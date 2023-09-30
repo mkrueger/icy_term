@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{ui::connection::Connection, TerminalResult};
+use crate::{ui::connect::DataConnection, TerminalResult};
 mod constants;
 mod err;
 mod ry;
@@ -48,7 +48,7 @@ impl XYmodem {
 impl super::Protocol for XYmodem {
     fn update(
         &mut self,
-        com: &mut Connection,
+        com: &mut dyn DataConnection,
         transfer_state: &Arc<Mutex<TransferState>>,
         storage_handler: &mut dyn FileStorageHandler,
     ) -> TerminalResult<bool> {
@@ -68,7 +68,7 @@ impl super::Protocol for XYmodem {
         Ok(true)
     }
 
-    fn initiate_send(&mut self, _com: &mut Connection, files: Vec<FileDescriptor>, transfer_state: &mut TransferState) -> TerminalResult<()> {
+    fn initiate_send(&mut self, _com: &mut dyn DataConnection, files: Vec<FileDescriptor>, transfer_state: &mut TransferState) -> TerminalResult<()> {
         if !self.config.is_ymodem() && files.len() != 1 {
             return Err(TransmissionError::XModem1File.into());
         }
@@ -85,7 +85,7 @@ impl super::Protocol for XYmodem {
         Ok(())
     }
 
-    fn initiate_recv(&mut self, com: &mut Connection, transfer_state: &mut TransferState) -> TerminalResult<()> {
+    fn initiate_recv(&mut self, com: &mut dyn DataConnection, transfer_state: &mut TransferState) -> TerminalResult<()> {
         let mut ry = ry::Ry::new(self.config);
         ry.recv(com)?;
         self.ry = Some(ry);
@@ -95,7 +95,7 @@ impl super::Protocol for XYmodem {
         Ok(())
     }
 
-    fn cancel(&mut self, com: &mut Connection) -> TerminalResult<()> {
+    fn cancel(&mut self, com: &mut dyn DataConnection) -> TerminalResult<()> {
         cancel(com)
     }
 
@@ -104,7 +104,7 @@ impl super::Protocol for XYmodem {
     }
 }
 
-fn cancel(com: &mut Connection) -> TerminalResult<()> {
+fn cancel(com: &mut dyn DataConnection) -> TerminalResult<()> {
     com.send(vec![CAN, CAN, CAN, CAN, CAN, CAN])?;
     Ok(())
 }
