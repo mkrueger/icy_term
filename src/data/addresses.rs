@@ -554,7 +554,7 @@ fn parse_address(value: &Value) -> Address {
                             }
                         }
                         let mut height = 25;
-                        if let Some(h) = caps.get(1) {
+                        if let Some(h) = caps.get(2) {
                             if let Ok(h) = h.as_str().parse::<i32>() {
                                 height = h;
                             }
