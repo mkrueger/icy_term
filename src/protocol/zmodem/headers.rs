@@ -190,7 +190,7 @@ impl Header {
     }
 
     pub fn write(&self, com: &mut dyn DataConnection, header_type: HeaderType, escape_ctrl_chars: bool) -> TerminalResult<usize> {
-        println!("send header:{:?}  - {:?}", header_type, self);
+        //println!("send header:{:?}  - {:?}", header_type, self);
         com.send(self.build(header_type, escape_ctrl_chars))?;
         Ok(12)
     }

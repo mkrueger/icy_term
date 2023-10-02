@@ -3,7 +3,6 @@ mod zmodem_test {
     use std::sync::{Arc, Mutex};
 
     use crate::{
-        com::TestChannel,
         protocol::{
             str_from_null_terminated_utf8_unchecked, zmodem::rz::read_subpacket, FileDescriptor, Header, HeaderType, Protocol, TestStorageHandler,
             TransferState, ZFrameType, Zmodem,
