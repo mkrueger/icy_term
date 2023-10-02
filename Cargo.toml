@@ -10,18 +10,18 @@ repository = "https://github.com/mkrueger/icy_term"
 [build]
 rustflags = ["-Clinker=rust-lld"]
 [dependencies]
-egui = "0.22.0"
-eframe = { version = "0.22.0", default-features = false, features = [
+egui = "0.23.0"
+eframe = { version = "0.23.0", default-features = false, features = [
     "accesskit",     # Make egui comptaible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
     "persistence",   # Enable restoring app state when restarting the app.
 ] }
-egui_extras = { version="0.22.0" }
-egui_glow = "0.22.0"
-egui-modal = "=0.2.4"
-egui-bind = "0.7.0"
-egui_file = "0.10.0"
+egui_extras = { version="0.23.0" }
+egui_glow = "0.23.0"
+egui-modal = "0.2.5"
+egui-bind = "0.8.0"
+egui_file = "0.11.0"
 glow = "0.12.2"
 dark-light = "1.0.0"
 serde = "1.0.185"
