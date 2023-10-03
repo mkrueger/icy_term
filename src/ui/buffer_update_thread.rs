@@ -6,7 +6,7 @@ use crate::{
 };
 use egui::mutex::Mutex;
 use icy_engine_egui::BufferView;
-use std::{collections::VecDeque, sync::Arc, thread};
+use std::{sync::Arc, thread};
 use web_time::{Duration, Instant};
 
 use super::{
@@ -30,8 +30,10 @@ pub struct BufferUpdateThread {
 
 impl BufferUpdateThread {
     pub fn update_state(&mut self, ctx: &egui::Context) -> TerminalResult<bool> {
-        let r: Result<_, _> = self.sound_thread.lock().update_state();
-        //        check_error!(self, r, false);
+        let r = self.sound_thread.lock().update_state();
+        if let Err(err) = r {
+            log::error!("{err}");
+        }
 
         let data = if let Some(con) = self.connection.lock().as_mut() {
             con.update_state()?;
@@ -41,7 +43,7 @@ impl BufferUpdateThread {
             if con.is_data_available()? {
                 con.read_buffer()
             } else {
-                VecDeque::new()
+                Vec::new()
             }
         } else {
             return Ok(false);
@@ -49,8 +51,8 @@ impl BufferUpdateThread {
         Ok(self.update_buffer(ctx, data))
     }
 
-    fn update_buffer(&mut self, ctx: &egui::Context, mut data: std::collections::VecDeque<u8>) -> bool {
-        self.capture_dialog.append_data(&mut data);
+    fn update_buffer(&mut self, ctx: &egui::Context, data: Vec<u8>) -> bool {
+        self.capture_dialog.append_data(&data);
         let has_data = !data.is_empty();
         let mut set_buffer_dirty = false;
         if !data.is_empty() {
@@ -58,33 +60,31 @@ impl BufferUpdateThread {
         }
         let buffer_view = &mut self.buffer_view.lock();
 
-        while !data.is_empty() {
-            let ch = data.pop_front().unwrap();
-            if let Some(autologin) = &mut self.auto_login {
+        for ch in data {
+         if let Some(autologin) = &mut self.auto_login {
                 if let Some(con) = self.connection.lock().as_mut() {
                     if let Err(err) = autologin.try_login(con, ch) {
                         log::error!("{err}");
                     }
-                    if autologin.logged_in {
-                        self.auto_login = None;
-                    }
                 }
             }
+            /* 
             match ch {
                 b'\\' => print!("\\\\"),
                 b'\n' => println!("\\n"),
                 b'\r' => print!("\\r"),
                 b'\"' => print!("\\\""),
                 _ => {
-                    if ch < b' ' || ch == b'\x7F' {
+                    if *ch < b' ' || *ch == b'\x7F' {
                         print!("\\x{ch:02X}");
-                    } else if ch > b'\x7F' {
+                    } else if *ch > b'\x7F' {
                         print!("\\u{{{ch:02X}}}");
                     } else {
-                        print!("{}", char::from_u32(ch as u32).unwrap());
+                        print!("{}", *ch as char);
                     }
                 }
-            }
+            }*/
+            
             if self.print_char(buffer_view, ch) {
                 set_buffer_dirty = true;
             }
@@ -102,20 +102,6 @@ impl BufferUpdateThread {
             ctx.request_repaint();
             return false;
         }
-        /*
-            if self.get_options().iemsi.autologin {
-            if let Some(adr) = self.dialing_directory_dialog.addresses.addresses.get(self.dialing_directory_dialog.cur_addr) {
-                if let Some(con) = &mut self.buffer_update_thread.lock().connection {
-                    if con.is_connected() {
-                        if let Err(err) = self.auto_login.run_autologin(con, adr) {
-                            log::error!("{err}");
-                        }
-                    }
-                }
-            }
-        }*/
-        /*
-        */
         true
     }
 
@@ -123,7 +109,6 @@ impl BufferUpdateThread {
         let result = buffer_view.print_char(c as char);
         match result {
             Ok(icy_engine::CallbackAction::SendString(result)) => {
-                println!("send string: '{}'", result.replace("\x1B", "\\x1b"));
                 if let Some(con) = self.connection.lock().as_mut() {
                     if con.is_connected() {
                         let r = con.send(result.as_bytes().to_vec());

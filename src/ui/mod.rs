@@ -12,9 +12,8 @@ use std::time::Instant;
 
 use eframe::egui::Key;
 
-use crate::features::{AutoFileTransfer, AutoLogin};
+use crate::features::AutoLogin;
 use crate::ui::connect::DataConnection;
-use crate::util::SoundThread;
 use crate::Options;
 use crate::{protocol::FileDescriptor, TerminalResult};
 

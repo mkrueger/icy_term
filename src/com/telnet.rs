@@ -309,6 +309,7 @@ impl ComTelnetImpl {
         let tcp_stream = TcpStream::connect(&connection_data.address)?;
         tcp_stream.set_write_timeout(Some(Duration::from_millis(2000)))?;
         tcp_stream.set_read_timeout(Some(Duration::from_millis(2000)))?;
+        tcp_stream.set_nonblocking(true)?;
         Ok(Self {
             tcp_stream,
             state: ParserState::Data,
@@ -318,9 +319,9 @@ impl ComTelnetImpl {
         })
     }
 
-    fn parse(&mut self, data: &[u8]) -> TermComResult<Option<Vec<u8>>> {
+    fn parse(&mut self, data: &[u8]) -> TermComResult<Vec<u8>> {
         if self.use_raw_transfer {
-            return Ok(Some(data.to_vec()));
+            return Ok(data.to_vec());
         }
         let mut buf = Vec::with_capacity(data.len());
         for b in data {
@@ -460,7 +461,7 @@ impl ComTelnetImpl {
                 }
             }
         }
-        Ok(Some(buf))
+        Ok(buf)
     }
 }
 
@@ -483,23 +484,32 @@ impl Com for ComTelnetImpl {
 
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
         let mut buf = [0; 1024 * 256];
-        self.tcp_stream.set_nonblocking(false)?;
-        if self.tcp_stream.peek(&mut buf)? == 0 {
-            return Ok(None);
-        }
 
         match self.tcp_stream.read(&mut buf) {
             Ok(size) => {
-                self.tcp_stream.set_nonblocking(true)?;
-
-                if self.use_raw_transfer {
-                    Ok(Some(buf[0..size].to_vec()))
-                } else {
-                    self.parse(&buf[0..size])
-                }
+                let data = self.parse(&buf[0..size])?;
+                /* 
+                for ch in &data {
+                    let ch = *ch;
+                    match ch {
+                        b'\\' => print!("\\\\"),
+                        b'\n' => println!("\\n"),
+                        b'\r' => print!("\\r"),
+                        b'\"' => print!("\\\""),
+                        _ => {
+                            if ch < b' ' || ch == b'\x7F' {
+                                print!("\\x{ch:02X}");
+                            } else if ch > b'\x7F' {
+                                print!("\\u{{{ch:02X}}}");
+                            } else {
+                                print!("{}", ch as char);
+                            }
+                        }
+                    }
+                }*/
+                Ok(Some(data))
             }
             Err(ref e) => {
-                self.tcp_stream.set_nonblocking(true)?;
                 if e.kind() == io::ErrorKind::WouldBlock {
                     return Ok(None);
                 }

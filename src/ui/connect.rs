@@ -1,10 +1,10 @@
 use crate::{Address, Terminal, TerminalResult};
-use std::{collections::VecDeque, mem, sync::mpsc};
+use std::{collections::VecDeque, sync::mpsc};
 use web_time::{Duration, Instant};
 
 pub trait DataConnection {
     fn is_data_available(&mut self) -> TerminalResult<bool>;
-    fn read_buffer(&mut self) -> VecDeque<u8>;
+    fn read_buffer(&mut self) -> Vec<u8>;
     fn read_u8(&mut self) -> TerminalResult<u8>;
     fn read_exact(&mut self, size: usize) -> TerminalResult<Vec<u8>>;
     fn send(&mut self, vec: Vec<u8>) -> TerminalResult<()>;
@@ -18,7 +18,7 @@ pub struct Connection {
     pub rx: mpsc::Receiver<SendData>,
     pub tx: mpsc::Sender<SendData>,
     end_transfer: bool,
-    buf: VecDeque<u8>,
+    buf: std::collections::VecDeque<u8>,
 }
 
 impl DataConnection for Connection {
@@ -27,10 +27,8 @@ impl DataConnection for Connection {
         Ok(!self.buf.is_empty())
     }
 
-    fn read_buffer(&mut self) -> std::collections::VecDeque<u8> {
-        let mut result = VecDeque::new();
-        mem::swap(&mut result, &mut self.buf);
-        result
+    fn read_buffer(&mut self) -> Vec<u8> {
+        self.buf.drain(0..self.buf.len()).collect()
     }
 
     fn read_u8(&mut self) -> TerminalResult<u8> {
@@ -162,12 +160,6 @@ impl Connection {
             .send(SendData::OpenConnection(OpenConnectionData::from(call_adr, timeout, window_size)))?;
         Ok(())
     }
-
-    pub(crate) fn push_data_back(&mut self, mut data: VecDeque<u8>) {
-        while !data.is_empty() {
-            self.buf.push_front(data.pop_back().unwrap());
-        }
-    }
 }
 
 /// A more lightweight version of `Address` that is used for the connection
@@ -256,10 +248,9 @@ impl DataConnection for TestConnection {
         Ok(!self.get_recv_buffer().is_empty())
     }
 
-    fn read_buffer(&mut self) -> VecDeque<u8> {
-        let mut result = VecDeque::new();
-        mem::swap(&mut result, self.get_recv_buffer());
-        result
+    fn read_buffer(&mut self) -> Vec<u8> {
+        let len = self.get_recv_buffer().len();
+        self.get_recv_buffer().drain(0..len).collect()
     }
 
     fn read_u8(&mut self) -> TerminalResult<u8> {
