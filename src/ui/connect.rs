@@ -35,8 +35,6 @@ impl DataConnection for Connection {
 
     fn read_u8(&mut self) -> TerminalResult<u8> {
         while !self.is_data_available()? {
-            println!("sleep7");
-
             std::thread::sleep(Duration::from_millis(10));
         }
         Ok(self.buf.pop_front().unwrap())
@@ -45,8 +43,6 @@ impl DataConnection for Connection {
     fn read_exact(&mut self, size: usize) -> TerminalResult<Vec<u8>> {
         while self.buf.len() < size {
             self.fill_buffer()?;
-            println!("sleep8");
-
             std::thread::sleep(Duration::from_millis(10));
         }
 

@@ -162,13 +162,9 @@ impl MainWindow {
             while data.thread_is_running {
                 if data.is_connected {
                     if !data.read_data() {
-                        println!("sleep5");
-
                         std::thread::sleep(Duration::from_millis(25));
                     }
                 } else {
-                    println!("sleep6");
-
                     std::thread::sleep(Duration::from_millis(100));
                 }
                 data.handle_receive();

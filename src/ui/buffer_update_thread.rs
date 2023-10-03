@@ -70,7 +70,21 @@ impl BufferUpdateThread {
                     }
                 }
             }
-
+            match ch {
+                b'\\' => print!("\\\\"),
+                b'\n' => println!("\\n"),
+                b'\r' => print!("\\r"),
+                b'\"' => print!("\\\""),
+                _ => {
+                    if ch < b' ' || ch == b'\x7F' {
+                        print!("\\x{ch:02X}");
+                    } else if ch > b'\x7F' {
+                        print!("\\u{{{ch:02X}}}");
+                    } else {
+                        print!("{}", char::from_u32(ch as u32).unwrap());
+                    }
+                }
+            }
             if self.print_char(buffer_view, ch) {
                 set_buffer_dirty = true;
             }
@@ -78,12 +92,14 @@ impl BufferUpdateThread {
                 self.auto_transfer = Some((protocol_type, download));
             }
         }
+        
         if has_data {
             buffer_view.get_buffer_mut().update_hyperlinks();
         }
         if set_buffer_dirty {
             self.last_update = Instant::now();
             buffer_view.get_edit_state_mut().is_buffer_dirty = true;
+            ctx.request_repaint();
             return false;
         }
         /*
@@ -98,24 +114,8 @@ impl BufferUpdateThread {
                 }
             }
         }*/
-
         /*
-        match ch {
-            b'\\' => print!("\\\\"),
-            b'\n' => println!("\\n"),
-            b'\r' => print!("\\r"),
-            b'\"' => print!("\\\""),
-            _ => {
-                if ch < b' ' || ch == b'\x7F' {
-                    print!("\\x{ch:02X}");
-                } else if ch > b'\x7F' {
-                    print!("\\u{{{ch:02X}}}");
-                } else {
-                    print!("{}", char::from_u32(ch as u32).unwrap());
-                }
-            }
-        }*/
-
+        */
         true
     }
 
@@ -123,25 +123,34 @@ impl BufferUpdateThread {
         let result = buffer_view.print_char(c as char);
         match result {
             Ok(icy_engine::CallbackAction::SendString(result)) => {
+                println!("send string: '{}'", result.replace("\x1B", "\\x1b"));
                 if let Some(con) = self.connection.lock().as_mut() {
                     if con.is_connected() {
                         let r = con.send(result.as_bytes().to_vec());
-                        // check_error!(self, r, false);
+                        if let Err(r) = r {
+                            log::error!("{r}");
+                        }
                     }
                 }
             }
             Ok(icy_engine::CallbackAction::PlayMusic(music)) => {
                 let r = self.sound_thread.lock().play_music(music);
-                //    check_error!(self, r, false);
+                if let Err(r) = r {
+                    log::error!("{r}");
+                }
             }
             Ok(icy_engine::CallbackAction::Beep) => {
                 let r = self.sound_thread.lock().beep();
-                //  check_error!(self, r, false);
+                if let Err(r) = r {
+                    log::error!("{r}");
+                }
             }
             Ok(icy_engine::CallbackAction::ChangeBaudEmulation(baud_emulation)) => {
                 if let Some(con) = self.connection.lock().as_mut() {
                     let r = con.set_baud_rate(baud_emulation.get_baud_rate());
-                    //    check_error!(self, r, false);
+                    if let Err(r) = r {
+                        log::error!("{r}");
+                    }
                 }
             }
             Ok(icy_engine::CallbackAction::ResizeTerminal(_, _)) => {
