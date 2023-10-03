@@ -1,15 +1,12 @@
 use std::collections::VecDeque;
 use std::io::Write;
 
-use crate::ui::MainWindowState;
 use eframe::egui::{self, RichText};
 use egui::TextEdit;
 use egui::{Frame, Layout};
 use egui_file::FileDialog;
 use i18n_embed_fl::fl;
 use std::path::Path;
-
-use crate::{ui::MainWindowMode, Options};
 
 #[derive(Default)]
 pub struct DialogState {

@@ -13,7 +13,17 @@ pub fn show_iemsi(window: &mut MainWindow, ctx: &egui::Context) {
         open = false;
     }
     let window_frame = Frame::window(&ctx.style());
-    let iemsi = window.auto_login.iemsi.isi.as_ref().unwrap().clone();
+    let iemsi = window
+        .buffer_update_thread
+        .lock()
+        .auto_login
+        .as_ref()
+        .unwrap()
+        .iemsi
+        .isi
+        .as_ref()
+        .unwrap()
+        .clone();
 
     egui::Window::new("")
         .open(&mut open)

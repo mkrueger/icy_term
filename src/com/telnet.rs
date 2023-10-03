@@ -307,6 +307,7 @@ mod telnet_option {
 impl ComTelnetImpl {
     pub fn connect(connection_data: &super::OpenConnectionData) -> TermComResult<Self> {
         let tcp_stream = TcpStream::connect(&connection_data.address)?;
+        tcp_stream.set_nonblocking(true)?;
         tcp_stream.set_write_timeout(Some(Duration::from_millis(2000)))?;
         tcp_stream.set_read_timeout(Some(Duration::from_millis(2000)))?;
         Ok(Self {
@@ -482,15 +483,9 @@ impl Com for ComTelnetImpl {
     }
 
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
-        let mut buf = [0; 1024 * 256];
-        if self.tcp_stream.peek(&mut buf)? == 0 {
-            return Ok(None);
-        }
-
+        let mut buf = [0; 1024 * 8];
         match self.tcp_stream.read(&mut buf) {
             Ok(size) => {
-                self.tcp_stream.set_nonblocking(true)?;
-
                 if self.use_raw_transfer {
                     Ok(Some(buf[0..size].to_vec()))
                 } else {
@@ -498,7 +493,6 @@ impl Com for ComTelnetImpl {
                 }
             }
             Err(ref e) => {
-                self.tcp_stream.set_nonblocking(true)?;
                 if e.kind() == io::ErrorKind::WouldBlock {
                     return Ok(None);
                 }
@@ -526,6 +520,8 @@ impl Com for ComTelnetImpl {
             Ok(()) => Ok(buf.len()),
             Err(ref e) => {
                 if e.kind() == io::ErrorKind::WouldBlock {
+                    println!("sleep2");
+
                     std::thread::sleep(Duration::from_millis(100));
                     return self.send(buf);
                 }

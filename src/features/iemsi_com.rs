@@ -6,9 +6,8 @@ use std::fmt;
 use icy_engine::{get_crc16, get_crc32, update_crc32};
 
 use crate::{
-    addresses::Address,
     ui::connect::{Connection, DataConnection},
-    Options, TerminalResult, VERSION,
+    IEMSISettings, TerminalResult, VERSION,
 };
 
 /// EMSI Inquiry is transmitted by the calling system to identify it as
@@ -399,6 +398,7 @@ pub struct IEmsi {
     pub got_invalid_isi: bool,
     isi_data: Vec<u8>,
 
+    pub settings: IEMSISettings,
     pub aborted: bool,
     logged_in: bool,
 }
@@ -513,11 +513,11 @@ impl IEmsi {
         Ok(false)
     }
 
-    pub fn try_login(&mut self, con: &mut Connection, adr: &Address, ch: u8, options: &Options) -> TerminalResult<bool> {
+    pub fn try_login(&mut self, con: &mut Connection, user_name: &str, password: &str, ch: u8) -> TerminalResult<bool> {
         if self.aborted {
             return Ok(false);
         }
-        if let Some(data) = self.advance_char(adr, ch, options)? {
+        if let Some(data) = self.advance_char(user_name, password, ch)? {
             if con.is_connected() {
                 con.send(data)?;
             }
@@ -525,7 +525,7 @@ impl IEmsi {
         Ok(self.logged_in)
     }
 
-    pub fn advance_char(&mut self, adr: &Address, ch: u8, options: &Options) -> TerminalResult<Option<Vec<u8>>> {
+    pub fn advance_char(&mut self, user_name: &str, password: &str, ch: u8) -> TerminalResult<Option<Vec<u8>>> {
         if self.aborted {
             return Ok(None);
         }
@@ -533,7 +533,7 @@ impl IEmsi {
         if self.irq_requested {
             self.irq_requested = false;
             // self.log_file.push("Starting IEMSI negotiation…".to_string());
-            let data = create_iemsi_ici(adr, options);
+            let data = create_iemsi_ici(user_name, password, &self.settings);
             return Ok(Some(data.encode()?));
         } else if let Some(_isi) = &self.isi {
             // self.log_file.push("Receiving valid IEMSI server info…".to_string());
@@ -551,7 +551,7 @@ impl IEmsi {
             self.nak_requested = false;
             if self.retries < 2 {
                 // self.log_file.push("IEMSI retry…".to_string());
-                let data = create_iemsi_ici(adr, options);
+                let data = create_iemsi_ici(user_name, password, &self.settings);
                 self.retries += 1;
                 return Ok(Some(data.encode()?));
             }
@@ -572,20 +572,15 @@ impl IEmsi {
     }
 }
 
-fn create_iemsi_ici(adr: &Address, options: &Options) -> EmsiICI {
+fn create_iemsi_ici(user_name: &str, password: &str, settings: &IEMSISettings) -> EmsiICI {
     let mut data = EmsiICI::new();
-    if adr.override_iemsi_settings {
-        data.name = adr.iemsi_user.clone();
-        data.password = adr.iemsi_password.clone();
-    } else {
-        data.name = adr.user_name.clone();
-        data.password = adr.password.clone();
-    }
-    data.location = options.iemsi.location.clone();
-    data.alias = options.iemsi.alias.clone();
-    data.data_telephone = options.iemsi.data_phone.clone();
-    data.voice_telephone = options.iemsi.voice_phone.clone();
-    data.birthdate = options.iemsi.birth_date.clone();
+    data.name = user_name.to_string();
+    data.password = password.to_string();
+    data.location = settings.location.clone();
+    data.alias = settings.alias.clone();
+    data.data_telephone = settings.data_phone.clone();
+    data.voice_telephone = settings.voice_phone.clone();
+    data.birthdate = settings.birth_date.clone();
     data
 }
 
@@ -690,6 +685,8 @@ fn encode_emsi(data: &[&str]) -> TerminalResult<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::field_reassign_with_default)]
+    use crate::{Address, Options};
+
     use super::*;
 
     #[test]
@@ -808,7 +805,7 @@ mod tests {
 
         let mut back_data = Vec::new();
         for b in EMSI_IRQ {
-            if let Some(data) = state.advance_char(&adr, *b, &opt).unwrap() {
+            if let Some(data) = state.advance_char(&adr.user_name, &adr.password, *b).unwrap() {
                 back_data = data;
             }
         }

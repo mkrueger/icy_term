@@ -97,18 +97,13 @@ impl MainWindowState {
 pub struct MainWindow {
     buffer_view: Arc<eframe::epaint::mutex::Mutex<BufferView>>,
 
-    sound_thread: SoundThread,
-
     pub state: MainWindowState,
 
     screen_mode: ScreenMode,
-    auto_login: AutoLogin,
     is_fullscreen_mode: bool,
     drag_start: Option<Vec2>,
     last_pos: Position,
     shift_pressed_during_selection: bool,
-
-    auto_file_transfer: AutoFileTransfer,
 
     buffer_update_thread: Arc<egui::mutex::Mutex<BufferUpdateThread>>,
 
@@ -161,7 +156,7 @@ impl MainWindow {
         }
 
         if !print {
-            self.print_char(None, translated_char as u8);
+            self.print_char(translated_char as u8);
         }
     }
 
@@ -180,17 +175,18 @@ impl MainWindow {
                 print = false;
             }
         }
-        if !print {
+        if print {
             for ch in str.chars() {
                 let translated_char = self.buffer_view.lock().get_parser().convert_from_unicode(ch, 0);
-                self.print_char(None, translated_char as u8);
+                self.print_char(translated_char as u8);
             }
         }
     }
 
-    pub fn print_char(&self, ctx: Option<&egui::Context>, c: u8) -> bool {
-        self.buffer_view.lock().get_edit_state_mut().is_buffer_dirty = true;
-        self.buffer_update_thread.lock().print_char(ctx, c)
+    pub fn print_char(&self, c: u8) -> bool {
+        let buffer_view = &mut self.buffer_view.lock();
+        buffer_view.get_edit_state_mut().is_buffer_dirty = true;
+        self.buffer_update_thread.lock().print_char(buffer_view, c)
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -268,8 +264,8 @@ impl MainWindow {
             address.number_of_calls += 1;
             address.last_call = Some(Utc::now());
 
-            self.auto_login = AutoLogin::new(&cloned_addr.auto_login);
-            self.auto_file_transfer.reset();
+            self.buffer_update_thread.lock().auto_login = Some(AutoLogin::new(&cloned_addr.auto_login, address));
+            self.buffer_update_thread.lock().auto_file_transfer.reset();
             self.buffer_view.lock().get_buffer_mut().layers[0].clear();
             self.buffer_view.lock().get_buffer_mut().stop_sixel_threads();
             self.dialing_directory_dialog.cur_addr = i;
@@ -296,15 +292,18 @@ impl MainWindow {
         }
     }
 
-    pub fn update_state(&mut self, ctx: &egui::Context) -> TerminalResult<()> {
+    pub fn update_state(&mut self) -> TerminalResult<()> {
         #[cfg(target_arch = "wasm32")]
         self.poll_thread.poll();
         if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
             let r = con.update_state();
             check_error!(self, r, false);
         }
-        let r = self.sound_thread.update_state();
-        check_error!(self, r, false);
+
+        let take = self.buffer_update_thread.lock().auto_transfer.take();
+        if let Some((protocol_type, download)) = take {
+            self.initiate_file_transfer(protocol_type, download);
+        }
         Ok(())
     }
 
@@ -312,7 +311,7 @@ impl MainWindow {
         if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
             check_error!(self, con.disconnect(), false);
         }
-        self.sound_thread.clear();
+        self.buffer_update_thread.lock().sound_thread.lock().clear();
         self.set_mode(MainWindowMode::ShowDialingDirectory);
     }
 

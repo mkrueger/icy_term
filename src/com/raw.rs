@@ -60,6 +60,7 @@ impl Com for ComRawImpl {
             Ok(()) => Ok(buf.len()),
             Err(ref e) => {
                 if e.kind() == io::ErrorKind::WouldBlock {
+                    println!("sleep1");
                     std::thread::sleep(Duration::from_millis(100));
                     return self.send(buf);
                 }

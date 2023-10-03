@@ -7,10 +7,11 @@ use directories::UserDirs;
 use eframe::egui::{self};
 use egui::{mutex::Mutex, FontId};
 use icy_engine::Position;
+use web_time::Instant;
 
 use crate::{
     check_error,
-    features::{AutoFileTransfer, AutoLogin},
+    features::AutoFileTransfer,
     ui::{
         buffer_update_thread::BufferUpdateThread,
         dialogs::{self},
@@ -68,6 +69,11 @@ impl MainWindow {
             connection: Arc::new(Mutex::new(Some(Box::new(connection)))),
             buffer_view: buffer_update_view.clone(),
             capture_dialog: dialogs::capture_dialog::DialogState::default(),
+            last_update: Instant::now(),
+            auto_file_transfer: AutoFileTransfer::default(),
+            auto_transfer: None,
+            auto_login: None,
+            sound_thread: Arc::new(eframe::epaint::mutex::Mutex::new(SoundThread::new())),
         }));
 
         crate::ui::buffer_update_thread::run_update_thread(&cc.egui_ctx, buffer_update_thread.clone());
@@ -77,13 +83,10 @@ impl MainWindow {
             //address_list: HoverList::new(),
             state: MainWindowState { options, ..Default::default() },
             initial_upload_directory,
-            auto_login: AutoLogin::new(""),
-            auto_file_transfer: AutoFileTransfer::default(),
             screen_mode: ScreenMode::default(),
             current_file_transfer: None,
             #[cfg(target_arch = "wasm32")]
             poll_thread,
-            sound_thread: SoundThread::new(),
             is_fullscreen_mode,
             export_dialog: dialogs::export_dialog::DialogState::default(),
             upload_dialog: dialogs::upload_dialog::DialogState::default(),
@@ -160,19 +163,19 @@ impl eframe::App for MainWindow {
 
         match self.get_mode() {
             MainWindowMode::ShowTerminal => {
-                let res = self.update_state(ctx);
+                let res = self.update_state();
                 self.handle_terminal_key_binds(ctx, frame);
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowDialingDirectory => {
-                let res = self.update_state(ctx);
+                let res = self.update_state();
                 self.update_terminal_window(ctx, frame, true);
                 check_error!(self, res, false);
             }
             MainWindowMode::ShowSettings => {
-                let res = self.update_state(ctx);
+                let res = self.update_state();
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 self.state.show_settings(ctx, frame);
@@ -218,7 +221,7 @@ impl eframe::App for MainWindow {
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowCaptureDialog => {
-                let res = self.update_state(ctx);
+                let res = self.update_state();
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 if !self.buffer_update_thread.lock().capture_dialog.show_caputure_dialog(ctx) {
@@ -227,21 +230,21 @@ impl eframe::App for MainWindow {
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowExportDialog => {
-                let res = self.update_state(ctx);
+                let res = self.update_state();
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 self.show_export_dialog(ctx);
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowUploadDialog => {
-                let res = self.update_state(ctx);
+                let res = self.update_state();
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 self.show_upload_dialog(ctx);
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowIEMSI => {
-                let res = self.update_state(ctx);
+                let res = self.update_state();
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 dialogs::show_iemsi::show_iemsi(self, ctx);

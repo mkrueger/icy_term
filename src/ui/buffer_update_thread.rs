@@ -1,8 +1,13 @@
-use crate::TerminalResult;
+use crate::{
+    features::{AutoFileTransfer, AutoLogin},
+    protocol::TransferType,
+    util::SoundThread,
+    TerminalResult,
+};
 use egui::mutex::Mutex;
 use icy_engine_egui::BufferView;
 use std::{collections::VecDeque, sync::Arc, thread};
-use web_time::Duration;
+use web_time::{Duration, Instant};
 
 use super::{
     connect::{Connection, DataConnection},
@@ -14,14 +19,24 @@ pub struct BufferUpdateThread {
 
     pub buffer_view: Arc<Mutex<BufferView>>,
     pub connection: Arc<Mutex<Option<Box<Connection>>>>,
+
+    pub last_update: Instant,
+    pub auto_file_transfer: AutoFileTransfer,
+    pub auto_login: Option<AutoLogin>,
+    pub sound_thread: Arc<Mutex<SoundThread>>,
+
+    pub auto_transfer: Option<(TransferType, bool)>,
 }
 
 impl BufferUpdateThread {
-    pub fn update_state(&mut self, ctx: &egui::Context) -> TerminalResult<()> {
+    pub fn update_state(&mut self, ctx: &egui::Context) -> TerminalResult<bool> {
+        let r: Result<_, _> = self.sound_thread.lock().update_state();
+        //        check_error!(self, r, false);
+
         let data = if let Some(con) = self.connection.lock().as_mut() {
-            con.update_state();
+            con.update_state()?;
             if con.is_disconnected() {
-                return Ok(());
+                return Ok(false);
             }
             if con.is_data_available()? {
                 con.read_buffer()
@@ -29,50 +44,47 @@ impl BufferUpdateThread {
                 VecDeque::new()
             }
         } else {
-            thread::sleep(Duration::from_millis(100));
-            return Ok(());
+            return Ok(false);
         };
-
-        self.update_buffer(ctx, data);
-
-        Ok(())
+        Ok(self.update_buffer(ctx, data))
     }
 
-    fn update_buffer(&mut self, ctx: &egui::Context, mut data: std::collections::VecDeque<u8>) {
+    fn update_buffer(&mut self, ctx: &egui::Context, mut data: std::collections::VecDeque<u8>) -> bool {
         self.capture_dialog.append_data(&mut data);
         let has_data = !data.is_empty();
         let mut set_buffer_dirty = false;
+        if !data.is_empty() {
+            println!("data : {}", self.last_update.elapsed().as_millis());
+        }
+        let buffer_view = &mut self.buffer_view.lock();
+
         while !data.is_empty() {
             let ch = data.pop_front().unwrap();
-            /* if self.get_options().iemsi.autologin && self.connection().is_connected() {
-                if let Some(adr) = self.dialing_directory_dialog.addresses.addresses.get(self.dialing_directory_dialog.cur_addr) {
-                    if let Some(con) = &mut self.buffer_update_thread.lock().connection {
-                        if let Err(err) = self.auto_login.try_login(con, adr, ch, &self.state.options) {
-                            log::error!("{err}");
-                        }
+            if let Some(autologin) = &mut self.auto_login {
+                if let Some(con) = self.connection.lock().as_mut() {
+                    if let Err(err) = autologin.try_login(con, ch) {
+                        log::error!("{err}");
+                    }
+                    if autologin.logged_in {
+                        self.auto_login = None;
                     }
                 }
-            }*/
+            }
 
-            if self.print_char(Some(ctx), ch) {
+            if self.print_char(buffer_view, ch) {
                 set_buffer_dirty = true;
             }
-            /*
             if let Some((protocol_type, download)) = self.auto_file_transfer.try_transfer(ch) {
-                self.initiate_file_transfer(protocol_type, download);
-                return Ok(());
-            }*/
+                self.auto_transfer = Some((protocol_type, download));
+            }
         }
-
-        if set_buffer_dirty {
-            println!("set_buffer_dirty");
-            self.buffer_view.lock().get_edit_state_mut().is_buffer_dirty = true;
-        }
-
         if has_data {
-            self.buffer_view.lock().get_buffer_mut().update_hyperlinks();
-        } else {
-            thread::sleep(Duration::from_millis(10));
+            buffer_view.get_buffer_mut().update_hyperlinks();
+        }
+        if set_buffer_dirty {
+            self.last_update = Instant::now();
+            buffer_view.get_edit_state_mut().is_buffer_dirty = true;
+            return false;
         }
         /*
             if self.get_options().iemsi.autologin {
@@ -103,10 +115,12 @@ impl BufferUpdateThread {
                 }
             }
         }*/
+
+        true
     }
 
-    pub fn print_char(&self, ctx: Option<&egui::Context>, c: u8) -> bool {
-        let result = self.buffer_view.lock().print_char(unsafe { char::from_u32_unchecked(c as u32) });
+    pub fn print_char(&self, buffer_view: &mut BufferView, c: u8) -> bool {
+        let result = buffer_view.print_char(c as char);
         match result {
             Ok(icy_engine::CallbackAction::SendString(result)) => {
                 if let Some(con) = self.connection.lock().as_mut() {
@@ -117,14 +131,12 @@ impl BufferUpdateThread {
                 }
             }
             Ok(icy_engine::CallbackAction::PlayMusic(music)) => {
-                //    let r = self.sound_thread.play_music(music);
+                let r = self.sound_thread.lock().play_music(music);
                 //    check_error!(self, r, false);
             }
             Ok(icy_engine::CallbackAction::Beep) => {
-                /*  if self.get_options().console_beep {
-                    let r = self.sound_thread.beep();
-                  //  check_error!(self, r, false);
-                }*/
+                let r = self.sound_thread.lock().beep();
+                //  check_error!(self, r, false);
             }
             Ok(icy_engine::CallbackAction::ChangeBaudEmulation(baud_emulation)) => {
                 if let Some(con) = self.connection.lock().as_mut() {
@@ -133,7 +145,7 @@ impl BufferUpdateThread {
                 }
             }
             Ok(icy_engine::CallbackAction::ResizeTerminal(_, _)) => {
-                self.buffer_view.lock().redraw_view();
+                buffer_view.redraw_view();
             }
 
             Ok(icy_engine::CallbackAction::NoUpdate) => {
@@ -155,8 +167,15 @@ impl BufferUpdateThread {
 pub fn run_update_thread(ctx: &egui::Context, update_thread: Arc<Mutex<BufferUpdateThread>>) {
     let ctx = ctx.clone();
     thread::spawn(move || loop {
-        if let Err(err) = update_thread.lock().update_state(&ctx) {
-            log::error!("{err}");
+        match update_thread.lock().update_state(&ctx) {
+            Err(err) => {
+                log::error!("{err}");
+            }
+            Ok(sleep) => {
+                if sleep {
+                    thread::sleep(Duration::from_millis(10));
+                }
+            }
         }
     });
 }

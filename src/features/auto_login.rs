@@ -3,7 +3,7 @@ use web_time::Instant;
 use crate::{
     ui::connect::{Connection, DataConnection},
     util::PatternRecognizer,
-    Address, Options, TerminalResult,
+    Address, TerminalResult,
 };
 use std::time::Duration;
 
@@ -22,10 +22,19 @@ pub struct AutoLogin {
     got_name: bool,
     name_recognizer: PatternRecognizer,
     login_recognizer: PatternRecognizer,
+
+    user_name: String,
+    password: String,
 }
 
 impl AutoLogin {
-    pub fn new(login_expr: &str) -> Self {
+    pub fn new(login_expr: &str, adr: &Address) -> Self {
+        let (user_name, password) = if adr.override_iemsi_settings {
+            (adr.iemsi_user.clone(), adr.iemsi_password.clone())
+        } else {
+            (adr.user_name.clone(), adr.password.clone())
+        };
+
         Self {
             logged_in: false,
             disabled: false,
@@ -38,6 +47,8 @@ impl AutoLogin {
             got_name: false,
             name_recognizer: PatternRecognizer::from(b"NAME", true),
             login_recognizer: PatternRecognizer::from(b"LOGIN:", true),
+            user_name,
+            password,
         }
     }
 
@@ -107,11 +118,11 @@ impl AutoLogin {
         Ok(true)
     }
 
-    pub fn try_login(&mut self, connection: &mut Connection, adr: &Address, ch: u8, options: &Options) -> TerminalResult<()> {
+    pub fn try_login(&mut self, connection: &mut Connection, ch: u8) -> TerminalResult<()> {
         if self.logged_in || self.disabled {
             return Ok(());
         }
-        if adr.user_name.is_empty() || adr.password.is_empty() {
+        if self.user_name.is_empty() || self.password.is_empty() {
             self.logged_in = true;
             return Ok(());
         }
@@ -123,7 +134,7 @@ impl AutoLogin {
         self.last_char_recv = Instant::now();
         self.got_name |= self.name_recognizer.push_ch(ch) | self.login_recognizer.push_ch(ch);
 
-        self.logged_in |= self.iemsi.try_login(connection, adr, ch, options)?;
+        self.logged_in |= self.iemsi.try_login(connection, &self.user_name, &self.password, ch)?;
         Ok(())
     }
 
