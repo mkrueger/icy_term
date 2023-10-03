@@ -27,6 +27,7 @@ pub mod util;
 pub use util::*;
 
 use self::buffer_update_thread::BufferUpdateThread;
+use self::connect::Connection;
 use self::file_transfer_thread::FileTransferThread;
 pub mod dialogs;
 
@@ -95,6 +96,7 @@ impl MainWindowState {
 
 pub struct MainWindow {
     buffer_view: Arc<eframe::epaint::mutex::Mutex<BufferView>>,
+    pub connection: Arc<eframe::epaint::mutex::Mutex<Option<Box<Connection>>>>,
 
     pub state: MainWindowState,
 
@@ -146,7 +148,7 @@ impl MainWindow {
     pub fn output_char(&mut self, ch: char) {
         let translated_char = self.buffer_view.lock().get_parser().convert_from_unicode(ch, 0);
         let mut print = true;
-        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+        if let Some(con) = self.connection.lock().as_mut() {
             if con.is_connected() {
                 let r = con.send(vec![translated_char as u8]);
                 check_error!(self, r, false);
@@ -154,7 +156,7 @@ impl MainWindow {
             }
         }
 
-        if !print {
+        if print {
             self.print_char(translated_char as u8);
         }
     }
@@ -162,7 +164,7 @@ impl MainWindow {
     pub fn output_string(&self, str: &str) {
         let mut print = true;
 
-        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+        if let Some(con) = self.connection.lock().as_mut() {
             if con.is_connected() {
                 let mut v = Vec::new();
                 for ch in str.chars() {
@@ -200,7 +202,7 @@ impl MainWindow {
 
         let r = crate::protocol::DiskStorageHandler::new();
         check_error!(self, r, false);
-        if let Some(mut con) = self.buffer_update_thread.lock().connection.lock().take() {
+        if let Some(mut con) = self.connection.lock().take() {
             con.start_transfer();
             self.current_file_transfer = Some(FileTransferThread::new(con, protocol_type, download, files_opt));
         }
@@ -208,7 +210,7 @@ impl MainWindow {
 
     pub(crate) fn initiate_file_transfer(&mut self, protocol_type: crate::protocol::TransferType, download: bool) {
         self.set_mode(MainWindowMode::ShowTerminal);
-        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+        if let Some(con) = self.connection.lock().as_mut() {
             if con.is_disconnected() {
                 return;
             }
@@ -283,7 +285,7 @@ impl MainWindow {
 
         let timeout = self.get_options().connect_timeout;
         let window_size = self.screen_mode.get_window_size();
-        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+        if let Some(con) = self.connection.lock().as_mut() {
             let r = con.connect(&cloned_addr, timeout, window_size);
             check_error!(self, r, false);
             let r = con.set_baud_rate(cloned_addr.baud_emulation.get_baud_rate());
@@ -294,7 +296,7 @@ impl MainWindow {
     pub fn update_state(&mut self) -> TerminalResult<()> {
         #[cfg(target_arch = "wasm32")]
         self.poll_thread.poll();
-        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+        if let Some(con) = self.connection.lock().as_mut() {
             let r = con.update_state();
             check_error!(self, r, false);
         }
@@ -307,7 +309,7 @@ impl MainWindow {
     }
 
     pub fn hangup(&mut self) {
-        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+        if let Some(con) = self.connection.lock().as_mut() {
             check_error!(self, con.disconnect(), false);
         }
         self.buffer_update_thread.lock().sound_thread.lock().clear();
@@ -315,7 +317,7 @@ impl MainWindow {
     }
 
     pub fn send_login(&mut self) {
-        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+        if let Some(con) = self.connection.lock().as_mut() {
             if con.is_disconnected() {
                 return;
             }
@@ -345,12 +347,12 @@ impl MainWindow {
         }
 
         self.output_string(&user_name);
-        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+        if let Some(con) = self.connection.lock().as_mut() {
             let r = con.send(cr.clone());
             check_error!(self, r, false);
         }
         self.output_string(&password);
-        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+        if let Some(con) = self.connection.lock().as_mut() {
             let r = con.send(cr);
             check_error!(self, r, false);
         }
@@ -361,10 +363,10 @@ impl MainWindow {
         if let MainWindowMode::ShowDialingDirectory = self.get_mode() {
             frame.set_window_title(&crate::DEFAULT_TITLE);
         } else {
-            if self.buffer_update_thread.lock().connection.lock().is_none() {
+            if self.connection.lock().is_none() {
                 return;
             }
-            if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+            if let Some(con) = self.connection.lock().as_mut() {
                 let title = if con.is_connected() {
                     let d = Instant::now().duration_since(con.get_connection_time());
                     let sec = d.as_secs();

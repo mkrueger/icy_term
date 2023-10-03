@@ -26,6 +26,7 @@ pub struct BufferUpdateThread {
     pub sound_thread: Arc<Mutex<SoundThread>>,
 
     pub auto_transfer: Option<(TransferType, bool)>,
+    pub enabled: bool,
 }
 
 impl BufferUpdateThread {
@@ -38,7 +39,7 @@ impl BufferUpdateThread {
         let data = if let Some(con) = self.connection.lock().as_mut() {
             con.update_state()?;
             if con.is_disconnected() {
-                return Ok(false);
+                return Ok(true);
             }
             if con.is_data_available()? {
                 con.read_buffer()
@@ -46,7 +47,7 @@ impl BufferUpdateThread {
                 Vec::new()
             }
         } else {
-            return Ok(false);
+            return Ok(true);
         };
         Ok(self.update_buffer(ctx, data))
     }
@@ -56,10 +57,12 @@ impl BufferUpdateThread {
         let has_data = !data.is_empty();
         let mut set_buffer_dirty = false;
         if !data.is_empty() {
-            println!("data : {}", self.last_update.elapsed().as_millis());
+           // println!("data : {} {}", self.last_update.elapsed().as_millis(), data.len());
         }
         let buffer_view = &mut self.buffer_view.lock();
-
+        if !self.enabled {
+            return true;
+        }
         for ch in data {
          if let Some(autologin) = &mut self.auto_login {
                 if let Some(con) = self.connection.lock().as_mut() {
@@ -102,7 +105,7 @@ impl BufferUpdateThread {
             ctx.request_repaint();
             return false;
         }
-        true
+        !has_data
     }
 
     pub fn print_char(&self, buffer_view: &mut BufferView, c: u8) -> bool {
@@ -149,7 +152,7 @@ impl BufferUpdateThread {
             Ok(icy_engine::CallbackAction::Update) => {
                 return true;
             }
-
+ 
             Err(err) => {
                 log::error!("{err}");
             }

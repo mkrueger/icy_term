@@ -6,7 +6,7 @@ use std::{
     io::{self, ErrorKind, Read, Write},
     net::TcpStream,
 };
-use web_time::Duration;
+use web_time::{Duration, Instant};
 
 #[derive(Debug)]
 pub struct ComTelnetImpl {
@@ -307,9 +307,9 @@ mod telnet_option {
 impl ComTelnetImpl {
     pub fn connect(connection_data: &super::OpenConnectionData) -> TermComResult<Self> {
         let tcp_stream = TcpStream::connect(&connection_data.address)?;
-        tcp_stream.set_write_timeout(Some(Duration::from_millis(2000)))?;
-        tcp_stream.set_read_timeout(Some(Duration::from_millis(2000)))?;
-        tcp_stream.set_nonblocking(true)?;
+        tcp_stream.set_write_timeout(Some(Duration::from_millis(50)))?;
+        tcp_stream.set_read_timeout(Some(Duration::from_millis(50)))?;
+        tcp_stream.set_nonblocking(false)?;
         Ok(Self {
             tcp_stream,
             state: ParserState::Data,
@@ -484,9 +484,12 @@ impl Com for ComTelnetImpl {
 
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
         let mut buf = [0; 1024 * 256];
-
+        let m = Instant::now();
         match self.tcp_stream.read(&mut buf) {
             Ok(size) => {
+                if size == 0 {
+                    return Ok(None);
+                }
                 let data = self.parse(&buf[0..size])?;
                 /* 
                 for ch in &data {

@@ -230,7 +230,11 @@ impl MainWindow {
 
         monitor_settings.selection_fg = self.screen_mode.get_selection_fg();
         monitor_settings.selection_bg = self.screen_mode.get_selection_bg();
-
+       /*  if ui.input(|i| i.key_down(egui::Key::W)) {
+            let enabled = self.buffer_update_thread.lock().enabled;
+            self.buffer_update_thread.lock().enabled = !enabled;
+        }*/
+    
         let opt = icy_engine_egui::TerminalOptions {
             filter: self.get_options().scaling.get_filter(),
             monitor_settings,
@@ -388,7 +392,7 @@ impl MainWindow {
                         for (k, m) in key_map {
                             if *k == key_code {
                                 let mut print = true;
-                                if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+                                if let Some(con) = self.connection.lock().as_mut() {
                                     if con.is_connected() {
                                         let res = con.send(m.to_vec());
                                         check_error!(self, res, true);

@@ -65,8 +65,12 @@ impl MainWindow {
         }
         let buffer_update_view = Arc::new(eframe::epaint::mutex::Mutex::new(view));
 
+
+        let connection = Arc::new(Mutex::new(Some(Box::new(connection))));
+
+
         let buffer_update_thread = Arc::new(Mutex::new(BufferUpdateThread {
-            connection: Arc::new(Mutex::new(Some(Box::new(connection)))),
+            connection: connection.clone(),
             buffer_view: buffer_update_view.clone(),
             capture_dialog: dialogs::capture_dialog::DialogState::default(),
             last_update: Instant::now(),
@@ -74,11 +78,13 @@ impl MainWindow {
             auto_transfer: None,
             auto_login: None,
             sound_thread: Arc::new(eframe::epaint::mutex::Mutex::new(SoundThread::new())),
+            enabled: true,
         }));
 
         crate::ui::buffer_update_thread::run_update_thread(&cc.egui_ctx, buffer_update_thread.clone());
 
         let mut view = MainWindow {
+            connection,
             buffer_view: buffer_update_view.clone(),
             //address_list: HoverList::new(),
             state: MainWindowState { options, ..Default::default() },
