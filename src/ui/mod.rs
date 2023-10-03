@@ -27,12 +27,14 @@ pub use terminal_window::*;
 pub mod util;
 pub use util::*;
 
-use self::connect::Connection;
+use self::buffer_update_thread::BufferUpdateThread;
 use self::file_transfer_thread::FileTransferThread;
 pub mod dialogs;
 
 pub mod com_thread;
 pub mod file_transfer_thread;
+
+pub mod buffer_update_thread;
 
 #[macro_export]
 macro_rules! check_error {
@@ -42,7 +44,9 @@ macro_rules! check_error {
             $main_window.output_string(format!("\n\r{err}\n\r").as_str());
 
             if $terminate_connection {
-                $main_window.connection.as_ref().unwrap().disconnect().unwrap_or_default();
+                if let Some(con) = $main_window.buffer_update_thread.lock().connection.lock().as_mut() {
+                    con.disconnect().unwrap_or_default();
+                }
             }
         }
     }};
@@ -69,7 +73,6 @@ pub struct MainWindowState {
     pub mode: MainWindowMode,
     pub options: Options,
 
-    pub capture_dialog: dialogs::capture_dialog::DialogState,
     pub settings_dialog: dialogs::settings_dialog::DialogState,
 
     // don't store files in unit test mode
@@ -94,8 +97,6 @@ impl MainWindowState {
 pub struct MainWindow {
     buffer_view: Arc<eframe::epaint::mutex::Mutex<BufferView>>,
 
-    connection: Option<Box<Connection>>,
-
     sound_thread: SoundThread,
 
     pub state: MainWindowState,
@@ -108,6 +109,8 @@ pub struct MainWindow {
     shift_pressed_during_selection: bool,
 
     auto_file_transfer: AutoFileTransfer,
+
+    buffer_update_thread: Arc<egui::mutex::Mutex<BufferUpdateThread>>,
 
     pub initial_upload_directory: Option<PathBuf>,
     // protocols
@@ -135,15 +138,6 @@ impl MainWindow {
         self.state.mode = mode;
     }
 
-    fn connection(&mut self) -> &mut Connection {
-        if let Some(ref mut con) = self.connection {
-            con
-        } else {
-            log::error!("Invalid program state: Connection is None");
-            panic!("Invalid program state: Connection is None")
-        }
-    }
-
     pub fn println(&mut self, str: &str) {
         for ch in str.chars() {
             if ch as u32 > 255 {
@@ -157,63 +151,46 @@ impl MainWindow {
 
     pub fn output_char(&mut self, ch: char) {
         let translated_char = self.buffer_view.lock().get_parser().convert_from_unicode(ch, 0);
-        if self.connection().is_connected() {
-            let r = self.connection().send(vec![translated_char as u8]);
-            check_error!(self, r, false);
-        } else {
-            self.print_char(translated_char as u8);
+        let mut print = true;
+        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+            if con.is_connected() {
+                let r = con.send(vec![translated_char as u8]);
+                check_error!(self, r, false);
+                print = false;
+            }
+        }
+
+        if !print {
+            self.print_char(None, translated_char as u8);
         }
     }
 
-    pub fn output_string(&mut self, str: &str) {
-        if self.connection().is_connected() {
-            let mut v = Vec::new();
-            for ch in str.chars() {
-                let translated_char = self.buffer_view.lock().get_parser().convert_from_unicode(ch, 0);
-                v.push(translated_char as u8);
+    pub fn output_string(&self, str: &str) {
+        let mut print = true;
+
+        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+            if con.is_connected() {
+                let mut v = Vec::new();
+                for ch in str.chars() {
+                    let translated_char = self.buffer_view.lock().get_parser().convert_from_unicode(ch, 0);
+                    v.push(translated_char as u8);
+                }
+                let r = con.send(v);
+                check_error!(self, r, false);
+                print = false;
             }
-            let r = self.connection().send(v);
-            check_error!(self, r, false);
-        } else {
+        }
+        if !print {
             for ch in str.chars() {
                 let translated_char = self.buffer_view.lock().get_parser().convert_from_unicode(ch, 0);
-                self.print_char(translated_char as u8);
+                self.print_char(None, translated_char as u8);
             }
         }
     }
 
-    pub fn print_char(&mut self, c: u8) {
-        let result = self.buffer_view.lock().print_char(unsafe { char::from_u32_unchecked(c as u32) });
-        match result {
-            Ok(icy_engine::CallbackAction::None) => {}
-            Ok(icy_engine::CallbackAction::SendString(result)) => {
-                if self.connection().is_connected() {
-                    let r = self.connection().send(result.as_bytes().to_vec());
-                    check_error!(self, r, false);
-                }
-            }
-            Ok(icy_engine::CallbackAction::PlayMusic(music)) => {
-                let r = self.sound_thread.play_music(music);
-                check_error!(self, r, false);
-            }
-            Ok(icy_engine::CallbackAction::Beep) => {
-                if self.get_options().console_beep {
-                    let r = self.sound_thread.beep();
-                    check_error!(self, r, false);
-                }
-            }
-            Ok(icy_engine::CallbackAction::ChangeBaudEmulation(baud_emulation)) => {
-                let r = self.connection().set_baud_rate(baud_emulation.get_baud_rate());
-                check_error!(self, r, false);
-            }
-            Ok(icy_engine::CallbackAction::ResizeTerminal(_, _)) => {
-                self.buffer_view.lock().redraw_view();
-            }
-            Err(err) => {
-                log::error!("{err}");
-            }
-        }
-        self.buffer_view.lock().redraw_view();
+    pub fn print_char(&self, ctx: Option<&egui::Context>, c: u8) -> bool {
+        self.buffer_view.lock().get_edit_state_mut().is_buffer_dirty = true;
+        self.buffer_update_thread.lock().print_char(ctx, c)
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -228,7 +205,7 @@ impl MainWindow {
 
         let r = crate::protocol::DiskStorageHandler::new();
         check_error!(self, r, false);
-        if let Some(mut con) = self.connection.take() {
+        if let Some(mut con) = self.buffer_update_thread.lock().connection.lock().take() {
             con.start_transfer();
             self.current_file_transfer = Some(FileTransferThread::new(con, protocol_type, download, files_opt));
         }
@@ -236,8 +213,10 @@ impl MainWindow {
 
     pub(crate) fn initiate_file_transfer(&mut self, protocol_type: crate::protocol::TransferType, download: bool) {
         self.set_mode(MainWindowMode::ShowTerminal);
-        if self.connection().is_disconnected() {
-            return;
+        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+            if con.is_disconnected() {
+                return;
+            }
         }
 
         if download {
@@ -309,97 +288,39 @@ impl MainWindow {
 
         let timeout = self.get_options().connect_timeout;
         let window_size = self.screen_mode.get_window_size();
-        let r = self.connection().connect(&cloned_addr, timeout, window_size);
-        check_error!(self, r, false);
-        let r = self.connection().set_baud_rate(cloned_addr.baud_emulation.get_baud_rate());
-        check_error!(self, r, false);
+        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+            let r = con.connect(&cloned_addr, timeout, window_size);
+            check_error!(self, r, false);
+            let r = con.set_baud_rate(cloned_addr.baud_emulation.get_baud_rate());
+            check_error!(self, r, false);
+        }
     }
 
-    pub fn update_state(&mut self) -> TerminalResult<()> {
+    pub fn update_state(&mut self, ctx: &egui::Context) -> TerminalResult<()> {
         #[cfg(target_arch = "wasm32")]
         self.poll_thread.poll();
-
-        let r = self.connection().update_state();
-        check_error!(self, r, false);
+        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+            let r = con.update_state();
+            check_error!(self, r, false);
+        }
         let r = self.sound_thread.update_state();
         check_error!(self, r, false);
-        if self.connection().is_disconnected() {
-            return Ok(());
-        }
-        let data_opt = if self.connection().is_data_available()? {
-            Some(self.connection().read_buffer())
-        } else {
-            None
-        };
-
-        if let Some(data) = data_opt {
-            self.state.capture_dialog.append_data(&self.state.options, &data);
-            let has_data = !data.is_empty();
-
-            for ch in data {
-                if self.get_options().iemsi.autologin && self.connection().is_connected() {
-                    if let Some(adr) = self.dialing_directory_dialog.addresses.addresses.get(self.dialing_directory_dialog.cur_addr) {
-                        if let Some(con) = &mut self.connection {
-                            if let Err(err) = self.auto_login.try_login(con, adr, ch, &self.state.options) {
-                                log::error!("{err}");
-                            }
-                        }
-                    }
-                }
-                /*
-                match ch {
-                    b'\\' => print!("\\\\"),
-                    b'\n' => println!("\\n"),
-                    b'\r' => print!("\\r"),
-                    b'\"' => print!("\\\""),
-                    _ => {
-                        if ch < b' ' || ch == b'\x7F' {
-                            print!("\\x{ch:02X}");
-                        } else if ch > b'\x7F' {
-                            print!("\\u{{{ch:02X}}}");
-                        } else {
-                            print!("{}", char::from_u32(ch as u32).unwrap());
-                        }
-                    }
-                }*/
-
-                self.print_char(ch);
-
-                if let Some((protocol_type, download)) = self.auto_file_transfer.try_transfer(ch) {
-                    self.initiate_file_transfer(protocol_type, download);
-                    return Ok(());
-                }
-            }
-            if has_data {
-                self.buffer_view.lock().get_buffer_mut().update_hyperlinks();
-            }
-        }
-
-        if self.get_options().iemsi.autologin {
-            if let Some(adr) = self.dialing_directory_dialog.addresses.addresses.get(self.dialing_directory_dialog.cur_addr) {
-                if let Some(con) = &mut self.connection {
-                    if con.is_connected() {
-                        if let Err(err) = self.auto_login.run_autologin(con, adr) {
-                            log::error!("{err}");
-                        }
-                    }
-                }
-            }
-        }
-        self.buffer_view.lock().get_edit_state_mut().is_buffer_dirty = true;
-
         Ok(())
     }
 
     pub fn hangup(&mut self) {
-        check_error!(self, self.connection().disconnect(), false);
+        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+            check_error!(self, con.disconnect(), false);
+        }
         self.sound_thread.clear();
         self.set_mode(MainWindowMode::ShowDialingDirectory);
     }
 
     pub fn send_login(&mut self) {
-        if self.connection().is_disconnected() {
-            return;
+        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+            if con.is_disconnected() {
+                return;
+            }
         }
         let user_name = self
             .dialing_directory_dialog
@@ -424,12 +345,17 @@ impl MainWindow {
                 break;
             }
         }
+
         self.output_string(&user_name);
-        let r = self.connection().send(cr.clone());
-        check_error!(self, r, false);
+        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+            let r = con.send(cr.clone());
+            check_error!(self, r, false);
+        }
         self.output_string(&password);
-        let r = self.connection().send(cr);
-        check_error!(self, r, false);
+        if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+            let r = con.send(cr);
+            check_error!(self, r, false);
+        }
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -437,27 +363,29 @@ impl MainWindow {
         if let MainWindowMode::ShowDialingDirectory = self.get_mode() {
             frame.set_window_title(&crate::DEFAULT_TITLE);
         } else {
-            if self.connection.is_none() {
+            if self.buffer_update_thread.lock().connection.lock().is_none() {
                 return;
             }
-            let str = if self.connection().is_connected() {
-                let d = Instant::now().duration_since(self.connection().get_connection_time());
-                let sec = d.as_secs();
-                let minutes = sec / 60;
-                let hours = minutes / 60;
-                let cur = &self.dialing_directory_dialog.addresses.addresses[self.dialing_directory_dialog.cur_addr];
-                let t = format!("{:02}:{:02}:{:02}", hours, minutes % 60, sec % 60);
-                let s = if cur.system_name.is_empty() {
-                    cur.address.clone()
-                } else {
-                    cur.system_name.clone()
-                };
+            if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+                let title = if con.is_connected() {
+                    let d = Instant::now().duration_since(con.get_connection_time());
+                    let sec = d.as_secs();
+                    let minutes = sec / 60;
+                    let hours = minutes / 60;
+                    let cur = &self.dialing_directory_dialog.addresses.addresses[self.dialing_directory_dialog.cur_addr];
+                    let t = format!("{:02}:{:02}:{:02}", hours, minutes % 60, sec % 60);
+                    let s = if cur.system_name.is_empty() {
+                        cur.address.clone()
+                    } else {
+                        cur.system_name.clone()
+                    };
 
-                fl!(crate::LANGUAGE_LOADER, "title-connected", version = crate::VERSION, time = t, name = s)
-            } else {
-                fl!(crate::LANGUAGE_LOADER, "title-offline", version = crate::VERSION)
-            };
-            frame.set_window_title(str.as_str());
+                    fl!(crate::LANGUAGE_LOADER, "title-connected", version = crate::VERSION, time = t, name = s)
+                } else {
+                    fl!(crate::LANGUAGE_LOADER, "title-offline", version = crate::VERSION)
+                };
+                frame.set_window_title(title.as_str());
+            }
         }
     }
 

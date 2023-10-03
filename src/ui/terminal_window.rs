@@ -26,145 +26,147 @@ impl MainWindow {
             .inner_margin(egui::style::Margin::same(6.0));
 
         let enable_ui = matches!(self.get_mode(), MainWindowMode::ShowTerminal);
-        if !self.is_fullscreen_mode {
-            egui::TopBottomPanel::top("button_bar").frame(button_frame).show(ctx, |ui| {
-                let img_size = 20.0;
-                if !enable_ui {
-                    ui.set_enabled(false);
-                }
-                ui.horizontal(|ui| {
-                    let r = ui
-                        .add(Button::new(RichText::new("⬆").font(FontId::new(img_size, FontFamily::Proportional))))
-                        .on_hover_ui(|ui| {
-                            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-upload")).small());
-                        });
 
-                    if r.clicked() {
-                        self.set_mode(MainWindowMode::SelectProtocol(false));
-                    }
+        /*
+                if !self.is_fullscreen_mode {
+                    egui::TopBottomPanel::top("button_bar").frame(button_frame).show(ctx, |ui| {
+                        let img_size = 20.0;
+                        if !enable_ui {
+                            ui.set_enabled(false);
+                        }
+                        ui.horizontal(|ui| {
+                            let r = ui
+                                .add(Button::new(RichText::new("⬆").font(FontId::new(img_size, FontFamily::Proportional))))
+                                .on_hover_ui(|ui| {
+                                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-upload")).small());
+                                });
 
-                    let r = ui
-                        .button(RichText::new("⬇").font(FontId::new(img_size, FontFamily::Proportional)))
-                        .on_hover_ui(|ui| {
-                            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-download")).small());
-                        });
+                            if r.clicked() {
+                                self.set_mode(MainWindowMode::SelectProtocol(false));
+                            }
 
-                    if r.clicked() {
-                        self.set_mode(MainWindowMode::SelectProtocol(true));
-                    }
+                            let r = ui
+                                .button(RichText::new("⬇").font(FontId::new(img_size, FontFamily::Proportional)))
+                                .on_hover_ui(|ui| {
+                                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-download")).small());
+                                });
 
-                    if !self.auto_login.logged_in {
-                        let r = ui
-                            .button(RichText::new("🔑").font(FontId::new(img_size, FontFamily::Monospace)))
-                            .on_hover_ui(|ui| {
-                                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-autologin")).small());
+                            if r.clicked() {
+                                self.set_mode(MainWindowMode::SelectProtocol(true));
+                            }
+
+                            if !self.auto_login.logged_in {
+                                let r = ui
+                                    .button(RichText::new("🔑").font(FontId::new(img_size, FontFamily::Monospace)))
+                                    .on_hover_ui(|ui| {
+                                        ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-autologin")).small());
+                                    });
+
+                                if r.clicked() {
+                                    self.send_login();
+                                    self.auto_login.logged_in = true;
+                                }
+                            }
+
+                            let r: egui::Response = ui
+                                .add(egui::Button::new(RichText::new("📞").font(FontId::new(img_size, FontFamily::Monospace))))
+                                .on_hover_ui(|ui| {
+                                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-dialing_directory")).small());
+                                });
+
+                            if r.clicked() {
+                                self.show_dialing_directory();
+                            }
+
+                            if self.auto_login.iemsi.isi.is_some() {
+                                if self.get_mode() == MainWindowMode::ShowIEMSI {
+                                    let r: egui::Response = ui.add(egui::Button::new(RichText::new(fl!(crate::LANGUAGE_LOADER, "toolbar-hide-iemsi"))));
+
+                                    if r.clicked() {
+                                        self.set_mode(MainWindowMode::ShowTerminal);
+                                    }
+                                } else {
+                                    let r: egui::Response = ui.add(egui::Button::new(RichText::new(fl!(crate::LANGUAGE_LOADER, "toolbar-show-iemsi"))));
+
+                                    if r.clicked() {
+                                        self.set_mode(MainWindowMode::ShowIEMSI);
+                                    }
+                                }
+                            }
+                            if self.sound_thread.is_playing() {
+                                let button_text = match self.sound_thread.stop_button {
+                                    0 => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing1"),
+                                    1 => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing2"),
+                                    2 => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing3"),
+                                    3 => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing4"),
+                                    4 => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing5"),
+                                    _ => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing6"),
+                                };
+
+                                let r: egui::Response = ui.add(egui::Button::new(RichText::new(button_text)));
+                                if r.clicked() {
+                                    self.sound_thread.clear();
+                                }
+                            }
+
+                            if self.buffer_update_thread.lock().capture_dialog.capture_session {
+                                let r: egui::Response = ui.add(egui::Button::new(RichText::new(fl!(crate::LANGUAGE_LOADER, "toolbar-stop-capture"))));
+
+                                if r.clicked() {
+                                    self.buffer_update_thread.lock().capture_dialog.capture_session = false;
+                                }
+                            }
+
+                            let size = ui.available_size_before_wrap();
+                            ui.add_space(size.x - 70.0);
+
+                            let r = ui
+                                .button(RichText::new("☎").font(FontId::new(img_size, FontFamily::Monospace)))
+                                .on_hover_ui(|ui| {
+                                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-hangup")).small());
+                                });
+                            if r.clicked() {
+                                self.hangup();
+                            }
+
+                            ui.menu_button(RichText::new("☰").font(FontId::new(img_size + 6., FontFamily::Proportional)), |ui| {
+                                let r = ui.hyperlink_to(
+                                    fl!(crate::LANGUAGE_LOADER, "menu-item-discuss"),
+                                    "https://github.com/mkrueger/icy_term/discussions",
+                                );
+                                if r.clicked() {
+                                    ui.close_menu();
+                                }
+                                let r = ui.hyperlink_to(
+                                    fl!(crate::LANGUAGE_LOADER, "menu-item-report-bug"),
+                                    "https://github.com/mkrueger/icy_term/issues/new",
+                                );
+                                if r.clicked() {
+                                    ui.close_menu();
+                                }
+                                let r = ui.hyperlink_to(
+                                    fl!(crate::LANGUAGE_LOADER, "menu-item-check-releases"),
+                                    "https://github.com/mkrueger/icy_term/releases/latest",
+                                );
+                                if r.clicked() {
+                                    ui.close_menu();
+                                }
+                                ui.separator();
+                                #[cfg(not(target_arch = "wasm32"))]
+                                if ui.button(fl!(crate::LANGUAGE_LOADER, "menu-item-capture-dialog")).clicked() {
+                                    self.set_mode(MainWindowMode::ShowCaptureDialog);
+                                    ui.close_menu();
+                                }
+
+                                if ui.button(fl!(crate::LANGUAGE_LOADER, "menu-item-settings")).clicked() {
+                                    self.set_mode(MainWindowMode::ShowSettings);
+                                    ui.close_menu();
+                                }
                             });
-
-                        if r.clicked() {
-                            self.send_login();
-                            self.auto_login.logged_in = true;
-                        }
-                    }
-
-                    let r: egui::Response = ui
-                        .add(egui::Button::new(RichText::new("📞").font(FontId::new(img_size, FontFamily::Monospace))))
-                        .on_hover_ui(|ui| {
-                            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-dialing_directory")).small());
                         });
-
-                    if r.clicked() {
-                        self.show_dialing_directory();
-                    }
-
-                    if self.auto_login.iemsi.isi.is_some() {
-                        if self.get_mode() == MainWindowMode::ShowIEMSI {
-                            let r: egui::Response = ui.add(egui::Button::new(RichText::new(fl!(crate::LANGUAGE_LOADER, "toolbar-hide-iemsi"))));
-
-                            if r.clicked() {
-                                self.set_mode(MainWindowMode::ShowTerminal);
-                            }
-                        } else {
-                            let r: egui::Response = ui.add(egui::Button::new(RichText::new(fl!(crate::LANGUAGE_LOADER, "toolbar-show-iemsi"))));
-
-                            if r.clicked() {
-                                self.set_mode(MainWindowMode::ShowIEMSI);
-                            }
-                        }
-                    }
-                    if self.sound_thread.is_playing() {
-                        let button_text = match self.sound_thread.stop_button {
-                            0 => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing1"),
-                            1 => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing2"),
-                            2 => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing3"),
-                            3 => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing4"),
-                            4 => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing5"),
-                            _ => fl!(crate::LANGUAGE_LOADER, "toolbar-stop-playing6"),
-                        };
-
-                        let r: egui::Response = ui.add(egui::Button::new(RichText::new(button_text)));
-                        if r.clicked() {
-                            self.sound_thread.clear();
-                        }
-                    }
-
-                    if self.state.capture_dialog.capture_session {
-                        let r: egui::Response = ui.add(egui::Button::new(RichText::new(fl!(crate::LANGUAGE_LOADER, "toolbar-stop-capture"))));
-
-                        if r.clicked() {
-                            self.state.capture_dialog.capture_session = false;
-                        }
-                    }
-
-                    let size = ui.available_size_before_wrap();
-                    ui.add_space(size.x - 70.0);
-
-                    let r = ui
-                        .button(RichText::new("☎").font(FontId::new(img_size, FontFamily::Monospace)))
-                        .on_hover_ui(|ui| {
-                            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-hangup")).small());
-                        });
-                    if r.clicked() {
-                        self.hangup();
-                    }
-
-                    ui.menu_button(RichText::new("☰").font(FontId::new(img_size + 6., FontFamily::Proportional)), |ui| {
-                        let r = ui.hyperlink_to(
-                            fl!(crate::LANGUAGE_LOADER, "menu-item-discuss"),
-                            "https://github.com/mkrueger/icy_term/discussions",
-                        );
-                        if r.clicked() {
-                            ui.close_menu();
-                        }
-                        let r = ui.hyperlink_to(
-                            fl!(crate::LANGUAGE_LOADER, "menu-item-report-bug"),
-                            "https://github.com/mkrueger/icy_term/issues/new",
-                        );
-                        if r.clicked() {
-                            ui.close_menu();
-                        }
-                        let r = ui.hyperlink_to(
-                            fl!(crate::LANGUAGE_LOADER, "menu-item-check-releases"),
-                            "https://github.com/mkrueger/icy_term/releases/latest",
-                        );
-                        if r.clicked() {
-                            ui.close_menu();
-                        }
-                        ui.separator();
-                        #[cfg(not(target_arch = "wasm32"))]
-                        if ui.button(fl!(crate::LANGUAGE_LOADER, "menu-item-capture-dialog")).clicked() {
-                            self.set_mode(MainWindowMode::ShowCaptureDialog);
-                            ui.close_menu();
-                        }
-
-                        if ui.button(fl!(crate::LANGUAGE_LOADER, "menu-item-settings")).clicked() {
-                            self.set_mode(MainWindowMode::ShowSettings);
-                            ui.close_menu();
-                        }
                     });
-                });
-            });
-        }
-
+                }
+        */
         let frame_no_margins = egui::containers::Frame::none()
             .outer_margin(egui::style::Margin::same(0.0))
             .inner_margin(egui::style::Margin::same(0.0));
@@ -374,12 +376,17 @@ impl MainWindow {
                         }
                         for (k, m) in key_map {
                             if *k == key_code {
-                                if self.connection.as_ref().unwrap().is_connected() {
-                                    let res = self.connection.as_mut().unwrap().send(m.to_vec());
-                                    check_error!(self, res, true);
-                                } else {
+                                let mut print = true;
+                                if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+                                    if con.is_connected() {
+                                        let res = con.send(m.to_vec());
+                                        check_error!(self, res, true);
+                                        print = false;
+                                    }
+                                }
+                                if print {
                                     for c in *m {
-                                        self.print_char(*c);
+                                        self.print_char(None, *c);
                                     }
                                 }
                                 response.request_focus();

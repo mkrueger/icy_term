@@ -5,13 +5,14 @@ use std::{sync::Arc, time::Duration};
 
 use directories::UserDirs;
 use eframe::egui::{self};
-use egui::FontId;
+use egui::{mutex::Mutex, FontId};
 use icy_engine::Position;
 
 use crate::{
     check_error,
     features::{AutoFileTransfer, AutoLogin},
     ui::{
+        buffer_update_thread::BufferUpdateThread,
         dialogs::{self},
         BufferView, MainWindowState, ScreenMode,
     },
@@ -61,13 +62,21 @@ impl MainWindow {
         if let Some(dirs) = UserDirs::new() {
             initial_upload_directory = Some(dirs.home_dir().to_path_buf());
         }
+        let buffer_update_view = Arc::new(eframe::epaint::mutex::Mutex::new(view));
+
+        let buffer_update_thread = Arc::new(Mutex::new(BufferUpdateThread {
+            connection: Arc::new(Mutex::new(Some(Box::new(connection)))),
+            buffer_view: buffer_update_view.clone(),
+            capture_dialog: dialogs::capture_dialog::DialogState::default(),
+        }));
+
+        crate::ui::buffer_update_thread::run_update_thread(&cc.egui_ctx, buffer_update_thread.clone());
 
         let mut view = MainWindow {
-            buffer_view: Arc::new(eframe::epaint::mutex::Mutex::new(view)),
+            buffer_view: buffer_update_view.clone(),
             //address_list: HoverList::new(),
             state: MainWindowState { options, ..Default::default() },
             initial_upload_directory,
-            connection: Some(Box::new(connection)),
             auto_login: AutoLogin::new(""),
             auto_file_transfer: AutoFileTransfer::default(),
             screen_mode: ScreenMode::default(),
@@ -81,6 +90,7 @@ impl MainWindow {
             dialing_directory_dialog: dialogs::dialing_directory_dialog::DialogState::new(addresses),
             drag_start: None,
             last_pos: Position::default(),
+            buffer_update_thread,
 
             show_find_dialog: false,
             find_dialog: dialogs::find_dialog::DialogState::default(),
@@ -120,7 +130,7 @@ impl MainWindow {
         if let Some(fts) = &mut self.current_file_transfer {
             if let Some(handle) = fts.join_handle.take() {
                 if let Ok(join) = handle.join() {
-                    self.connection = Some(join);
+                    self.buffer_update_thread.lock().connection = Arc::new(Mutex::new(Some(join)));
                     self.set_mode(MainWindowMode::ShowTerminal);
                 } else {
                     panic!("Error joining file transfer thread.");
@@ -150,19 +160,19 @@ impl eframe::App for MainWindow {
 
         match self.get_mode() {
             MainWindowMode::ShowTerminal => {
-                let res = self.update_state();
+                let res = self.update_state(ctx);
                 self.handle_terminal_key_binds(ctx, frame);
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowDialingDirectory => {
-                let res = self.update_state();
+                let res = self.update_state(ctx);
                 self.update_terminal_window(ctx, frame, true);
                 check_error!(self, res, false);
             }
             MainWindowMode::ShowSettings => {
-                let res = self.update_state();
+                let res = self.update_state(ctx);
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 self.state.show_settings(ctx, frame);
@@ -208,28 +218,30 @@ impl eframe::App for MainWindow {
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowCaptureDialog => {
-                let res = self.update_state();
+                let res = self.update_state(ctx);
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
-                self.state.show_caputure_dialog(ctx);
+                if !self.buffer_update_thread.lock().capture_dialog.show_caputure_dialog(ctx) {
+                    self.set_mode(MainWindowMode::ShowTerminal);
+                }
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowExportDialog => {
-                let res = self.update_state();
+                let res = self.update_state(ctx);
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 self.show_export_dialog(ctx);
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowUploadDialog => {
-                let res = self.update_state();
+                let res = self.update_state(ctx);
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 self.show_upload_dialog(ctx);
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowIEMSI => {
-                let res = self.update_state();
+                let res = self.update_state(ctx);
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 dialogs::show_iemsi::show_iemsi(self, ctx);

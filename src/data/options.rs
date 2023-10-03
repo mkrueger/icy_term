@@ -270,7 +270,6 @@ impl Default for IEMSISettings {
 pub struct Options {
     pub scaling: Scaling,
     pub connect_timeout: Duration,
-    pub capture_filename: String,
     pub console_beep: bool,
 
     pub monitor_settings: MonitorSettings,
@@ -284,7 +283,6 @@ impl Default for Options {
             scaling: Scaling::default(),
             connect_timeout: Duration::default(),
             monitor_settings: MonitorSettings::default(),
-            capture_filename: String::default(),
             iemsi: IEMSISettings::default(),
             console_beep: true,
             bind: KeyBindings::default(),
@@ -346,10 +344,10 @@ impl Options {
             if self.console_beep != Options::default().console_beep {
                 file.write_all(format!("console_beep = {}\n", self.console_beep).as_bytes())?;
             }
-
+            /*
             if !self.capture_filename.is_empty() {
                 file.write_all(format!("capture_filename = \"{}\"\n", self.capture_filename).as_bytes())?;
-            }
+            }*/
 
             file.write_all("[IEMSI]\n".to_string().as_bytes())?;
 
@@ -499,12 +497,12 @@ fn parse_value(options: &mut Options, value: &Value) {
                         if let Value::Boolean(b) = v {
                             options.console_beep = *b;
                         }
-                    }
+                    } /*
                     "capture_filename" => {
-                        if let Value::String(b) = v {
-                            options.capture_filename = b.clone();
-                        }
+                    if let Value::String(b) = v {
+                    options.capture_filename = b.clone();
                     }
+                    }*/
                     _ => {}
                 }
             }

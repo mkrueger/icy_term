@@ -33,8 +33,10 @@ impl MainWindow {
                     if matches!(self.upload_dialog.protocol_type, crate::protocol::TransferType::Text) {
                         match std::fs::read(path) {
                             Ok(bytes) => {
-                                let r = self.connection.as_mut().unwrap().send(bytes);
-                                check_error!(self, r, true);
+                                if let Some(con) = self.buffer_update_thread.lock().connection.lock().as_mut() {
+                                    let r = con.send(bytes);
+                                    check_error!(self, r, true);
+                                }
                             }
                             r => {
                                 check_error!(self, r, true);
