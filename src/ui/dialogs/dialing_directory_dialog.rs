@@ -773,7 +773,7 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
                                 .hint_text(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-filter-placeholder"))),
                         );
 
-                        let r: egui::Response = ui.add(ImageButton::new(CLOSE.clone())).on_hover_ui(|ui| {
+                        let r: egui::Response = ui.add(ImageButton::new(CLOSE.clone().fit_to_exact_size(Vec2::new(18.0, 18.0)))).on_hover_ui(|ui| {
                             ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-clear-filter")).small());
                         });
                         if r.clicked() {
