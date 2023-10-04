@@ -25,6 +25,7 @@ pub struct AutoLogin {
 
     user_name: String,
     password: String,
+    auto_login: String,
 }
 
 impl AutoLogin {
@@ -47,12 +48,13 @@ impl AutoLogin {
             got_name: false,
             name_recognizer: PatternRecognizer::from(b"NAME", true),
             login_recognizer: PatternRecognizer::from(b"LOGIN:", true),
+            auto_login: adr.auto_login.clone(),
             user_name,
             password,
         }
     }
 
-    pub fn run_command(&mut self, con: &mut Connection, adr: &Address) -> TerminalResult<bool> {
+    pub fn run_command(&mut self, con: &mut Connection) -> TerminalResult<bool> {
         let ch = *self.login_expr.get(self.cur_expr_idx + 1).unwrap();
         match ch {
             b'D' => {
@@ -84,24 +86,24 @@ impl AutoLogin {
             b'N' => {
                 // Send full user name of active user
                 self.cur_expr_idx += 2;
-                con.send((adr.user_name.clone() + "\r").as_bytes().to_vec())?;
+                con.send((self.user_name.clone() + "\r").as_bytes().to_vec())?;
             }
             b'F' => {
                 // Send first name of active user
                 self.cur_expr_idx += 2;
-                con.send((adr.user_name.clone() + "first\r").as_bytes().to_vec())?;
+                con.send((self.user_name.clone() + "first\r").as_bytes().to_vec())?;
                 // TODO
             }
             b'L' => {
                 // Send last name of active user
                 self.cur_expr_idx += 2;
-                con.send((adr.user_name.clone() + "last\r").as_bytes().to_vec())?;
+                con.send((self.user_name.clone() + "last\r").as_bytes().to_vec())?;
                 // TODO
             }
             b'P' => {
                 // Send password from active user
                 self.cur_expr_idx += 2;
-                con.send((adr.password.clone() + "\r").as_bytes().to_vec())?;
+                con.send((self.password.clone() + "\r").as_bytes().to_vec())?;
                 self.logged_in = true;
             }
             b'I' => {
@@ -138,16 +140,16 @@ impl AutoLogin {
         Ok(())
     }
 
-    pub fn run_autologin(&mut self, con: &mut Connection, adr: &Address) -> TerminalResult<()> {
+    pub fn run_autologin(&mut self, con: &mut Connection) -> TerminalResult<()> {
         if self.logged_in && self.cur_expr_idx >= self.login_expr.len() || self.disabled {
             return Ok(());
         }
-        if adr.user_name.is_empty() || adr.password.is_empty() {
+        if self.user_name.is_empty() || self.password.is_empty() {
             self.logged_in = true;
             return Ok(());
         }
 
-        if adr.auto_login.is_empty() {
+        if self.auto_login.is_empty() {
             return Ok(());
         }
 
@@ -157,7 +159,7 @@ impl AutoLogin {
         if self.cur_expr_idx < self.login_expr.len() {
             match self.login_expr.get(self.cur_expr_idx).unwrap() {
                 b'!' => {
-                    self.run_command(con, adr)?;
+                    self.run_command(con)?;
                 }
                 b'\\' => {
                     while self.cur_expr_idx < self.login_expr.len() && self.login_expr[self.cur_expr_idx] == b'\\' {

@@ -3,7 +3,7 @@ use eframe::{
     egui::{self, CursorIcon, PointerButton},
     epaint::Vec2,
 };
-use egui::{Button, FontFamily, FontId, ImageButton, RichText};
+use egui::{ImageButton, RichText};
 use i18n_embed_fl::fl;
 use icy_engine::{Position, Selection, TextPane};
 
@@ -33,7 +33,6 @@ impl MainWindow {
 
         if !self.is_fullscreen_mode {
             egui::TopBottomPanel::top("button_bar").frame(button_frame).show(ctx, |ui| {
-                let img_size = 20.0;
                 if !enable_ui {
                     ui.set_enabled(false);
                 }

@@ -82,11 +82,11 @@ impl DialogState {
         self.selected_bbs = uuid;
     }
 
-    fn show_content(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+    fn show_content(&mut self, ui: &mut egui::Ui) {
         if self.selected_bbs.is_some() {
             let bbs = self.selected_bbs;
             let sav: Address = self.get_address_mut(bbs).clone();
-            self.view_edit_bbs(ctx, ui);
+            self.view_edit_bbs(ui);
             if sav != *self.get_address_mut(bbs) {
                 self.store_dialing_directory();
             }
@@ -294,7 +294,7 @@ impl DialogState {
     }
 
     #[allow(clippy::range_plus_one)]
-    fn view_edit_bbs(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+    fn view_edit_bbs(&mut self, ui: &mut egui::Ui) {
         // Name row
 
         ui.horizontal(|ui| {
@@ -844,7 +844,7 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
-            window.dialing_directory_dialog.show_content(ctx, ui);
+            window.dialing_directory_dialog.show_content(ui);
         });
     });
 

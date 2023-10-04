@@ -69,6 +69,10 @@ impl BufferUpdateThread {
                     if let Err(err) = autologin.try_login(con, ch) {
                         log::error!("{err}");
                     }
+
+                    if let Err(err) = autologin.run_autologin(con) {
+                        log::error!("{err}");
+                    }
                 }
             }
             /*
