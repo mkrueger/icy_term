@@ -113,9 +113,9 @@ impl Rz {
                     self.last_send = Instant::now();
                 }*/
             }
-            RecvState::AwaitZDATA => {
+            /*     RecvState::AwaitZDATA => {
                 self.read_header(com, storage_handler, transfer_state)?;
-            }
+            }*/
             RecvState::AwaitFileData => {
                 let pck = read_subpacket(com, self.block_length, self.use_crc32, self.can_esc_control);
                 match pck {

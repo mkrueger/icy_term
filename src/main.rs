@@ -37,9 +37,9 @@ pub mod data;
 pub use data::*;
 
 mod features;
+mod icons;
 mod protocol;
 mod util;
-
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 lazy_static! {

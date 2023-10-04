@@ -297,8 +297,7 @@ impl MainWindow {
         #[cfg(target_arch = "wasm32")]
         self.poll_thread.poll();
         if let Some(con) = self.connection.lock().as_mut() {
-            let r = con.update_state();
-            check_error!(self, r, false);
+            con.update_state()?;
         }
 
         let take = self.buffer_update_thread.lock().auto_transfer.take();

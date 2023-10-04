@@ -57,21 +57,21 @@ impl BufferUpdateThread {
         let has_data = !data.is_empty();
         let mut set_buffer_dirty = false;
         if !data.is_empty() {
-           // println!("data : {} {}", self.last_update.elapsed().as_millis(), data.len());
+            // println!("data : {} {}", self.last_update.elapsed().as_millis(), data.len());
         }
         let buffer_view = &mut self.buffer_view.lock();
         if !self.enabled {
             return true;
         }
         for ch in data {
-         if let Some(autologin) = &mut self.auto_login {
+            if let Some(autologin) = &mut self.auto_login {
                 if let Some(con) = self.connection.lock().as_mut() {
                     if let Err(err) = autologin.try_login(con, ch) {
                         log::error!("{err}");
                     }
                 }
             }
-            /* 
+            /*
             match ch {
                 b'\\' => print!("\\\\"),
                 b'\n' => println!("\\n"),
@@ -87,7 +87,7 @@ impl BufferUpdateThread {
                     }
                 }
             }*/
-            
+
             if self.print_char(buffer_view, ch) {
                 set_buffer_dirty = true;
             }
@@ -95,7 +95,7 @@ impl BufferUpdateThread {
                 self.auto_transfer = Some((protocol_type, download));
             }
         }
-        
+
         if has_data {
             buffer_view.get_buffer_mut().update_hyperlinks();
         }
@@ -152,7 +152,7 @@ impl BufferUpdateThread {
             Ok(icy_engine::CallbackAction::Update) => {
                 return true;
             }
- 
+
             Err(err) => {
                 log::error!("{err}");
             }

@@ -6,7 +6,7 @@ use std::{
     io::{self, ErrorKind, Read, Write},
     net::TcpStream,
 };
-use web_time::{Duration, Instant};
+use web_time::Duration;
 
 #[derive(Debug)]
 pub struct ComTelnetImpl {
@@ -484,14 +484,13 @@ impl Com for ComTelnetImpl {
 
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
         let mut buf = [0; 1024 * 256];
-        let m = Instant::now();
         match self.tcp_stream.read(&mut buf) {
             Ok(size) => {
                 if size == 0 {
                     return Ok(None);
                 }
                 let data = self.parse(&buf[0..size])?;
-                /* 
+                /*
                 for ch in &data {
                     let ch = *ch;
                     match ch {

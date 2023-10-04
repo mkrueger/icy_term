@@ -27,6 +27,7 @@ impl MainWindow {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         use egui::FontFamily::Proportional;
         use egui::TextStyle::{Body, Button, Heading, Monospace, Small};
+        egui_extras::install_image_loaders(&cc.egui_ctx);
 
         let gl = cc.gl.as_ref().expect("You need to run eframe with the glow backend");
         let options = match Options::load_options() {
@@ -65,9 +66,7 @@ impl MainWindow {
         }
         let buffer_update_view = Arc::new(eframe::epaint::mutex::Mutex::new(view));
 
-
         let connection = Arc::new(Mutex::new(Some(Box::new(connection))));
-
 
         let buffer_update_thread = Arc::new(Mutex::new(BufferUpdateThread {
             connection: connection.clone(),

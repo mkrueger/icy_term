@@ -3,11 +3,15 @@ use eframe::{
     egui::{self, CursorIcon, PointerButton},
     epaint::Vec2,
 };
-use egui::{Button, FontFamily, FontId, RichText};
+use egui::{Button, FontFamily, FontId, ImageButton, RichText};
 use i18n_embed_fl::fl;
 use icy_engine::{Position, Selection, TextPane};
 
-use crate::{check_error, ui::connect::DataConnection};
+use crate::{
+    check_error,
+    icons::{CALL, DOWNLOAD, KEY, LOGOUT, MENU, UPLOAD},
+    ui::connect::DataConnection,
+};
 
 use super::{dialogs, MainWindow, MainWindowMode};
 
@@ -34,21 +38,17 @@ impl MainWindow {
                     ui.set_enabled(false);
                 }
                 ui.horizontal(|ui| {
-                    let r = ui
-                        .add(Button::new(RichText::new("⬆").font(FontId::new(img_size, FontFamily::Proportional))))
-                        .on_hover_ui(|ui| {
-                            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-upload")).small());
-                        });
+                    let r = ui.add(ImageButton::new(UPLOAD.clone())).on_hover_ui(|ui| {
+                        ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-upload")).small());
+                    });
 
                     if r.clicked() {
                         self.set_mode(MainWindowMode::SelectProtocol(false));
                     }
 
-                    let r = ui
-                        .button(RichText::new("⬇").font(FontId::new(img_size, FontFamily::Proportional)))
-                        .on_hover_ui(|ui| {
-                            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-download")).small());
-                        });
+                    let r = ui.add(ImageButton::new(DOWNLOAD.clone())).on_hover_ui(|ui| {
+                        ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-download")).small());
+                    });
 
                     if r.clicked() {
                         self.set_mode(MainWindowMode::SelectProtocol(true));
@@ -56,11 +56,9 @@ impl MainWindow {
                     let mut send_login = false;
                     if let Some(auto_login) = &mut self.buffer_update_thread.lock().auto_login {
                         if !auto_login.logged_in {
-                            let r = ui
-                                .button(RichText::new("🔑").font(FontId::new(img_size, FontFamily::Monospace)))
-                                .on_hover_ui(|ui| {
-                                    ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-autologin")).small());
-                                });
+                            let r = ui.add(ImageButton::new(KEY.clone())).on_hover_ui(|ui| {
+                                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-autologin")).small());
+                            });
 
                             if r.clicked() {
                                 send_login = true;
@@ -72,11 +70,9 @@ impl MainWindow {
                         self.send_login();
                     }
 
-                    let r: egui::Response = ui
-                        .add(egui::Button::new(RichText::new("📞").font(FontId::new(img_size, FontFamily::Monospace))))
-                        .on_hover_ui(|ui| {
-                            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-dialing_directory")).small());
-                        });
+                    let r: egui::Response = ui.add(ImageButton::new(CALL.clone())).on_hover_ui(|ui| {
+                        ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-dialing_directory")).small());
+                    });
 
                     if r.clicked() {
                         self.show_dialing_directory();
@@ -132,16 +128,13 @@ impl MainWindow {
                     let size = ui.available_size_before_wrap();
                     ui.add_space(size.x - 70.0);
 
-                    let r = ui
-                        .button(RichText::new("☎").font(FontId::new(img_size, FontFamily::Monospace)))
-                        .on_hover_ui(|ui| {
-                            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-hangup")).small());
-                        });
+                    let r = ui.add(ImageButton::new(LOGOUT.clone())).on_hover_ui(|ui| {
+                        ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-hangup")).small());
+                    });
                     if r.clicked() {
                         self.hangup();
                     }
-
-                    ui.menu_button(RichText::new("☰").font(FontId::new(img_size + 6., FontFamily::Proportional)), |ui| {
+                    ui.menu_image_button(MENU.clone(), |ui| {
                         let r = ui.hyperlink_to(
                             fl!(crate::LANGUAGE_LOADER, "menu-item-discuss"),
                             "https://github.com/mkrueger/icy_term/discussions",
@@ -230,11 +223,11 @@ impl MainWindow {
 
         monitor_settings.selection_fg = self.screen_mode.get_selection_fg();
         monitor_settings.selection_bg = self.screen_mode.get_selection_bg();
-       /*  if ui.input(|i| i.key_down(egui::Key::W)) {
+        /*  if ui.input(|i| i.key_down(egui::Key::W)) {
             let enabled = self.buffer_update_thread.lock().enabled;
             self.buffer_update_thread.lock().enabled = !enabled;
         }*/
-    
+
         let opt = icy_engine_egui::TerminalOptions {
             filter: self.get_options().scaling.get_filter(),
             monitor_settings,

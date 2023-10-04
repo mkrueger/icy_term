@@ -4,12 +4,13 @@ use eframe::{
     emath::NumExt,
     epaint::{FontFamily, FontId, Vec2},
 };
-use egui::{Align, Id, Key, Rect};
+use egui::{Align, Id, ImageButton, Key, Rect};
 use i18n_embed_fl::fl;
 use icy_engine::ansi::{BaudEmulation, MusicOption};
 
 use crate::{
     addresses::{self, Address, Terminal},
+    icons::{ADD, CLOSE, DELETE, STAR, UNSTAR, VISIBILITY, VISIBILITY_OFF},
     ui::{MainWindow, MainWindowMode, ScreenMode, DEFAULT_MODES},
     util::Rng,
     AddressBook,
@@ -304,15 +305,11 @@ impl DialogState {
                     .desired_width(f32::INFINITY)
                     .hint_text(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-name-placeholder"))),
             );
-            let text = if adr.is_favored {
-                RichText::new("★")
-                    .font(FontId::new(20.0, FontFamily::Proportional))
-                    .color(ctx.style().visuals.warn_fg_color)
-            } else {
-                RichText::new("☆").font(FontId::new(20.0, FontFamily::Proportional))
-            };
 
-            if ui.selectable_label(false, text).clicked() {
+            if ui
+                .add(ImageButton::new(if adr.is_favored { STAR.clone() } else { UNSTAR.clone() }).frame(false))
+                .clicked()
+            {
                 adr.is_favored = !adr.is_favored;
             }
         });
@@ -520,7 +517,10 @@ impl DialogState {
                     let pw = self.show_passwords;
                     ui.add(TextEdit::singleline(&mut self.get_address_mut(self.selected_bbs).password).password(!pw));
 
-                    if ui.selectable_label(self.show_passwords, "👁").clicked() {
+                    if ui
+                        .add(ImageButton::new(if self.show_passwords { VISIBILITY.clone() } else { VISIBILITY_OFF.clone() }).frame(false))
+                        .clicked()
+                    {
                         self.show_passwords = !self.show_passwords;
                     }
 
@@ -562,7 +562,10 @@ impl DialogState {
                         let pw = self.show_passwords;
                         ui.add(TextEdit::singleline(&mut self.get_address_mut(self.selected_bbs).iemsi_password).password(!pw));
 
-                        if ui.selectable_label(self.show_passwords, "👁").clicked() {
+                        if ui
+                            .add(ImageButton::new(if self.show_passwords { VISIBILITY.clone() } else { VISIBILITY_OFF.clone() }).frame(false))
+                            .clicked()
+                        {
                             self.show_passwords = !self.show_passwords;
                         }
                     });
@@ -751,7 +754,7 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
                     ui.horizontal(|ui| {
                         let selected = matches!(window.dialing_directory_dialog.dialing_directory_filter, DialingDirectoryFilter::Favourites);
                         let r: egui::Response = ui
-                            .selectable_label(selected, RichText::new("★").font(FontId::new(22.0, FontFamily::Proportional)))
+                            .add(ImageButton::new(if selected { STAR.clone() } else { UNSTAR.clone() }).frame(false))
                             .on_hover_ui(|ui| {
                                 ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-starred-items")).small());
                             });
@@ -770,11 +773,9 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
                                 .hint_text(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-filter-placeholder"))),
                         );
 
-                        let r: egui::Response = ui
-                            .button(RichText::new("✖").font(FontId::new(16.0, FontFamily::Proportional)))
-                            .on_hover_ui(|ui| {
-                                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-clear-filter")).small());
-                            });
+                        let r: egui::Response = ui.add(ImageButton::new(CLOSE.clone())).on_hover_ui(|ui| {
+                            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-clear-filter")).small());
+                        });
                         if r.clicked() {
                             window.dialing_directory_dialog.dialing_directory_filter_string = String::new();
                         }
@@ -787,11 +788,9 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
                 ui.add_space(8.);
                 if !window.dialing_directory_dialog.addresses.write_lock {
                     ui.with_layout(Layout::left_to_right(egui::Align::BOTTOM), |ui| {
-                        let r: egui::Response = ui
-                            .button(RichText::new("➕").font(FontId::new(20.0, FontFamily::Proportional)))
-                            .on_hover_ui(|ui| {
-                                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-add")).small());
-                            });
+                        let r: egui::Response = ui.add(ImageButton::new(ADD.clone())).on_hover_ui(|ui| {
+                            ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-add")).small());
+                        });
 
                         if r.clicked() {
                             let adr = Address::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-new_bbs"));
@@ -811,10 +810,7 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
                 ui.add_space(8.);
                 ui.horizontal(|ui| {
                     let r: egui::Response = ui
-                        .add_enabled(
-                            window.dialing_directory_dialog.selected_bbs.is_some(),
-                            egui::Button::new(RichText::new("🗑").font(FontId::new(26.0, FontFamily::Proportional))),
-                        )
+                        .add_enabled(window.dialing_directory_dialog.selected_bbs.is_some(), ImageButton::new(DELETE.clone()))
                         .on_hover_ui(|ui| {
                             ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-delete")).small());
                         });
