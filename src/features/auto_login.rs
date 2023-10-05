@@ -29,13 +29,7 @@ pub struct AutoLogin {
 }
 
 impl AutoLogin {
-    pub fn new(login_expr: &str, adr: &Address) -> Self {
-        let (user_name, password) = if adr.override_iemsi_settings {
-            (adr.iemsi_user.clone(), adr.iemsi_password.clone())
-        } else {
-            (adr.user_name.clone(), adr.password.clone())
-        };
-
+    pub fn new(login_expr: &str, adr: &Address, user_name: String, password: String) -> Self {
         Self {
             logged_in: false,
             disabled: false,

@@ -265,7 +265,17 @@ impl MainWindow {
             address.number_of_calls += 1;
             address.last_call = Some(Utc::now());
 
-            self.buffer_update_thread.lock().auto_login = Some(AutoLogin::new(&cloned_addr.auto_login, address));
+            let (user_name, password) = if address.override_iemsi_settings {
+                (address.iemsi_user.clone(), address.iemsi_password.clone())
+            } else {
+                (address.user_name.clone(), address.password.clone())
+            };
+
+            self.buffer_update_thread.lock().auto_login = if user_name.is_empty() || password.is_empty() {
+                None
+            } else {
+                Some(AutoLogin::new(&cloned_addr.auto_login, address, user_name, password))
+            };
             self.buffer_update_thread.lock().auto_file_transfer.reset();
             self.buffer_view.lock().get_buffer_mut().layers[0].clear();
             self.buffer_view.lock().get_buffer_mut().stop_sixel_threads();
