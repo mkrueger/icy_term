@@ -271,6 +271,7 @@ pub struct Options {
     pub scaling: Scaling,
     pub connect_timeout: Duration,
     pub console_beep: bool,
+    pub is_dark_mode: Option<bool>,
 
     pub monitor_settings: MonitorSettings,
     pub bind: KeyBindings,
@@ -286,6 +287,7 @@ impl Default for Options {
             iemsi: IEMSISettings::default(),
             console_beep: true,
             bind: KeyBindings::default(),
+            is_dark_mode: None,
         }
     }
 }
@@ -330,6 +332,9 @@ impl Options {
             file.write_all(b"version = \"1.1\"\n")?;
 
             file.write_all(format!("scaling = \"{:?}\"\n", self.scaling).as_bytes())?;
+            if let Some(dark_mode) = self.is_dark_mode {
+                file.write_all(format!("is_dark_mode = {dark_mode}\n").as_bytes())?;
+            }
             file.write_all(format!("border_color = {:?}\n", self.monitor_settings.border_color.to_hex()).as_bytes())?;
             file.write_all(format!("use_crt_filter = {:?}\n", self.monitor_settings.use_filter).as_bytes())?;
             file.write_all(format!("monitor_type = {:?}\n", self.monitor_settings.monitor_type).as_bytes())?;
@@ -425,6 +430,11 @@ fn parse_value(options: &mut Options, value: &Value) {
                                 "Linear" => options.scaling = Scaling::Linear,
                                 _ => {}
                             }
+                        }
+                    }
+                    "is_dark_mode" => {
+                        if let Value::Boolean(b) = v {
+                            options.is_dark_mode = Some(*b);
                         }
                     }
                     "border_color" => {

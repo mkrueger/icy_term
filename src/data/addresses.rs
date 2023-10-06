@@ -154,6 +154,7 @@ pub struct Address {
     pub ice_mode: bool,
     pub ansi_music: MusicOption,
     pub baud_emulation: BaudEmulation,
+    pub use_igs: bool,
 
     pub font_name: Option<String>,
     pub screen_mode: ScreenMode,
@@ -265,6 +266,7 @@ impl Address {
             override_iemsi_settings: false,
             iemsi_user: String::new(),
             iemsi_password: String::new(),
+            use_igs: false,
         }
     }
 

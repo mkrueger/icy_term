@@ -280,7 +280,13 @@ impl MainWindow {
             self.buffer_view.lock().get_buffer_mut().layers[0].clear();
             self.buffer_view.lock().get_buffer_mut().stop_sixel_threads();
             self.dialing_directory_dialog.cur_addr = i;
-            self.buffer_view.lock().set_parser(address.terminal_type.get_parser(&cloned_addr));
+            let mut parser = address.terminal_type.get_parser(&cloned_addr);
+
+            if cloned_addr.use_igs {
+                parser = Box::new(icy_engine::parsers::igs::Parser::new(parser));
+            }
+
+            self.buffer_view.lock().set_parser(parser);
             self.buffer_view.lock().get_buffer_mut().terminal_state.set_baud_rate(address.baud_emulation);
 
             self.buffer_view.lock().redraw_font();
@@ -452,4 +458,8 @@ impl MainWindow {
             self.find_dialog.update_pattern(lock);
         }
     }
+}
+
+pub fn button_tint(ui: &egui::Ui) -> egui::Color32 {
+    ui.visuals().widgets.active.fg_stroke.color
 }

@@ -37,7 +37,7 @@ impl MainWindow {
                     ui.set_enabled(false);
                 }
                 ui.horizontal(|ui| {
-                    let r = ui.add(ImageButton::new(UPLOAD.clone())).on_hover_ui(|ui| {
+                    let r = ui.add(ImageButton::new(UPLOAD.clone().tint(crate::ui::button_tint(ui)))).on_hover_ui(|ui| {
                         ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-upload")).small());
                     });
 
@@ -45,7 +45,7 @@ impl MainWindow {
                         self.set_mode(MainWindowMode::SelectProtocol(false));
                     }
 
-                    let r = ui.add(ImageButton::new(DOWNLOAD.clone())).on_hover_ui(|ui| {
+                    let r = ui.add(ImageButton::new(DOWNLOAD.clone().tint(crate::ui::button_tint(ui)))).on_hover_ui(|ui| {
                         ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-download")).small());
                     });
 
@@ -55,7 +55,7 @@ impl MainWindow {
                     let mut send_login = false;
                     if let Some(auto_login) = &mut self.buffer_update_thread.lock().auto_login {
                         if !auto_login.logged_in {
-                            let r = ui.add(ImageButton::new(KEY.clone())).on_hover_ui(|ui| {
+                            let r = ui.add(ImageButton::new(KEY.clone().tint(crate::ui::button_tint(ui)))).on_hover_ui(|ui| {
                                 ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-autologin")).small());
                             });
 
@@ -69,7 +69,7 @@ impl MainWindow {
                         self.send_login();
                     }
 
-                    let r: egui::Response = ui.add(ImageButton::new(CALL.clone())).on_hover_ui(|ui| {
+                    let r: egui::Response = ui.add(ImageButton::new(CALL.clone().tint(crate::ui::button_tint(ui)))).on_hover_ui(|ui| {
                         ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-dialing_directory")).small());
                     });
 
@@ -127,13 +127,13 @@ impl MainWindow {
                     let size = ui.available_size_before_wrap();
                     ui.add_space(size.x - 70.0);
 
-                    let r = ui.add(ImageButton::new(LOGOUT.clone())).on_hover_ui(|ui| {
+                    let r = ui.add(ImageButton::new(LOGOUT.clone().tint(crate::ui::button_tint(ui)))).on_hover_ui(|ui| {
                         ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "terminal-hangup")).small());
                     });
                     if r.clicked() {
                         self.hangup();
                     }
-                    ui.menu_image_button(MENU.clone(), |ui| {
+                    ui.menu_image_button(MENU.clone().tint(crate::ui::button_tint(ui)), |ui| {
                         let r = ui.hyperlink_to(
                             fl!(crate::LANGUAGE_LOADER, "menu-item-discuss"),
                             "https://github.com/mkrueger/icy_term/discussions",

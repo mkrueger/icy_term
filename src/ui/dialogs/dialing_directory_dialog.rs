@@ -307,7 +307,14 @@ impl DialogState {
             );
 
             if ui
-                .add(ImageButton::new(if adr.is_favored { STAR.clone() } else { UNSTAR.clone() }).frame(false))
+                .add(
+                    ImageButton::new(if adr.is_favored {
+                        STAR.clone().tint(crate::ui::button_tint(ui))
+                    } else {
+                        UNSTAR.clone().tint(crate::ui::button_tint(ui))
+                    })
+                    .frame(false),
+                )
                 .clicked()
             {
                 adr.is_favored = !adr.is_favored;
@@ -494,6 +501,8 @@ impl DialogState {
                     });
                 ui.end_row();
             });
+
+        //        ui.checkbox(& mut adr.use_igs, "Instant Graphics and Sound");
     }
 
     fn render_login_category(&mut self, ui: &mut egui::Ui) {
@@ -518,7 +527,14 @@ impl DialogState {
                     ui.add(TextEdit::singleline(&mut self.get_address_mut(self.selected_bbs).password).password(!pw));
 
                     if ui
-                        .add(ImageButton::new(if self.show_passwords { VISIBILITY.clone() } else { VISIBILITY_OFF.clone() }).frame(false))
+                        .add(
+                            ImageButton::new(if self.show_passwords {
+                                VISIBILITY.clone().tint(crate::ui::button_tint(ui))
+                            } else {
+                                VISIBILITY_OFF.clone().tint(crate::ui::button_tint(ui))
+                            })
+                            .frame(false),
+                        )
                         .clicked()
                     {
                         self.show_passwords = !self.show_passwords;
@@ -563,7 +579,14 @@ impl DialogState {
                         ui.add(TextEdit::singleline(&mut self.get_address_mut(self.selected_bbs).iemsi_password).password(!pw));
 
                         if ui
-                            .add(ImageButton::new(if self.show_passwords { VISIBILITY.clone() } else { VISIBILITY_OFF.clone() }).frame(false))
+                            .add(
+                                ImageButton::new(if self.show_passwords {
+                                    VISIBILITY.clone().tint(crate::ui::button_tint(ui))
+                                } else {
+                                    VISIBILITY_OFF.clone().tint(crate::ui::button_tint(ui))
+                                })
+                                .frame(false),
+                            )
                             .clicked()
                         {
                             self.show_passwords = !self.show_passwords;
@@ -754,7 +777,14 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
                     ui.horizontal(|ui| {
                         let selected = matches!(window.dialing_directory_dialog.dialing_directory_filter, DialingDirectoryFilter::Favourites);
                         let r: egui::Response = ui
-                            .add(ImageButton::new(if selected { STAR.clone() } else { UNSTAR.clone() }).frame(false))
+                            .add(
+                                ImageButton::new(if selected {
+                                    STAR.clone().tint(crate::ui::button_tint(ui))
+                                } else {
+                                    UNSTAR.clone().tint(crate::ui::button_tint(ui))
+                                })
+                                .frame(false),
+                            )
                             .on_hover_ui(|ui| {
                                 ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-starred-items")).small());
                             });
@@ -774,7 +804,9 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
                         );
 
                         let r: egui::Response = ui
-                            .add(ImageButton::new(CLOSE.clone().fit_to_exact_size(Vec2::new(18.0, 18.0))))
+                            .add(ImageButton::new(
+                                CLOSE.clone().tint(crate::ui::button_tint(ui)).fit_to_exact_size(Vec2::new(18.0, 18.0)),
+                            ))
                             .on_hover_ui(|ui| {
                                 ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-clear-filter")).small());
                             });
@@ -790,7 +822,7 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
                 ui.add_space(8.);
                 if !window.dialing_directory_dialog.addresses.write_lock {
                     ui.with_layout(Layout::left_to_right(egui::Align::BOTTOM), |ui| {
-                        let r: egui::Response = ui.add(ImageButton::new(ADD.clone())).on_hover_ui(|ui| {
+                        let r: egui::Response = ui.add(ImageButton::new(ADD.clone().tint(crate::ui::button_tint(ui)))).on_hover_ui(|ui| {
                             ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-add")).small());
                         });
 
@@ -812,7 +844,10 @@ pub fn view_dialing_directory(window: &mut MainWindow, ctx: &egui::Context) {
                 ui.add_space(8.);
                 ui.horizontal(|ui| {
                     let r: egui::Response = ui
-                        .add_enabled(window.dialing_directory_dialog.selected_bbs.is_some(), ImageButton::new(DELETE.clone()))
+                        .add_enabled(
+                            window.dialing_directory_dialog.selected_bbs.is_some(),
+                            ImageButton::new(DELETE.clone().tint(crate::ui::button_tint(ui))),
+                        )
                         .on_hover_ui(|ui| {
                             ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "dialing_directory-delete")).small());
                         });

@@ -73,7 +73,12 @@ impl MainWindowState {
             .frame(egui::Frame::window(&ctx.style()))
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
+                    let old_dark = self.options.is_dark_mode;
                     egui::widgets::global_dark_light_mode_switch(ui);
+                    self.options.is_dark_mode = Some(ui.visuals().dark_mode);
+                    if self.options.is_dark_mode != old_dark {
+                        self.store_options();
+                    }
                     let settings_category = self.settings_dialog.settings_category;
                     for i in 0..SETTING_CATEGORIES.len() {
                         if ui.selectable_label(settings_category == i, &SETTING_CATEGORIES[i].0).clicked() {
