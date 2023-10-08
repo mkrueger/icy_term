@@ -51,7 +51,6 @@ impl BufferUpdateThread {
     }
 
     fn update_buffer(&mut self, ctx: &egui::Context, data: &[u8]) -> (u64, usize) {
-        self.capture_dialog.append_data(data);
         let has_data = !data.is_empty();
         if !data.is_empty() {
             // println!("data : {} {}", self.last_update.elapsed().as_millis(), data.len());
@@ -90,18 +89,14 @@ impl BufferUpdateThread {
                     }
                 }
             }*/
+            self.capture_dialog.append_data(ch);
             let (p, ms) = self.print_char(&mut self.buffer_view.lock(), ch);
             idx += 1;
 
-            if ms > 0 {
-                self.buffer_view.lock().get_edit_state_mut().is_buffer_dirty = true;
-                ctx.request_repaint();
-                return (ms as u64, idx);
-            }
             if p {
                 self.buffer_view.lock().get_edit_state_mut().is_buffer_dirty = true;
                 ctx.request_repaint();
-                return (0, idx);
+                return (ms as u64, idx);
             }
             if let Some((protocol_type, download)) = self.auto_file_transfer.try_transfer(ch) {
                 self.auto_transfer = Some((protocol_type, download));
@@ -110,15 +105,17 @@ impl BufferUpdateThread {
 
         if has_data {
             self.buffer_view.lock().get_buffer_mut().update_hyperlinks();
+            (0, data.len())
+        } else {
+            (10, data.len())
         }
-
-        (10, idx)
     }
 
     pub fn print_char(&self, buffer_view: &mut BufferView, c: u8) -> (bool, u32) {
         let result = buffer_view.print_char(c as char);
         match result {
             Ok(icy_engine::CallbackAction::SendString(result)) => {
+                println!("{}", result);
                 if let Some(con) = self.connection.lock().as_mut() {
                     if con.is_connected() {
                         let r = con.send(result.as_bytes().to_vec());
@@ -188,12 +185,13 @@ pub fn run_update_thread(ctx: &egui::Context, update_thread: Arc<Mutex<BufferUpd
                 match update_state {
                     Err(err) => {
                         log::error!("{err}");
+                        idx = data.len();
                     }
-                    Ok((sleep_ms, next_idx)) => {
+                    Ok((sleep_ms, parsed_data)) => {
                         if sleep_ms > 0 {
                             thread::sleep(Duration::from_millis(sleep_ms));
                         }
-                        idx += next_idx;
+                        idx += parsed_data;
                     }
                 }
             } else {

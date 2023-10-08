@@ -539,6 +539,9 @@ fn parse_address(value: &Value) -> Address {
                 }
             }
         }
+        if let Some(Value::Boolean(value)) = table.get("use_igs") {
+            result.use_igs = *value;
+        }
 
         if let Some(Value::String(name)) = table.get("screen_mode") {
             let lower_name = &name.to_lowercase();
@@ -621,6 +624,10 @@ fn store_address(file: &mut File, addr: &Address) -> TerminalResult<()> {
 
     if addr.baud_emulation != BaudEmulation::default() {
         file.write_all(format!("baud_emulation = \"{}\"\n", addr.baud_emulation).as_bytes())?;
+    }
+
+    if addr.use_igs {
+        file.write_all(format!("use_igs = {}\n", addr.use_igs).as_bytes())?;
     }
 
     if addr.screen_mode != ScreenMode::default() {
