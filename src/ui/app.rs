@@ -7,7 +7,6 @@ use directories::UserDirs;
 use eframe::egui::{self};
 use egui::{mutex::Mutex, FontId};
 use icy_engine::Position;
-use web_time::Instant;
 
 use crate::{
     check_error,
@@ -81,7 +80,6 @@ impl MainWindow {
             connection: connection.clone(),
             buffer_view: buffer_update_view.clone(),
             capture_dialog: dialogs::capture_dialog::DialogState::default(),
-            last_update: Instant::now(),
             auto_file_transfer: AutoFileTransfer::default(),
             auto_transfer: None,
             auto_login: None,

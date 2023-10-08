@@ -4,6 +4,7 @@ use chrono::Utc;
 use egui::Vec2;
 use egui_bind::BindTarget;
 use i18n_embed_fl::fl;
+use icy_engine::igs::CommandExecutor;
 use icy_engine::Position;
 use icy_engine_egui::BufferView;
 use std::path::PathBuf;
@@ -187,7 +188,7 @@ impl MainWindow {
     pub fn print_char(&self, c: u8) -> bool {
         let buffer_view = &mut self.buffer_view.lock();
         buffer_view.get_edit_state_mut().is_buffer_dirty = true;
-        self.buffer_update_thread.lock().print_char(buffer_view, c)
+        self.buffer_update_thread.lock().print_char(buffer_view, c).0
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -283,7 +284,13 @@ impl MainWindow {
             let mut parser = address.terminal_type.get_parser(&cloned_addr);
 
             if cloned_addr.use_igs {
-                parser = Box::new(icy_engine::parsers::igs::Parser::new(parser));
+                let ig_executor: Arc<std::sync::Mutex<Box<dyn CommandExecutor>>> =
+                    Arc::new(std::sync::Mutex::new(Box::<icy_engine::parsers::igs::DrawExecutor>::default()));
+                self.buffer_view.lock().set_igs_executor(ig_executor.clone());
+
+                parser = Box::new(icy_engine::parsers::igs::Parser::new(parser, ig_executor));
+            } else {
+                self.buffer_view.lock().clear_igs_executor();
             }
 
             self.buffer_view.lock().set_parser(parser);

@@ -128,7 +128,6 @@ impl Sz {
             transfer_info.check_size = format!("Crc32/{}", self.package_len);
             transfer_info.update_bps();
         }
-        println!("sz state: {:?}", self.state);
         match self.state {
             SendState::Await => {
                 self.read_next_header(com)?;
@@ -159,7 +158,6 @@ impl Sz {
                 }
                 let old_pos = self.cur_file_pos;
                 let end_pos = min(self.data.len(), self.cur_file_pos + self.package_len);
-                println!("nonstop:{}", self.nonstop);
                 let crc_byte = if self.cur_file_pos + self.package_len < self.data.len() {
                     if self.nonstop {
                         ZCRCG
