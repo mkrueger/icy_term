@@ -2,7 +2,7 @@ use crate::ui::screen_modes::ScreenMode;
 use crate::TerminalResult;
 use chrono::{Duration, Utc};
 use icy_engine::ansi::{BaudEmulation, MusicOption};
-use icy_engine::{ansi, ascii, atascii, avatar, petscii, viewdata, BufferParser};
+use icy_engine::{ansi, ascii, atascii, avatar, petscii, viewdata, BufferParser, UnicodeConverter};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use regex::Regex;
 use std::fs::File;
@@ -38,11 +38,11 @@ impl Terminal {
     ];
 
     #[must_use]
-    pub fn get_parser(&self, addr: &Address) -> Box<dyn BufferParser> {
+    pub fn get_parser(&self, use_ansi_music: MusicOption) -> Box<dyn BufferParser> {
         match self {
             Terminal::Ansi => {
                 let mut parser = ansi::Parser::default();
-                parser.ansi_music = addr.ansi_music;
+                parser.ansi_music = use_ansi_music;
                 parser.bs_is_ctrl_char = true;
                 Box::new(parser)
             }
@@ -51,6 +51,16 @@ impl Terminal {
             Terminal::PETscii => Box::<petscii::Parser>::default(),
             Terminal::ATAscii => Box::<atascii::Parser>::default(),
             Terminal::ViewData => Box::<viewdata::Parser>::default(),
+        }
+    }
+
+    #[must_use]
+    pub fn get_unicode_converter(&self) -> Box<dyn UnicodeConverter> {
+        match self {
+            Terminal::Ansi | Terminal::Avatar | Terminal::Ascii => Box::<ascii::CP437Converter>::default(),
+            Terminal::PETscii => Box::<petscii::CharConverter>::default(),
+            Terminal::ATAscii => Box::<atascii::CharConverter>::default(),
+            Terminal::ViewData => Box::<viewdata::CharConverter>::default(),
         }
     }
 }

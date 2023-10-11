@@ -4,9 +4,9 @@ use chrono::Utc;
 use egui::Vec2;
 use egui_bind::BindTarget;
 use i18n_embed_fl::fl;
-use icy_engine::igs::CommandExecutor;
-use icy_engine::Position;
+use icy_engine::{AttributedChar, Caret, Position};
 use icy_engine_egui::BufferView;
+use std::mem;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
@@ -147,7 +147,7 @@ impl MainWindow {
     }
 
     pub fn output_char(&mut self, ch: char) {
-        let translated_char = self.buffer_view.lock().get_parser().convert_from_unicode(ch, 0);
+        let translated_char = self.buffer_view.lock().get_unicode_converter().convert_from_unicode(ch, 0);
         let mut print = true;
         if let Some(con) = self.connection.lock().as_mut() {
             if con.is_connected() {
@@ -169,7 +169,7 @@ impl MainWindow {
             if con.is_connected() {
                 let mut v = Vec::new();
                 for ch in str.chars() {
-                    let translated_char = self.buffer_view.lock().get_parser().convert_from_unicode(ch, 0);
+                    let translated_char = self.buffer_view.lock().get_unicode_converter().convert_from_unicode(ch, 0);
                     v.push(translated_char as u8);
                 }
                 let r = con.send(v);
@@ -179,16 +179,22 @@ impl MainWindow {
         }
         if print {
             for ch in str.chars() {
-                let translated_char = self.buffer_view.lock().get_parser().convert_from_unicode(ch, 0);
+                let translated_char = self.buffer_view.lock().get_unicode_converter().convert_from_unicode(ch, 0);
                 self.print_char(translated_char as u8);
             }
         }
     }
 
-    pub fn print_char(&self, c: u8) -> bool {
+    pub fn print_char(&self, c: u8) {
         let buffer_view = &mut self.buffer_view.lock();
         buffer_view.get_edit_state_mut().is_buffer_dirty = true;
-        self.buffer_update_thread.lock().print_char(buffer_view, c).0
+        let attribute = buffer_view.get_caret().get_attribute();
+        let mut caret = Caret::default();
+        mem::swap(&mut caret, buffer_view.get_caret_mut());
+        buffer_view
+            .get_buffer_mut()
+            .print_char(0, &mut caret, AttributedChar::new(c as char, attribute));
+        mem::swap(&mut caret, buffer_view.get_caret_mut());
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -277,23 +283,25 @@ impl MainWindow {
             } else {
                 Some(AutoLogin::new(&cloned_addr.auto_login, address, user_name, password))
             };
+
+            self.buffer_update_thread.lock().terminal_type = Some((address.terminal_type, address.ansi_music));
             self.buffer_update_thread.lock().auto_file_transfer.reset();
             self.buffer_view.lock().get_buffer_mut().layers[0].clear();
             self.buffer_view.lock().get_buffer_mut().stop_sixel_threads();
             self.dialing_directory_dialog.cur_addr = i;
-            let mut parser = address.terminal_type.get_parser(&cloned_addr);
-
+            let converter = address.terminal_type.get_unicode_converter();
+            /* TODO
             if cloned_addr.use_igs {
                 let ig_executor: Arc<std::sync::Mutex<Box<dyn CommandExecutor>>> =
                     Arc::new(std::sync::Mutex::new(Box::<icy_engine::parsers::igs::DrawExecutor>::default()));
                 self.buffer_view.lock().set_igs_executor(ig_executor.clone());
 
-                parser = Box::new(icy_engine::parsers::igs::Parser::new(parser, ig_executor));
+                converter = Box::new(icy_engine::parsers::igs::Parser::new(converter, ig_executor));
             } else {
                 self.buffer_view.lock().clear_igs_executor();
-            }
+            }*/
 
-            self.buffer_view.lock().set_parser(parser);
+            self.buffer_view.lock().set_unicode_converter(converter);
             self.buffer_view.lock().get_buffer_mut().terminal_state.set_baud_rate(address.baud_emulation);
 
             self.buffer_view.lock().redraw_font();
@@ -360,7 +368,7 @@ impl MainWindow {
             .unwrap()
             .password
             .clone();
-        let mut cr: Vec<u8> = [self.buffer_view.lock().get_parser().convert_from_unicode('\r', 0) as u8].to_vec();
+        let mut cr: Vec<u8> = [self.buffer_view.lock().get_unicode_converter().convert_from_unicode('\r', 0) as u8].to_vec();
         for (k, v) in self.screen_mode.get_input_mode().cur_map() {
             if *k == Key::Enter as u32 {
                 cr = v.to_vec();

@@ -2,11 +2,15 @@ use crate::{
     features::{AutoFileTransfer, AutoLogin},
     protocol::TransferType,
     util::SoundThread,
-    TerminalResult,
+    Terminal, TerminalResult,
 };
 use egui::mutex::Mutex;
+use icy_engine::{
+    ansi::{self, MusicOption},
+    BufferParser, Caret,
+};
 use icy_engine_egui::BufferView;
-use std::{sync::Arc, thread};
+use std::{mem, sync::Arc, thread};
 use web_time::Duration;
 
 use super::{
@@ -26,6 +30,8 @@ pub struct BufferUpdateThread {
 
     pub auto_transfer: Option<(TransferType, bool)>,
     pub enabled: bool,
+
+    pub terminal_type: Option<(Terminal, MusicOption)>,
 }
 
 impl BufferUpdateThread {
@@ -45,12 +51,12 @@ impl BufferUpdateThread {
         };
         Ok(data)
     }
-    pub fn update_state(&mut self, ctx: &egui::Context, data: &[u8]) -> TerminalResult<(u64, usize)> {
+    pub fn update_state(&mut self, ctx: &egui::Context, buffer_parser: &mut dyn BufferParser, data: &[u8]) -> TerminalResult<(u64, usize)> {
         self.sound_thread.lock().update_state()?;
-        Ok(self.update_buffer(ctx, data))
+        Ok(self.update_buffer(ctx, buffer_parser, data))
     }
 
-    fn update_buffer(&mut self, ctx: &egui::Context, data: &[u8]) -> (u64, usize) {
+    fn update_buffer(&mut self, ctx: &egui::Context, buffer_parser: &mut dyn BufferParser, data: &[u8]) -> (u64, usize) {
         let has_data = !data.is_empty();
         if !data.is_empty() {
             // println!("data : {} {}", self.last_update.elapsed().as_millis(), data.len());
@@ -80,17 +86,17 @@ impl BufferUpdateThread {
                 b'\r' => print!("\\r"),
                 b'\"' => print!("\\\""),
                 _ => {
-                    if *ch < b' ' || *ch == b'\x7F' {
+                    if ch < b' ' || ch == b'\x7F' {
                         print!("\\x{ch:02X}");
-                    } else if *ch > b'\x7F' {
+                    } else if ch > b'\x7F' {
                         print!("\\u{{{ch:02X}}}");
                     } else {
-                        print!("{}", *ch as char);
+                        print!("{}", ch as char);
                     }
                 }
             }*/
             self.capture_dialog.append_data(ch);
-            let (p, ms) = self.print_char(&mut self.buffer_view.lock(), ch);
+            let (p, ms) = self.print_char(&mut self.buffer_view.lock(), buffer_parser, ch);
             idx += 1;
 
             if p {
@@ -111,11 +117,16 @@ impl BufferUpdateThread {
         }
     }
 
-    pub fn print_char(&self, buffer_view: &mut BufferView, c: u8) -> (bool, u32) {
-        let result = buffer_view.print_char(c as char);
+    pub fn print_char(&self, buffer_view: &mut BufferView, buffer_parser: &mut dyn BufferParser, c: u8) -> (bool, u32) {
+        let mut caret = Caret::default();
+        mem::swap(&mut caret, buffer_view.get_caret_mut());
+        let buffer = buffer_view.get_buffer_mut();
+        let result = buffer_parser.print_char(buffer, 0, &mut caret, c as char);
+        mem::swap(&mut caret, buffer_view.get_caret_mut());
+
         match result {
             Ok(icy_engine::CallbackAction::SendString(result)) => {
-                println!("{}", result);
+                println!("{}", result.replace('\x1b', "\\x1B"));
                 if let Some(con) = self.connection.lock().as_mut() {
                     if con.is_connected() {
                         let r = con.send(result.as_bytes().to_vec());
@@ -174,14 +185,17 @@ pub fn run_update_thread(ctx: &egui::Context, update_thread: Arc<Mutex<BufferUpd
     thread::spawn(move || {
         let mut data = Vec::new();
         let mut idx = 0;
-
+        let mut buffer_parser: Box<dyn BufferParser> = Box::<ansi::Parser>::default();
         loop {
             if idx >= data.len() {
                 data = update_thread.lock().get_data().unwrap_or_default();
                 idx = 0;
             }
             if idx < data.len() {
-                let update_state = update_thread.lock().update_state(&ctx, &data[idx..]);
+                if let Some((te, b)) = update_thread.lock().terminal_type.take() {
+                    buffer_parser = te.get_parser(b);
+                }
+                let update_state = update_thread.lock().update_state(&ctx, &mut *buffer_parser, &data[idx..]);
                 match update_state {
                     Err(err) => {
                         log::error!("{err}");

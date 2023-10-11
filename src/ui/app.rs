@@ -17,7 +17,7 @@ use crate::{
         BufferView, MainWindowState, ScreenMode,
     },
     util::SoundThread,
-    Address, AddressBook, Options,
+    AddressBook, Options,
 };
 
 use super::{MainWindow, MainWindowMode};
@@ -39,8 +39,7 @@ impl MainWindow {
 
         let mut view = BufferView::new(gl);
         view.interactive = true;
-        let buffer_parser = crate::Terminal::Ansi.get_parser(&Address::new("default"));
-        view.get_edit_state_mut().set_parser(buffer_parser);
+        view.get_edit_state_mut().set_unicode_converter(crate::Terminal::Ansi.get_unicode_converter());
 
         let addresses: AddressBook = match crate::addresses::start_read_book() {
             Ok(addresses) => addresses,
@@ -85,6 +84,7 @@ impl MainWindow {
             auto_login: None,
             sound_thread: Arc::new(eframe::epaint::mutex::Mutex::new(SoundThread::new())),
             enabled: true,
+            terminal_type: None,
         }));
 
         crate::ui::buffer_update_thread::run_update_thread(&cc.egui_ctx, buffer_update_thread.clone());
