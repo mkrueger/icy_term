@@ -85,6 +85,7 @@ impl MainWindow {
             sound_thread: Arc::new(eframe::epaint::mutex::Mutex::new(SoundThread::new())),
             enabled: true,
             terminal_type: None,
+            use_igs: false,
         }));
 
         crate::ui::buffer_update_thread::run_update_thread(&cc.egui_ctx, buffer_update_thread.clone());

@@ -7,6 +7,7 @@ use crate::{
 use egui::mutex::Mutex;
 use icy_engine::{
     ansi::{self, MusicOption},
+    igs::CommandExecutor,
     BufferParser, Caret,
 };
 use icy_engine_egui::BufferView;
@@ -31,6 +32,7 @@ pub struct BufferUpdateThread {
     pub auto_transfer: Option<(TransferType, bool)>,
     pub enabled: bool,
 
+    pub use_igs: bool,
     pub terminal_type: Option<(Terminal, MusicOption)>,
 }
 
@@ -192,8 +194,16 @@ pub fn run_update_thread(ctx: &egui::Context, update_thread: Arc<Mutex<BufferUpd
                 idx = 0;
             }
             if idx < data.len() {
-                if let Some((te, b)) = update_thread.lock().terminal_type.take() {
-                    buffer_parser = te.get_parser(b);
+                {
+                    let lock = &mut update_thread.lock();
+                    if let Some((te, b)) = lock.terminal_type.take() {
+                        buffer_parser = te.get_parser(b);
+                        if lock.use_igs {
+                            let ig_executor: Arc<std::sync::Mutex<Box<dyn CommandExecutor>>> =
+                                Arc::new(std::sync::Mutex::new(Box::<icy_engine::parsers::igs::DrawExecutor>::default()));
+                            buffer_parser = Box::new(icy_engine::igs::Parser::new(buffer_parser, ig_executor));
+                        }
+                    }
                 }
                 let update_state = update_thread.lock().update_state(&ctx, &mut *buffer_parser, &data[idx..]);
                 match update_state {
@@ -202,6 +212,9 @@ pub fn run_update_thread(ctx: &egui::Context, update_thread: Arc<Mutex<BufferUpd
                         idx = data.len();
                     }
                     Ok((sleep_ms, parsed_data)) => {
+                        if parsed_data > 0 {
+                            update_thread.lock().buffer_view.lock().set_igs_executor(buffer_parser.get_picture_data());
+                        }
                         if sleep_ms > 0 {
                             thread::sleep(Duration::from_millis(sleep_ms));
                         }

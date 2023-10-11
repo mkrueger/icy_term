@@ -284,22 +284,13 @@ impl MainWindow {
                 Some(AutoLogin::new(&cloned_addr.auto_login, address, user_name, password))
             };
 
+            self.buffer_update_thread.lock().use_igs = address.use_igs;
             self.buffer_update_thread.lock().terminal_type = Some((address.terminal_type, address.ansi_music));
             self.buffer_update_thread.lock().auto_file_transfer.reset();
             self.buffer_view.lock().get_buffer_mut().layers[0].clear();
             self.buffer_view.lock().get_buffer_mut().stop_sixel_threads();
             self.dialing_directory_dialog.cur_addr = i;
             let converter = address.terminal_type.get_unicode_converter();
-            /* TODO
-            if cloned_addr.use_igs {
-                let ig_executor: Arc<std::sync::Mutex<Box<dyn CommandExecutor>>> =
-                    Arc::new(std::sync::Mutex::new(Box::<icy_engine::parsers::igs::DrawExecutor>::default()));
-                self.buffer_view.lock().set_igs_executor(ig_executor.clone());
-
-                converter = Box::new(icy_engine::parsers::igs::Parser::new(converter, ig_executor));
-            } else {
-                self.buffer_view.lock().clear_igs_executor();
-            }*/
 
             self.buffer_view.lock().set_unicode_converter(converter);
             self.buffer_view.lock().get_buffer_mut().terminal_state.set_baud_rate(address.baud_emulation);
