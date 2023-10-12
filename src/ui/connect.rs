@@ -111,9 +111,10 @@ impl Connection {
                         break;
                     }
                     SendData::ConnectionError(err) => {
+                        log::error!("Connection aborted while fill_buffer: {err}");
                         self.is_connected = false;
                         self.end_transfer = true;
-                        return Err(anyhow::anyhow!("Connection aborted while fill_buffer: {err}"));
+                        return Err(anyhow::anyhow!("{err}"));
                     }
                     _ => {
                         return Err(anyhow::anyhow!("Unsupported send data: {data:?}"));

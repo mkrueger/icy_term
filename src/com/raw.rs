@@ -3,7 +3,7 @@
 use super::{Com, OpenConnectionData, TermComResult};
 use std::{
     io::{self, ErrorKind, Read, Write},
-    net::TcpStream,
+    net::{TcpStream, ToSocketAddrs},
     time::Duration,
 };
 
@@ -13,7 +13,17 @@ pub struct ComRawImpl {
 
 impl ComRawImpl {
     pub fn connect(connection_data: &OpenConnectionData) -> TermComResult<Self> {
-        let tcp_stream = TcpStream::connect(&connection_data.address)?;
+        let addr = connection_data.address.to_string();
+
+        let Some(a) = connection_data.address.to_socket_addrs().unwrap().next() else {
+            return Err(Box::new(io::Error::new(
+                ErrorKind::InvalidInput,
+                format!("Invalid address: {addr}"),
+            )));
+        };
+
+        let tcp_stream = TcpStream::connect_timeout(&a, Duration::from_millis(500))?;
+
         tcp_stream.set_write_timeout(Some(Duration::from_millis(2000)))?;
         tcp_stream.set_read_timeout(Some(Duration::from_millis(2000)))?;
 

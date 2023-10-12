@@ -161,7 +161,6 @@ impl BufferUpdateThread {
     fn handle_action(&self, result: icy_engine::CallbackAction, buffer_view: &mut BufferView) -> (bool, u32) {
         match result {
             icy_engine::CallbackAction::SendString(result) => {
-                println!("{}", result.replace('\x1b', "\\x1B"));
                 if let Some(con) = self.connection.lock().as_mut() {
                     if con.is_connected() {
                         let r = con.send(result.as_bytes().to_vec());
@@ -219,7 +218,20 @@ pub fn run_update_thread(ctx: &egui::Context, update_thread: Arc<Mutex<BufferUpd
         let mut buffer_parser: Box<dyn BufferParser> = Box::<ansi::Parser>::default();
         loop {
             if idx >= data.len() {
-                data = update_thread.lock().get_data().unwrap_or_default();
+                let lock = &update_thread.lock();
+                match lock.get_data() {
+                    Ok(d) => {
+                        data = d;
+                    }
+                    Err(err) => {
+                        log::error!("{err}");
+                        for ch in format!("{err}").chars() {
+                            let _ = lock.buffer_view.lock().print_char(ch);
+                        }
+                        lock.buffer_view.lock().get_edit_state_mut().set_is_buffer_dirty();
+                        data.clear();
+                    }
+                }
                 idx = 0;
             }
             if idx < data.len() {
