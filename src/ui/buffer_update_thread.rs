@@ -70,14 +70,14 @@ impl BufferUpdateThread {
         {
             let mut caret: Caret = Caret::default();
             mem::swap(&mut caret, self.buffer_view.lock().get_caret_mut());
-    
-            loop { 
+
+            loop {
                 let Some(act) = buffer_parser.get_next_action(self.buffer_view.lock().get_buffer_mut(), &mut caret, 0) else {
                     break
                 };
                 let (p, ms) = self.handle_action(act, &mut self.buffer_view.lock());
                 if p {
-                    self.buffer_view.lock().get_edit_state_mut().is_buffer_dirty = true;
+                    self.buffer_view.lock().get_edit_state_mut().set_is_buffer_dirty();
                     ctx.request_repaint();
                     mem::swap(&mut caret, self.buffer_view.lock().get_caret_mut());
 
@@ -85,7 +85,6 @@ impl BufferUpdateThread {
                 }
             }
             mem::swap(&mut caret, self.buffer_view.lock().get_caret_mut());
-
         }
 
         let mut idx = 0;
@@ -123,7 +122,7 @@ impl BufferUpdateThread {
             idx += 1;
 
             if p {
-                self.buffer_view.lock().get_edit_state_mut().is_buffer_dirty = true;
+                self.buffer_view.lock().get_edit_state_mut().set_is_buffer_dirty();
                 ctx.request_repaint();
                 return (ms as u64, idx);
             }
@@ -150,7 +149,6 @@ impl BufferUpdateThread {
         match result {
             Ok(action) => {
                 return self.handle_action(action, buffer_view);
-
             }
 
             Err(err) => {
@@ -158,7 +156,6 @@ impl BufferUpdateThread {
             }
         }
         (false, 0)
-
     }
 
     fn handle_action(&self, result: icy_engine::CallbackAction, buffer_view: &mut BufferView) -> (bool, u32) {
@@ -214,7 +211,7 @@ impl BufferUpdateThread {
     }
 }
 
-pub fn run_update_thread(ctx: &egui::Context, update_thread: Arc<Mutex<BufferUpdateThread>>) {
+pub fn run_update_thread(ctx: &egui::Context, update_thread: Arc<Mutex<BufferUpdateThread>>) -> thread::JoinHandle<()> {
     let ctx = ctx.clone();
     thread::spawn(move || {
         let mut data = Vec::new();
@@ -255,5 +252,5 @@ pub fn run_update_thread(ctx: &egui::Context, update_thread: Arc<Mutex<BufferUpd
                 thread::sleep(Duration::from_millis(10));
             }
         }
-    });
+    })
 }

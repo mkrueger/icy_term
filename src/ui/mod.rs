@@ -9,6 +9,7 @@ use icy_engine_egui::BufferView;
 use std::mem;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::thread::JoinHandle;
 use std::time::Instant;
 
 use eframe::egui::Key;
@@ -108,6 +109,7 @@ pub struct MainWindow {
     shift_pressed_during_selection: bool,
 
     buffer_update_thread: Arc<egui::mutex::Mutex<BufferUpdateThread>>,
+    update_thread_handle: Option<JoinHandle<()>>,
 
     pub initial_upload_directory: Option<PathBuf>,
     // protocols
@@ -187,7 +189,7 @@ impl MainWindow {
 
     pub fn print_char(&self, c: u8) {
         let buffer_view = &mut self.buffer_view.lock();
-        buffer_view.get_edit_state_mut().is_buffer_dirty = true;
+        buffer_view.get_edit_state_mut().set_is_buffer_dirty();
         let attribute = buffer_view.get_caret().get_attribute();
         let mut caret = Caret::default();
         mem::swap(&mut caret, buffer_view.get_caret_mut());
@@ -315,11 +317,25 @@ impl MainWindow {
         }
     }
 
-    pub fn update_state(&mut self) -> TerminalResult<()> {
+    pub fn update_state(&mut self, ctx: &egui::Context) -> TerminalResult<()> {
         #[cfg(target_arch = "wasm32")]
         self.poll_thread.poll();
         if let Some(con) = self.connection.lock().as_mut() {
             con.update_state()?;
+        }
+
+        if self.update_thread_handle.as_ref().unwrap().is_finished() {
+            if let Err(err) = &self.update_thread_handle.take().unwrap().join() {
+                let msg = if let Some(msg) = err.downcast_ref::<&'static str>() {
+                    (*msg).to_string()
+                } else if let Some(msg) = err.downcast_ref::<String>() {
+                    msg.clone()
+                } else {
+                    format!("?{err:?}")
+                };
+                log::error!("Error during update thread: {:?}", msg);
+                self.update_thread_handle = Some(crate::ui::buffer_update_thread::run_update_thread(ctx, self.buffer_update_thread.clone()));
+            }
         }
 
         let take = self.buffer_update_thread.lock().auto_transfer.take();

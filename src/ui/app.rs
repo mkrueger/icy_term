@@ -88,7 +88,7 @@ impl MainWindow {
             use_igs: false,
         }));
 
-        crate::ui::buffer_update_thread::run_update_thread(&cc.egui_ctx, buffer_update_thread.clone());
+        let update_thread_handle = crate::ui::buffer_update_thread::run_update_thread(&cc.egui_ctx, buffer_update_thread.clone());
 
         let mut view = MainWindow {
             connection,
@@ -107,6 +107,7 @@ impl MainWindow {
             drag_start: None,
             last_pos: Position::default(),
             buffer_update_thread,
+            update_thread_handle: Some(update_thread_handle),
 
             show_find_dialog: false,
             find_dialog: dialogs::find_dialog::DialogState::default(),
@@ -167,19 +168,19 @@ impl eframe::App for MainWindow {
 
         match self.get_mode() {
             MainWindowMode::ShowTerminal => {
-                let res = self.update_state();
+                let res = self.update_state(ctx);
                 self.handle_terminal_key_binds(ctx, frame);
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowDialingDirectory => {
-                let res = self.update_state();
+                let res = self.update_state(ctx);
                 self.update_terminal_window(ctx, frame, true);
                 check_error!(self, res, false);
             }
             MainWindowMode::ShowSettings => {
-                let res = self.update_state();
+                let res = self.update_state(ctx);
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 self.state.show_settings(ctx, frame);
@@ -225,7 +226,7 @@ impl eframe::App for MainWindow {
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowCaptureDialog => {
-                let res = self.update_state();
+                let res = self.update_state(ctx);
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 if !self.buffer_update_thread.lock().capture_dialog.show_caputure_dialog(ctx) {
@@ -234,21 +235,21 @@ impl eframe::App for MainWindow {
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowExportDialog => {
-                let res = self.update_state();
+                let res = self.update_state(ctx);
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 self.show_export_dialog(ctx);
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowUploadDialog => {
-                let res = self.update_state();
+                let res = self.update_state(ctx);
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 self.show_upload_dialog(ctx);
                 ctx.request_repaint_after(Duration::from_millis(150));
             }
             MainWindowMode::ShowIEMSI => {
-                let res = self.update_state();
+                let res = self.update_state(ctx);
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 dialogs::show_iemsi::show_iemsi(self, ctx);
