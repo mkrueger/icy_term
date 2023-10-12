@@ -67,6 +67,27 @@ impl BufferUpdateThread {
             return (10, 0);
         }
 
+        {
+            let mut caret: Caret = Caret::default();
+            mem::swap(&mut caret, self.buffer_view.lock().get_caret_mut());
+    
+            loop { 
+                let Some(act) = buffer_parser.get_next_action(self.buffer_view.lock().get_buffer_mut(), &mut caret, 0) else {
+                    break
+                };
+                let (p, ms) = self.handle_action(act, &mut self.buffer_view.lock());
+                if p {
+                    self.buffer_view.lock().get_edit_state_mut().is_buffer_dirty = true;
+                    ctx.request_repaint();
+                    mem::swap(&mut caret, self.buffer_view.lock().get_caret_mut());
+
+                    return (ms as u64, 0);
+                }
+            }
+            mem::swap(&mut caret, self.buffer_view.lock().get_caret_mut());
+
+        }
+
         let mut idx = 0;
         for ch in data {
             let ch = *ch;
@@ -120,14 +141,29 @@ impl BufferUpdateThread {
     }
 
     pub fn print_char(&self, buffer_view: &mut BufferView, buffer_parser: &mut dyn BufferParser, c: u8) -> (bool, u32) {
-        let mut caret = Caret::default();
+        let mut caret: Caret = Caret::default();
         mem::swap(&mut caret, buffer_view.get_caret_mut());
         let buffer = buffer_view.get_buffer_mut();
         let result = buffer_parser.print_char(buffer, 0, &mut caret, c as char);
         mem::swap(&mut caret, buffer_view.get_caret_mut());
 
         match result {
-            Ok(icy_engine::CallbackAction::SendString(result)) => {
+            Ok(action) => {
+                return self.handle_action(action, buffer_view);
+
+            }
+
+            Err(err) => {
+                log::error!("{err}");
+            }
+        }
+        (false, 0)
+
+    }
+
+    fn handle_action(&self, result: icy_engine::CallbackAction, buffer_view: &mut BufferView) -> (bool, u32) {
+        match result {
+            icy_engine::CallbackAction::SendString(result) => {
                 println!("{}", result.replace('\x1b', "\\x1B"));
                 if let Some(con) = self.connection.lock().as_mut() {
                     if con.is_connected() {
@@ -138,19 +174,19 @@ impl BufferUpdateThread {
                     }
                 }
             }
-            Ok(icy_engine::CallbackAction::PlayMusic(music)) => {
+            icy_engine::CallbackAction::PlayMusic(music) => {
                 let r = self.sound_thread.lock().play_music(music);
                 if let Err(r) = r {
                     log::error!("{r}");
                 }
             }
-            Ok(icy_engine::CallbackAction::Beep) => {
+            icy_engine::CallbackAction::Beep => {
                 let r = self.sound_thread.lock().beep();
                 if let Err(r) = r {
                     log::error!("{r}");
                 }
             }
-            Ok(icy_engine::CallbackAction::ChangeBaudEmulation(baud_emulation)) => {
+            icy_engine::CallbackAction::ChangeBaudEmulation(baud_emulation) => {
                 if let Some(con) = self.connection.lock().as_mut() {
                     let r = con.set_baud_rate(baud_emulation.get_baud_rate());
                     if let Err(r) = r {
@@ -158,24 +194,20 @@ impl BufferUpdateThread {
                     }
                 }
             }
-            Ok(icy_engine::CallbackAction::ResizeTerminal(_, _)) => {
+            icy_engine::CallbackAction::ResizeTerminal(_, _) => {
                 buffer_view.redraw_view();
             }
 
-            Ok(icy_engine::CallbackAction::NoUpdate) => {
+            icy_engine::CallbackAction::NoUpdate => {
                 return (false, 0);
             }
 
-            Ok(icy_engine::CallbackAction::Update) => {
+            icy_engine::CallbackAction::Update => {
                 return (true, 0);
             }
-            Ok(icy_engine::CallbackAction::Pause(ms)) => {
+            icy_engine::CallbackAction::Pause(ms) => {
                 // note: doesn't block the UI thread
                 return (true, ms);
-            }
-
-            Err(err) => {
-                log::error!("{err}");
             }
         }
         (false, 0)
@@ -212,9 +244,7 @@ pub fn run_update_thread(ctx: &egui::Context, update_thread: Arc<Mutex<BufferUpd
                         idx = data.len();
                     }
                     Ok((sleep_ms, parsed_data)) => {
-                        if parsed_data > 0 {
-                            update_thread.lock().buffer_view.lock().set_igs_executor(buffer_parser.get_picture_data());
-                        }
+                        update_thread.lock().buffer_view.lock().set_igs_executor(buffer_parser.get_picture_data());
                         if sleep_ms > 0 {
                             thread::sleep(Duration::from_millis(sleep_ms));
                         }
