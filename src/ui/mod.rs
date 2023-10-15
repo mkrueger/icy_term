@@ -417,9 +417,15 @@ impl MainWindow {
                         cur.system_name.clone()
                     };
 
-                    fl!(crate::LANGUAGE_LOADER, "title-connected", version = crate::VERSION, time = t, name = s)
+                    fl!(
+                        crate::LANGUAGE_LOADER,
+                        "title-connected",
+                        version = crate::VERSION.to_string(),
+                        time = t,
+                        name = s
+                    )
                 } else {
-                    fl!(crate::LANGUAGE_LOADER, "title-offline", version = crate::VERSION)
+                    fl!(crate::LANGUAGE_LOADER, "title-offline", version = crate::VERSION.to_string())
                 };
                 frame.set_window_title(title.as_str());
             }

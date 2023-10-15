@@ -122,6 +122,7 @@ menu-item-report-bug=Report a bug
 menu-item-check-releases=New releases
 menu-item-settings={ settings-heading }
 menu-item-capture-dialog=Capture…
+menu-upgrade_version=Upgrade to { $version }
 
 toolbar-stop-capture=Stop capture
 toolbar-show-iemsi=Show IEMSI

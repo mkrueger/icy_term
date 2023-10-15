@@ -120,6 +120,7 @@ menu-item-report-bug=Fehler melden
 menu-item-check-releases=Neue Releases
 menu-item-settings={ settings-heading }
 menu-item-capture-dialog=Aufnehmen…
+menu-upgrade_version=Neue Version { $version }
 
 toolbar-stop-capture=Aufnahmestopp
 toolbar-show-iemsi=IEMSI anzeigen

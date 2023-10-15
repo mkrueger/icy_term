@@ -27,6 +27,8 @@ dark-light = "1.0.0"
 serde = "1.0.185"
 versions = "5.0.1"
 regex = "1.5.4"
+github_release_check = "0.2.1"
+semver = "1.0.20"
 
 #sound
 rodio = { version = "0.17.1" , default-features = false, features = [] }

@@ -11,6 +11,7 @@ use crate::{
     check_error,
     icons::{CALL, DOWNLOAD, KEY, LOGOUT, MENU, UPLOAD},
     ui::connect::DataConnection,
+    LATEST_VERSION, VERSION,
 };
 
 use super::{dialogs, MainWindow, MainWindowMode};
@@ -122,6 +123,12 @@ impl MainWindow {
                         if r.clicked() {
                             self.buffer_update_thread.lock().capture_dialog.capture_session = false;
                         }
+                    }
+                    if *VERSION < *LATEST_VERSION {
+                        ui.hyperlink_to(
+                            fl!(crate::LANGUAGE_LOADER, "menu-upgrade_version", version = LATEST_VERSION.to_string()),
+                            "https://github.com/mkrueger/icy_term/releases/latest",
+                        );
                     }
 
                     let size = ui.available_size_before_wrap();

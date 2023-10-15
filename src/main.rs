@@ -31,6 +31,7 @@ use log4rs::{
     encode::pattern::PatternEncoder,
     filter::threshold::ThresholdFilter,
 };
+use semver::Version;
 
 mod com;
 pub mod data;
@@ -40,10 +41,21 @@ mod features;
 mod icons;
 mod protocol;
 mod util;
-const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 lazy_static! {
-    static ref DEFAULT_TITLE: String = format!("iCY TERM {}", crate::VERSION);
+    static ref VERSION: Version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+    static ref DEFAULT_TITLE: String = format!("iCY TERM {}", *crate::VERSION);
+}
+
+lazy_static::lazy_static! {
+    static ref LATEST_VERSION: Version = {
+        let github = github_release_check::GitHub::new().unwrap();
+        if let Ok(latest) = github.get_latest_version("mkrueger/icy_term") {
+            latest
+        } else {
+            VERSION.clone()
+        }
+    };
 }
 /* RustEmbed version (not working os wasm atm)
 #[derive(RustEmbed)]
@@ -141,7 +153,7 @@ fn main() {
         eprintln!("Failed to create log file");
     }
 
-    log::info!("Starting iCY TERM {}", VERSION);
+    log::info!("Starting iCY TERM {}", *VERSION);
 
     if let Err(err) = eframe::run_native(&DEFAULT_TITLE, options, Box::new(|cc| Box::new(MainWindow::new(cc)))) {
         log::error!("Error returned by run_native: {}", err);

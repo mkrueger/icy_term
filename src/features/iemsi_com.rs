@@ -280,7 +280,7 @@ impl EmsiICI {
             protocols: "ZAP,ZMO,KER".to_string(),
             capabilities: "CHT,TAB,ASCII8".to_string(),
             requests: "HOT,MORE,FSED,NEWS,CLR".to_string(),
-            software: format!("-Icy-Term-,{VERSION},egui"),
+            software: format!("-Icy-Term-,{},egui", *VERSION),
             xlattabl: String::new(),
         }
     }
@@ -809,7 +809,7 @@ mod tests {
                 back_data = data;
             }
         }
-        let data = format!("EMSI_ICI009C{{foo}}{{alias}}{{location}}{{data_phone}}{{voice_phone}}{{bar}}{{12-30-1976}}{{ANSI,24,80,0}}{{ZAP,ZMO,KER}}{{CHT,TAB,ASCII8}}{{HOT,MORE,FSED,NEWS,CLR}}{{-Icy-Term-,{VERSION},egui}}{{}}").as_bytes().to_vec();
-        assert_eq!(format!("**EMSI_ICI009C{{foo}}{{alias}}{{location}}{{data_phone}}{{voice_phone}}{{bar}}{{12-30-1976}}{{ANSI,24,80,0}}{{ZAP,ZMO,KER}}{{CHT,TAB,ASCII8}}{{HOT,MORE,FSED,NEWS,CLR}}{{-Icy-Term-,{},egui}}{{}}{}\r**EMSI_ACKA490\r**EMSI_ACKA490\r", VERSION, get_crc32string(&data)), String::from_utf8(back_data).unwrap());
+        let data = format!("EMSI_ICI009C{{foo}}{{alias}}{{location}}{{data_phone}}{{voice_phone}}{{bar}}{{12-30-1976}}{{ANSI,24,80,0}}{{ZAP,ZMO,KER}}{{CHT,TAB,ASCII8}}{{HOT,MORE,FSED,NEWS,CLR}}{{-Icy-Term-,{},egui}}{{}}", *VERSION).as_bytes().to_vec();
+        assert_eq!(format!("**EMSI_ICI009C{{foo}}{{alias}}{{location}}{{data_phone}}{{voice_phone}}{{bar}}{{12-30-1976}}{{ANSI,24,80,0}}{{ZAP,ZMO,KER}}{{CHT,TAB,ASCII8}}{{HOT,MORE,FSED,NEWS,CLR}}{{-Icy-Term-,{},egui}}{{}}{}\r**EMSI_ACKA490\r**EMSI_ACKA490\r", *VERSION, get_crc32string(&data)), String::from_utf8(back_data).unwrap());
     }
 }
