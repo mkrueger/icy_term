@@ -25,6 +25,18 @@ Features supported so far:
 Get the latest release here:
 https://github.com/mkrueger/icy_term/releases/latest
 
+
+## Requires
+
+IcyTerm needs a graphics card that can can do opengl 3.3+.
+(It's the 2010 version but some people have problems starting)
+
+If it doesn't run check if graphics card drivers are up to date.
+
+On Windows:
+opengl32.dll
+And VCRUNTIME140.dll is required. Usually these two are installed and it should run out of the box. If you can run any game with 3D graphics it should just work.
+
 # Help
 
 Contributions are welcome. But also testing & bug reporting or feature requests.
