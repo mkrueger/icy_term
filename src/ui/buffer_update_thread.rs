@@ -73,7 +73,7 @@ impl BufferUpdateThread {
 
             loop {
                 let Some(act) = buffer_parser.get_next_action(self.buffer_view.lock().get_buffer_mut(), &mut caret, 0) else {
-                    break
+                    break;
                 };
                 let (p, ms) = self.handle_action(act, &mut self.buffer_view.lock());
                 if p {

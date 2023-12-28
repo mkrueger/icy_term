@@ -15,7 +15,6 @@ mod ui;
 use std::path::PathBuf;
 
 use directories::ProjectDirs;
-use eframe::egui;
 use lazy_static::lazy_static;
 use ui::MainWindow;
 use web_time::Instant;
@@ -107,10 +106,10 @@ fn main() {
     use std::fs;
 
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(1284. + 8., 839.)),
+        // initial_window_size: Some(egui::vec2(1284. + 8., 839.)),
         multisampling: 0,
         renderer: eframe::Renderer::Glow,
-        icon_data: Some(eframe::IconData::try_from_png_bytes(&include_bytes!("../build/linux/256x256.png")[..]).unwrap()),
+        // icon_data: Some(eframe::IconData::try_from_png_bytes(&include_bytes!("../build/linux/256x256.png")[..]).unwrap()),
         ..Default::default()
     };
 

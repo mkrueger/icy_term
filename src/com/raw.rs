@@ -16,10 +16,7 @@ impl ComRawImpl {
         let addr = connection_data.address.to_string();
 
         let Some(a) = connection_data.address.to_socket_addrs().unwrap().next() else {
-            return Err(Box::new(io::Error::new(
-                ErrorKind::InvalidInput,
-                format!("Invalid address: {addr}"),
-            )));
+            return Err(Box::new(io::Error::new(ErrorKind::InvalidInput, format!("Invalid address: {addr}"))));
         };
 
         let tcp_stream = TcpStream::connect_timeout(&a, Duration::from_millis(500))?;

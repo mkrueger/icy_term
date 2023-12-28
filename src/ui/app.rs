@@ -52,9 +52,9 @@ impl MainWindow {
         let connection = MainWindow::start_com_thread();
         #[cfg(target_arch = "wasm32")]
         let (connection, poll_thread) = MainWindow::start_poll_thead();
-        #[cfg(not(target_arch = "wasm32"))]
-        let is_fullscreen_mode = cc.integration_info.window_info.fullscreen;
-        #[cfg(target_arch = "wasm32")]
+        //  #[cfg(not(target_arch = "wasm32"))]
+        // let is_fullscreen_mode = cc.integration_info.window_info.fullscreen;
+        //  #[cfg(target_arch = "wasm32")]
         let is_fullscreen_mode = false;
 
         // try to detect dark vs light mode from the host system; default to dark
@@ -164,12 +164,12 @@ fn parse_command_line(view: &mut MainWindow) {
 impl eframe::App for MainWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         #[cfg(not(target_arch = "wasm32"))]
-        self.update_title(frame);
+        self.update_title(ctx);
 
         match self.get_mode() {
             MainWindowMode::ShowTerminal => {
                 let res = self.update_state(ctx);
-                self.handle_terminal_key_binds(ctx, frame);
+                self.handle_terminal_key_binds(ctx);
                 self.update_terminal_window(ctx, frame, false);
                 check_error!(self, res, false);
                 ctx.request_repaint_after(Duration::from_millis(150));
@@ -258,9 +258,9 @@ impl eframe::App for MainWindow {
         }
     }
 
-    fn on_exit(&mut self, gl: Option<&glow::Context>) {
+    /*  fn on_exit(&mut self, gl: Option<&glow::Context>) {
         if let Some(gl) = gl {
             self.buffer_view.lock().destroy(gl);
         }
-    }
+    }*/
 }

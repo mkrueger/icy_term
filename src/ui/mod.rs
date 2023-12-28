@@ -396,9 +396,9 @@ impl MainWindow {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn update_title(&mut self, frame: &mut eframe::Frame) {
+    pub fn update_title(&mut self, ctx: &egui::Context) {
         if let MainWindowMode::ShowDialingDirectory = self.get_mode() {
-            frame.set_window_title(&crate::DEFAULT_TITLE);
+            ctx.send_viewport_cmd(egui::ViewportCommand::Title(crate::DEFAULT_TITLE.to_string()));
         } else {
             if self.connection.lock().is_none() {
                 return;
@@ -427,12 +427,12 @@ impl MainWindow {
                 } else {
                     fl!(crate::LANGUAGE_LOADER, "title-offline", version = crate::VERSION.to_string())
                 };
-                frame.set_window_title(title.as_str());
+                ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
             }
         }
     }
 
-    fn handle_terminal_key_binds(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn handle_terminal_key_binds(&mut self, ctx: &egui::Context) {
         if self.get_options().bind.clear_screen.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
             self.buffer_view.lock().clear_buffer_screen();
@@ -460,13 +460,13 @@ impl MainWindow {
         if self.get_options().bind.quit.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
             #[cfg(not(target_arch = "wasm32"))]
-            frame.close();
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
         if self.get_options().bind.full_screen.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
             self.is_fullscreen_mode = !self.is_fullscreen_mode;
             #[cfg(not(target_arch = "wasm32"))]
-            frame.set_fullscreen(self.is_fullscreen_mode);
+            ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(self.is_fullscreen_mode));
         }
         if self.get_options().bind.upload.pressed(ctx) {
             ctx.input_mut(|i| i.events.clear());
