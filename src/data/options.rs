@@ -155,7 +155,7 @@ fn parse_key(s: &str) -> egui::Key {
         "PageUp" => egui::Key::PageUp,
         "PageDown" => egui::Key::PageDown,
         "Minus" => egui::Key::Minus,
-        "Plus" => egui::Key::PlusEquals,
+        "Plus" => egui::Key::Plus,
         "0" => egui::Key::Num0,
         "1" => egui::Key::Num1,
         "2" => egui::Key::Num2,

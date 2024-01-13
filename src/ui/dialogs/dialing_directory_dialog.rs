@@ -664,7 +664,7 @@ impl egui::Widget for AddressRow {
                 .font(FontId::new(14.0, FontFamily::Proportional))
                 .color(ui.ctx().style().visuals.warn_fg_color),
         );
-        let star_text: egui::widget_text::WidgetTextGalley = star_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
+        let star_text = star_text.into_galley(ui, Some(false), wrap_width, egui::TextStyle::Button);
         let star_text_size = star_text.size();
 
         let rt = RichText::new(addr.system_name.clone())
@@ -693,17 +693,17 @@ impl egui::Widget for AddressRow {
             }
             if centered {
                 let text_pos = rect.left_top() + Vec2::new((rect.width() - name_text_size.x) / 2.0, rect.height() / 2.0 - name_text_size.y / 2.0);
-                name_text.paint_with_visuals(ui.painter(), text_pos, &visuals);
+                ui.painter().galley(text_pos, name_text, visuals.text_color());
             } else {
                 let text_pos = rect.left_top() + button_padding;
-                name_text.paint_with_visuals(ui.painter(), text_pos, &visuals);
+               ui.painter().galley(text_pos, name_text, visuals.text_color());
 
                 let text_pos = rect.left_top() + button_padding + Vec2::new(0.0, name_text_size.y);
-                addr_text.paint_with_visuals(ui.painter(), text_pos, &visuals);
+                ui.painter().galley(text_pos, addr_text, visuals.text_color());
 
                 if addr.is_favored {
                     let text_pos = rect.right_top() - button_padding - Vec2::new(star_text_size.x, -2.);
-                    star_text.paint_with_visuals(ui.painter(), text_pos, &visuals);
+                    ui.painter().galley(text_pos, star_text, visuals.text_color());
                 }
             }
         }
