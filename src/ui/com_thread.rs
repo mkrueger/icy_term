@@ -65,7 +65,7 @@ impl ConnectionThreadData {
 
             if bytes_to_send > 0 {
                 if let Err(err) = self.tx.send(SendData::Data(self.data_buffer.drain(..bytes_to_send).collect())) {
-                    log::error!("{err}");
+                    log::error!("Error while sending: {err}");
                     self.thread_is_running &= self.tx.send(SendData::Disconnect).is_ok();
                 }
                 self.last_send_time = cur_time;
@@ -93,9 +93,9 @@ impl ConnectionThreadData {
     }
 
     pub fn handle_receive(&mut self) {
-        while let Ok(result) = self.rx.try_recv() {
-            match result {
-                SendData::OpenConnection(connection_data) => match self.try_connect(&connection_data) {
+        loop {
+            match self.rx.try_recv() {
+                Ok(SendData::OpenConnection(connection_data)) => match self.try_connect(&connection_data) {
                     Ok(()) => {
                         self.thread_is_running &= self.tx.send(SendData::Connected).is_ok();
                         self.is_connected = true;
@@ -105,7 +105,7 @@ impl ConnectionThreadData {
                         self.disconnect();
                     }
                 },
-                SendData::Data(buf) => {
+                Ok(SendData::Data(buf)) => {
                     if let Err(err) = self.com.send(&buf) {
                         log::error!("{err}");
                         let _ = self.tx.send(SendData::Disconnect);
@@ -113,17 +113,22 @@ impl ConnectionThreadData {
                     }
                 }
 
-                SendData::SetBaudRate(baud) => {
+                Ok(SendData::SetBaudRate(baud)) => {
                     self.baud_rate = baud;
                 }
 
-                SendData::SetRawMode(raw_transfer) => {
+                Ok(SendData::SetRawMode(raw_transfer)) => {
                     self.com.set_raw_mode(raw_transfer);
                 }
-                SendData::Disconnect => {
+                Ok(SendData::Disconnect) => {
                     self.disconnect();
                 }
-                _ => {}
+                Ok(_) => {}
+                Err(mpsc::TryRecvError::Empty) => break,
+                Err(err) => {
+                    log::error!("Error while receiving: {err}");
+                    break;
+                }
             }
         }
     }
