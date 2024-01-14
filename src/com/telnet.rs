@@ -315,8 +315,8 @@ impl ComTelnetImpl {
         };
 
         let tcp_stream = TcpStream::connect_timeout(&a, Duration::from_millis(500))?;
-        tcp_stream.set_write_timeout(Some(Duration::from_millis(50)))?;
-        tcp_stream.set_read_timeout(Some(Duration::from_millis(50)))?;
+        tcp_stream.set_write_timeout(Some(Duration::from_millis(500)))?;
+        tcp_stream.set_read_timeout(Some(Duration::from_millis(500)))?;
         tcp_stream.set_nonblocking(false)?;
         Ok(Self {
             tcp_stream,
@@ -556,8 +556,8 @@ impl Com for ComTelnetImpl {
     }
 
     fn disconnect(&mut self) -> TermComResult<()> {
+       // println!("disconnecting");
         self.tcp_stream.shutdown(std::net::Shutdown::Both)?;
-
         Ok(())
     }
 }

@@ -152,7 +152,7 @@ impl BufferUpdateThread {
             }
 
             Err(err) => {
-                log::error!("{err}");
+                log::error!("print_char: {err}");
             }
         }
         (false, 0)
@@ -165,7 +165,7 @@ impl BufferUpdateThread {
                     if con.is_connected() {
                         let r = con.send(result.as_bytes().to_vec());
                         if let Err(r) = r {
-                            log::error!("{r}");
+                            log::error!("callbackaction::SendString: {r}");
                         }
                     }
                 }
@@ -173,20 +173,20 @@ impl BufferUpdateThread {
             icy_engine::CallbackAction::PlayMusic(music) => {
                 let r = self.sound_thread.lock().play_music(music);
                 if let Err(r) = r {
-                    log::error!("{r}");
+                    log::error!("callbackaction::PlayMusic: {r}");
                 }
             }
             icy_engine::CallbackAction::Beep => {
                 let r = self.sound_thread.lock().beep();
                 if let Err(r) = r {
-                    log::error!("{r}");
+                    log::error!("callbackaction::Beep: {r}");
                 }
             }
             icy_engine::CallbackAction::ChangeBaudEmulation(baud_emulation) => {
                 if let Some(con) = self.connection.lock().as_mut() {
                     let r = con.set_baud_rate(baud_emulation.get_baud_rate());
                     if let Err(r) = r {
-                        log::error!("{r}");
+                        log::error!("callbackaction::ChangeBaudEmulation: {r}");
                     }
                 }
             }
@@ -224,7 +224,7 @@ pub fn run_update_thread(ctx: &egui::Context, update_thread: Arc<Mutex<BufferUpd
                         data = d;
                     }
                     Err(err) => {
-                        log::error!("{err}");
+                        log::error!("run_update_thread: {err}");
                         for ch in format!("{err}").chars() {
                             let _ = lock.buffer_view.lock().print_char(ch);
                         }
@@ -249,7 +249,7 @@ pub fn run_update_thread(ctx: &egui::Context, update_thread: Arc<Mutex<BufferUpd
                 let update_state = update_thread.lock().update_state(&ctx, &mut *buffer_parser, &data[idx..]);
                 match update_state {
                     Err(err) => {
-                        log::error!("{err}");
+                        log::error!("run_update_thread::update_state: {err}");
                         idx = data.len();
                     }
                     Ok((sleep_ms, parsed_data)) => {

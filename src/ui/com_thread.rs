@@ -41,7 +41,7 @@ impl ConnectionThreadData {
             if let Ok(Some(data)) = self.com.read_data() {
                 if self.baud_rate == 0 {
                     if let Err(err) = self.tx.send(SendData::Data(data)) {
-                        log::error!("{err}");
+                        log::error!("connection_thread::read_data: {err}");
                         self.thread_is_running &= self.tx.send(SendData::Disconnect).is_ok();
                     }
                     // ctx.request_repaint();
@@ -53,7 +53,7 @@ impl ConnectionThreadData {
             }
         } else if self.baud_rate == 0 {
             if let Err(err) = self.tx.send(SendData::Data(self.data_buffer.drain(..).collect())) {
-                log::error!("{err}");
+                log::error!("connection_thread::read_data: {err}");
                 self.thread_is_running &= self.tx.send(SendData::Disconnect).is_ok();
                 self.disconnect();
             }
@@ -107,7 +107,7 @@ impl ConnectionThreadData {
                 },
                 Ok(SendData::Data(buf)) => {
                     if let Err(err) = self.com.send(&buf) {
-                        log::error!("{err}");
+                        log::error!("connection_thread::handle_receive: {err}");
                         let _ = self.tx.send(SendData::Disconnect);
                         self.disconnect();
                     }
