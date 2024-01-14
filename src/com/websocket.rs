@@ -4,26 +4,26 @@ use std::sync::Arc;
 use super::{Com, OpenConnectionData, TermComResult};
 
 use http::Uri;
-use rustls::{OwnedTrustAnchor, RootCertStore};
+use rustls:: RootCertStore;
 use std::io::ErrorKind;
 use std::net::TcpStream;
 use tungstenite::{client::IntoClientRequest, stream::MaybeTlsStream, Error, Message, WebSocket};
-
+/* 
 struct NoCertVerifier {}
 
-impl rustls::client::ServerCertVerifier for NoCertVerifier {
+impl ServerCertVerifier for NoCertVerifier {
     fn verify_server_cert(
         &self,
-        _end_entity: &rustls::Certificate,
-        _intermediates: &[rustls::Certificate],
-        _server_name: &rustls::ServerName,
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName,
         _scts: &mut dyn Iterator<Item = &[u8]>,
         _ocsp_response: &[u8],
         _now: std::time::SystemTime,
-    ) -> Result<rustls::client::ServerCertVerified, rustls::Error> {
-        Ok(rustls::client::ServerCertVerified::assertion())
+    ) -> Result<ServerCertVerified, rustls::Error> {
+        Ok(ServerCertVerified::assertion())
     }
-}
+}*/
 pub struct WebSocketComImpl {
     socket: WebSocket<MaybeTlsStream<TcpStream>>,
 }
@@ -38,15 +38,14 @@ impl WebSocketComImpl {
 
         let req = Uri::try_from(url)?.into_client_request()?;
 
-        let mut root_store = RootCertStore::empty();
-        root_store.add_trust_anchors(
-            webpki_roots::TLS_SERVER_ROOTS
-                .iter()
-                .map(|ta| OwnedTrustAnchor::from_subject_spki_name_constraints(ta.subject, ta.spki, ta.name_constraints)),
-        );
+        let mut root_store: RootCertStore = RootCertStore::empty();
+
+        root_store.extend(webpki_roots::TLS_SERVER_ROOTS
+            .iter()
+            .cloned());
+
 
         let config = rustls::ClientConfig::builder()
-            .with_safe_defaults()
             .with_root_certificates(root_store)
             .with_no_client_auth();
 

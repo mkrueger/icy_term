@@ -1,6 +1,6 @@
 [package]
 name = "icy_term"
-version = "0.6.8"
+version = "0.6.9"
 edition = "2021"
 authors = ["Mike Krüger <mkrueger@posteo.de>"]
 description = "A terminal program supporting CP437, PetScii and ViewData"
@@ -58,18 +58,18 @@ log4rs = "1.2.0"
 web-time = "0.2.0"
 
 # WebSocket support
-tungstenite = { version = "0.20.0", features = [
+tungstenite = { version = "0.21.0", features = [
     "rustls-tls-webpki-roots", # webpki root CAs
     "__rustls-tls",            # use Rustls
 ]}
 
-http = "0.2.9"
+http = "1.0.0"
 url = "2.4.0"
-rustls = { version = "0.21.6", features = [
+rustls = { version = "0.22.2", features = [
     "tls12",
-    "dangerous_configuration"  # Allow invalid certs/etc.
+ #   "dangerous_configuration"  # Allow invalid certs/etc.
 ]}
-webpki-roots = "0.25.2"
+webpki-roots = "0.26.0"
 getrandom =  { version = "0.2.10", features = ["js"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
