@@ -9,7 +9,7 @@ use icy_engine_egui::BufferView;
 use std::mem;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::thread::JoinHandle;
+use std::thread::{JoinHandle, sleep};
 use std::time::Instant;
 
 use eframe::egui::Key;
@@ -388,6 +388,7 @@ impl MainWindow {
             let r = con.send(cr.clone());
             check_error!(self, r, false);
         }
+        sleep(std::time::Duration::from_millis(350));
         self.output_string(&password);
         if let Some(con) = self.connection.lock().as_mut() {
             let r = con.send(cr);
