@@ -2,6 +2,7 @@
 
 use super::{Com, OpenConnectionData, TermComResult};
 use libssh_rs::{Channel, Session, SshOption};
+use web_time::Duration;
 use std::{
     io::ErrorKind,
     io::{Read, Write},
@@ -25,7 +26,9 @@ impl SSHComImpl {
         session.set_option(SshOption::KeyExchange(SUPPORTED_KEY_EXCHANGES.to_string()))?;
         session.set_option(SshOption::CiphersCS(SUPPORTED_CIPHERS.to_string()))?;
         session.set_option(SshOption::CiphersSC(SUPPORTED_CIPHERS.to_string()))?;
-
+        session.set_option(SshOption::Timeout(Duration::from_millis(5000)))?;
+        session.set_option(SshOption::LogLevel(libssh_rs::LogLevel::Warning))?;
+        
         session.connect()?;
 
         //  :TODO: SECURITY: verify_known_hosts() implemented here -- ie: user must accept & we save somewhere
