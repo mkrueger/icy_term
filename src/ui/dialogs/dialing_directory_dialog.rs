@@ -696,7 +696,7 @@ impl egui::Widget for AddressRow {
                 ui.painter().galley(text_pos, name_text, visuals.text_color());
             } else {
                 let text_pos = rect.left_top() + button_padding;
-               ui.painter().galley(text_pos, name_text, visuals.text_color());
+                ui.painter().galley(text_pos, name_text, visuals.text_color());
 
                 let text_pos = rect.left_top() + button_padding + Vec2::new(0.0, name_text_size.y);
                 ui.painter().galley(text_pos, addr_text, visuals.text_color());

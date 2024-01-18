@@ -13,7 +13,7 @@ pub trait DataConnection {
 /// Connection is used for the ui and com thread to communicate.
 #[derive(Debug)]
 pub struct Connection {
-    connection_time: Instant,
+    time: Instant,
     is_connected: bool,
     pub rx: mpsc::Receiver<SendData>,
     pub tx: mpsc::Sender<SendData>,
@@ -60,7 +60,7 @@ impl DataConnection for Connection {
 impl Connection {
     pub fn new(rx: mpsc::Receiver<SendData>, tx: mpsc::Sender<SendData>) -> Self {
         Self {
-            connection_time: Instant::now(),
+            time: Instant::now(),
             is_connected: false,
             end_transfer: false,
             rx,
@@ -75,7 +75,7 @@ impl Connection {
     }
 
     pub fn get_connection_time(&self) -> Instant {
-        self.connection_time
+        self.time
     }
 
     pub fn update_state(&mut self) -> TerminalResult<()> {

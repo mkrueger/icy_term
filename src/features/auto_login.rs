@@ -3,7 +3,7 @@ use web_time::Instant;
 use crate::{
     ui::connect::{Connection, DataConnection},
     util::PatternRecognizer,
-    Address, TerminalResult,
+    TerminalResult,
 };
 use std::time::Duration;
 
@@ -25,11 +25,10 @@ pub struct AutoLogin {
 
     user_name: String,
     password: String,
-    auto_login: String,
 }
 
 impl AutoLogin {
-    pub fn new(login_expr: &str, adr: &Address, user_name: String, password: String) -> Self {
+    pub fn new(login_expr: &str, user_name: String, password: String) -> Self {
         Self {
             logged_in: false,
             disabled: false,
@@ -42,7 +41,6 @@ impl AutoLogin {
             got_name: false,
             name_recognizer: PatternRecognizer::from(b"NAME", true),
             login_recognizer: PatternRecognizer::from(b"LOGIN:", true),
-            auto_login: adr.auto_login.clone(),
             user_name,
             password,
         }
@@ -140,10 +138,6 @@ impl AutoLogin {
         }
         if self.user_name.is_empty() || self.password.is_empty() {
             self.logged_in = true;
-            return Ok(());
-        }
-
-        if self.auto_login.is_empty() {
             return Ok(());
         }
 

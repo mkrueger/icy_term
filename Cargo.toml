@@ -7,8 +7,6 @@ description = "A terminal program supporting CP437, PetScii and ViewData"
 license = "Apache-2.0"
 repository = "https://github.com/mkrueger/icy_term"
 
-[build]
-rustflags = ["-Clinker=rust-lld"]
 [dependencies]
 egui = "0.25.0"
 eframe = { version = "0.25.0", default-features = false, features = [

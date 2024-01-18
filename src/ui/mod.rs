@@ -9,7 +9,7 @@ use icy_engine_egui::BufferView;
 use std::mem;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::thread::{JoinHandle, sleep};
+use std::thread::{sleep, JoinHandle};
 use std::time::Instant;
 
 use eframe::egui::Key;
@@ -23,7 +23,6 @@ pub mod app;
 pub mod connect;
 
 pub mod terminal_window;
-pub use terminal_window::*;
 
 pub mod util;
 pub use util::*;
@@ -283,7 +282,7 @@ impl MainWindow {
             self.buffer_update_thread.lock().auto_login = if user_name.is_empty() || password.is_empty() {
                 None
             } else {
-                Some(AutoLogin::new(&cloned_addr.auto_login, address, user_name, password))
+                Some(AutoLogin::new(&cloned_addr.auto_login, user_name, password))
             };
 
             self.buffer_update_thread.lock().use_igs = address.use_igs;

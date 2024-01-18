@@ -4,11 +4,11 @@ use std::sync::Arc;
 use super::{Com, OpenConnectionData, TermComResult};
 
 use http::Uri;
-use rustls:: RootCertStore;
+use rustls::RootCertStore;
 use std::io::ErrorKind;
 use std::net::TcpStream;
 use tungstenite::{client::IntoClientRequest, stream::MaybeTlsStream, Error, Message, WebSocket};
-/* 
+/*
 struct NoCertVerifier {}
 
 impl ServerCertVerifier for NoCertVerifier {
@@ -40,14 +40,9 @@ impl WebSocketComImpl {
 
         let mut root_store: RootCertStore = RootCertStore::empty();
 
-        root_store.extend(webpki_roots::TLS_SERVER_ROOTS
-            .iter()
-            .cloned());
+        root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 
-
-        let config = rustls::ClientConfig::builder()
-            .with_root_certificates(root_store)
-            .with_no_client_auth();
+        let config = rustls::ClientConfig::builder().with_root_certificates(root_store).with_no_client_auth();
 
         // enable this line to test non-secure (ie: invalid certs) wss:// -- we could make this an option in the UI
         //config.dangerous().set_certificate_verifier(Arc::new(NoCertVerifier{}));

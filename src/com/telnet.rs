@@ -556,7 +556,7 @@ impl Com for ComTelnetImpl {
     }
 
     fn disconnect(&mut self) -> TermComResult<()> {
-       // println!("disconnecting");
+        // println!("disconnecting");
         self.tcp_stream.shutdown(std::net::Shutdown::Both)?;
         Ok(())
     }
