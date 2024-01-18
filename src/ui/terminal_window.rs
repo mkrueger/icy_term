@@ -531,6 +531,7 @@ impl MainWindow {
             let mut clipboard = arboard::Clipboard::new().unwrap();
             clipboard.set_text(txt).unwrap();
         }
+        l.clear_selection();
     }
 }
 
