@@ -546,7 +546,25 @@ fn terminal_context_menu(ui: &mut egui::Ui, window: &mut MainWindow) {
     if ui.button(fl!(crate::LANGUAGE_LOADER, "terminal-menu-paste")).clicked() {
         let mut clipboard = arboard::Clipboard::new().unwrap();
         if let Ok(text) = clipboard.get_text() {
-            window.output_string(&text);
+            let im = window.screen_mode.get_input_mode();
+            let key_map = im.cur_map();
+            let mut first = true;
+            let mut txt = String::new();
+            text.lines().for_each(|line| {
+                if first {
+                    first = false;
+                } else {
+                    for (k, m) in key_map {
+                        if *k == eframe::egui::Key::Enter as u32 {
+                            for c in *m {
+                                txt.push(*c as char);
+                            }
+                        }
+                    }
+                }
+                txt.push_str(line);
+            });
+            window.output_string(&txt);
         }
         ui.close_menu();
     }
