@@ -444,6 +444,7 @@ impl MainWindow {
             }
             if show_disconnect {
                 self.set_mode(MainWindowMode::ShowDisconnectedMessage(system_name.clone(), connection_time.clone()));
+                self.output_string("\nNO CARRIER\n");
             }
         }
     }
