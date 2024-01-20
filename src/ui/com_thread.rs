@@ -38,18 +38,24 @@ impl ConnectionThreadData {
 
     fn read_data(&mut self) -> bool {
         if self.data_buffer.is_empty() {
-            if let Ok(Some(data)) = self.com.read_data() {
-                if self.baud_rate == 0 {
-                    if let Err(err) = self.tx.send(SendData::Data(data)) {
-                        log::error!("connection_thread::read_data: {err}");
-                        self.thread_is_running &= self.tx.send(SendData::Disconnect).is_ok();
+            match self.com.read_data() {
+                Ok(Some(data)) => {
+                    if self.baud_rate == 0 {
+                        if let Err(err) = self.tx.send(SendData::Data(data)) {
+                            log::error!("connection_thread::read_data: {err}");
+                            self.thread_is_running &= self.tx.send(SendData::Disconnect).is_ok();
+                        }
+                    } else {
+                        self.data_buffer.extend(data);
                     }
-                    // ctx.request_repaint();
-                } else {
-                    self.data_buffer.extend(data);
                 }
-            } else {
-                return false;
+                Ok(None) => return false,
+
+                Err(err) => {
+                    log::error!("connection_thread::read_data: {err}");
+                    self.disconnect();
+                    return false;
+                }
             }
         } else if self.baud_rate == 0 {
             if let Err(err) = self.tx.send(SendData::Data(self.data_buffer.drain(..).collect())) {

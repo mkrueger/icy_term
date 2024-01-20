@@ -53,7 +53,7 @@ macro_rules! check_error {
     }};
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Clone, PartialEq, Eq, Default)]
 pub enum MainWindowMode {
     ShowTerminal,
     #[default]
@@ -67,6 +67,7 @@ pub enum MainWindowMode {
     ShowExportDialog,
     ShowUploadDialog,
     ShowIEMSI,
+    ShowDisconnectedMessage(String, String),
 }
 
 #[derive(Default)]
@@ -106,6 +107,7 @@ pub struct MainWindow {
     drag_start: Option<Vec2>,
     last_pos: Position,
     shift_pressed_during_selection: bool,
+    is_disconnected: bool,
 
     buffer_update_thread: Arc<egui::mutex::Mutex<BufferUpdateThread>>,
     update_thread_handle: Option<JoinHandle<()>>,
@@ -130,8 +132,9 @@ impl MainWindow {
     }
 
     pub fn get_mode(&self) -> MainWindowMode {
-        self.state.mode
+        self.state.mode.clone()
     }
+
     pub fn set_mode(&mut self, mode: MainWindowMode) {
         self.state.mode = mode;
     }
@@ -403,31 +406,44 @@ impl MainWindow {
             if self.connection.lock().is_none() {
                 return;
             }
-            if let Some(con) = self.connection.lock().as_mut() {
-                let title = if con.is_connected() {
-                    let d = Instant::now().duration_since(con.get_connection_time());
-                    let sec = d.as_secs();
-                    let minutes = sec / 60;
-                    let hours = minutes / 60;
-                    let cur = &self.dialing_directory_dialog.addresses.addresses[self.dialing_directory_dialog.cur_addr];
-                    let t = format!("{:02}:{:02}:{:02}", hours, minutes % 60, sec % 60);
-                    let s = if cur.system_name.is_empty() {
-                        cur.address.clone()
-                    } else {
-                        cur.system_name.clone()
-                    };
 
+            let mut show_disconnect = false;
+            let mut connection_time = String::new();
+            let mut system_name = String::new();
+            if let Some(con) = self.connection.lock().as_mut() {
+                let d = Instant::now().duration_since(con.get_connection_time());
+                let sec = d.as_secs();
+                let minutes = sec / 60;
+                let hours = minutes / 60;
+                let cur = &self.dialing_directory_dialog.addresses.addresses[self.dialing_directory_dialog.cur_addr];
+                connection_time = format!("{:02}:{:02}:{:02}", hours, minutes % 60, sec % 60);
+                system_name = if cur.system_name.is_empty() {
+                    cur.address.clone()
+                } else {
+                    cur.system_name.clone()
+                };
+
+                let title = if con.is_connected() {
+                    self.is_disconnected = false;
                     fl!(
                         crate::LANGUAGE_LOADER,
                         "title-connected",
                         version = crate::VERSION.to_string(),
-                        time = t,
-                        name = s
+                        time = connection_time.clone(),
+                        name = system_name.clone()
                     )
                 } else {
+                    if self.is_disconnected {
+                        return;
+                    }
+                    self.is_disconnected = true;
+                    show_disconnect = true;
                     fl!(crate::LANGUAGE_LOADER, "title-offline", version = crate::VERSION.to_string())
                 };
                 ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
+            }
+            if show_disconnect {
+                self.set_mode(MainWindowMode::ShowDisconnectedMessage(system_name.clone(), connection_time.clone()));
             }
         }
     }

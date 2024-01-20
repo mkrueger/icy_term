@@ -150,3 +150,6 @@ show-iemsi-dialog-id=Id:
 delete-bbs-title=Delete BBS
 delete-bbs-question=Are you sure to you want to delete '{ $system }'?
 delete-bbs-delete-button=Delete  
+
+show-disconnected-heading=NO CARRIER
+show-disconnected-message=Disconnected from { $system } at { $time }

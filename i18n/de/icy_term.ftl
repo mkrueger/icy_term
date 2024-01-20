@@ -149,3 +149,6 @@ show-iemsi-dialog-id=Id:
 delete-bbs-title=BBS Löschen
 delete-bbs-question=Sind Sie sicher, dass '{ $system }' gelöscht werden soll?
 delete-bbs-delete-button=Löschen
+
+show-disconnected-heading=NO CARRIER
+show-disconnected-message=Verbindung beendet zu { $system } nach { $time }

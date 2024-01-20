@@ -9,3 +9,4 @@ pub mod upload_dialog;
 
 pub mod find_dialog;
 pub mod show_delete_address_confirmation;
+pub mod show_disconnected_message;
