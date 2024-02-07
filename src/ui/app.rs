@@ -1,7 +1,7 @@
 #![allow(unsafe_code, clippy::wildcard_imports)]
 
 use core::panic;
-use std::{sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use directories::UserDirs;
 use eframe::egui::{self};
@@ -86,6 +86,9 @@ impl MainWindow {
             enabled: true,
             terminal_type: None,
             use_igs: false,
+            use_rip: false,
+            mouse_field: Vec::new(),
+            cache_directory: PathBuf::new(),
         }));
 
         let update_thread_handle = crate::ui::buffer_update_thread::run_update_thread(&cc.egui_ctx, buffer_update_thread.clone());
@@ -112,6 +115,7 @@ impl MainWindow {
             show_find_dialog: false,
             find_dialog: dialogs::find_dialog::DialogState::default(),
             shift_pressed_during_selection: false,
+            use_rip: false
         };
 
         #[cfg(not(target_arch = "wasm32"))]

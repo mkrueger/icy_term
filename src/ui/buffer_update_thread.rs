@@ -4,14 +4,12 @@ use crate::{
     util::SoundThread,
     Terminal, TerminalResult,
 };
-use egui::mutex::Mutex;
+use egui::{mutex::Mutex, ColorImage};
 use icy_engine::{
-    ansi::{self, MusicOption},
-    igs::CommandExecutor,
-    BufferParser, Caret,
+    ansi::{self, MusicOption}, igs::CommandExecutor, rip::bgi::MouseField, BufferParser, Caret
 };
 use icy_engine_egui::BufferView;
-use std::{mem, sync::Arc, thread};
+use std::{mem, path::PathBuf, sync::Arc, thread};
 use web_time::Duration;
 
 use super::{
@@ -33,7 +31,13 @@ pub struct BufferUpdateThread {
     pub enabled: bool,
 
     pub use_igs: bool,
+    pub use_rip: bool,
+    
     pub terminal_type: Option<(Terminal, MusicOption)>,
+
+    pub mouse_field: Vec<MouseField>,
+
+    pub cache_directory: PathBuf
 }
 
 impl BufferUpdateThread {
@@ -101,7 +105,7 @@ impl BufferUpdateThread {
                     }
                 }
             }
-            /*
+            /* 
             match ch {
                 b'\\' => print!("\\\\"),
                 b'\n' => println!("\\n"),
@@ -238,7 +242,7 @@ pub fn run_update_thread(ctx: &egui::Context, update_thread: Arc<Mutex<BufferUpd
                 {
                     let lock = &mut update_thread.lock();
                     if let Some((te, b)) = lock.terminal_type.take() {
-                        buffer_parser = te.get_parser(b);
+                        buffer_parser = te.get_parser(b, lock.cache_directory.clone());
                         if lock.use_igs {
                             let ig_executor: Arc<std::sync::Mutex<Box<dyn CommandExecutor>>> =
                                 Arc::new(std::sync::Mutex::new(Box::<icy_engine::parsers::igs::DrawExecutor>::default()));
@@ -253,7 +257,16 @@ pub fn run_update_thread(ctx: &egui::Context, update_thread: Arc<Mutex<BufferUpd
                         idx = data.len();
                     }
                     Ok((sleep_ms, parsed_data)) => {
-                        update_thread.lock().buffer_view.lock().set_igs_executor(buffer_parser.get_picture_data());
+                        if update_thread.lock().use_igs {
+                            update_thread.lock().buffer_view.lock().set_igs_executor(buffer_parser.get_picture_data());
+                        }
+                        if update_thread.lock().use_rip {
+                            let data = buffer_parser.get_picture_data();
+                            if data.is_some() {
+                                update_thread.lock().mouse_field = buffer_parser.get_mouse_fields();
+                                update_thread.lock().buffer_view.lock().set_reference_image(data);
+                            }
+                        }
                         if sleep_ms > 0 {
                             thread::sleep(Duration::from_millis(sleep_ms));
                         }

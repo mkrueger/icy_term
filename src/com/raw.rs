@@ -21,8 +21,9 @@ impl ComRawImpl {
 
         let tcp_stream = TcpStream::connect_timeout(&a, Duration::from_millis(500))?;
 
-        tcp_stream.set_write_timeout(Some(Duration::from_millis(2000)))?;
-        tcp_stream.set_read_timeout(Some(Duration::from_millis(2000)))?;
+        tcp_stream.set_write_timeout(Some(Duration::from_millis(500)))?;
+        tcp_stream.set_read_timeout(Some(Duration::from_millis(500)))?;
+        tcp_stream.set_nonblocking(false)?;
 
         Ok(Self { tcp_stream })
     }
@@ -41,17 +42,12 @@ impl Com for ComRawImpl {
 
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
         let mut buf = [0; 1024 * 256];
-        if self.tcp_stream.peek(&mut buf)? == 0 {
-            return Ok(None);
-        }
 
         match self.tcp_stream.read(&mut buf) {
             Ok(size) => {
-                self.tcp_stream.set_nonblocking(true)?;
                 Ok(Some(buf[0..size].to_vec()))
             }
             Err(ref e) => {
-                self.tcp_stream.set_nonblocking(true)?;
                 if e.kind() == io::ErrorKind::WouldBlock {
                     return Ok(None);
                 }

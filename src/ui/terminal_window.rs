@@ -412,6 +412,51 @@ impl MainWindow {
                     _ => {}
                 }
             }
+            if self.use_rip {
+                let fields = &self.buffer_update_thread.lock().mouse_field;
+                if response.clicked_by(PointerButton::Primary) {
+                    if let Some(mouse_pos) = response.interact_pointer_pos() {
+                        let mouse_pos = mouse_pos.to_vec2() - calc.buffer_rect.left_top().to_vec2();
+
+                        let x = (mouse_pos.x / calc.buffer_rect.width() * 640.0) as i32;
+                        let y = (mouse_pos.y / calc.buffer_rect.height() * 350.0) as i32;
+                        let mut found_field = None;
+                        for mouse_field in fields {
+                            if mouse_field.contains(x, y) {
+                                if let Some(found_field) = &found_field {
+                                    if mouse_field.contains_field(found_field) {
+                                        continue;
+                                    }
+                                }
+                                found_field = Some(mouse_field.clone());
+                            }
+                        }
+
+                        if let Some(mouse_field) = &found_field {
+                            if let Some(cmd) = &mouse_field.host_command {
+                                self.output_string(cmd);
+                            }
+                        }
+                    }
+                }
+
+                if response.hovered() {
+                    let hover_pos_opt = ui.input(|i| i.pointer.hover_pos());
+                    if let Some(hover_pos) = hover_pos_opt {
+                        let hover_pos = hover_pos.to_vec2() - calc.buffer_rect.left_top().to_vec2();
+
+                        let x = (hover_pos.x / calc.buffer_rect.width() * 640.0) as i32;
+                        let y = (hover_pos.y / calc.buffer_rect.height() * 350.0) as i32;
+                        for mouse_field in fields {
+                            if mouse_field.contains(x, y) {
+                                ui.output_mut(|o: &mut egui::PlatformOutput| o.cursor_icon = CursorIcon::PointingHand);
+                                break;
+                            }
+                        }
+                    }
+                }
+                return;
+            }
 
             if response.clicked_by(PointerButton::Primary) {
                 if let Some(mouse_pos) = response.interact_pointer_pos() {
@@ -420,6 +465,7 @@ impl MainWindow {
                     }
                 }
             }
+            
 
             if response.drag_started_by(PointerButton::Primary) {
                 self.drag_start = None;
@@ -491,7 +537,7 @@ impl MainWindow {
                         let buffer = lock.get_buffer();
                         for hyper_link in buffer.layers[0].hyperlinks() {
                             if buffer.is_position_in_range(Position::new(click_pos.x as i32, click_pos.y as i32), hyper_link.position, hyper_link.length) {
-                                ui.output_mut(|o| o.cursor_icon = CursorIcon::PointingHand);
+                                ui.output_mut(|o: &mut egui::PlatformOutput| o.cursor_icon = CursorIcon::PointingHand);
                                 let url = hyper_link.get_url(buffer);
                                 response = response.on_hover_ui_at_pointer(|ui| {
                                     ui.hyperlink(url.clone());
@@ -512,6 +558,9 @@ impl MainWindow {
                     }
                 }
             }
+        
+        
+
         }
     }
 

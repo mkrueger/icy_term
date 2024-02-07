@@ -361,6 +361,7 @@ impl ComTelnetImpl {
                                     Terminal::ViewData => buf.extend_from_slice(b"VIEWDATA"),
                                     Terminal::Ascii => buf.extend_from_slice(b"RAW"),
                                     Terminal::Avatar => buf.extend_from_slice(b"AVATAR"),
+                                    Terminal::Rip => buf.extend_from_slice(b"RIP"),
                                 }
                                 buf.extend([telnet_cmd::Iac, telnet_cmd::SE]);
 

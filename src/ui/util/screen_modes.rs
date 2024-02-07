@@ -16,6 +16,7 @@ pub enum ScreenMode {
     Vic,
     Antic,
     Videotex,
+    Rip
 }
 
 impl Default for ScreenMode {
@@ -33,7 +34,7 @@ impl ScreenMode {
     }
 }
 
-pub const DEFAULT_MODES: [ScreenMode; 11] = [
+pub const DEFAULT_MODES: [ScreenMode; 12] = [
     ScreenMode::Vga(80, 25),
     ScreenMode::Vga(80, 50),
     ScreenMode::Vga(132, 37),
@@ -44,6 +45,7 @@ pub const DEFAULT_MODES: [ScreenMode; 11] = [
     ScreenMode::Default,
     ScreenMode::Antic,
     ScreenMode::Default,
+    ScreenMode::Rip,
     ScreenMode::Videotex,
 ];
 
@@ -63,6 +65,7 @@ impl Display for ScreenMode {
             ScreenMode::Antic => write!(f, "ANTIC"),
             ScreenMode::Videotex => write!(f, "VIDEOTEX"),
             ScreenMode::Default => write!(f, "Default"),
+            ScreenMode::Rip => write!(f, "Rip"),
         }
     }
 }
@@ -71,7 +74,7 @@ impl ScreenMode {
     pub fn get_input_mode(&self) -> BufferInputMode {
         match self {
             //ScreenMode::Cga(_, _) | ScreenMode::Ega(_, _) |
-            ScreenMode::Default | ScreenMode::Vga(_, _) => BufferInputMode::CP437,
+            ScreenMode::Default | ScreenMode::Vga(_, _) | ScreenMode::Rip => BufferInputMode::CP437,
             ScreenMode::Vic => BufferInputMode::PETscii,
             ScreenMode::Antic => BufferInputMode::ATAscii,
             ScreenMode::Videotex => BufferInputMode::ViewData,
@@ -85,6 +88,7 @@ impl ScreenMode {
             ScreenMode::Vic => Size::new(40, 25),
             ScreenMode::Antic | ScreenMode::Videotex => Size::new(40, 24),
             ScreenMode::Default => Size::new(80, 25),
+            ScreenMode::Rip => Size::new(80, 43),
         }
     }
 
@@ -136,6 +140,16 @@ impl ScreenMode {
                     .set_font(0, BitFont::from_bytes("", VIEWDATA).unwrap());
                 main_window.buffer_view.lock().get_buffer_mut().palette = Palette::from_slice(&VIEWDATA_PALETTE);
             }
+
+            ScreenMode::Rip => {
+                main_window.buffer_view.lock().get_buffer_mut().clear_font_table();
+                main_window
+                    .buffer_view
+                    .lock()
+                    .get_buffer_mut()
+                    .set_font(0, BitFont::from_sauce_name("IBM VGA50").unwrap());
+                main_window.buffer_view.lock().get_buffer_mut().palette = Palette::dos_default();
+            }
         }
         main_window.buffer_view.lock().get_buffer_mut().layers[0].clear();
         main_window.buffer_view.lock().get_buffer_mut().stop_sixel_threads();
@@ -144,7 +158,7 @@ impl ScreenMode {
     #[allow(clippy::match_same_arms)]
     pub(crate) fn get_selection_fg(&self) -> Color {
         match self {
-            ScreenMode::Default | ScreenMode::Vga(_, _) => Color::new(0xAA, 0x00, 0xAA),
+            ScreenMode::Default | ScreenMode::Vga(_, _) | ScreenMode::Rip => Color::new(0xAA, 0x00, 0xAA),
             ScreenMode::Vic => Color::new(0x37, 0x39, 0xC4),
             ScreenMode::Antic => Color::new(0x09, 0x51, 0x83),
             ScreenMode::Videotex => Color::new(0, 0, 0),
@@ -154,7 +168,7 @@ impl ScreenMode {
     #[allow(clippy::match_same_arms)]
     pub(crate) fn get_selection_bg(&self) -> Color {
         match self {
-            ScreenMode::Default | ScreenMode::Vga(_, _) => Color::new(0xAA, 0xAA, 0xAA),
+            ScreenMode::Default | ScreenMode::Vga(_, _) | ScreenMode::Rip => Color::new(0xAA, 0xAA, 0xAA),
             ScreenMode::Vic => Color::new(0xB0, 0x3F, 0xB6),
             ScreenMode::Antic => Color::new(0xFF, 0xFF, 0xFF),
             ScreenMode::Videotex => Color::new(0xFF, 0xFF, 0xFF),

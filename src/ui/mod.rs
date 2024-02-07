@@ -6,7 +6,7 @@ use egui_bind::BindTarget;
 use i18n_embed_fl::fl;
 use icy_engine::{AttributedChar, Caret, Position};
 use icy_engine_egui::BufferView;
-use std::mem;
+use std::{fs, mem};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread::{sleep, JoinHandle};
@@ -108,6 +108,7 @@ pub struct MainWindow {
     last_pos: Position,
     shift_pressed_during_selection: bool,
     is_disconnected: bool,
+    use_rip: bool,
 
     buffer_update_thread: Arc<egui::mutex::Mutex<BufferUpdateThread>>,
     update_thread_handle: Option<JoinHandle<()>>,
@@ -288,7 +289,24 @@ impl MainWindow {
                 Some(AutoLogin::new(&cloned_addr.auto_login, user_name, password))
             };
 
+            if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
+                let mut cache_directory = proj_dirs.config_dir().join("cache_dir");
+                if !cache_directory.exists() && fs::create_dir_all(&cache_directory).is_err() {
+                    log::error!("Can't create cache directory {:?}", &cache_directory);
+                    return;
+                }
+                cache_directory.push(&address.address);
+                if !cache_directory.exists() && fs::create_dir_all(&cache_directory).is_err() {
+                    log::error!("Can't create cache directory {:?}", &cache_directory);
+                    return;
+                }
+                self.buffer_update_thread.lock().cache_directory = cache_directory;
+            }
+    
+
             self.buffer_update_thread.lock().use_igs = address.use_igs;
+            self.use_rip = matches!(address.terminal_type, crate::Terminal::Rip);
+            self.buffer_update_thread.lock().use_rip = self.use_rip;
             self.buffer_update_thread.lock().terminal_type = Some((address.terminal_type, address.ansi_music));
             self.buffer_update_thread.lock().auto_file_transfer.reset();
             self.buffer_view.lock().get_buffer_mut().layers[0].clear();
