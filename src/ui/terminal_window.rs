@@ -422,6 +422,9 @@ impl MainWindow {
                         let y = (mouse_pos.y / calc.buffer_rect.height() * 350.0) as i32;
                         let mut found_field = None;
                         for mouse_field in fields {
+                            if !mouse_field.style.is_mouse_button() {
+                                continue;
+                            }
                             if mouse_field.contains(x, y) {
                                 if let Some(found_field) = &found_field {
                                     if mouse_field.contains_field(found_field) {
@@ -434,6 +437,13 @@ impl MainWindow {
 
                         if let Some(mouse_field) = &found_field {
                             if let Some(cmd) = &mouse_field.host_command {
+                                if mouse_field.style.reset_screen_after_click() {
+                                    let mut buffer = self.buffer_view.lock();
+                                    buffer.get_buffer_mut().terminal_state.clear_margins_left_right();
+                                    buffer.get_buffer_mut().terminal_state.clear_margins_top_bottom();
+                                    buffer.clear_buffer_screen();
+                                    buffer.get_buffer_mut().terminal_state.cleared_screen = true;
+                                }
                                 self.output_string(cmd);
                             }
                         }
@@ -448,6 +458,9 @@ impl MainWindow {
                         let x = (hover_pos.x / calc.buffer_rect.width() * 640.0) as i32;
                         let y = (hover_pos.y / calc.buffer_rect.height() * 350.0) as i32;
                         for mouse_field in fields {
+                            if !mouse_field.style.is_mouse_button() {
+                                continue;
+                            }
                             if mouse_field.contains(x, y) {
                                 ui.output_mut(|o: &mut egui::PlatformOutput| o.cursor_icon = CursorIcon::PointingHand);
                                 break;
@@ -465,7 +478,6 @@ impl MainWindow {
                     }
                 }
             }
-            
 
             if response.drag_started_by(PointerButton::Primary) {
                 self.drag_start = None;
@@ -558,9 +570,6 @@ impl MainWindow {
                     }
                 }
             }
-        
-        
-
         }
     }
 

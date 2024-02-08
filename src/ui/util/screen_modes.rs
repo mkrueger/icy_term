@@ -16,7 +16,7 @@ pub enum ScreenMode {
     Vic,
     Antic,
     Videotex,
-    Rip
+    Rip,
 }
 
 impl Default for ScreenMode {

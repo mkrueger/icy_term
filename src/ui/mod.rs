@@ -6,11 +6,11 @@ use egui_bind::BindTarget;
 use i18n_embed_fl::fl;
 use icy_engine::{AttributedChar, Caret, Position};
 use icy_engine_egui::BufferView;
-use std::{fs, mem};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread::{sleep, JoinHandle};
 use std::time::Instant;
+use std::{fs, mem};
 
 use eframe::egui::Key;
 
@@ -302,7 +302,6 @@ impl MainWindow {
                 }
                 self.buffer_update_thread.lock().cache_directory = cache_directory;
             }
-    
 
             self.buffer_update_thread.lock().use_igs = address.use_igs;
             self.use_rip = matches!(address.terminal_type, crate::Terminal::Rip);

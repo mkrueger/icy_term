@@ -44,9 +44,7 @@ impl Com for ComRawImpl {
         let mut buf = [0; 1024 * 256];
 
         match self.tcp_stream.read(&mut buf) {
-            Ok(size) => {
-                Ok(Some(buf[0..size].to_vec()))
-            }
+            Ok(size) => Ok(Some(buf[0..size].to_vec())),
             Err(ref e) => {
                 if e.kind() == io::ErrorKind::WouldBlock {
                     return Ok(None);

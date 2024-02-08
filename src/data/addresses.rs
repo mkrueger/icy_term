@@ -25,7 +25,7 @@ pub enum Terminal {
     PETscii,
     ATAscii,
     ViewData,
-    Rip
+    Rip,
 }
 
 impl Terminal {

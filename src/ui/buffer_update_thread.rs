@@ -6,7 +6,10 @@ use crate::{
 };
 use egui::{mutex::Mutex, ColorImage};
 use icy_engine::{
-    ansi::{self, MusicOption}, igs::CommandExecutor, rip::bgi::MouseField, BufferParser, Caret
+    ansi::{self, MusicOption},
+    igs::CommandExecutor,
+    rip::bgi::MouseField,
+    BufferParser, Caret,
 };
 use icy_engine_egui::BufferView;
 use std::{mem, path::PathBuf, sync::Arc, thread};
@@ -32,12 +35,12 @@ pub struct BufferUpdateThread {
 
     pub use_igs: bool,
     pub use_rip: bool,
-    
+
     pub terminal_type: Option<(Terminal, MusicOption)>,
 
     pub mouse_field: Vec<MouseField>,
 
-    pub cache_directory: PathBuf
+    pub cache_directory: PathBuf,
 }
 
 impl BufferUpdateThread {
@@ -105,7 +108,7 @@ impl BufferUpdateThread {
                     }
                 }
             }
-            /* 
+            /*
             match ch {
                 b'\\' => print!("\\\\"),
                 b'\n' => println!("\\n"),
