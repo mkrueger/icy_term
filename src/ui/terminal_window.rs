@@ -241,8 +241,12 @@ impl MainWindow {
             use_terminal_height: true,
             ..Default::default()
         };
-        let (response, calc) = icy_engine_egui::show_terminal_area(ui, self.buffer_view.clone(), opt);
-        let mut response = response.context_menu(|ui| terminal_context_menu(ui, self));
+        let (mut response, calc) = icy_engine_egui::show_terminal_area(ui, self.buffer_view.clone(), opt);
+        let inner_response = response.context_menu(|ui| terminal_context_menu(ui, self));
+        if let Some(inner_response) = inner_response {
+            response = inner_response.response;
+        }
+
         if matches!(self.get_mode(), MainWindowMode::ShowTerminal) && ui.is_enabled() && !self.show_find_dialog {
             let events = ui.input(|i| i.events.clone());
             for e in events {
@@ -261,7 +265,6 @@ impl MainWindow {
                         for c in text.chars() {
                             self.output_char(c);
                         }
-                        response.mark_changed();
                     }
 
                     egui::Event::PointerButton {
@@ -404,6 +407,7 @@ impl MainWindow {
                                     }
                                 }
                                 response.request_focus();
+
                                 ui.input_mut(|i| i.consume_key(modifiers, key));
                                 break;
                             }

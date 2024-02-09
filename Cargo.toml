@@ -8,18 +8,18 @@ license = "Apache-2.0"
 repository = "https://github.com/mkrueger/icy_term"
 
 [dependencies]
-egui = "0.25.0"
-eframe = { version = "0.25.0", default-features = false, features = [
+egui = "0.26.0"
+eframe = { version = "0.26.0", default-features = false, features = [
     "accesskit",     # Make egui comptaible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
     "persistence",   # Enable restoring app state when restarting the app.
 ] }
-egui_extras = { version="0.25.0", features = ["all_loaders"] }
-egui_glow = "0.25.0"
-egui-modal = "0.3.1"
-egui-bind = "0.10.0"
-egui_file = "0.14.0"
+egui_extras = { version="0.26.0", features = ["all_loaders"] }
+egui_glow = "0.26.0"
+egui-modal = "0.3.3"
+egui-bind = "0.11.0"
+egui_file = "0.15.0"
 glow = "0.13.0"
 dark-light = "1.0.0"
 serde = "1.0.185"
