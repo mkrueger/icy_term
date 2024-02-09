@@ -419,13 +419,15 @@ impl MainWindow {
             if self.use_rip {
                 let fields = &self.buffer_update_thread.lock().mouse_field;
                 if response.clicked_by(PointerButton::Primary) {
-                    if let Some(mouse_pos) = response.interact_pointer_pos() {
+                    if let Some(mouse_pos) = response.hover_pos() {
                         let mouse_pos = mouse_pos.to_vec2() - calc.buffer_rect.left_top().to_vec2();
 
                         let x = (mouse_pos.x / calc.buffer_rect.width() * 640.0) as i32;
                         let y = (mouse_pos.y / calc.buffer_rect.height() * 350.0) as i32;
+                        println!("x: {x}, y: {y}");
                         let mut found_field = None;
                         for mouse_field in fields {
+                            println!("field: {}", mouse_field.style.is_mouse_button());
                             if !mouse_field.style.is_mouse_button() {
                                 continue;
                             }
@@ -435,6 +437,7 @@ impl MainWindow {
                                         continue;
                                     }
                                 }
+                                println!("found field - click");
                                 found_field = Some(mouse_field.clone());
                             }
                         }
@@ -476,7 +479,7 @@ impl MainWindow {
             }
 
             if response.clicked_by(PointerButton::Primary) {
-                if let Some(mouse_pos) = response.interact_pointer_pos() {
+                if let Some(mouse_pos) = response.hover_pos() {
                     if calc.buffer_rect.contains(mouse_pos) && !calc.vert_scrollbar_rect.contains(mouse_pos) {
                         self.buffer_view.lock().clear_selection();
                     }
@@ -485,7 +488,7 @@ impl MainWindow {
 
             if response.drag_started_by(PointerButton::Primary) {
                 self.drag_start = None;
-                if let Some(mouse_pos) = response.interact_pointer_pos() {
+                if let Some(mouse_pos) = response.hover_pos() {
                     if calc.buffer_rect.contains(mouse_pos) && !calc.vert_scrollbar_rect.contains(mouse_pos) {
                         let click_pos = calc.calc_click_pos(mouse_pos);
                         self.last_pos = Position::new(click_pos.x as i32, click_pos.y as i32);
@@ -503,7 +506,7 @@ impl MainWindow {
             }
 
             if response.dragged_by(PointerButton::Primary) && self.drag_start.is_some() {
-                if let Some(mouse_pos) = response.interact_pointer_pos() {
+                if let Some(mouse_pos) = response.hover_pos() {
                     let click_pos = calc.calc_click_pos(mouse_pos);
                     let cur = Position::new(click_pos.x as i32, click_pos.y as i32);
 
@@ -532,7 +535,7 @@ impl MainWindow {
 
             if response.drag_released_by(PointerButton::Primary) && self.drag_start.is_some() {
                 self.shift_pressed_during_selection = ui.input(|i| i.modifiers.shift);
-                if response.interact_pointer_pos().is_some() {
+                if response.hover_pos().is_some() {
                     let l = self.buffer_view.lock();
                     if let Some(sel) = &mut l.get_selection() {
                         sel.locked = true;
