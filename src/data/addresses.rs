@@ -318,7 +318,15 @@ impl Address {
                 log::error!("Can't create cache directory {:?}", &cache_directory);
                 return None;
             }
-            cache_directory.push(&self.address);
+            let mut address = String::new();
+            for c in self.address.chars() {
+                if c.is_ascii_alphanumeric() {
+                    address.push(c);
+                } else {
+                    address.push('_');
+                }
+            }
+            cache_directory.push(address);
             if !cache_directory.exists() && fs::create_dir_all(&cache_directory).is_err() {
                 log::error!("Can't create cache directory {:?}", &cache_directory);
                 return None;
