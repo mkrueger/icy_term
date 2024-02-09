@@ -6,11 +6,11 @@ use egui_bind::BindTarget;
 use i18n_embed_fl::fl;
 use icy_engine::{AttributedChar, Caret, Position};
 use icy_engine_egui::BufferView;
+use std::mem;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread::{sleep, JoinHandle};
 use std::time::Instant;
-use std::{fs, mem};
 
 use eframe::egui::Key;
 
@@ -289,23 +289,8 @@ impl MainWindow {
                 Some(AutoLogin::new(&cloned_addr.auto_login, user_name, password))
             };
 
-            if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
-                let mut cache_directory = proj_dirs.config_dir().join("cache");
-                if !cache_directory.exists() && fs::create_dir_all(&cache_directory).is_err() {
-                    log::error!("Can't create cache directory {:?}", &cache_directory);
-                    return;
-                }
-                cache_directory.push(&address.address);
-                if !cache_directory.exists() && fs::create_dir_all(&cache_directory).is_err() {
-                    log::error!("Can't create cache directory {:?}", &cache_directory);
-                    return;
-                }
-                cache_directory = cache_directory.join("rip");
-                if !cache_directory.exists() && fs::create_dir_all(&cache_directory).is_err() {
-                    log::error!("Can't create cache directory {:?}", &cache_directory);
-                    return;
-                }
-                self.buffer_update_thread.lock().cache_directory = cache_directory;
+            if let Some(rip_cache) = address.get_rip_cache() {
+                self.buffer_update_thread.lock().cache_directory = rip_cache;
             }
 
             self.buffer_update_thread.lock().use_igs = address.use_igs;

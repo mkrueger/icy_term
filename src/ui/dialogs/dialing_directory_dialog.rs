@@ -467,6 +467,14 @@ impl DialogState {
                             ui.selectable_value(&mut adr.terminal_type, *t, label);
                         }
                     });
+
+                if adr.terminal_type == Terminal::Rip && ui.button(fl!(crate::LANGUAGE_LOADER, "dialing_directory-open_cache_button")).clicked() {
+                    if let Some(path) = adr.get_rip_cache() {
+                        if let Err(err) = open::that(path) {
+                            log::error!("Failed to open RIP cache: {err}");
+                        }
+                    }
+                }
                 ui.end_row();
 
                 if adr.terminal_type == Terminal::Ansi {

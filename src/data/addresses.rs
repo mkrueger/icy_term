@@ -310,6 +310,30 @@ impl Address {
         None
     }
 
+    #[must_use]
+    pub fn get_rip_cache(&self) -> Option<PathBuf> {
+        if let Some(proj_dirs) = directories::ProjectDirs::from("com", "GitHub", "icy_term") {
+            let mut cache_directory = proj_dirs.config_dir().join("cache");
+            if !cache_directory.exists() && fs::create_dir_all(&cache_directory).is_err() {
+                log::error!("Can't create cache directory {:?}", &cache_directory);
+                return None;
+            }
+            cache_directory.push(&self.address);
+            if !cache_directory.exists() && fs::create_dir_all(&cache_directory).is_err() {
+                log::error!("Can't create cache directory {:?}", &cache_directory);
+                return None;
+            }
+            cache_directory = cache_directory.join("rip");
+            if !cache_directory.exists() && fs::create_dir_all(&cache_directory).is_err() {
+                log::error!("Can't create cache directory {:?}", &cache_directory);
+                return None;
+            }
+            Some(cache_directory)
+        } else {
+            None
+        }
+    }
+
     /// .
     ///
     /// # Errors

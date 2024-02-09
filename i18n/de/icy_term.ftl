@@ -81,6 +81,7 @@ dialing_directory-no-entries = Keine passenden Einträge
 dialing_directory-add-bbs-button = Neue BBS
 dialing_directory-version-warning = Die BBS Liste ist mit einer neueren Version von IcyTerm erstellt worden. Bitte neue Version verwenden. Keine Änderungen werden gespeichert.
 dialing_directory-custom-iemsi-login-data = Benutzerdefinierte IEMSI Login-Daten
+dialing_directory-open_cache_button=Cache öffnen…
 
 terminal-upload = Upload
 terminal-download = Download
