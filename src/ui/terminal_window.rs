@@ -424,10 +424,8 @@ impl MainWindow {
 
                         let x = (mouse_pos.x / calc.buffer_rect.width() * 640.0) as i32;
                         let y = (mouse_pos.y / calc.buffer_rect.height() * 350.0) as i32;
-                        println!("x: {x}, y: {y}");
                         let mut found_field = None;
                         for mouse_field in fields {
-                            println!("field: {}", mouse_field.style.is_mouse_button());
                             if !mouse_field.style.is_mouse_button() {
                                 continue;
                             }
@@ -437,7 +435,6 @@ impl MainWindow {
                                         continue;
                                     }
                                 }
-                                println!("found field - click");
                                 found_field = Some(mouse_field.clone());
                             }
                         }
