@@ -42,7 +42,7 @@ impl ConnectionThreadData {
                 Ok(Some(data)) => {
                     if self.baud_rate == 0 {
                         if let Err(err) = self.tx.send(SendData::Data(data)) {
-                            log::error!("connection_thread::read_data: {err}");
+                            log::error!("connection_thread::read_data1: {err}");
                             self.thread_is_running &= self.tx.send(SendData::Disconnect).is_ok();
                         }
                     } else {
@@ -52,14 +52,14 @@ impl ConnectionThreadData {
                 Ok(None) => return false,
 
                 Err(err) => {
-                    log::error!("connection_thread::read_data: {err}");
+                    log::error!("connection_thread::read_data2: {err}");
                     self.disconnect();
                     return false;
                 }
             }
         } else if self.baud_rate == 0 {
             if let Err(err) = self.tx.send(SendData::Data(self.data_buffer.drain(..).collect())) {
-                log::error!("connection_thread::read_data: {err}");
+                log::error!("connection_thread::read_data3: {err}");
                 self.thread_is_running &= self.tx.send(SendData::Disconnect).is_ok();
                 self.disconnect();
             }

@@ -492,7 +492,8 @@ impl Com for ComTelnetImpl {
     }
 
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
-        let mut buf = [0; 1024 * 256];
+        let mut buf: [u8; 262144] = [0; 1024 * 256];
+        self.tcp_stream.set_nonblocking(true)?;
         match self.tcp_stream.read(&mut buf) {
             Ok(size) => {
                 if size == 0 {

@@ -68,7 +68,7 @@ impl BufferUpdateThread {
     fn update_buffer(&mut self, ctx: &egui::Context, buffer_parser: &mut dyn BufferParser, data: &[u8]) -> (u64, usize) {
         let has_data = !data.is_empty();
         if !data.is_empty() {
-            // println!("data : {} {}", self.last_update.elapsed().as_millis(), data.len());
+            println!("data : {} {}", data.len(), self.enabled);
         }
         if !self.enabled {
             return (10, 0);
