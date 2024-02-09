@@ -796,12 +796,13 @@ mod tests {
         adr.user_name = "foo".to_string();
         adr.password = "bar".to_string();
 
-        let mut opt = Options::default();
-        opt.iemsi.data_phone = "data_phone".to_string();
-        opt.iemsi.voice_phone = "voice_phone".to_string();
-        opt.iemsi.alias = "alias".to_string();
-        opt.iemsi.location = "location".to_string();
-        opt.iemsi.birth_date = "12-30-1976".to_string();
+        let mut opt = IEMSISettings::default();
+        opt.data_phone = "data_phone".to_string();
+        opt.voice_phone = "voice_phone".to_string();
+        opt.alias = "alias".to_string();
+        opt.location = "location".to_string();
+        opt.birth_date = "12-30-1976".to_string();
+        state.settings = opt;
 
         let mut back_data = Vec::new();
         for b in EMSI_IRQ {
@@ -809,7 +810,8 @@ mod tests {
                 back_data = data;
             }
         }
-        let data = format!("EMSI_ICI009C{{foo}}{{alias}}{{location}}{{data_phone}}{{voice_phone}}{{bar}}{{12-30-1976}}{{ANSI,24,80,0}}{{ZAP,ZMO,KER}}{{CHT,TAB,ASCII8}}{{HOT,MORE,FSED,NEWS,CLR}}{{-Icy-Term-,{},egui}}{{}}", *VERSION).as_bytes().to_vec();
+        let data_str = format!("EMSI_ICI009C{{foo}}{{alias}}{{location}}{{data_phone}}{{voice_phone}}{{bar}}{{12-30-1976}}{{ANSI,24,80,0}}{{ZAP,ZMO,KER}}{{CHT,TAB,ASCII8}}{{HOT,MORE,FSED,NEWS,CLR}}{{-Icy-Term-,{},egui}}{{}}", *VERSION);
+        let data = data_str.as_bytes().to_vec();
         assert_eq!(format!("**EMSI_ICI009C{{foo}}{{alias}}{{location}}{{data_phone}}{{voice_phone}}{{bar}}{{12-30-1976}}{{ANSI,24,80,0}}{{ZAP,ZMO,KER}}{{CHT,TAB,ASCII8}}{{HOT,MORE,FSED,NEWS,CLR}}{{-Icy-Term-,{},egui}}{{}}{}\r**EMSI_ACKA490\r**EMSI_ACKA490\r", *VERSION, get_crc32string(&data)), String::from_utf8(back_data).unwrap());
     }
 }
