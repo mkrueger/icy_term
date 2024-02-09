@@ -88,7 +88,7 @@ impl ScreenMode {
             ScreenMode::Vic => Size::new(40, 25),
             ScreenMode::Antic | ScreenMode::Videotex => Size::new(40, 24),
             ScreenMode::Default => Size::new(80, 25),
-            ScreenMode::Rip => Size::new(80, 43),
+            ScreenMode::Rip => Size::new(80, 44),
         }
     }
 

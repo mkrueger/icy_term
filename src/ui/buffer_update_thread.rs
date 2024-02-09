@@ -4,7 +4,7 @@ use crate::{
     util::SoundThread,
     Terminal, TerminalResult,
 };
-use egui::{mutex::Mutex, ColorImage};
+use egui::mutex::Mutex;
 use icy_engine::{
     ansi::{self, MusicOption},
     igs::CommandExecutor,
