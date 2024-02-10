@@ -23,7 +23,11 @@ pub struct Connection {
 
 impl DataConnection for Connection {
     fn is_data_available(&mut self) -> TerminalResult<bool> {
-        self.fill_buffer()?;
+        if let Err(err) = self.fill_buffer() {
+            log::error!("Error in is_data_available: {err}");
+            self.is_connected = false;
+            return Err(err);
+        }
         Ok(!self.buf.is_empty())
     }
 
@@ -124,6 +128,9 @@ impl Connection {
                 Err(err) => match err {
                     mpsc::TryRecvError::Empty => break,
                     mpsc::TryRecvError::Disconnected => {
+                        if !self.is_connected {
+                            break;
+                        }
                         self.is_connected = false;
                         return Err(anyhow::anyhow!("disconnected: {err}"));
                     }

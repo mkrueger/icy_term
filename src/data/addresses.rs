@@ -2,12 +2,14 @@ use crate::ui::screen_modes::ScreenMode;
 use crate::TerminalResult;
 use chrono::{Duration, Utc};
 use icy_engine::ansi::{BaudEmulation, MusicOption};
+use icy_engine::igs::CommandExecutor;
 use icy_engine::{ansi, ascii, atascii, avatar, petscii, rip, viewdata, BufferParser, UnicodeConverter};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use regex::Regex;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+use std::sync::Arc;
 use std::{
     fmt::Display,
     fs::{self},
@@ -26,10 +28,11 @@ pub enum Terminal {
     ATAscii,
     ViewData,
     Rip,
+    IGS,
 }
 
 impl Terminal {
-    pub const ALL: [Terminal; 7] = [
+    pub const ALL: [Terminal; 8] = [
         Terminal::Ansi,
         Terminal::Avatar,
         Terminal::Ascii,
@@ -37,6 +40,7 @@ impl Terminal {
         Terminal::ATAscii,
         Terminal::ViewData,
         Terminal::Rip,
+        Terminal::IGS,
     ];
 
     #[must_use]
@@ -60,13 +64,18 @@ impl Terminal {
                 let parser = rip::Parser::new(Box::new(parser), cache_directory);
                 Box::new(parser)
             }
+            Terminal::IGS => {
+                let ig_executor: Arc<std::sync::Mutex<Box<dyn CommandExecutor>>> =
+                    Arc::new(std::sync::Mutex::new(Box::<icy_engine::parsers::igs::DrawExecutor>::default()));
+                Box::new(icy_engine::igs::Parser::new(ig_executor))
+            }
         }
     }
 
     #[must_use]
     pub fn get_unicode_converter(&self) -> Box<dyn UnicodeConverter> {
         match self {
-            Terminal::Ansi | Terminal::Avatar | Terminal::Ascii | Terminal::Rip => Box::<ascii::CP437Converter>::default(),
+            Terminal::Ansi | Terminal::Avatar | Terminal::Ascii | Terminal::Rip | Terminal::IGS => Box::<ascii::CP437Converter>::default(),
             Terminal::PETscii => Box::<petscii::CharConverter>::default(),
             Terminal::ATAscii => Box::<atascii::CharConverter>::default(),
             Terminal::ViewData => Box::<viewdata::CharConverter>::default(),
@@ -83,7 +92,8 @@ impl Display for Terminal {
             Terminal::PETscii => write!(f, "PETSCII"),
             Terminal::ATAscii => write!(f, "ATASCII"),
             Terminal::ViewData => write!(f, "VIEWDATA"),
-            Terminal::Rip => write!(f, "Rip"),
+            Terminal::Rip => write!(f, "RIPscrip"),
+            Terminal::IGS => write!(f, "IGS"),
         }
     }
 }
@@ -174,7 +184,6 @@ pub struct Address {
     pub ice_mode: bool,
     pub ansi_music: MusicOption,
     pub baud_emulation: BaudEmulation,
-    pub use_igs: bool,
 
     pub font_name: Option<String>,
     pub screen_mode: ScreenMode,
@@ -286,7 +295,6 @@ impl Address {
             override_iemsi_settings: false,
             iemsi_user: String::new(),
             iemsi_password: String::new(),
-            use_igs: false,
         }
     }
 
@@ -579,6 +587,7 @@ fn parse_address(value: &Value) -> Address {
                 "atascii" => result.terminal_type = Terminal::ATAscii,
                 "viewdata" => result.terminal_type = Terminal::ViewData,
                 "rip" => result.terminal_type = Terminal::Rip,
+                "igs" => result.terminal_type = Terminal::IGS,
                 _ => {}
             }
         }
@@ -592,9 +601,6 @@ fn parse_address(value: &Value) -> Address {
                 }
             }
         }
-        if let Some(Value::Boolean(value)) = table.get("use_igs") {
-            result.use_igs = *value;
-        }
 
         if let Some(Value::String(name)) = table.get("screen_mode") {
             let lower_name = &name.to_lowercase();
@@ -604,6 +610,7 @@ fn parse_address(value: &Value) -> Address {
                 "antic" => result.screen_mode = ScreenMode::Antic,
                 "videotex" => result.screen_mode = ScreenMode::Videotex,
                 "rip" => result.screen_mode = ScreenMode::Rip,
+                "igs" => result.screen_mode = ScreenMode::Igs,
                 _ => {
                     if let Some(caps) = vga_regex.captures(lowercase) {
                         let mut width = 80;
@@ -678,10 +685,6 @@ fn store_address(file: &mut File, addr: &Address) -> TerminalResult<()> {
 
     if addr.baud_emulation != BaudEmulation::default() {
         file.write_all(format!("baud_emulation = \"{}\"\n", addr.baud_emulation).as_bytes())?;
-    }
-
-    if addr.use_igs {
-        file.write_all(format!("use_igs = {}\n", addr.use_igs).as_bytes())?;
     }
 
     if addr.screen_mode != ScreenMode::default() {
@@ -773,6 +776,10 @@ fn parse_legacy_address(value: &Value) -> Address {
                     "Rip" => {
                         result.screen_mode = ScreenMode::Rip;
                         result.terminal_type = Terminal::Rip;
+                    }
+                    "Igs" => {
+                        result.screen_mode = ScreenMode::Igs;
+                        result.terminal_type = Terminal::IGS;
                     }
                     _ => {}
                 }

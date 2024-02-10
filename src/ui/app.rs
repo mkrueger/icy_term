@@ -85,8 +85,6 @@ impl MainWindow {
             sound_thread: Arc::new(eframe::epaint::mutex::Mutex::new(SoundThread::new())),
             enabled: true,
             terminal_type: None,
-            use_igs: false,
-            use_rip: false,
             mouse_field: Vec::new(),
             cache_directory: PathBuf::new(),
         }));

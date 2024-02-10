@@ -293,9 +293,7 @@ impl MainWindow {
                 self.buffer_update_thread.lock().cache_directory = rip_cache;
             }
 
-            self.buffer_update_thread.lock().use_igs = address.use_igs;
             self.use_rip = matches!(address.terminal_type, crate::Terminal::Rip);
-            self.buffer_update_thread.lock().use_rip = self.use_rip;
             self.buffer_update_thread.lock().terminal_type = Some((address.terminal_type, address.ansi_music));
             self.buffer_update_thread.lock().auto_file_transfer.reset();
             self.buffer_view.lock().set_igs_executor(None);

@@ -509,8 +509,6 @@ impl DialogState {
                     });
                 ui.end_row();
             });
-
-        ui.checkbox(&mut adr.use_igs, "Instant Graphics and Sound");
     }
 
     fn render_login_category(&mut self, ui: &mut egui::Ui) {

@@ -685,7 +685,7 @@ fn encode_emsi(data: &[&str]) -> TerminalResult<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::field_reassign_with_default)]
-    use crate::{Address, Options};
+    use crate::Address;
 
     use super::*;
 

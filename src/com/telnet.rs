@@ -310,7 +310,7 @@ impl ComTelnetImpl {
         if !addr.contains(':') {
             addr += ":23";
         }
-        let Some(a) = connection_data.address.to_socket_addrs().unwrap().next() else {
+        let Some(a) = connection_data.address.to_socket_addrs()?.next() else {
             return Err(Box::new(io::Error::new(ErrorKind::InvalidInput, format!("Invalid address: {addr}"))));
         };
 
@@ -362,6 +362,7 @@ impl ComTelnetImpl {
                                     Terminal::Ascii => buf.extend_from_slice(b"RAW"),
                                     Terminal::Avatar => buf.extend_from_slice(b"AVATAR"),
                                     Terminal::Rip => buf.extend_from_slice(b"RIP"),
+                                    Terminal::IGS => buf.extend_from_slice(b"IGS"),
                                 }
                                 buf.extend([telnet_cmd::Iac, telnet_cmd::SE]);
 
@@ -492,7 +493,7 @@ impl Com for ComTelnetImpl {
     }
 
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
-        let mut buf: [u8; 262144] = [0; 1024 * 256];
+        let mut buf: [u8; 262_144] = [0; 1024 * 256];
         self.tcp_stream.set_nonblocking(true)?;
         match self.tcp_stream.read(&mut buf) {
             Ok(size) => {

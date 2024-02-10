@@ -17,6 +17,7 @@ pub enum ScreenMode {
     Antic,
     Videotex,
     Rip,
+    Igs,
 }
 
 impl Default for ScreenMode {
@@ -34,7 +35,7 @@ impl ScreenMode {
     }
 }
 
-pub const DEFAULT_MODES: [ScreenMode; 12] = [
+pub const DEFAULT_MODES: [ScreenMode; 13] = [
     ScreenMode::Vga(80, 25),
     ScreenMode::Vga(80, 50),
     ScreenMode::Vga(132, 37),
@@ -47,6 +48,7 @@ pub const DEFAULT_MODES: [ScreenMode; 12] = [
     ScreenMode::Default,
     ScreenMode::Rip,
     ScreenMode::Videotex,
+    ScreenMode::Igs,
 ];
 
 impl Display for ScreenMode {
@@ -65,7 +67,8 @@ impl Display for ScreenMode {
             ScreenMode::Antic => write!(f, "ANTIC"),
             ScreenMode::Videotex => write!(f, "VIDEOTEX"),
             ScreenMode::Default => write!(f, "Default"),
-            ScreenMode::Rip => write!(f, "Rip"),
+            ScreenMode::Rip => write!(f, "RIPscrip"),
+            ScreenMode::Igs => write!(f, "Igs"),
         }
     }
 }
@@ -74,7 +77,7 @@ impl ScreenMode {
     pub fn get_input_mode(&self) -> BufferInputMode {
         match self {
             //ScreenMode::Cga(_, _) | ScreenMode::Ega(_, _) |
-            ScreenMode::Default | ScreenMode::Vga(_, _) | ScreenMode::Rip => BufferInputMode::CP437,
+            ScreenMode::Default | ScreenMode::Vga(_, _) | ScreenMode::Rip | ScreenMode::Igs => BufferInputMode::CP437,
             ScreenMode::Vic => BufferInputMode::PETscii,
             ScreenMode::Antic => BufferInputMode::ATAscii,
             ScreenMode::Videotex => BufferInputMode::ViewData,
@@ -85,7 +88,7 @@ impl ScreenMode {
         match self {
             // ScreenMode::Cga(w, h) | ScreenMode::Ega(w, h) |
             ScreenMode::Vga(w, h) => Size::new(*w, *h),
-            ScreenMode::Vic => Size::new(40, 25),
+            ScreenMode::Vic | ScreenMode::Igs => Size::new(40, 25),
             ScreenMode::Antic | ScreenMode::Videotex => Size::new(40, 24),
             ScreenMode::Default => Size::new(80, 25),
             ScreenMode::Rip => Size::new(80, 44),
@@ -150,6 +153,17 @@ impl ScreenMode {
                     .set_font(0, BitFont::from_sauce_name("IBM VGA50").unwrap());
                 main_window.buffer_view.lock().get_buffer_mut().palette = Palette::dos_default();
             }
+
+            ScreenMode::Igs => {
+                main_window.buffer_view.lock().get_buffer_mut().clear_font_table();
+                main_window
+                    .buffer_view
+                    .lock()
+                    .get_buffer_mut()
+                    .set_font(0, BitFont::from_bytes("", ATARI).unwrap());
+
+                main_window.buffer_view.lock().get_buffer_mut().palette = Palette::from_slice(&C64_DEFAULT_PALETTE);
+            }
         }
         main_window.buffer_view.lock().get_buffer_mut().layers[0].clear();
         main_window.buffer_view.lock().get_buffer_mut().stop_sixel_threads();
@@ -162,6 +176,7 @@ impl ScreenMode {
             ScreenMode::Vic => Color::new(0x37, 0x39, 0xC4),
             ScreenMode::Antic => Color::new(0x09, 0x51, 0x83),
             ScreenMode::Videotex => Color::new(0, 0, 0),
+            ScreenMode::Igs => Color::new(0, 0, 0),
         }
     }
 
@@ -172,6 +187,7 @@ impl ScreenMode {
             ScreenMode::Vic => Color::new(0xB0, 0x3F, 0xB6),
             ScreenMode::Antic => Color::new(0xFF, 0xFF, 0xFF),
             ScreenMode::Videotex => Color::new(0xFF, 0xFF, 0xFF),
+            ScreenMode::Igs => Color::new(0xFF, 0xFF, 0xFF),
         }
     }
 }

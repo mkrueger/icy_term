@@ -15,7 +15,7 @@ impl ComRawImpl {
     pub fn connect(connection_data: &OpenConnectionData) -> TermComResult<Self> {
         let addr = connection_data.address.to_string();
 
-        let Some(a) = connection_data.address.to_socket_addrs().unwrap().next() else {
+        let Some(a) = connection_data.address.to_socket_addrs()?.next() else {
             return Err(Box::new(io::Error::new(ErrorKind::InvalidInput, format!("Invalid address: {addr}"))));
         };
 

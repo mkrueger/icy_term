@@ -7,7 +7,6 @@ use crate::{
 use egui::mutex::Mutex;
 use icy_engine::{
     ansi::{self, MusicOption},
-    igs::CommandExecutor,
     rip::bgi::MouseField,
     BufferParser, Caret,
 };
@@ -33,9 +32,6 @@ pub struct BufferUpdateThread {
     pub auto_transfer: Option<(TransferType, bool)>,
     pub enabled: bool,
 
-    pub use_igs: bool,
-    pub use_rip: bool,
-
     pub terminal_type: Option<(Terminal, MusicOption)>,
 
     pub mouse_field: Vec<MouseField>,
@@ -58,6 +54,7 @@ impl BufferUpdateThread {
         } else {
             Vec::new()
         };
+
         Ok(data)
     }
     pub fn update_state(&mut self, ctx: &egui::Context, buffer_parser: &mut dyn BufferParser, data: &[u8]) -> TerminalResult<(u64, usize)> {
@@ -243,11 +240,6 @@ pub fn run_update_thread(ctx: &egui::Context, update_thread: Arc<Mutex<BufferUpd
                     let lock = &mut update_thread.lock();
                     if let Some((te, b)) = lock.terminal_type.take() {
                         buffer_parser = te.get_parser(b, lock.cache_directory.clone());
-                        if lock.use_igs {
-                            let ig_executor: Arc<std::sync::Mutex<Box<dyn CommandExecutor>>> =
-                                Arc::new(std::sync::Mutex::new(Box::<icy_engine::parsers::igs::DrawExecutor>::default()));
-                            buffer_parser = Box::new(icy_engine::igs::Parser::new(buffer_parser, ig_executor));
-                        }
                     }
                 }
                 let update_state = update_thread.lock().update_state(&ctx, &mut *buffer_parser, &data[idx..]);
@@ -257,15 +249,10 @@ pub fn run_update_thread(ctx: &egui::Context, update_thread: Arc<Mutex<BufferUpd
                         idx = data.len();
                     }
                     Ok((sleep_ms, parsed_data)) => {
-                        if update_thread.lock().use_igs {
-                            update_thread.lock().buffer_view.lock().set_igs_executor(buffer_parser.get_picture_data());
-                        }
-                        if update_thread.lock().use_rip {
-                            let data = buffer_parser.get_picture_data();
-                            if data.is_some() {
-                                update_thread.lock().mouse_field = buffer_parser.get_mouse_fields();
-                                update_thread.lock().buffer_view.lock().set_reference_image(data);
-                            }
+                        let data = buffer_parser.get_picture_data();
+                        if data.is_some() {
+                            update_thread.lock().mouse_field = buffer_parser.get_mouse_fields();
+                            update_thread.lock().buffer_view.lock().set_reference_image(data);
                         }
                         if sleep_ms > 0 {
                             thread::sleep(Duration::from_millis(sleep_ms));
