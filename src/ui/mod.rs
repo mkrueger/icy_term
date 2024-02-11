@@ -296,7 +296,6 @@ impl MainWindow {
             self.use_rip = matches!(address.terminal_type, crate::Terminal::Rip);
             self.buffer_update_thread.lock().terminal_type = Some((address.terminal_type, address.ansi_music));
             self.buffer_update_thread.lock().auto_file_transfer.reset();
-            self.buffer_view.lock().set_igs_executor(None);
             self.buffer_view.lock().clear_reference_image();
             self.buffer_view.lock().get_buffer_mut().layers[0].clear();
             self.buffer_view.lock().get_buffer_mut().stop_sixel_threads();
