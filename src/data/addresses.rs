@@ -93,7 +93,7 @@ impl Display for Terminal {
             Terminal::ATAscii => write!(f, "ATASCII"),
             Terminal::ViewData => write!(f, "VIEWDATA"),
             Terminal::Rip => write!(f, "RIPscrip"),
-            Terminal::IGS => write!(f, "IGS"),
+            Terminal::IGS => write!(f, "IGS (Experimental)"),
         }
     }
 }
