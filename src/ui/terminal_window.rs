@@ -3,7 +3,7 @@ use eframe::{
     egui::{self, CursorIcon, PointerButton},
     epaint::Vec2,
 };
-use egui::{ImageButton, RichText};
+use egui::{Event, ImageButton, Modifiers, RichText};
 use i18n_embed_fl::fl;
 use icy_engine::{Position, Selection, TextPane};
 
@@ -379,39 +379,16 @@ impl MainWindow {
                         }
                     }
 
+                    egui::Event::Cut => {
+                        self.handle_key_press(ui, &response, egui::Key::X, Modifiers::CTRL);
+                    }
+                    egui::Event::Copy => {
+                        self.handle_key_press(ui, &response, egui::Key::C, Modifiers::CTRL);
+                    }
                     egui::Event::Key {
                         key, pressed: true, modifiers, ..
                     } => {
-                        let im = self.screen_mode.get_input_mode();
-                        let key_map = im.cur_map();
-                        let mut key_code = key as u32;
-                        if modifiers.ctrl || modifiers.command {
-                            key_code |= icy_engine_egui::ui::CTRL_MOD;
-                        }
-                        if modifiers.shift {
-                            key_code |= icy_engine_egui::ui::SHIFT_MOD;
-                        }
-                        for (k, m) in key_map {
-                            if *k == key_code {
-                                let mut print = true;
-                                if let Some(con) = self.connection.lock().as_mut() {
-                                    if con.is_connected() {
-                                        let res = con.send(m.to_vec());
-                                        check_error!(self, res, true);
-                                        print = false;
-                                    }
-                                }
-                                if print {
-                                    for c in *m {
-                                        self.print_char(*c);
-                                    }
-                                }
-                                response.request_focus();
-
-                                ui.input_mut(|i| i.consume_key(modifiers, key));
-                                break;
-                            }
-                        }
+                        self.handle_key_press(ui, &response, key, modifiers);
                     }
                     _ => {}
                 }
@@ -573,6 +550,39 @@ impl MainWindow {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    fn handle_key_press(&mut self, ui: &mut egui::Ui, response: &egui::Response, key: egui::Key, modifiers: egui::Modifiers) {
+        let im = self.screen_mode.get_input_mode();
+        let key_map = im.cur_map();
+        let mut key_code = key as u32;
+        if modifiers.ctrl || modifiers.command {
+            key_code |= icy_engine_egui::ui::CTRL_MOD;
+        }
+        if modifiers.shift {
+            key_code |= icy_engine_egui::ui::SHIFT_MOD;
+        }
+        for (k, m) in key_map {
+            if *k == key_code {
+                let mut print = true;
+                if let Some(con) = self.connection.lock().as_mut() {
+                    if con.is_connected() {
+                        let res = con.send(m.to_vec());
+                        check_error!(self, res, true);
+                        print = false;
+                    }
+                }
+                if print {
+                    for c in *m {
+                        self.print_char(*c);
+                    }
+                }
+                response.request_focus();
+
+                ui.input_mut(|i| i.consume_key(modifiers, key));
+                break;
             }
         }
     }
