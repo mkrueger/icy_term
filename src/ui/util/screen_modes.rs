@@ -16,6 +16,7 @@ pub enum ScreenMode {
     Vic,
     Antic,
     Videotex,
+    Mode7,
     Rip,
     Igs,
 }
@@ -35,7 +36,7 @@ impl ScreenMode {
     }
 }
 
-pub const DEFAULT_MODES: [ScreenMode; 13] = [
+pub const DEFAULT_MODES: [ScreenMode; 14] = [
     ScreenMode::Vga(80, 25),
     ScreenMode::Vga(80, 50),
     ScreenMode::Vga(132, 37),
@@ -49,6 +50,7 @@ pub const DEFAULT_MODES: [ScreenMode; 13] = [
     ScreenMode::Rip,
     ScreenMode::Videotex,
     ScreenMode::Igs,
+    ScreenMode::Mode7,
 ];
 
 impl Display for ScreenMode {
@@ -69,6 +71,7 @@ impl Display for ScreenMode {
             ScreenMode::Default => write!(f, "Default"),
             ScreenMode::Rip => write!(f, "RIPscrip"),
             ScreenMode::Igs => write!(f, "Igs"),
+            ScreenMode::Mode7 => write!(f, "Mode7"),
         }
     }
 }
@@ -81,6 +84,7 @@ impl ScreenMode {
             ScreenMode::Vic => BufferInputMode::PETscii,
             ScreenMode::Antic => BufferInputMode::ATAscii,
             ScreenMode::Videotex => BufferInputMode::ViewData,
+            ScreenMode::Mode7 => BufferInputMode::CP437
         }
     }
 
@@ -88,7 +92,7 @@ impl ScreenMode {
         match self {
             // ScreenMode::Cga(w, h) | ScreenMode::Ega(w, h) |
             ScreenMode::Vga(w, h) => Size::new(*w, *h),
-            ScreenMode::Vic | ScreenMode::Igs => Size::new(40, 25),
+            ScreenMode::Vic | ScreenMode::Igs | ScreenMode::Mode7 => Size::new(40, 25),
             ScreenMode::Antic | ScreenMode::Videotex => Size::new(40, 24),
             ScreenMode::Default => Size::new(80, 25),
             ScreenMode::Rip => Size::new(80, 44),
@@ -134,7 +138,7 @@ impl ScreenMode {
                     .set_font(0, BitFont::from_bytes("", ATARI).unwrap());
                 main_window.buffer_view.lock().get_buffer_mut().palette = Palette::from_slice(&ATARI_DEFAULT_PALETTE);
             }
-            ScreenMode::Videotex => {
+            ScreenMode::Videotex | ScreenMode::Mode7 => {
                 main_window.buffer_view.lock().get_buffer_mut().clear_font_table();
                 main_window
                     .buffer_view
@@ -175,7 +179,7 @@ impl ScreenMode {
             ScreenMode::Default | ScreenMode::Vga(_, _) | ScreenMode::Rip => Color::new(0xAA, 0x00, 0xAA),
             ScreenMode::Vic => Color::new(0x37, 0x39, 0xC4),
             ScreenMode::Antic => Color::new(0x09, 0x51, 0x83),
-            ScreenMode::Videotex => Color::new(0, 0, 0),
+            ScreenMode::Videotex | ScreenMode::Mode7 => Color::new(0, 0, 0),
             ScreenMode::Igs => Color::new(0, 0, 0),
         }
     }
@@ -186,7 +190,7 @@ impl ScreenMode {
             ScreenMode::Default | ScreenMode::Vga(_, _) | ScreenMode::Rip => Color::new(0xAA, 0xAA, 0xAA),
             ScreenMode::Vic => Color::new(0xB0, 0x3F, 0xB6),
             ScreenMode::Antic => Color::new(0xFF, 0xFF, 0xFF),
-            ScreenMode::Videotex => Color::new(0xFF, 0xFF, 0xFF),
+            ScreenMode::Videotex | ScreenMode::Mode7 => Color::new(0xFF, 0xFF, 0xFF),
             ScreenMode::Igs => Color::new(0xFF, 0xFF, 0xFF),
         }
     }

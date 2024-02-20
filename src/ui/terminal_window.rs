@@ -3,7 +3,7 @@ use eframe::{
     egui::{self, CursorIcon, PointerButton},
     epaint::Vec2,
 };
-use egui::{Event, ImageButton, Modifiers, RichText};
+use egui::{ImageButton, Modifiers, RichText};
 use i18n_embed_fl::fl;
 use icy_engine::{Position, Selection, TextPane};
 
@@ -386,8 +386,14 @@ impl MainWindow {
                         self.handle_key_press(ui, &response, egui::Key::C, Modifiers::CTRL);
                     }
                     egui::Event::Key {
-                        key, pressed: true, modifiers, ..
+                        key, pressed: true, modifiers, physical_key, ..
                     } => {
+                        let key = if let Some(key) = physical_key {
+                            key
+                        } else {
+                            key
+                        };
+                        println!("Key: {key:?}, modifiers:{modifiers:?}");
                         self.handle_key_press(ui, &response, key, modifiers);
                     }
                     _ => {}

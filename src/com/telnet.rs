@@ -363,6 +363,7 @@ impl ComTelnetImpl {
                                     Terminal::Avatar => buf.extend_from_slice(b"AVATAR"),
                                     Terminal::Rip => buf.extend_from_slice(b"RIP"),
                                     Terminal::IGS => buf.extend_from_slice(b"IGS"),
+                                    Terminal::Mode7 => buf.extend_from_slice(b"MODE7"),
                                 }
                                 buf.extend([telnet_cmd::Iac, telnet_cmd::SE]);
 

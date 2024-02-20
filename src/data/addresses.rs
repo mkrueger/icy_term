@@ -3,7 +3,7 @@ use crate::TerminalResult;
 use chrono::{Duration, Utc};
 use icy_engine::ansi::{BaudEmulation, MusicOption};
 use icy_engine::igs::CommandExecutor;
-use icy_engine::{ansi, ascii, atascii, avatar, petscii, rip, viewdata, BufferParser, UnicodeConverter};
+use icy_engine::{ansi, ascii, atascii, avatar, petscii, rip, viewdata, mode7, BufferParser, UnicodeConverter};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use regex::Regex;
 use std::fs::File;
@@ -27,12 +27,13 @@ pub enum Terminal {
     PETscii,
     ATAscii,
     ViewData,
+    Mode7,
     Rip,
     IGS,
 }
 
 impl Terminal {
-    pub const ALL: [Terminal; 8] = [
+    pub const ALL: [Terminal; 9] = [
         Terminal::Ansi,
         Terminal::Avatar,
         Terminal::Ascii,
@@ -41,6 +42,7 @@ impl Terminal {
         Terminal::ViewData,
         Terminal::Rip,
         Terminal::IGS,
+        Terminal::Mode7,
     ];
 
     #[must_use]
@@ -57,6 +59,7 @@ impl Terminal {
             Terminal::PETscii => Box::<petscii::Parser>::default(),
             Terminal::ATAscii => Box::<atascii::Parser>::default(),
             Terminal::ViewData => Box::<viewdata::Parser>::default(),
+            Terminal::Mode7 => Box::<mode7::Parser>::default(),
             Terminal::Rip => {
                 let mut parser = ansi::Parser::default();
                 parser.ansi_music = use_ansi_music;
@@ -79,6 +82,7 @@ impl Terminal {
             Terminal::PETscii => Box::<petscii::CharConverter>::default(),
             Terminal::ATAscii => Box::<atascii::CharConverter>::default(),
             Terminal::ViewData => Box::<viewdata::CharConverter>::default(),
+            Terminal::Mode7 => Box::<mode7::CharConverter>::default(),
         }
     }
 }
@@ -92,6 +96,7 @@ impl Display for Terminal {
             Terminal::PETscii => write!(f, "PETSCII"),
             Terminal::ATAscii => write!(f, "ATASCII"),
             Terminal::ViewData => write!(f, "VIEWDATA"),
+            Terminal::Mode7 => write!(f, "Mode7"),
             Terminal::Rip => write!(f, "RIPscrip"),
             Terminal::IGS => write!(f, "IGS (Experimental)"),
         }
@@ -588,6 +593,7 @@ fn parse_address(value: &Value) -> Address {
                 "viewdata" => result.terminal_type = Terminal::ViewData,
                 "rip" => result.terminal_type = Terminal::Rip,
                 "igs" => result.terminal_type = Terminal::IGS,
+                "mode7" => result.terminal_type = Terminal::Mode7,
                 _ => {}
             }
         }
@@ -611,6 +617,7 @@ fn parse_address(value: &Value) -> Address {
                 "videotex" => result.screen_mode = ScreenMode::Videotex,
                 "rip" => result.screen_mode = ScreenMode::Rip,
                 "igs" => result.screen_mode = ScreenMode::Igs,
+                "mode7" => result.screen_mode = ScreenMode::Mode7,
                 _ => {
                     if let Some(caps) = vga_regex.captures(lowercase) {
                         let mut width = 80;
@@ -772,6 +779,10 @@ fn parse_legacy_address(value: &Value) -> Address {
                     "Viewdata" => {
                         result.screen_mode = ScreenMode::Videotex;
                         result.terminal_type = Terminal::ViewData;
+                    }
+                    "Mode7" => {
+                        result.screen_mode = ScreenMode::Mode7;
+                        result.terminal_type = Terminal::Mode7;
                     }
                     "Rip" => {
                         result.screen_mode = ScreenMode::Rip;
