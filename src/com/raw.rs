@@ -42,7 +42,7 @@ impl Com for ComRawImpl {
 
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
         let mut buf = [0; 1024 * 256];
-
+        self.tcp_stream.set_nonblocking(true)?;
         match self.tcp_stream.read(&mut buf) {
             Ok(size) => Ok(Some(buf[0..size].to_vec())),
             Err(ref e) => {
