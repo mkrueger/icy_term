@@ -11,7 +11,7 @@ use icy_engine::Color;
 use icy_engine_egui::MonitorSettings;
 use toml::Value;
 
-use crate::TerminalResult;
+use crate::{Modem, TerminalResult};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Scaling {
@@ -276,6 +276,8 @@ pub struct Options {
     pub monitor_settings: MonitorSettings,
     pub bind: KeyBindings,
     pub iemsi: IEMSISettings,
+
+    pub modem: Modem,
 }
 
 impl Default for Options {
@@ -288,6 +290,7 @@ impl Default for Options {
             console_beep: true,
             bind: KeyBindings::default(),
             is_dark_mode: None,
+            modem: Modem::default(),
         }
     }
 }

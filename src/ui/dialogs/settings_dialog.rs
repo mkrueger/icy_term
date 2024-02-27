@@ -5,7 +5,7 @@ use icy_engine_egui::show_monitor_settings;
 
 use crate::{
     ui::{MainWindowMode, MainWindowState},
-    KeyBindings,
+    KeyBindings, Modem,
 };
 
 #[derive(Default)]
@@ -21,6 +21,7 @@ pub(crate) enum Message {
     ResetMonitorSettings,
     ResetKeybindSettings,
     UpdateIEMSI(crate::IEMSISettings),
+    UpdateModem(Modem),
     UpdateMonitorSettings(icy_engine_egui::MonitorSettings),
     // ChangeOpenglScaling(Scaling),
     UpdateKeybinds(KeyBindings),
@@ -31,7 +32,7 @@ type ShowSettingsCallback = fn(&MainWindowState, ui: &mut egui::Ui) -> Option<Me
 type ResetMessage = Option<Message>;
 
 lazy_static::lazy_static! {
-    static ref SETTING_CATEGORIES: [(String, ShowSettingsCallback, ResetMessage); 4] = [
+    static ref SETTING_CATEGORIES: [(String, ShowSettingsCallback, ResetMessage); 5] = [
         (
             fl!(crate::LANGUAGE_LOADER, "settings-monitor-category"),
             show_monitor_settings2,
@@ -51,6 +52,11 @@ lazy_static::lazy_static! {
             fl!(crate::LANGUAGE_LOADER, "settings-keybinds-category"),
             crate::show_keybinds_settings,
             Some(Message::ResetKeybindSettings)
+        ),
+        (
+            fl!(crate::LANGUAGE_LOADER, "settings-modem-category"),
+            show_modem_settings,
+            None
         ),
     ];
 }
@@ -225,6 +231,10 @@ fn update_state(state: &mut MainWindowState, message_opt: Option<Message>) {
             state.options.iemsi = iemsi;
             state.store_options();
         }
+        Some(Message::UpdateModem(modem)) => {
+            state.options.modem = modem;
+            state.store_options();
+        }
         Some(Message::UpdateMonitorSettings(monitor_settings)) => {
             state.options.monitor_settings = monitor_settings;
             state.store_options();
@@ -242,6 +252,89 @@ fn update_state(state: &mut MainWindowState, message_opt: Option<Message>) {
             state.store_options();
         }
         _ => {}
+    }
+}
+
+fn show_modem_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<Message> {
+    let mut modem = state.options.modem.clone();
+
+    egui::Grid::new("some_unique_id")
+        .num_columns(2)
+        .spacing([4.0, 8.0])
+        .min_row_height(24.)
+        .show(ui, |ui| {
+            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-modem-device")));
+            });
+            ui.add(TextEdit::singleline(&mut modem.device));
+            ui.end_row();
+
+            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-modem-baud_rate")));
+            });
+            let mut baud = modem.baud_rate.to_string();
+            ui.add(TextEdit::singleline(&mut baud));
+            if let Ok(baud) = baud.parse() {
+                modem.baud_rate = baud;
+            }
+            ui.end_row();
+
+            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui: &mut egui::Ui| {
+                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-modem-data_bits")));
+            });
+
+            ui.horizontal(|ui| {
+                let txt = match modem.char_size {
+                    serial::CharSize::Bits5 => "5",
+                    serial::CharSize::Bits6 => "6",
+                    serial::CharSize::Bits7 => "7",
+                    serial::CharSize::Bits8 => "8",
+                };
+                egui::ComboBox::from_id_source("combobox1").selected_text(RichText::new(txt)).show_ui(ui, |ui| {
+                    ui.selectable_value(&mut modem.char_size, serial::CharSize::Bits5, "5");
+                    ui.selectable_value(&mut modem.char_size, serial::CharSize::Bits6, "6");
+                    ui.selectable_value(&mut modem.char_size, serial::CharSize::Bits7, "7");
+                    ui.selectable_value(&mut modem.char_size, serial::CharSize::Bits8, "8");
+                });
+
+                let txt = match modem.stop_bits {
+                    serial::StopBits::Stop1 => "1",
+                    serial::StopBits::Stop2 => "2",
+                };
+                egui::ComboBox::from_id_source("combobox2").selected_text(RichText::new(txt)).show_ui(ui, |ui| {
+                    ui.selectable_value(&mut modem.stop_bits, serial::StopBits::Stop1, "1");
+                    ui.selectable_value(&mut modem.stop_bits, serial::StopBits::Stop2, "2");
+                });
+                let txt = match modem.parity {
+                    serial::Parity::ParityNone => "None",
+                    serial::Parity::ParityOdd => "Odd",
+                    serial::Parity::ParityEven => "Even",
+                };
+                egui::ComboBox::from_id_source("combobox3").selected_text(RichText::new(txt)).show_ui(ui, |ui| {
+                    ui.selectable_value(&mut modem.parity, serial::Parity::ParityNone, "None");
+                    ui.selectable_value(&mut modem.parity, serial::Parity::ParityOdd, "Odd");
+                    ui.selectable_value(&mut modem.parity, serial::Parity::ParityEven, "Even");
+                });
+            });
+            ui.end_row();
+
+            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-modem-init_string")));
+            });
+            ui.add(TextEdit::singleline(&mut modem.init_string));
+            ui.end_row();
+
+            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(RichText::new(fl!(crate::LANGUAGE_LOADER, "settings-modem_dial_string")));
+            });
+            ui.add(TextEdit::singleline(&mut modem.dial_string));
+            ui.end_row();
+        });
+
+    if modem == state.options.modem {
+        None
+    } else {
+        Some(Message::UpdateModem(modem))
     }
 }
 

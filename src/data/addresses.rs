@@ -3,7 +3,7 @@ use crate::TerminalResult;
 use chrono::{Duration, Utc};
 use icy_engine::ansi::{BaudEmulation, MusicOption};
 use icy_engine::igs::CommandExecutor;
-use icy_engine::{ansi, ascii, atascii, avatar, petscii, rip, viewdata, mode7, BufferParser, UnicodeConverter};
+use icy_engine::{ansi, ascii, atascii, avatar, mode7, petscii, rip, viewdata, BufferParser, UnicodeConverter};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use regex::Regex;
 use std::fs::File;
@@ -108,6 +108,7 @@ pub enum Protocol {
     #[default]
     Telnet,
     Raw,
+    Modem,
     Ssh,
     WebSocket(bool), // true=secure
 }
@@ -127,9 +128,10 @@ impl Display for Protocol {
 
 impl Protocol {
     #[cfg(not(target_arch = "wasm32"))]
-    pub const ALL: [Protocol; 5] = [
+    pub const ALL: [Protocol; 6] = [
         Protocol::Telnet,
         Protocol::Raw,
+        Protocol::Modem,
         Protocol::Ssh,
         Protocol::WebSocket(true),
         Protocol::WebSocket(false),

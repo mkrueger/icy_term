@@ -318,7 +318,7 @@ impl MainWindow {
         let timeout = self.get_options().connect_timeout;
         let window_size = self.screen_mode.get_window_size();
         if let Some(con) = self.connection.lock().as_mut() {
-            let r = con.connect(&cloned_addr, timeout, window_size);
+            let r = con.connect(&cloned_addr, timeout, window_size, Some(self.get_options().modem.clone()));
             check_error!(self, r, false);
             let r = con.set_baud_rate(cloned_addr.baud_emulation.get_baud_rate());
             check_error!(self, r, false);

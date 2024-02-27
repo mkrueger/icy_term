@@ -84,7 +84,7 @@ impl ScreenMode {
             ScreenMode::Vic => BufferInputMode::PETscii,
             ScreenMode::Antic => BufferInputMode::ATAscii,
             ScreenMode::Videotex => BufferInputMode::ViewData,
-            ScreenMode::Mode7 => BufferInputMode::CP437
+            ScreenMode::Mode7 => BufferInputMode::CP437,
         }
     }
 

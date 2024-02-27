@@ -1,4 +1,4 @@
-use crate::{Address, Terminal, TerminalResult};
+use crate::{Address, Modem, Terminal, TerminalResult};
 use std::{collections::VecDeque, sync::mpsc};
 use web_time::{Duration, Instant};
 
@@ -163,9 +163,9 @@ impl Connection {
         Ok(())
     }
 
-    pub fn connect(&self, call_adr: &Address, timeout: Duration, window_size: icy_engine::Size) -> TerminalResult<()> {
+    pub fn connect(&self, call_adr: &Address, timeout: Duration, window_size: icy_engine::Size, modem: Option<Modem>) -> TerminalResult<()> {
         self.tx
-            .send(SendData::OpenConnection(OpenConnectionData::from(call_adr, timeout, window_size)))?;
+            .send(SendData::OpenConnection(OpenConnectionData::from(call_adr, timeout, window_size, modem)))?;
         Ok(())
     }
 }
@@ -181,10 +181,11 @@ pub struct OpenConnectionData {
     pub protocol: crate::Protocol,
     pub timeout: Duration,
     pub window_size: icy_engine::Size,
+    pub modem: Option<Modem>,
 }
 
 impl OpenConnectionData {
-    pub fn from(call_adr: &Address, timeout: Duration, window_size: icy_engine::Size) -> Self {
+    pub fn from(call_adr: &Address, timeout: Duration, window_size: icy_engine::Size, modem: Option<Modem>) -> Self {
         Self {
             address: call_adr.address.clone(),
             user_name: call_adr.user_name.clone(),
@@ -193,6 +194,7 @@ impl OpenConnectionData {
             protocol: call_adr.protocol,
             timeout,
             window_size,
+            modem,
         }
     }
 }

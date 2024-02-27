@@ -51,6 +51,8 @@ settings-keybinds-download = Download:
 settings-keybinds-quit = Beenden:
 settings-keybinds-show-find = Suchen:
 
+settings-modem-category = Modem
+
 dialing_directory-connect-to = Verbinde zu…
 dialing_directory-new_bbs = Neue BBS
 dialing_directory-name-placeholder = BBS Name

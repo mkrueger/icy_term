@@ -11,6 +11,9 @@ pub use telnet::*;
 pub mod raw;
 pub use raw::*;
 
+pub mod modem;
+pub use modem::*;
+
 pub mod websocket;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -19,7 +22,7 @@ pub mod ssh;
 use crate::{addresses::Terminal, ui::connect::OpenConnectionData};
 pub type TermComResult<T> = Result<T, Box<dyn Error + Send + Sync>>;
 
-pub trait Com: Sync + Send {
+pub trait Com {
     fn get_name(&self) -> &'static str;
     fn default_port(&self) -> u16;
 

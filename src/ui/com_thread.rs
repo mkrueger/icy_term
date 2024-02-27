@@ -84,6 +84,7 @@ impl ConnectionThreadData {
         self.com = match connection_data.protocol {
             crate::addresses::Protocol::Telnet => Box::new(crate::com::ComTelnetImpl::connect(connection_data)?),
             crate::addresses::Protocol::Raw => Box::new(crate::com::ComRawImpl::connect(connection_data)?),
+            crate::addresses::Protocol::Modem => Box::new(crate::com::ComModemImpl::connect(connection_data)?),
             #[cfg(not(target_arch = "wasm32"))]
             crate::addresses::Protocol::Ssh => Box::new(crate::com::ssh::SSHComImpl::connect(connection_data)?),
             crate::addresses::Protocol::WebSocket(_) => {

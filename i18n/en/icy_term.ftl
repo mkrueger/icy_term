@@ -50,6 +50,13 @@ settings-keybinds-download = Download:
 settings-keybinds-quit = Quit:
 settings-keybinds-show-find = Find:
 
+settings-modem-category = Modem
+settings-modem-device = Device:
+settings-modem-baud_rate = Baudrate:
+settings-modem-data_bits = Databits/ Stopbits / Parity:
+settings-modem-init_string = Init string:
+settings-modem_dial_string = Dial string:
+
 dialing_directory-connect-to = Quick connect to…
 dialing_directory-new_bbs = New BBS
 dialing_directory-name-placeholder = BBS name

@@ -250,6 +250,7 @@ impl MainWindow {
         if matches!(self.get_mode(), MainWindowMode::ShowTerminal) && ui.is_enabled() && !self.show_find_dialog {
             let events = ui.input(|i| i.events.clone());
             for e in events {
+                println!("{e:?}");
                 match e {
                     egui::Event::PointerButton {
                         button: PointerButton::Middle,
@@ -386,13 +387,13 @@ impl MainWindow {
                         self.handle_key_press(ui, &response, egui::Key::C, Modifiers::CTRL);
                     }
                     egui::Event::Key {
-                        key, pressed: true, modifiers, physical_key, ..
+                        key,
+                        pressed: true,
+                        modifiers,
+                        physical_key,
+                        ..
                     } => {
-                        let key = if let Some(key) = physical_key {
-                            key
-                        } else {
-                            key
-                        };
+                        let key = if let Some(key) = physical_key { key } else { key };
                         println!("Key: {key:?}, modifiers:{modifiers:?}");
                         self.handle_key_press(ui, &response, key, modifiers);
                     }
