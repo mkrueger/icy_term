@@ -3,13 +3,8 @@
 use crate::Modem;
 
 use super::{Com, OpenConnectionData, TermComResult};
-use dark_light::Mode;
-use serial::{prelude::*, unix::TTYPort};
-use std::{
-    io::{self, ErrorKind, Read, Write},
-    net::{TcpStream, ToSocketAddrs},
-    time::Duration,
-};
+use serial::prelude::*;
+use std::io::{Read, Write};
 
 pub struct ComModemImpl {
     modem: Modem,
@@ -50,9 +45,19 @@ impl Com for ComModemImpl {
 
     fn read_data(&mut self) -> TermComResult<Option<Vec<u8>>> {
         let mut buf: Vec<u8> = (0..255).collect();
-        let size = self.port.read(&mut buf[..])?;
-        buf.truncate(size);
-        Ok(Some(buf))
+        match self.port.read(&mut buf[..]) {
+            Ok(size) => {
+                buf.truncate(size);
+                Ok(Some(buf))
+            }
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::TimedOut {
+                    Ok(None)
+                } else {
+                    Err(e.into())
+                }
+            }
+        }
     }
 
     fn send(&mut self, buf: &[u8]) -> TermComResult<usize> {

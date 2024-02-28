@@ -384,6 +384,9 @@ impl Options {
 
             write_keybindings(&mut file, &self.bind)?;
 
+            file.write_all("[[modem]]\n".to_string().as_bytes())?;
+            self.modem.write_modem_settings(&mut file)?;
+
             file.flush()?;
 
             // move temp file to the real file
@@ -516,6 +519,16 @@ fn parse_value(options: &mut Options, value: &Value) {
                     options.capture_filename = b.clone();
                     }
                     }*/
+                    "modem" => {
+                        if let Value::Array(array) = v {
+                            for v in array {
+                                if let Value::Table(b) = v {
+                                    options.modem = Modem::from_table(b);
+                                    break;
+                                }
+                            }
+                        }
+                    }
                     _ => {}
                 }
             }
