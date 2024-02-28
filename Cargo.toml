@@ -1,6 +1,6 @@
 [package]
 name = "icy_term"
-version = "0.8.0"
+version = "0.7.4"
 edition = "2021"
 authors = ["Mike Krüger <mkrueger@posteo.de>"]
 description = "A terminal program supporting CP437, PetScii and ViewData"
