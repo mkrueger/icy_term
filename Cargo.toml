@@ -90,7 +90,11 @@ wasm_thread = { version = "0.2.0", features = ["es_modules"]}
 winres = "0.1"
 
 [profile.release]
-strip = "symbols"
+opt-level = 'z'     # Optimize for size
+lto = true          # Enable link-time optimization
+codegen-units = 1   # Reduce number of codegen units to increase optimizations
+panic = 'abort'     # Abort on panic
+strip = true        # Strip symbols from binary*
 
 [package.metadata.bundle]
 name = "Icy Term"
