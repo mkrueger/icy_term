@@ -8,7 +8,7 @@ use egui::Modifiers;
 use egui_bind::KeyOrPointer;
 use i18n_embed_fl::fl;
 use icy_engine::Color;
-use icy_engine_egui::MonitorSettings;
+use icy_engine_gui::MonitorSettings;
 use toml::Value;
 
 use crate::{Modem, TerminalResult};

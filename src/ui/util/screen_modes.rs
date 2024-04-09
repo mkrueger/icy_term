@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use icy_engine::{BitFont, Color, Palette, Size, ATARI, ATARI_DEFAULT_PALETTE, C64_DEFAULT_PALETTE, C64_LOWER, C64_UPPER, CP437, VIEWDATA, VIEWDATA_PALETTE};
-use icy_engine_egui::BufferInputMode;
+use icy_engine_gui::BufferInputMode;
 
 use crate::ui::MainWindow;
 

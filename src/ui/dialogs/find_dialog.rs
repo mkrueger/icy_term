@@ -1,7 +1,7 @@
 use egui::{FontFamily, FontId, Rect, RichText, SelectableLabel, TextEdit, Ui, Vec2};
 use i18n_embed_fl::fl;
 use icy_engine::{AttributedChar, Buffer, Position, Selection, TextPane, UnicodeConverter};
-use icy_engine_egui::BufferView;
+use icy_engine_gui::BufferView;
 
 #[derive(Default)]
 pub struct DialogState {

@@ -10,7 +10,7 @@ use icy_engine::{
     rip::bgi::MouseField,
     BufferParser, Caret,
 };
-use icy_engine_egui::BufferView;
+use icy_engine_gui::BufferView;
 use std::{mem, path::PathBuf, sync::Arc, thread};
 use web_time::Duration;
 

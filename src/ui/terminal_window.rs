@@ -3,7 +3,7 @@ use eframe::{
     egui::{self, CursorIcon, PointerButton},
     epaint::Vec2,
 };
-use egui::{ImageButton, Modifiers, RichText};
+use egui::{ImageButton, Margin, Modifiers, RichText};
 use i18n_embed_fl::fl;
 use icy_engine::{Position, Selection, TextPane};
 
@@ -26,9 +26,7 @@ fn encode_mouse_position(pos: i32) -> char {
 impl MainWindow {
     pub fn update_terminal_window(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame, show_dialing_directory: bool) {
         let toolbar_bg_color = ctx.style().visuals.extreme_bg_color;
-        let button_frame = egui::containers::Frame::none()
-            .fill(toolbar_bg_color)
-            .inner_margin(egui::style::Margin::same(6.0));
+        let button_frame = egui::containers::Frame::none().fill(toolbar_bg_color).inner_margin(Margin::same(6.0));
 
         let enable_ui = matches!(self.get_mode(), MainWindowMode::ShowTerminal);
 
@@ -177,9 +175,7 @@ impl MainWindow {
                 });
             });
         }
-        let frame_no_margins = egui::containers::Frame::none()
-            .outer_margin(egui::style::Margin::same(0.0))
-            .inner_margin(egui::style::Margin::same(0.0));
+        let frame_no_margins = egui::containers::Frame::none().outer_margin(Margin::same(0.0)).inner_margin(Margin::same(0.0));
 
         egui::CentralPanel::default().frame(frame_no_margins).show(ctx, |ui| {
             if !enable_ui {
@@ -234,14 +230,14 @@ impl MainWindow {
             self.buffer_update_thread.lock().enabled = !enabled;
         }*/
 
-        let opt = icy_engine_egui::TerminalOptions {
+        let opt = icy_engine_gui::TerminalOptions {
             filter: self.get_options().scaling.get_filter(),
             monitor_settings,
             stick_to_bottom: true,
             use_terminal_height: true,
             ..Default::default()
         };
-        let (mut response, calc) = icy_engine_egui::show_terminal_area(ui, self.buffer_view.clone(), opt);
+        let (mut response, calc) = icy_engine_gui::show_terminal_area(ui, self.buffer_view.clone(), opt);
         let inner_response = response.context_menu(|ui| terminal_context_menu(ui, self));
         if let Some(inner_response) = inner_response {
             response = inner_response.response;
@@ -512,7 +508,7 @@ impl MainWindow {
                 }
             }
 
-            if response.drag_released_by(PointerButton::Primary) && self.drag_start.is_some() {
+            if response.drag_stopped_by(PointerButton::Primary) && self.drag_start.is_some() {
                 self.shift_pressed_during_selection = ui.input(|i| i.modifiers.shift);
                 if response.hover_pos().is_some() {
                     let l = self.buffer_view.lock();
@@ -564,10 +560,10 @@ impl MainWindow {
         let key_map = im.cur_map();
         let mut key_code = key as u32;
         if modifiers.ctrl || modifiers.command {
-            key_code |= icy_engine_egui::ui::CTRL_MOD;
+            key_code |= icy_engine_gui::ui::CTRL_MOD;
         }
         if modifiers.shift {
-            key_code |= icy_engine_egui::ui::SHIFT_MOD;
+            key_code |= icy_engine_gui::ui::SHIFT_MOD;
         }
         for (k, m) in key_map {
             if *k == key_code {

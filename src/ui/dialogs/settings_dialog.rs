@@ -1,7 +1,7 @@
 use eframe::egui::{self, RichText};
 use egui::{Layout, TextEdit, Vec2};
 use i18n_embed_fl::fl;
-use icy_engine_egui::show_monitor_settings;
+use icy_engine_gui::show_monitor_settings;
 
 use crate::{
     ui::{MainWindowMode, MainWindowState},
@@ -22,7 +22,7 @@ pub(crate) enum Message {
     ResetKeybindSettings,
     UpdateIEMSI(crate::IEMSISettings),
     UpdateModem(Modem),
-    UpdateMonitorSettings(icy_engine_egui::MonitorSettings),
+    UpdateMonitorSettings(icy_engine_gui::MonitorSettings),
     // ChangeOpenglScaling(Scaling),
     UpdateKeybinds(KeyBindings),
     ChangeConsoleBeep(bool),
@@ -341,7 +341,7 @@ fn show_modem_settings(state: &MainWindowState, ui: &mut egui::Ui) -> Option<Mes
 #[cfg(test)]
 mod tests {
     #![allow(clippy::field_reassign_with_default)]
-    use icy_engine_egui::MonitorSettings;
+    use icy_engine_gui::MonitorSettings;
 
     use crate::{
         ui::{
