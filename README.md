@@ -1,5 +1,7 @@
 # icy_term
 
+IcyTerm moved to: https://github.com/mkrueger/icy_tools
+
 IcyTERM is a BBS terminal program with allows you to connect to BBSes.
 Visit https://www.telnetbbsguide.com/ for a start to enter the BBS world.
 
